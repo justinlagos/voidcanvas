@@ -1,7 +1,6 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Upload } from './Upload'
 import { Toolbar } from './Toolbar'
 import { useStore } from '@/store/useStore'
 
@@ -38,7 +37,6 @@ export function Header() {
 
       <div className="flex items-center gap-3">
         {originalImage && <Toolbar />}
-        <Upload />
       </div>
     </header>
   )

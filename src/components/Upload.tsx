@@ -76,29 +76,8 @@ export function Upload() {
     e.preventDefault()
   }, [])
 
-  // Compact version for header when image is loaded
-  if (originalImage) {
-    return (
-      <label className="cursor-pointer">
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="flex items-center gap-2 px-4 py-2 bg-void-800/80 hover:bg-void-700
-            rounded-lg transition-all duration-200 border border-void-700/50 hover:border-void-600"
-        >
-          <ImagePlus size={16} className="text-void-300" />
-          <span className="text-sm font-medium text-void-200">Change Image</span>
-        </motion.div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-      </label>
-    )
-  }
+  // No compact header version needed — drop zone only shows when no image
+  if (originalImage) return null
 
   return (
     <div
@@ -106,13 +85,13 @@ export function Upload() {
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
-      className="flex-1 m-4"
+      className="flex-1 flex items-center justify-center p-12"
     >
-      <label className="block h-full cursor-pointer">
+      <label className="block w-full max-w-xl cursor-pointer">
         <motion.div
-          animate={isDragOver ? { scale: 1.01 } : { scale: 1 }}
+          animate={isDragOver ? { scale: 1.02 } : { scale: 1 }}
           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-          className="relative h-full overflow-hidden rounded-2xl"
+          className="relative overflow-hidden rounded-2xl"
         >
           {/* Animated gradient border */}
           <div
@@ -133,7 +112,7 @@ export function Upload() {
           {/* Main content area */}
           <div
             className={`
-              relative h-full flex flex-col items-center justify-center gap-6
+              relative flex flex-col items-center justify-center gap-6 py-16 px-8
               rounded-2xl border-2 border-dashed transition-all duration-500
               ${isDragOver
                 ? 'border-transparent bg-void-950/95 shadow-[0_0_60px_rgba(139,92,246,0.15)]'
