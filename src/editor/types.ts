@@ -49,6 +49,8 @@ interface LayerBase {
 export interface RasterLayer extends LayerBase {
   type: 'raster'
   canvas: HTMLCanvasElement
+  /** Set on imported photos so brushes paint on a fresh layer above instead of on the photo. */
+  source?: 'photo'
 }
 
 export interface TextLayer extends LayerBase {
@@ -62,6 +64,8 @@ export interface TextLayer extends LayerBase {
   align: 'left' | 'center' | 'right'
   lineHeight: number
   letterSpacing: number
+  outline?: { color: string; width: number } | null
+  shadow?: { color: string; blur: number; x: number; y: number } | null
 }
 
 export interface ShapeLayer extends LayerBase {

@@ -34,6 +34,8 @@ interface EditorState {
   /** Every selected layer. activeId is always one of them. */
   selectedIds: string[]
   editingTextId: string | null
+  /** Hold to see the design without any adjustments or filters. */
+  compare: boolean
   editingMask: boolean
   selection: HTMLCanvasElement | null
   selRev: number
@@ -44,6 +46,7 @@ interface EditorState {
   fg: string
   bg: string
   swatches: string[]
+  brandFont: string | null
   view: View
   crop: Rect | null
   cloneSource: { x: number; y: number } | null
@@ -115,6 +118,7 @@ interface EditorState {
   commit: (label: string) => void
   undo: () => void
   redo: () => void
+  jumpTo: (index: number) => void
 
   notify: (msg: string) => void
   setBusy: (msg: string | null) => void
@@ -132,6 +136,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   activeId: null,
   selectedIds: [],
   editingTextId: null,
+  compare: false,
   editingMask: false,
   selection: null,
   selRev: 0,
@@ -142,6 +147,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   fg: '#111111',
   bg: '#ffffff',
   swatches: ['#111111', '#ffffff', '#8b7cff', '#ff5a5f', '#ffb020', '#1fb47a', '#2d7ff9'],
+  brandFont: null,
   view: { zoom: 1, panX: 0, panY: 0 },
   crop: null,
   cloneSource: null,
@@ -285,17 +291,17 @@ export const useEditor = create<EditorState>((set, get) => ({
     ctx2d(c).drawImage(src, 0, 0, w, h)
     const fit = Math.min(1, doc.width / w, doc.height / h)
     get().addLayer({
-      ...base(name.replace(/\.[a-z0-9]+$/i, '').slice(0, 40) || 'Image'), type: 'raster', canvas: c,
+      ...base(name.replace(/\.[a-z0-9]+$/i, '').slice(0, 40) || 'Image'), type: 'raster', canvas: c, source: 'photo',
       scaleX: fit, scaleY: fit, x: (doc.width - w * fit) / 2, y: (doc.height - h * fit) / 2,
     }, 'Add image')
     set({ tool: 'move' })
   },
 
   addText: (x, y) => {
-    const { doc, fg } = get(); if (!doc) return
+    const { doc, fg, brandFont } = get(); if (!doc) return
     const size = Math.round(Math.max(24, doc.width / 14))
     const l: TextLayer = {
-      ...base('Text'), type: 'text', text: 'Your text', fontFamily: 'Inter', fontSize: size, fontWeight: 700, italic: false,
+      ...base('Text'), type: 'text', text: 'Your text', fontFamily: brandFont ?? 'Inter', fontSize: size, fontWeight: 700, italic: false,
       color: fg, align: 'left', lineHeight: 1.15, letterSpacing: 0,
     }
     const s = layerSize(l)
@@ -532,7 +538,18 @@ export const useEditor = create<EditorState>((set, get) => ({
     set({ doc: { ...s.doc }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), selectedIds: s.activeId ? [s.activeId] : [], editingTextId: null, activeId: s.activeId, selection: s.selection, historyIndex: historyIndex + 1, editingMask: false, docRev: get().docRev + 1, selRev: get().selRev + 1, dirty: true })
   },
 
+  jumpTo: (index) => {
+    const { history } = get(); const s = history[index]; if (!s) return
+    set({ doc: { ...s.doc }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), selectedIds: s.activeId ? [s.activeId] : [], editingTextId: null, activeId: s.activeId, selection: s.selection, historyIndex: index, editingMask: false, docRev: get().docRev + 1, selRev: get().selRev + 1, dirty: true })
+  },
+
   notify: (msg) => set({ toast: { id: Date.now(), msg } }),
   setBusy: (msg) => set({ busy: msg }),
   markSaved: () => set({ dirty: false }),
 }))
+
+/** Show a teaching tip the first time something happens, then never again. */
+export function tipOnce(key: string, msg: string) {
+  try { if (localStorage.getItem('vc-tip-' + key)) return; localStorage.setItem('vc-tip-' + key, '1') } catch { return }
+  useEditor.getState().notify(msg)
+}

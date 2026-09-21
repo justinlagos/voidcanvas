@@ -174,6 +174,14 @@ function TextProps({ layer }: { layer: TextLayer }) {
         <Slider label="Line spacing" value={layer.lineHeight} min={0.7} max={2.5} step={0.05} onChange={v => up({ lineHeight: v })} onCommit={() => s.commit('Line spacing')} />
         <Slider label="Letter spacing" value={layer.letterSpacing} min={-10} max={60} step={0.5} unit="px" onChange={v => up({ letterSpacing: v })} onCommit={() => s.commit('Letter spacing')} />
         <ColorField label="Colour" value={layer.color} onChange={v => v && up({ color: v })} onCommit={() => s.commit('Text colour')} />
+        <ColorField label="Outline" allowNone value={layer.outline?.color ?? null} onChange={v => up({ outline: v ? { color: v, width: layer.outline?.width ?? Math.max(2, Math.round(layer.fontSize / 24)) } : null })} onCommit={() => s.commit('Text outline')} />
+        {layer.outline && <Slider label="Outline width" value={layer.outline.width} min={1} max={Math.max(12, Math.round(layer.fontSize / 4))} unit="px" onChange={v => up({ outline: { ...layer.outline!, width: v } })} onCommit={() => s.commit('Text outline')} />}
+        <ColorField label="Shadow" allowNone value={layer.shadow?.color ?? null} onChange={v => up({ shadow: v ? { color: v, blur: layer.shadow?.blur ?? Math.round(layer.fontSize / 8), x: layer.shadow?.x ?? 0, y: layer.shadow?.y ?? Math.round(layer.fontSize / 16) } : null })} onCommit={() => s.commit('Text shadow')} />
+        {layer.shadow && <>
+          <Slider label="Shadow blur" value={layer.shadow.blur} min={0} max={120} unit="px" onChange={v => up({ shadow: { ...layer.shadow!, blur: v } })} onCommit={() => s.commit('Text shadow')} />
+          <Slider label="Shadow across" value={layer.shadow.x} min={-100} max={100} unit="px" onChange={v => up({ shadow: { ...layer.shadow!, x: v } })} onCommit={() => s.commit('Text shadow')} />
+          <Slider label="Shadow down" value={layer.shadow.y} min={-100} max={100} unit="px" onChange={v => up({ shadow: { ...layer.shadow!, y: v } })} onCommit={() => s.commit('Text shadow')} />
+        </>}
       </div>
     </Section>
   )

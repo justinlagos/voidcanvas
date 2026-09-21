@@ -121,7 +121,7 @@ export function hitLayer(layers: Layer[], x: number, y: number, doc: Doc, groups
 
 // ─── Drawing layer content (local space) ───────────────────────────
 
-export function drawLayerContent(ctx: CanvasRenderingContext2D, l: Layer) {
+export function drawLayerContent(ctx: CanvasRenderingContext2D, l: Layer, k = 1) {
   if (l.type === 'raster') {
     ctx.drawImage(l.canvas, 0, 0)
   } else if (l.type === 'text') {
@@ -132,9 +132,17 @@ export function drawLayerContent(ctx: CanvasRenderingContext2D, l: Layer) {
     const { w } = layerSize(l)
     const lh = l.fontSize * l.lineHeight
     const ax = l.align === 'left' ? 2 : l.align === 'center' ? w / 2 : w - 2
-    l.text.split('\n').forEach((line, i) => {
-      ctx.fillText(line, ax, 2 + i * lh + (lh - l.fontSize) / 2 + l.fontSize * 0.82)
-    })
+    const lines = l.text.split('\n')
+    const yAt = (i: number) => 2 + i * lh + (lh - l.fontSize) / 2 + l.fontSize * 0.82
+    // Shadow offsets ignore canvas transforms, so scale them by hand (k = on-screen scale of this layer).
+    if (l.shadow) { ctx.shadowColor = l.shadow.color; ctx.shadowBlur = l.shadow.blur * k; ctx.shadowOffsetX = l.shadow.x * k; ctx.shadowOffsetY = l.shadow.y * k }
+    if (l.outline && l.outline.width > 0) {
+      ctx.strokeStyle = l.outline.color; ctx.lineWidth = l.outline.width * 2; ctx.lineJoin = 'round'
+      lines.forEach((line, i) => ctx.strokeText(line, ax, yAt(i)))
+      ctx.shadowColor = 'transparent'
+    }
+    lines.forEach((line, i) => ctx.fillText(line, ax, yAt(i)))
+    ctx.shadowColor = 'transparent'
   } else if (l.type === 'shape') {
     const sw = l.stroke ? l.strokeWidth : 0
     ctx.beginPath()
@@ -397,7 +405,7 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
       acc.globalCompositeOperation = l.blend
       acc.imageSmoothingQuality = 'high'
       acc.setTransform(new DOMMatrix().scale(s, s).multiply(m))
-      if (!needsTemp) drawLayerContent(acc, l)
+      if (!needsTemp) drawLayerContent(acc, l, s * Math.abs(l.scaleX))
       else {
         const { w, h } = layerSize(l, doc)
         const tmp = makeCanvas(w, h)

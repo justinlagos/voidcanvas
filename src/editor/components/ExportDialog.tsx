@@ -30,9 +30,9 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         <div>
           <p className="text-[12px] text-void-400 mb-2">File type</p>
           <div className="flex gap-2">
-            {(['png', 'jpeg', 'webp'] as const).map(f => <button key={f} className={opt(o.format === f)} onClick={() => setO({ ...o, format: f })} aria-pressed={o.format === f}>{f === 'jpeg' ? 'JPG' : f.toUpperCase()}</button>)}
+            {(['png', 'jpeg', 'webp', 'pdf'] as const).map(f => <button key={f} className={opt(o.format === f)} onClick={() => setO({ ...o, format: f })} aria-pressed={o.format === f}>{f === 'jpeg' ? 'JPG' : f.toUpperCase()}</button>)}
           </div>
-          <p className="mt-2 text-[12px] text-void-500">{o.format === 'png' ? 'Best quality. Keeps transparency.' : o.format === 'jpeg' ? 'Smallest file for photos. No transparency.' : 'Small file that keeps transparency. Best for websites.'}</p>
+          <p className="mt-2 text-[12px] text-void-500">{o.format === 'png' ? 'Best quality. Keeps transparency.' : o.format === 'jpeg' ? 'Smallest file for photos. No transparency.' : o.format === 'pdf' ? 'For printers and clients. One page, image based, 300 dpi for print sizes.' : 'Small file that keeps transparency. Best for websites.'}</p>
         </div>
         <div>
           <p className="text-[12px] text-void-400 mb-2">Size</p>
@@ -41,7 +41,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         {o.format !== 'png' && <Slider label="Quality" value={Math.round(o.quality * 100)} min={40} max={100} unit="%" onChange={v => setO({ ...o, quality: v / 100 })} />}
-        {o.format !== 'jpeg' && doc.background && (
+        {o.format !== 'jpeg' && o.format !== 'pdf' && doc.background && (
           <label className="flex items-center gap-2.5 text-[13px] text-void-200 cursor-pointer">
             <input type="checkbox" checked={o.transparent} onChange={e => setO({ ...o, transparent: e.target.checked })} className="w-4 h-4 accent-[#8b7cff]" />
             Leave out the background colour

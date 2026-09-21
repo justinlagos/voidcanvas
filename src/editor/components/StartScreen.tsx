@@ -35,11 +35,30 @@ export function StartScreen() {
           </span>
         </button>
 
-        {recent.length > 0 && (
+        {recent.some(p => p.template) && (
+          <section className="mt-10">
+            <h2 className="text-[13px] font-semibold text-void-200 mb-1">Your templates</h2>
+            <p className="text-[12.5px] text-void-500 mb-3">Opening one makes a fresh copy. The template itself never changes.</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
+              {recent.filter(p => p.template).map(p => (
+                <div key={p.id} className="group relative">
+                  <button onClick={() => openProject(p.id, true)} className={`block w-full rounded-xl overflow-hidden bg-void-900 border border-void-800 hover:border-[#8b7cff] text-left ${focusRing}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <span className="block aspect-[4/3] bg-void-950"><img src={p.thumb} alt="" className="w-full h-full object-contain" /></span>
+                    <span className="block px-2.5 py-2 text-[12.5px] font-medium truncate">{p.name}</span>
+                  </button>
+                  <button aria-label={`Delete ${p.name}`} onClick={async () => { if (confirm(`Delete the template “${p.name}”?`)) { await deleteProject(p.id); setRecent(r => r.filter(x => x.id !== p.id)) } }} className={`absolute top-1.5 right-1.5 w-7 h-7 rounded-md bg-black/70 text-void-200 hover:text-white items-center justify-center hidden group-hover:flex focus:flex ${focusRing}`}><Trash2 size={13} /></button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {recent.some(p => !p.template) && (
           <section className="mt-10">
             <h2 className="text-[13px] font-semibold text-void-200 mb-3">Pick up where you left off</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
-              {recent.slice(0, 10).map(p => (
+              {recent.filter(p => !p.template).slice(0, 10).map(p => (
                 <div key={p.id} className="group relative">
                   <button onClick={() => openProject(p.id)} className={`block w-full rounded-xl overflow-hidden bg-void-900 border border-void-800 hover:border-void-600 text-left ${focusRing}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}

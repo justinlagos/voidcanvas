@@ -28,7 +28,26 @@ function Thumb({ layer, mask }: { layer: Layer; mask?: boolean }) {
   return <canvas ref={ref} width={36} height={36} className="w-9 h-9 rounded-[5px]" style={{ background: mask ? '#000' : 'repeating-conic-gradient(#d6d6dc 0% 25%, #fff 0% 50%) 50% / 10px 10px' }} />
 }
 
+function HistoryList() {
+  const history = useEditor(s => s.history)
+  const index = useEditor(s => s.historyIndex)
+  return (
+    <ol className="flex-1 min-h-[120px] overflow-y-auto px-2 pb-3" aria-label="History, oldest first">
+      {history.map((h, i) => (
+        <li key={i}>
+          <button onClick={() => useEditor.getState().jumpTo(i)} aria-current={i === index}
+            className={`w-full flex items-center gap-2.5 px-2.5 h-8 rounded-lg text-left text-[12.5px] ${focusRing} ${i === index ? 'bg-void-800 text-white' : i > index ? 'text-void-600 hover:bg-void-900' : 'text-void-300 hover:bg-void-900'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${i === index ? 'bg-[#8b7cff]' : i > index ? 'bg-void-700' : 'bg-void-500'}`} />{h.label}
+          </button>
+        </li>
+      ))}
+      <li className="px-2.5 pt-2 text-[12px] text-void-500 leading-relaxed">Click any step to go back to it. The last 40 steps are kept.</li>
+    </ol>
+  )
+}
+
 export function LayersPanel() {
+  const [tab, setTab] = useState<'layers' | 'history'>('layers')
   const layers = useEditor(s => s.layers)
   const activeId = useEditor(s => s.activeId)
   const selectedIds = useEditor(s => s.selectedIds)
@@ -44,8 +63,10 @@ export function LayersPanel() {
   return (
     <div className="flex flex-col min-h-0 flex-1">
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <h3 className="text-[12px] font-semibold text-void-200">Layers</h3>
-        <div className="flex items-center -mr-1.5">
+        <div className="flex items-center gap-3" role="tablist">
+          {(['layers', 'history'] as const).map(t => <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`text-[12px] font-semibold capitalize rounded ${focusRing} ${tab === t ? 'text-void-100' : 'text-void-500 hover:text-void-200'}`}>{t}</button>)}
+        </div>
+        <div className={`flex items-center -mr-1.5 ${tab === 'history' ? 'invisible' : ''}`}>
           <IconButton label="Bring forward" shortcut="]" disabled={!active || idx === layers.length - 1} onClick={() => active && s.nudgeOrder(active.id, 1)} className="!h-7 !w-7"><ChevronUp size={15} /></IconButton>
           <IconButton label="Send backward" shortcut="[" disabled={!active || idx <= 0} onClick={() => active && s.nudgeOrder(active.id, -1)} className="!h-7 !w-7"><ChevronDown size={15} /></IconButton>
           <IconButton label="Group selected layers" shortcut="Ctrl+G" disabled={selectedIds.length < 2} onClick={() => s.groupSelected()} className="!h-7 !w-7"><FolderPlus size={14} /></IconButton>
@@ -55,6 +76,7 @@ export function LayersPanel() {
         </div>
       </div>
 
+      {tab === 'history' ? <HistoryList /> : (
       <ul className="flex-1 min-h-[120px] overflow-y-auto px-2 pb-3" role="listbox" aria-label="Layers, top first">
         {layers.length === 0 && <li className="px-3 py-6 text-[12.5px] leading-relaxed text-void-500">Nothing here yet. Use Add above, drop in a photo, or paste an image. Shift-click layers to select several.</li>}
         {[...layers].reverse().map((l) => {
@@ -119,6 +141,7 @@ export function LayersPanel() {
           )
         })}
       </ul>
+      )}
     </div>
   )
 }

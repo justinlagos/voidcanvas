@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
 import { effects } from '@/components/EffectSelector'
-import { saveProject } from '../io'
+import { saveDesign, saveProject } from '../io'
+import { uid } from '../engine'
 import { ADJUSTMENT_LABELS, useEditor } from '../store'
 import type { AdjustmentKind } from '../types'
 import { removeBackground } from './PropertiesPanel'
@@ -40,6 +41,11 @@ export function CommandPalette({ onClose, open }: { onClose: () => void; open: (
       { label: 'Deselect', hint: 'Ctrl+D', group: 'Selection', run: () => s().setSelection(null, 'Deselect') },
       { label: 'Invert selection', hint: 'Ctrl+Shift+I', group: 'Selection', run: () => s().invertSelection() },
       { label: 'Export', hint: 'Ctrl+E', group: 'File', run: () => open('export') },
+      { label: 'Resize for other formats', hint: 'Instagram, Story, YouTube and more', group: 'File', run: () => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'resize' })) },
+      { label: 'Save as template', hint: 'Reuse this layout', group: 'File', run: async () => { const st = s(); if (!st.doc) return; await saveDesign({ ...st.doc, id: uid(), name: st.doc.name + ' template' }, st.layers, st.groups, st.swatches, true); st.notify('Saved as a template. Find it on the start screen under Your templates.') } },
+      { label: 'Brand kit', hint: 'Colours, fonts, logos', group: 'File', run: () => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'brand' })) },
+      { label: 'Keyboard shortcuts', hint: '?', group: 'Help', run: () => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'keys' })) },
+      { label: 'See before (hold \\)', group: 'View', run: () => { useEditor.setState({ compare: true }); setTimeout(() => useEditor.setState({ compare: false }), 1500) } },
       { label: 'Save now', hint: 'Ctrl+S', group: 'File', run: () => saveProject().then(() => s().notify('Saved to this device.')) },
       { label: 'Fit to screen', hint: 'Ctrl+0', group: 'View', run: () => stageApi.fit() },
       { label: 'Zoom to 100%', hint: 'Ctrl+1', group: 'View', run: () => stageApi.zoomTo(1) },

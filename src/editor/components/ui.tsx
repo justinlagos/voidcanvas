@@ -26,10 +26,15 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
   onChange: (v: number) => void; onCommit?: () => void; format?: (v: number) => string
 }) {
   const pct = ((value - min) / (max - min)) * 100
+  const scrub = useRef<{ x: number; v: number } | null>(null)
+  const snap = (v: number) => Math.min(max, Math.max(min, Math.round(v / step) * step))
   return (
     <label className="block">
       <span className="flex items-center justify-between text-[12px] text-void-400 mb-1">
-        <span>{label}</span>
+        <span title="Drag sideways to change. Hold Shift for big steps." className="cursor-ew-resize select-none touch-none"
+          onPointerDown={e => { e.preventDefault(); scrub.current = { x: e.clientX, v: value }; (e.target as HTMLElement).setPointerCapture(e.pointerId) }}
+          onPointerMove={e => { if (scrub.current) onChange(snap(scrub.current.v + ((e.clientX - scrub.current.x) * (max - min) * (e.shiftKey ? 4 : 1)) / 260)) }}
+          onPointerUp={() => { if (scrub.current) { scrub.current = null; onCommit?.() } }}>{label}</span>
         <span className="tabular-nums text-void-200">{format ? format(value) : Math.round(value * 100) / 100}{unit}</span>
       </span>
       <span className="relative block h-4">

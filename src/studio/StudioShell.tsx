@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, ImagePlus, Layers, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, ImagePlus, Layers, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { AppNav, Logo } from '@/components/AppNav'
 import { Button, focusRing } from '@/editor/components/ui'
 import { blobToCanvas, idb, sendHandoff } from '@/editor/io'
@@ -15,7 +15,8 @@ import { SIZE_PRESETS } from '@/editor/presets'
 // accounts, community and Artie are ported in, this data model is what they attach to.
 
 interface Ref { id: string; name: string; blob: Blob; palette: string[] }
-interface Board { id: string; title: string; brief: string; presetId: string; refs: Ref[]; updatedAt: number }
+interface Read { audience: string; feel: string[]; must: string[] }
+interface Board { id: string; title: string; brief: string; presetId: string; refs: Ref[]; read?: Read; updatedAt: number }
 
 export function StudioShell() {
   const [boards, setBoards] = useState<Board[] | null>(null)
@@ -125,7 +126,7 @@ function BoardView({ board: initial, onBack }: { board: Board; onBack: () => voi
 
   const startDesign = async () => {
     const id = await sendHandoff({
-      from: 'studio', name: board.title, size: { width: preset.width, height: preset.height }, palette, note: board.brief,
+      from: 'studio', name: board.title, size: { width: preset.width, height: preset.height }, palette, note: board.read ? `${board.brief}\n\nMust include: ${board.read.must.join('; ')}` : board.brief,
       images: chosen.map(r => ({ name: r.name, blob: r.blob })),
     })
     router.push(`/editor?inbox=${id}`)
@@ -138,8 +139,19 @@ function BoardView({ board: initial, onBack }: { board: Board; onBack: () => voi
         <input aria-label="Project name" value={board.title} onChange={e => setBoard({ ...board, title: e.target.value })} className={`w-full bg-transparent text-[20px] font-semibold tracking-tight rounded ${focusRing}`} />
         <label className="block">
           <span className="block text-[12px] font-semibold text-void-200 mb-1.5">The brief</span>
-          <textarea value={board.brief} onChange={e => setBoard({ ...board, brief: e.target.value })} rows={7} placeholder="Who is it for? What should they feel or do? What must be on it? Paste the client's words here."
+          <textarea value={board.brief} onChange={e => setBoard({ ...board, brief: e.target.value, read: undefined })} rows={7} placeholder="Who is it for? What should they feel or do? What must be on it? Paste the client's words here."
             className={`w-full px-3 py-2.5 rounded-xl bg-void-900 border border-void-800 text-[13px] leading-relaxed placeholder:text-void-600 resize-y ${focusRing}`} />
+          {board.brief.trim().length > 30 && !board.read && (
+            <button onClick={() => setBoard({ ...board, read: readBrief(board.brief) })} className={`mt-2 inline-flex items-center gap-1.5 text-[12.5px] text-[#b9afff] hover:text-white rounded ${focusRing}`}><Sparkles size={14} />Pull out the key points</button>
+          )}
+          {board.read && (
+            <div className="mt-2.5 rounded-xl bg-void-900/70 border border-void-800 p-3 space-y-2 text-[12.5px]">
+              <p><span className="text-void-500">Audience:</span> {board.read.audience}</p>
+              <p><span className="text-void-500">Feel:</span> {board.read.feel.join(', ') || 'not stated'}</p>
+              <div><span className="text-void-500">Must include:</span>{board.read.must.length ? <ul className="mt-1 space-y-0.5">{board.read.must.map((m, i) => <li key={i} className="flex gap-1.5"><Check size={13} className="mt-0.5 shrink-0 text-[#8b7cff]" />{m}</li>)}</ul> : ' nothing pinned down yet'}</div>
+              <p className="text-[11.5px] text-void-500 pt-0.5">Read from your words. When accounts are on, Artie writes this.</p>
+            </div>
+          )}
         </label>
         <label className="block">
           <span className="block text-[12px] font-semibold text-void-200 mb-1.5">What you are making</span>
@@ -193,4 +205,19 @@ function BoardView({ board: initial, onBack }: { board: Board; onBack: () => voi
       </section>
     </div>
   )
+}
+
+// Local stand-in for the Art Director Studio process-brief function. Same output shape
+// (audience, tonal keywords, must-haves) so this swaps for the real Artie call once accounts are wired.
+function readBrief(text: string): Read {
+  const t = text.toLowerCase()
+  const audMatch = text.match(/\b(?:for|aimed at|targeting|audience[:\s])\s+([a-z0-9 ,'-]{4,60})/i)
+  const feelWords = ['bold', 'playful', 'premium', 'luxury', 'minimal', 'clean', 'warm', 'friendly', 'modern', 'retro', 'vintage', 'fun', 'serious', 'calm', 'energetic', 'elegant', 'edgy', 'corporate', 'youthful', 'trustworthy', 'bright', 'dark', 'soft']
+  const feel = feelWords.filter(w => t.includes(w))
+  const must: string[] = []
+  for (const line of text.split(/[\n.;]+/)) {
+    const l = line.trim()
+    if (/\b(must|need|should|include|feature|logo|headline|tagline|cta|call to action|price|date|contact|address|phone|website|url|@)\b/i.test(l) && l.length > 6 && l.length < 120) must.push(l.replace(/^[-*\s]+/, ''))
+  }
+  return { audience: audMatch ? audMatch[1].trim() : 'not stated', feel, must: must.slice(0, 6) }
 }

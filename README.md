@@ -28,6 +28,18 @@ Deploys to Netlify as before. No new npm dependencies were added.
 - Smart guides: layers snap to the page and to each other's edges and centres.
 - Type directly on the canvas. Double-click or press Enter on a text layer.
 - Command palette (Ctrl+K): every tool, adjustment, filter and action, searchable.
+- Resize to every format: pick Instagram, Story, YouTube etc., download all as a ZIP or save each as its own design. Backgrounds cover, everything else keeps its place.
+- Brand kit: colours, fonts and logos saved once, ready in every design and in the Add menu.
+- History panel with named steps; click any step to jump back.
+- Hold \\ to see the design before adjustments and filters.
+- Drag any slider's label sideways to scrub the value (Shift for big steps).
+- Floating action bar above the selected layer with its most likely next actions.
+- Filter gallery previews every filter on your own image.
+- Text outline and drop shadow.
+- Templates: save any design as a reusable template; opening one makes a fresh copy.
+- Export to PDF (300 dpi for print sizes) alongside PNG, JPG, WebP.
+- First-time tips that teach, shown once.
+- ? opens the shortcut sheet.
 - Masks on any layer, painted with Brush (show) and Eraser (hide). "Remove background" creates a mask, so nothing is destroyed.
 - Adjustments as layers: curves, brightness and contrast, hue and saturation, temperature, levels, black and white, blur, invert.
 - All 60 Void effects as live filter layers. They always compute at max 1200px so preview, export and the Effects tool match.
@@ -50,13 +62,19 @@ src/components/AppNav   shared logo and module switch
 
 Handoff between modules: `sendHandoff()` writes images, palette and size to the `inbox` store, then routes to `/editor?inbox=<id>`.
 
+## Studio
+
+Studio can now read a pasted brief and pull out audience, tonal keywords and must-haves. This is a local stand-in shaped exactly like Art Director Studio's `process-brief` function, so it swaps for the real Artie call once accounts and Supabase are wired. The must-haves ride along in the handoff to the Editor.
+
 ## Known limits
 
 - Groups are one level deep. No smart objects, though image layers keep full resolution through any resize until you paint on them.
 - Heal and clone are patch based, not generative.
 - Background removal: fast people model everywhere, plus an any-subject model (BiRefNet lite, MIT, 115 MB) that needs WebGPU. The any-subject path has not been tested on a real GPU browser yet.
 - Canvas 2D engine. Fine to around 4000px; a WebGL compositor is the next step for very large documents.
-- No accounts, cloud sync, templates or community. These come with the Art Director Studio port (Supabase).
+- Templates are local. Accounts, cloud sync, the community gallery and Artie's live brief analysis come with the Art Director Studio port (Supabase). ADS is a Vite/React/Supabase app; its edge functions (process-brief, artie-chat, community) are the pieces to bring over.
+- No PSD import or SVG export yet.
+- Resize scales backgrounds to cover and keeps other layers in place; very different aspect ratios may still need a nudge by hand.
 
 ## License
 

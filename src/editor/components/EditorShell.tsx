@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { PanelRight, X } from 'lucide-react'
-import { blobToCanvas, importFiles, openProject, saveProject, takeHandoff } from '../io'
+import { blobToCanvas, getBrand, importFiles, openProject, saveProject, takeHandoff } from '../io'
 import { useEditor } from '../store'
 import type { ToolId } from '../types'
 import { AddMenu } from './AddMenu'
 import { CommandPalette } from './CommandPalette'
+import { BrandKitDialog, ResizeDialog, ShortcutSheet, applyBrand } from './Dialogs'
 import { ExportDialog } from './ExportDialog'
 import { LayersPanel } from './LayersPanel'
 import { OptionsBar } from './OptionsBar'
@@ -24,11 +25,26 @@ export function EditorShell() {
   const busy = useEditor(s => s.busy)
   const dirty = useEditor(s => s.dirty)
   const historyIndex = useEditor(s => s.historyIndex)
-  const [modal, setModal] = useState<null | 'add' | 'filters' | 'export' | 'palette'>(null)
+  const [modal, setModal] = useState<null | 'add' | 'filters' | 'export' | 'palette' | 'resize' | 'brand' | 'keys'>(null)
   const [panel, setPanel] = useState(false)
   const [shownToast, setShownToast] = useState<string | null>(null)
 
   useEffect(() => { (window as any).__voidEditor = useEditor }, [])
+
+  // Brand kit applies to every design. Other parts of the editor open dialogs through a window event.
+  const docId = useEditor(s => s.doc?.id)
+  useEffect(() => { getBrand().then(applyBrand).catch(() => {}) }, [docId])
+  useEffect(() => {
+    const open = (e: Event) => setModal((e as CustomEvent).detail)
+    window.addEventListener('vc:open', open)
+    return () => window.removeEventListener('vc:open', open)
+  }, [])
+  useEffect(() => {
+    const up = (e: KeyboardEvent) => { if (e.key === '\\') useEditor.setState({ compare: false }) }
+    const blur = () => useEditor.setState({ compare: false })
+    window.addEventListener('keyup', up); window.addEventListener('blur', blur)
+    return () => { window.removeEventListener('keyup', up); window.removeEventListener('blur', blur) }
+  }, [])
 
   // Work arriving from Effects or Studio, or a saved design opened from the home screen.
   useEffect(() => {
@@ -74,6 +90,8 @@ export function EditorShell() {
       const s = useEditor.getState(); if (!s.doc) return
       const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase()
       const stop = () => e.preventDefault()
+      if (k === '\\') { if (!s.compare) useEditor.setState({ compare: true }); return }
+      if (e.key === '?') { setModal('keys'); return }
       if (mod && k === 'k') { stop(); setModal('palette'); return }
       if (mod && k === 'g') { stop(); if (e.shiftKey) { const g = s.active()?.groupId; if (g) s.ungroup(g) } else s.groupSelected(); return }
       if (mod && k === 'z') { stop(); e.shiftKey ? s.redo() : s.undo(); return }
@@ -138,6 +156,9 @@ export function EditorShell() {
       {modal === 'add' && hasDoc && <AddMenu onClose={() => setModal(null)} />}
       {modal === 'filters' && hasDoc && <AddMenu filtersOnly onClose={() => setModal(null)} />}
       {modal === 'palette' && hasDoc && <CommandPalette onClose={() => setModal(null)} open={m => setModal(m)} />}
+      {modal === 'resize' && hasDoc && <ResizeDialog onClose={() => setModal(null)} />}
+      {modal === 'brand' && <BrandKitDialog onClose={() => setModal(null)} />}
+      {modal === 'keys' && <ShortcutSheet onClose={() => setModal(null)} />}
       {modal === 'export' && hasDoc && <ExportDialog onClose={() => setModal(null)} />}
 
       {busy && (

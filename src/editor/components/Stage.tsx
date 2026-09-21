@@ -6,8 +6,9 @@ import {
   makeCanvas, maskEdges, renderDoc, type LiveStroke,
 } from '../engine'
 import { importFiles } from '../io'
-import { useEditor } from '../store'
+import { tipOnce, useEditor } from '../store'
 import type { Layer, Rect, ToolId } from '../types'
+import { FloatingBar } from './FloatingBar'
 
 const ACCENT = '#8b7cff'
 const PAINT_TOOLS: ToolId[] = ['brush', 'eraser', 'clone', 'heal']
@@ -52,6 +53,8 @@ export function Stage() {
   const crop = useEditor(s => s.crop)
   const docId = useEditor(s => s.doc?.id)
   const optSize = useEditor(s => s.options.size)
+  const compare = useEditor(s => s.compare)
+  const [busyDrag, setBusyDrag] = useState(false)
 
   const toDoc = (sx: number, sy: number): Pt => {
     const v = useEditor.getState().view
@@ -82,7 +85,7 @@ export function Stage() {
     if (needComposite.current || live.current) {
       if (!comp.current) comp.current = makeCanvas(1, 1)
       const vs = Math.min(1, 2000 / Math.max(doc.width, doc.height))
-      const shown = s.editingTextId ? s.layers.filter(l => l.id !== s.editingTextId) : s.layers
+      const shown = s.layers.filter(l => l.id !== s.editingTextId && !(s.compare && l.type === 'adjustment'))
       renderDoc(comp.current, doc, shown, { groups: s.groups, scale: vs, live: live.current })
       needComposite.current = false
     }
@@ -253,7 +256,7 @@ export function Stage() {
   }, [fit, invalidate])
 
   useEffect(() => { fit() }, [docId, fit])
-  useEffect(() => { invalidate(true) }, [docRev, invalidate])
+  useEffect(() => { invalidate(true) }, [docRev, compare, invalidate])
   useEffect(() => { invalidate() }, [selRev, view, tool, activeId, crop, optSize, invalidate])
 
   useEffect(() => {
@@ -348,7 +351,7 @@ export function Stage() {
 
   // ── Pointer events ───────────────────────────────────────────────
 
-  const inEditor = (e: React.PointerEvent) => (e.target as HTMLElement).tagName === 'TEXTAREA'
+  const inEditor = (e: React.PointerEvent) => !!(e.target as HTMLElement).closest('textarea,[data-floating]')
 
   function onDown(e: React.PointerEvent) {
     if (inEditor(e)) return
@@ -356,6 +359,7 @@ export function Stage() {
     if (!s.doc) return
     const sp = local(e)
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    setBusyDrag(true)
     pointers.current.set(e.pointerId, sp)
 
     if (pointers.current.size === 2) {
@@ -424,7 +428,12 @@ export function Stage() {
     if (PAINT_TOOLS.includes(t)) {
       if (t === 'clone' && e.altKey) { useEditor.setState({ cloneSource: p }); invalidate(); return }
       if (t === 'clone' && !s.cloneSource) { s.notify('Hold Alt (Option) and click to choose where to copy from.'); return }
-      const target = s.ensurePaintable(); if (!target) return
+      const cur = s.active()
+      if (t === 'brush' && !s.editingMask && cur?.type === 'raster' && cur.source === 'photo') {
+        s.addBlank()
+        tipOnce('paint-layer', 'Your brush strokes go on a new layer, so the photo underneath stays untouched.')
+      }
+      const target = useEditor.getState().ensurePaintable(); if (!target) return
       const st = useEditor.getState()
       const onMask = st.editingMask && !!target.mask
       if (target.type === 'adjustment' && !onMask) return
@@ -568,6 +577,7 @@ export function Stage() {
   }
 
   function onUp(e: React.PointerEvent) {
+    setBusyDrag(false)
     pointers.current.delete(e.pointerId)
     if (pinch.current) { if (pointers.current.size < 2) pinch.current = null; return }
     const s = useEditor.getState()
@@ -655,6 +665,8 @@ export function Stage() {
       <canvas ref={viewC} className="absolute inset-0 w-full h-full" />
       <canvas ref={overC} className="absolute inset-0 w-full h-full pointer-events-none" />
       <TextEditor />
+      {!busyDrag && <FloatingBar />}
+      {compare && <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white text-void-950 text-[12px] font-medium pointer-events-none">Before: adjustments and filters hidden</div>}
     </div>
   )
 }
