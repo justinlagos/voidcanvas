@@ -88,9 +88,12 @@ export async function blobToCanvas(blob: Blob, max = MAX_IMPORT): Promise<HTMLCa
 /** Add image files to the open design, or start a design sized to the first image. */
 export async function importFiles(files: File[] | Blob[], names?: string[]) {
   const ed = useEditor.getState()
+  const special = (files as File[]).filter(f => /\.(psd|pdf)$/i.test((f as File).name || ''))
+  if (special.length) { const { importAny } = await import('./import-formats'); importAny(special as File[]) }
   let i = 0
   for (const f of files) {
-    if (!f.type.startsWith('image/')) { ed.notify('Only image files can be added.'); continue }
+    if (/\.(psd|pdf)$/i.test((f as File).name || '')) { i++; continue }
+    if (!f.type.startsWith('image/')) { ed.notify('Only image files, PSD or PDF can be added.'); continue }
     try {
       const c = await blobToCanvas(f)
       const name = names?.[i] ?? (f as File).name ?? 'Image'

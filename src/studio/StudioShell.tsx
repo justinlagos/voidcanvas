@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, ImagePlus, Layers, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowLeft, BookOpen, Check, ImagePlus, Layers, Palette, Plus, Sparkles, Trash2, Type } from 'lucide-react'
+import { BrandGuideline } from './BrandGuideline'
 import { AppNav, Logo } from '@/components/AppNav'
 import { Button, focusRing } from '@/editor/components/ui'
 import { blobToCanvas, idb, sendHandoff } from '@/editor/io'
@@ -15,12 +16,13 @@ import { SIZE_PRESETS } from '@/editor/presets'
 // accounts, community and Artie are ported in, this data model is what they attach to.
 
 interface Ref { id: string; name: string; blob: Blob; palette: string[] }
-interface Read { audience: string; feel: string[]; must: string[] }
+interface Read { audience: string; feel: string[]; must: string[]; direction: string; palette: string[]; type: string }
 interface Board { id: string; title: string; brief: string; presetId: string; refs: Ref[]; read?: Read; updatedAt: number }
 
 export function StudioShell() {
   const [boards, setBoards] = useState<Board[] | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  const [mode, setMode] = useState<'boards' | 'brand'>('boards')
   const reload = useCallback(() => idb.all<Board>('boards').then(b => setBoards(b.sort((a, c) => c.updatedAt - a.updatedAt))).catch(() => setBoards([])), [])
   useEffect(() => { reload() }, [reload])
   const board = boards?.find(b => b.id === openId) ?? null
@@ -33,11 +35,19 @@ export function StudioShell() {
   return (
     <main className="min-h-[100dvh] flex flex-col bg-void-950 text-void-100">
       <header className="h-12 shrink-0 flex items-center gap-3 px-3 border-b border-void-800/60"><Logo /><AppNav /></header>
-      {board ? <BoardView key={board.id} board={board} onBack={() => { setOpenId(null); reload() }} /> : (
+      {mode === 'brand' ? <BrandGuideline onBack={() => setMode('boards')} /> : board ? <BoardView key={board.id} board={board} onBack={() => { setOpenId(null); reload() }} /> : (
         <div className="max-w-5xl w-full mx-auto px-5 sm:px-8 py-8 sm:py-12">
           <h1 className="text-[26px] sm:text-[32px] font-semibold tracking-tight">Start with the brief</h1>
           <p className="mt-1.5 text-[14px] text-void-400 max-w-xl">Write down what the job is, collect the references that feel right, and Studio pulls the colours out for you. When you are ready, it all opens in the Editor.</p>
-          <div className="mt-7 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          <div className="mt-6 grid sm:grid-cols-2 gap-3 max-w-2xl">
+            <button onClick={() => setMode('brand')} className={`flex items-center gap-3.5 p-4 rounded-2xl bg-gradient-to-br from-[#8b7cff]/20 to-void-900 border border-[#8b7cff]/30 hover:border-[#8b7cff]/60 text-left ${focusRing}`}>
+              <span className="w-11 h-11 rounded-xl bg-[#8b7cff] text-white flex items-center justify-center shrink-0"><BookOpen size={20} /></span>
+              <span><span className="block text-[14px] font-semibold">Brand guideline builder</span><span className="block text-[12.5px] text-void-400">A full, unique brand system with mockups. Export to PDF.</span></span>
+            </button>
+            <div className="flex items-center gap-3.5 p-4 rounded-2xl bg-void-900 border border-void-800 text-void-400 text-[12.5px]"><Sparkles size={18} className="text-[#b9afff] shrink-0" />Reference boards read your brief and pull a palette, then open in the Editor.</div>
+          </div>
+          <h2 className="mt-9 mb-3 text-[13px] font-semibold text-void-200">Reference boards</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             <button onClick={create} className={`aspect-[4/3] rounded-2xl border border-dashed border-void-700 hover:border-void-500 flex flex-col items-center justify-center gap-2 text-[13.5px] font-medium ${focusRing}`}>
               <span className="w-10 h-10 rounded-xl bg-[#8b7cff] text-white flex items-center justify-center"><Plus size={20} /></span>New project
             </button>
@@ -124,6 +134,11 @@ function BoardView({ board: initial, onBack }: { board: Board; onBack: () => voi
   const preset = SIZE_PRESETS.find(p => p.id === board.presetId) ?? SIZE_PRESETS[0]
   const chosen = board.refs.filter(r => selected.has(r.id))
 
+  const startFromRead = async (bd: Board) => {
+    const id = await sendHandoff({ from: 'studio', name: bd.title, size: { width: preset.width, height: preset.height }, palette: bd.read!.palette, note: `Direction: ${bd.read!.direction}\nType: ${bd.read!.type}\nMust include: ${bd.read!.must.join('; ')}`, images: chosen.map(r => ({ name: r.name, blob: r.blob })) })
+    router.push(`/editor?inbox=${id}`)
+  }
+
   const startDesign = async () => {
     const id = await sendHandoff({
       from: 'studio', name: board.title, size: { width: preset.width, height: preset.height }, palette, note: board.read ? `${board.brief}\n\nMust include: ${board.read.must.join('; ')}` : board.brief,
@@ -149,7 +164,12 @@ function BoardView({ board: initial, onBack }: { board: Board; onBack: () => voi
               <p><span className="text-void-500">Audience:</span> {board.read.audience}</p>
               <p><span className="text-void-500">Feel:</span> {board.read.feel.join(', ') || 'not stated'}</p>
               <div><span className="text-void-500">Must include:</span>{board.read.must.length ? <ul className="mt-1 space-y-0.5">{board.read.must.map((m, i) => <li key={i} className="flex gap-1.5"><Check size={13} className="mt-0.5 shrink-0 text-[#8b7cff]" />{m}</li>)}</ul> : ' nothing pinned down yet'}</div>
-              <p className="text-[11.5px] text-void-500 pt-0.5">Read from your words. When accounts are on, Artie writes this.</p>
+              <div className="pt-1"><span className="text-void-500">Colour direction:</span> {board.read.direction}
+                <div className="flex gap-1 mt-1.5">{board.read.palette.map(c => <span key={c} className="h-6 flex-1 rounded" style={{ background: c }} />)}</div>
+              </div>
+              <p><span className="text-void-500">Type:</span> {board.read.type}</p>
+              <button onClick={() => startFromRead(board)} className={`mt-1 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-[#8b7cff] hover:text-white rounded ${focusRing}`}><Sparkles size={14} />Open a design with this direction</button>
+              <p className="text-[11px] text-void-500 pt-1">Read from your words. When accounts are on, Artie writes this and shows options.</p>
             </div>
           )}
         </label>
@@ -219,5 +239,18 @@ function readBrief(text: string): Read {
     const l = line.trim()
     if (/\b(must|need|should|include|feature|logo|headline|tagline|cta|call to action|price|date|contact|address|phone|website|url|@)\b/i.test(l) && l.length > 6 && l.length < 120) must.push(l.replace(/^[-*\s]+/, ''))
   }
-  return { audience: audMatch ? audMatch[1].trim() : 'not stated', feel, must: must.slice(0, 6) }
+  // Map the strongest tonal word to a colour direction and a type feel. Local now, Artie later.
+  const dirs: Record<string, { d: string; hue: number; sat: number }> = {
+    bold: { d: 'high-contrast, saturated', hue: 350, sat: 0.8 }, premium: { d: 'deep, restrained, one metallic accent', hue: 265, sat: 0.4 },
+    luxury: { d: 'near-black with gold or deep jewel tones', hue: 45, sat: 0.55 }, playful: { d: 'bright, warm, two or three lively hues', hue: 25, sat: 0.85 },
+    minimal: { d: 'mostly neutral with a single accent', hue: 210, sat: 0.5 }, calm: { d: 'soft, low-saturation, cool', hue: 195, sat: 0.4 },
+    warm: { d: 'earthy, sunlit, terracotta and cream', hue: 20, sat: 0.6 }, modern: { d: 'clean cool neutrals, one electric accent', hue: 240, sat: 0.75 },
+    corporate: { d: 'trustworthy blues with a clear accent', hue: 215, sat: 0.6 }, energetic: { d: 'vivid, punchy, high-chroma', hue: 15, sat: 0.9 },
+  }
+  const key = feel.find(f => dirs[f]) ?? 'modern'
+  const dd = dirs[key]
+  const toHex = (h: number, s: number, l: number) => { const c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs(((h/60)%2)-1)),m=l-c/2; const [r,g,b]=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x]; return '#'+[r,g,b].map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('') }
+  const palette = [toHex(dd.hue,dd.sat,0.45), toHex(dd.hue+30,dd.sat,0.6), toHex(dd.hue+180,Math.min(0.9,dd.sat+0.1),0.55), toHex(dd.hue,0.08,0.15), toHex(dd.hue,0.05,0.96)]
+  const typeFeel = feel.includes('premium')||feel.includes('luxury')||feel.includes('elegant') ? 'A refined serif for headings over a clean sans' : feel.includes('playful')||feel.includes('fun')||feel.includes('youthful') ? 'A bold rounded display over a friendly sans' : feel.includes('bold') ? 'A heavy condensed display over a neutral sans' : 'A confident geometric sans throughout'
+  return { audience: audMatch ? audMatch[1].trim() : 'not stated', feel, must: must.slice(0, 6), direction: dd.d, palette, type: typeFeel }
 }

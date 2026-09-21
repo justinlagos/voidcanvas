@@ -22,7 +22,7 @@ export function StartScreen() {
         <h1 className="text-[26px] sm:text-[32px] font-semibold tracking-tight">What are you making?</h1>
         <p className="mt-1.5 text-[14px] text-void-400">Start from a photo or pick a size. Everything stays on your device until you export.</p>
 
-        <input ref={file} type="file" accept="image/*" multiple hidden onChange={e => importFiles(Array.from(e.target.files ?? []))} />
+        <input ref={file} type="file" accept="image/*,.psd,.pdf" multiple hidden onChange={e => importFiles(Array.from(e.target.files ?? []))} />
         <button
           onClick={() => file.current?.click()}
           onDragOver={e => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)}
@@ -31,7 +31,7 @@ export function StartScreen() {
           <span className="w-12 h-12 rounded-xl bg-[#8b7cff] text-white flex items-center justify-center shrink-0"><ImagePlus size={22} /></span>
           <span>
             <span className="block text-[15px] font-medium">Open a photo</span>
-            <span className="block text-[13px] text-void-400">Drop one here, choose a file, or paste with Ctrl+V. Retouch it, cut out the background, add type.</span>
+            <span className="block text-[13px] text-void-400">Drop a photo, PSD or PDF, choose a file, or paste with Ctrl+V. PSDs keep their layers.</span>
           </span>
         </button>
 
