@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, Eclipse, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
+import { AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, Eclipse, FolderPlus, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
 import { effectParams } from '@/components/ParamControls'
 import { defaultParams, type EffectParams } from '@/store/useStore'
 import { subjectMask } from '../ai'
@@ -9,7 +9,8 @@ import { ADJUSTMENT_DEFAULTS } from '../engine'
 import { FONTS, ensureFont } from '../io'
 import { useEditor } from '../store'
 import { BLEND_MODES, type AdjustmentLayer, type Layer, type ShapeLayer, type TextLayer } from '../types'
-import { Button, ColorField, Section, Select, Slider, focusRing } from './ui'
+import { CURVE_PRESETS, CurvesEditor } from './CurvesEditor'
+import { Button, ColorField, IconButton, Section, Select, Slider, focusRing } from './ui'
 
 const ADJ_FIELDS: Record<string, { key: string; label: string; min: number; max: number }[]> = {
   brightnessContrast: [{ key: 'brightness', label: 'Brightness', min: -100, max: 100 }, { key: 'contrast', label: 'Contrast', min: -100, max: 100 }],
@@ -21,12 +22,12 @@ const ADJ_FIELDS: Record<string, { key: string; label: string; min: number; max:
   invert: [],
 }
 
-export async function removeBackground(layerId: string) {
+export async function removeBackground(layerId: string, mode: 'person' | 'any' = 'person') {
   const s = useEditor.getState()
   const l = s.layers.find(x => x.id === layerId)
   if (!l || l.type !== 'raster') return
   try {
-    const mask = await subjectMask(l.canvas, m => useEditor.getState().setBusy(m))
+    const mask = await subjectMask(l.canvas, m => useEditor.getState().setBusy(m), mode)
     useEditor.getState().updateLayer(l.id, { mask, maskEnabled: true }, 'Remove background')
     useEditor.getState().notify('Background hidden with a mask. Paint on the mask to fine-tune the edges.')
   } catch (e) {
@@ -40,6 +41,8 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
   const doc = useEditor(s => s.doc)
   const editingMask = useEditor(s => s.editingMask)
   const swatches = useEditor(s => s.swatches)
+  const count = useEditor(s => s.selectedIds.length)
+  const group = useEditor(s => { const l = s.layers.find(x => x.id === s.activeId); return l?.groupId ? s.groups.find(g => g.id === l.groupId) ?? null : null })
   const s = useEditor.getState()
   if (!doc) return null
 
@@ -66,6 +69,20 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
     )
   }
 
+  const arrange = (
+    <Section title={count > 1 ? `${count} layers selected` : 'Position'}>
+      <div className="flex items-center justify-between">
+        {([['left', AlignStartVertical, 'Align left'], ['hcenter', AlignCenterVertical, 'Centre horizontally'], ['right', AlignEndVertical, 'Align right'], ['top', AlignStartHorizontal, 'Align top'], ['vcenter', AlignCenterHorizontal, 'Centre vertically'], ['bottom', AlignEndHorizontal, 'Align bottom']] as const).map(([how, Icon, label]) => (
+          <IconButton key={how} label={count > 1 ? label : `${label} on the page`} onClick={() => s.align(how)}><Icon size={16} /></IconButton>
+        ))}
+      </div>
+      {count > 1 && <Button onClick={() => s.groupSelected()} className="w-full mt-2.5"><FolderPlus size={15} />Group these layers</Button>}
+      {count > 1 && <p className="mt-2 text-[12px] text-void-500">Drag any of them to move them together.</p>}
+    </Section>
+  )
+
+  if (count > 1) return <div>{arrange}</div>
+
   return (
     <div>
       <Section title={layer.type === 'adjustment' ? layer.name : layer.type === 'text' ? 'Text' : layer.type === 'shape' ? 'Shape' : 'Image layer'}>
@@ -75,10 +92,13 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
         </div>
       </Section>
 
+      {layer.type !== 'adjustment' && arrange}
+
       {layer.type === 'raster' && (
         <Section title="Quick actions">
           <div className="grid grid-cols-2 gap-2">
             <Button onClick={() => removeBackground(layer.id)} className="col-span-2 !justify-start"><ImageOff size={15} />Remove background</Button>
+            <button onClick={() => removeBackground(layer.id, 'any')} className={`col-span-2 -mt-1 text-left text-[12px] text-void-400 hover:text-white underline underline-offset-2 rounded ${focusRing}`}>Not a person? Use the any-subject model (115 MB, needs a recent browser)</button>
             <Button onClick={onOpenFilters} className="col-span-2 !justify-start"><Eclipse size={15} />Filters and adjustments</Button>
             <Button onClick={() => s.flip(layer.id, 'h')}><FlipHorizontal2 size={15} />Mirror</Button>
             <Button onClick={() => s.flip(layer.id, 'v')}><FlipVertical2 size={15} />Flip</Button>
@@ -89,6 +109,15 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
       {layer.type === 'text' && <TextProps layer={layer} />}
       {layer.type === 'shape' && <ShapeProps layer={layer} />}
       {layer.type === 'adjustment' && <AdjustmentProps layer={layer} />}
+
+      {group && (
+        <Section title={group.name}>
+          <div className="space-y-2.5">
+            <Slider label="Group opacity" value={Math.round(group.opacity * 100)} min={0} max={100} unit="%" onChange={v => s.updateGroup(group.id, { opacity: v / 100 })} onCommit={commit('Group opacity')} />
+            <div className="grid grid-cols-2 gap-2"><Button onClick={() => s.selectGroup(group.id)}>Select all</Button><Button onClick={() => s.ungroup(group.id)}>Ungroup</Button></div>
+          </div>
+        </Section>
+      )}
 
       <Section title="Mask">
         {layer.mask ? (
@@ -180,6 +209,19 @@ function AdjustmentProps({ layer }: { layer: AdjustmentLayer }) {
           {cfg.length <= 1 && <p className="text-[12px] text-void-500">This filter has no settings. Use Opacity above to soften it.</p>}
           <p className="text-[12px] text-void-500 leading-relaxed">Filters affect every layer beneath them and stay editable. Add a mask to limit where they apply.</p>
         </div>
+      </Section>
+    )
+  }
+  if (layer.kind === 'curves') {
+    const pts = layer.points ?? [[0, 0], [255, 255]]
+    const setPts = (points: [number, number][]) => s.updateLayer(layer.id, { points } as Partial<AdjustmentLayer>)
+    return (
+      <Section title="Curve" action={<button aria-label="Reset" title="Reset" onClick={() => s.updateLayer(layer.id, { points: [[0, 0], [255, 255]] } as Partial<AdjustmentLayer>, 'Reset curve')} className={`text-void-400 hover:text-white rounded ${focusRing}`}><RotateCcw size={14} /></button>}>
+        <CurvesEditor points={pts} onChange={setPts} onCommit={() => s.commit('Curves')} />
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {CURVE_PRESETS.map(p => <button key={p.label} onClick={() => s.updateLayer(layer.id, { points: p.points } as Partial<AdjustmentLayer>, 'Curves')} className={`h-7 px-2.5 rounded-md text-[12px] bg-void-900 border border-void-800 text-void-300 hover:text-white ${focusRing}`}>{p.label}</button>)}
+        </div>
+        <p className="mt-2.5 text-[12px] text-void-500 leading-relaxed">Click the line to add a point, drag to bend it, double-click a point to remove it.</p>
       </Section>
     )
   }

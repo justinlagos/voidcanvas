@@ -12,6 +12,7 @@ const ADJUSTMENTS: { kind: AdjustmentKind; hint: string }[] = [
   { kind: 'brightnessContrast', hint: 'Lighter, darker, punchier' },
   { kind: 'hueSaturation', hint: 'Shift or boost colours' },
   { kind: 'temperature', hint: 'Warmer or cooler' },
+  { kind: 'curves', hint: 'Full control over tone and contrast' },
   { kind: 'levels', hint: 'Fix flat or washed-out photos' },
   { kind: 'blackWhite', hint: 'Remove colour' },
   { kind: 'blur', hint: 'Soften everything below' },

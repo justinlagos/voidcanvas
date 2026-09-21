@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  brushTip, cloneCanvas, ctx2d, floodMask, healRegion, hitLayer, layerCorners, layerSize,
+  brushTip, cloneCanvas, ctx2d, floodMask, fontString, healRegion, hitLayer, layerBounds, layerCorners, layerSize,
   makeCanvas, maskEdges, renderDoc, type LiveStroke,
 } from '../engine'
 import { importFiles } from '../io'
@@ -16,7 +16,7 @@ const HANDLES: [number, number][] = [[0, 0], [0.5, 0], [1, 0], [1, 0.5], [1, 1],
 type Pt = { x: number; y: number }
 type Drag =
   | { kind: 'pan'; sx: number; sy: number; px: number; py: number }
-  | { kind: 'move'; start: Pt; ox: number; oy: number; id: string; moved: boolean }
+  | { kind: 'move'; start: Pt; items: { id: string; ox: number; oy: number }[]; box: Rect; snapX: number[]; snapY: number[]; moved: boolean }
   | { kind: 'resize'; id: string; h: number; l0: Layer; w: number; hgt: number; anchor: Pt }
   | { kind: 'rotate'; id: string; center: Pt; a0: number; r0: number }
   | { kind: 'stroke'; last: Pt; carry: number; snapshot?: HTMLCanvasElement; offset?: Pt; tool: ToolId }
@@ -82,7 +82,8 @@ export function Stage() {
     if (needComposite.current || live.current) {
       if (!comp.current) comp.current = makeCanvas(1, 1)
       const vs = Math.min(1, 2000 / Math.max(doc.width, doc.height))
-      renderDoc(comp.current, doc, s.layers, { scale: vs, live: live.current })
+      const shown = s.editingTextId ? s.layers.filter(l => l.id !== s.editingTextId) : s.layers
+      renderDoc(comp.current, doc, shown, { groups: s.groups, scale: vs, live: live.current })
       needComposite.current = false
     }
 
@@ -127,10 +128,17 @@ export function Stage() {
     }
 
     const active = s.active()
-    if (s.tool === 'move' && active && active.type !== 'adjustment' && active.visible) {
-      const pts = layerCorners(active, doc).map(toScreen)
+    if (s.tool === 'move' && !s.editingTextId) {
+      octx.strokeStyle = ACCENT; octx.lineWidth = s.selectedIds.length > 1 ? 1 : 1.5
+      for (const l of s.layers) {
+        if (!s.selectedIds.includes(l.id) || l.type === 'adjustment' || !l.visible) continue
+        const pts = layerCorners(l, doc).map(toScreen)
+        octx.beginPath(); pts.forEach((p, i) => (i ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y))); octx.closePath(); octx.stroke()
+      }
+    }
+    if (s.tool === 'move' && !s.editingTextId && s.selectedIds.length === 1 && active && active.type !== 'adjustment' && active.visible) {
       octx.strokeStyle = ACCENT; octx.lineWidth = 1.5
-      octx.beginPath(); pts.forEach((p, i) => (i ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y))); octx.closePath(); octx.stroke()
+      {
       if (!active.locked) {
         const hp = handlePoints(active).map(toScreen)
         const rot = hp[8]
@@ -140,6 +148,7 @@ export function Stage() {
           if (i === 8) octx.arc(p.x, p.y, 6, 0, Math.PI * 2); else octx.rect(p.x - 5, p.y - 5, 10, 10)
           octx.fillStyle = '#fff'; octx.fill(); octx.stroke()
         })
+      }
       }
     }
 
@@ -339,7 +348,10 @@ export function Stage() {
 
   // ── Pointer events ───────────────────────────────────────────────
 
+  const inEditor = (e: React.PointerEvent) => (e.target as HTMLElement).tagName === 'TEXTAREA'
+
   function onDown(e: React.PointerEvent) {
+    if (inEditor(e)) return
     const s = useEditor.getState()
     if (!s.doc) return
     const sp = local(e)
@@ -372,7 +384,7 @@ export function Stage() {
 
     if (t === 'move') {
       const act = s.active()
-      if (act && act.type !== 'adjustment' && !act.locked && act.visible) {
+      if (s.selectedIds.length === 1 && act && act.type !== 'adjustment' && !act.locked && act.visible) {
         const hp = handlePoints(act)
         const tol = 11 / s.view.zoom
         const hi = hp.findIndex(h => Math.hypot(h.x - p.x, h.y - p.y) <= tol)
@@ -387,11 +399,25 @@ export function Stage() {
           drag.current = { kind: 'resize', id: act.id, h: hi, l0: act, w, hgt: h, anchor: opp }; return
         }
       }
-      const hit = hitLayer(s.layers, p.x, p.y, s.doc)
+      const hit = hitLayer(s.layers, p.x, p.y, s.doc, s.groups)
+      if (hit && e.detail === 2 && hit.type === 'text') { s.setActive(hit.id); useEditor.setState({ editingTextId: hit.id }); return }
+      if (hit && e.shiftKey) { s.toggleSelect(hit.id); invalidate(); return }
       if (hit) {
-        if (hit.id !== s.activeId) s.setActive(hit.id)
-        drag.current = { kind: 'move', start: p, ox: hit.x, oy: hit.y, id: hit.id, moved: false }
-      } else s.setActive(null)
+        if (!s.selectedIds.includes(hit.id)) s.setActive(hit.id)
+        const st = useEditor.getState()
+        const moving = st.layers.filter(l => st.selectedIds.includes(l.id) && !l.locked && l.type !== 'adjustment')
+        const boxes = moving.map(l => layerBounds(l, s.doc!))
+        const x0 = Math.min(...boxes.map(b => b.x)), y0 = Math.min(...boxes.map(b => b.y))
+        const box = { x: x0, y: y0, w: Math.max(...boxes.map(b => b.x + b.w)) - x0, h: Math.max(...boxes.map(b => b.y + b.h)) - y0 }
+        // Things to snap to: the page, and the edges and centres of every other visible layer.
+        const snapX = [0, s.doc.width / 2, s.doc.width], snapY = [0, s.doc.height / 2, s.doc.height]
+        for (const o of st.layers.slice(-40)) {
+          if (st.selectedIds.includes(o.id) || !o.visible || o.type === 'adjustment') continue
+          const b = layerBounds(o, s.doc)
+          snapX.push(b.x, b.x + b.w / 2, b.x + b.w); snapY.push(b.y, b.y + b.h / 2, b.y + b.h)
+        }
+        drag.current = { kind: 'move', start: p, items: moving.map(l => ({ id: l.id, ox: l.x, oy: l.y })), box, snapX, snapY, moved: false }
+      } else if (!e.shiftKey) s.setActive(null)
       invalidate(); return
     }
 
@@ -417,7 +443,7 @@ export function Stage() {
       if (t === 'fill' && s.selection) { s.fillSelection(s.fg); return }
       if (t === 'wand') {
         const full = makeCanvas(s.doc.width, s.doc.height)
-        renderDoc(full, s.doc, s.layers, { noCache: true })
+        renderDoc(full, s.doc, s.layers, { groups: s.groups, noCache: true })
         applySelection(floodMask(full, p.x, p.y, s.options.tolerance, s.options.contiguous), e.shiftKey, e.altKey, 'Magic wand')
       } else {
         const target = s.ensurePaintable(); if (!target || target.type !== 'raster') return
@@ -438,6 +464,7 @@ export function Stage() {
   }
 
   function onMove(e: React.PointerEvent) {
+    if (inEditor(e) && !drag.current) return
     const s = useEditor.getState()
     const sp = local(e)
     cursor.current = e.pointerType === 'mouse' || e.pointerType === 'pen' ? sp : null
@@ -459,23 +486,28 @@ export function Stage() {
     if (d.kind === 'pan') { s.setView({ panX: d.px + sp.x - d.sx, panY: d.py + sp.y - d.sy }); return }
 
     if (d.kind === 'move') {
-      const l = s.layers.find(x => x.id === d.id); if (!l) return
-      let nx = d.ox + p.x - d.start.x, ny = d.oy + p.y - d.start.y
-      if (!d.moved && Math.hypot(p.x - d.start.x, p.y - d.start.y) * s.view.zoom < 3) return
+      let dx = p.x - d.start.x, dy = p.y - d.start.y
+      if (!d.moved && Math.hypot(dx, dy) * s.view.zoom < 3) return
       d.moved = true
-      // Snap the box edges and centre to the document edges and centre.
-      const { w, h } = layerSize(l, s.doc)
-      const bw = w * l.scaleX, bh = h * l.scaleY
+      if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0 }
       const tol = 6 / s.view.zoom
       guides.current = { v: [], h: [] }
-      if (!e.altKey && l.rotation === 0) {
-        const xs: [number, number][] = [[0, 0], [s.doc.width / 2, bw / 2], [s.doc.width, bw]]
-        const ys: [number, number][] = [[0, 0], [s.doc.height / 2, bh / 2], [s.doc.height, bh]]
-        for (const [g, off] of xs) if (Math.abs(nx + off - g) < tol) { nx = g - off; guides.current.v.push(g); break }
-        for (const [g, off] of ys) if (Math.abs(ny + off - g) < tol) { ny = g - off; guides.current.h.push(g); break }
+      if (!e.altKey) {
+        const snap = (pos: number, size: number, targets: number[]) => {
+          let best: { d: number; g: number } | null = null
+          for (const g of targets) for (const off of [0, size / 2, size]) {
+            const dd = g - (pos + off)
+            if (Math.abs(dd) < tol && (!best || Math.abs(dd) < Math.abs(best.d))) best = { d: dd, g }
+          }
+          return best
+        }
+        const sx = dy === 0 && e.shiftKey ? snap(d.box.x + dx, d.box.w, d.snapX) : dx === 0 && e.shiftKey ? null : snap(d.box.x + dx, d.box.w, d.snapX)
+        const sy = dx === 0 && e.shiftKey ? snap(d.box.y + dy, d.box.h, d.snapY) : dy === 0 && e.shiftKey ? null : snap(d.box.y + dy, d.box.h, d.snapY)
+        if (sx) { dx += sx.d; guides.current.v.push(sx.g) }
+        if (sy) { dy += sy.d; guides.current.h.push(sy.g) }
       }
-      if (e.shiftKey) { if (Math.abs(p.x - d.start.x) > Math.abs(p.y - d.start.y)) ny = d.oy; else nx = d.ox }
-      s.updateLayer(d.id, { x: nx, y: ny }); return
+      for (const it of d.items) s.updateLayer(it.id, { x: it.ox + dx, y: it.oy + dy })
+      return
     }
 
     if (d.kind === 'rotate') {
@@ -622,6 +654,7 @@ export function Stage() {
     >
       <canvas ref={viewC} className="absolute inset-0 w-full h-full" />
       <canvas ref={overC} className="absolute inset-0 w-full h-full pointer-events-none" />
+      <TextEditor />
     </div>
   )
 }
@@ -629,4 +662,39 @@ export function Stage() {
 export function isTyping(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null
   return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+}
+
+/** Type straight onto the canvas. Sits exactly over the text layer, which is hidden while this is open. */
+function TextEditor() {
+  const id = useEditor(s => s.editingTextId)
+  const layer = useEditor(s => s.layers.find(l => l.id === s.editingTextId))
+  const view = useEditor(s => s.view)
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    if (!id) { setReady(false); return }
+    // Focus after the click that opened the editor has finished, or the browser takes focus back.
+    const t = setTimeout(() => { setReady(true); ref.current?.focus(); ref.current?.select() }, 60)
+    return () => clearTimeout(t)
+  }, [id])
+  if (!layer || layer.type !== 'text') return null
+  const { w, h } = layerSize(layer)
+  const k = view.zoom
+  const close = () => { if (!ready) return; useEditor.setState({ editingTextId: null }); useEditor.getState().commit('Edit text') }
+  return (
+    <textarea
+      ref={ref} value={layer.text} spellCheck={false} aria-label="Edit text"
+      onChange={e => useEditor.getState().updateLayer(layer.id, { text: e.target.value })}
+      onBlur={close}
+      onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) (e.target as HTMLTextAreaElement).blur() }}
+      style={{
+        position: 'absolute', left: view.panX + layer.x * k, top: view.panY + layer.y * k,
+        width: w * layer.scaleX * k + 4, height: h * layer.scaleY * k + 4,
+        transform: `rotate(${layer.rotation}rad)`, transformOrigin: `${(w * layer.scaleX * k) / 2}px ${(h * layer.scaleY * k) / 2}px`,
+        font: fontString({ ...layer, fontSize: layer.fontSize * layer.scaleX * k }), lineHeight: layer.lineHeight, letterSpacing: layer.letterSpacing * k,
+        color: layer.color, textAlign: layer.align, padding: 2 * k, margin: 0, border: 0, background: 'transparent', resize: 'none',
+        overflow: 'hidden', whiteSpace: 'pre', outline: '1.5px solid #8b7cff', outlineOffset: 2, caretColor: '#8b7cff', cursor: 'text',
+      }}
+    />
+  )
 }

@@ -1,5 +1,5 @@
 import { applyEffect } from '@/lib/effects'
-import type { AdjustmentLayer, Doc, Layer, RasterLayer, Rect, TextLayer } from './types'
+import type { AdjustmentLayer, Doc, Group, Layer, RasterLayer, Rect, TextLayer } from './types'
 
 // ─── Canvas helpers ────────────────────────────────────────────────
 
@@ -102,10 +102,11 @@ export function rasterizeToDoc(l: RasterLayer, doc: Doc): Pick<RasterLayer, 'can
 }
 
 /** Topmost selectable layer under a document point. */
-export function hitLayer(layers: Layer[], x: number, y: number, doc: Doc): Layer | null {
+export function hitLayer(layers: Layer[], x: number, y: number, doc: Doc, groups: Group[] = []): Layer | null {
+  const hidden = new Set(groups.filter(g => !g.visible).map(g => g.id))
   for (let i = layers.length - 1; i >= 0; i--) {
     const l = layers[i]
-    if (!l.visible || l.locked || l.type === 'adjustment') continue
+    if (!l.visible || l.locked || l.type === 'adjustment' || (l.groupId && hidden.has(l.groupId))) continue
     const { w, h } = layerSize(l, doc)
     const p = docToLocal(l, x, y, doc)
     if (p.x < 0 || p.y < 0 || p.x >= w || p.y >= h) continue
@@ -205,7 +206,33 @@ export const ADJUSTMENT_DEFAULTS: Record<string, Record<string, number>> = {
   blackWhite: { amount: 100 },
   invert: {},
   blur: { radius: 8 },
+  curves: {},
   voidEffect: {},
+}
+
+/** Smooth tone curve through the control points (monotone cubic, so it never overshoots). */
+export function curveLut(points: [number, number][]): Uint8ClampedArray {
+  const pts = [...points].sort((a, b) => a[0] - b[0])
+  const n = pts.length, lut = new Uint8ClampedArray(256)
+  if (n < 2) { for (let i = 0; i < 256; i++) lut[i] = i; return lut }
+  const dx: number[] = [], m: number[] = [], t: number[] = new Array(n).fill(0)
+  for (let i = 0; i < n - 1; i++) { dx[i] = Math.max(1e-6, pts[i + 1][0] - pts[i][0]); m[i] = (pts[i + 1][1] - pts[i][1]) / dx[i] }
+  t[0] = m[0]; t[n - 1] = m[n - 2]
+  for (let i = 1; i < n - 1; i++) t[i] = m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2
+  for (let i = 0; i < n - 1; i++) {
+    if (m[i] === 0) { t[i] = 0; t[i + 1] = 0; continue }
+    const a = t[i] / m[i], b = t[i + 1] / m[i], h = a * a + b * b
+    if (h > 9) { const k = 3 / Math.sqrt(h); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i] }
+  }
+  let seg = 0
+  for (let x = 0; x < 256; x++) {
+    if (x <= pts[0][0]) { lut[x] = pts[0][1]; continue }
+    if (x >= pts[n - 1][0]) { lut[x] = pts[n - 1][1]; continue }
+    while (seg < n - 2 && x > pts[seg + 1][0]) seg++
+    const h = dx[seg], u = (x - pts[seg][0]) / h, u2 = u * u, u3 = u2 * u
+    lut[x] = clamp255((2 * u3 - 3 * u2 + 1) * pts[seg][1] + (u3 - 2 * u2 + u) * h * t[seg] + (-2 * u3 + 3 * u2) * pts[seg + 1][1] + (u3 - u2) * h * t[seg + 1])
+  }
+  return lut
 }
 
 function applyBuiltIn(img: ImageData, l: AdjustmentLayer, scale: number) {
@@ -252,6 +279,7 @@ function applyBuiltIn(img: ImageData, l: AdjustmentLayer, scale: number) {
       }
       break
     }
+    case 'curves': lutApply(d, curveLut(l.points ?? [[0, 0], [255, 255]])); break
     case 'blur': boxBlur(img, Math.max(1, v.radius * scale * 0.6)); break
   }
 }
@@ -297,6 +325,7 @@ export interface RenderOptions {
   /** Skip the adjustment cache, e.g. for export at a different scale. */
   noCache?: boolean
   transparent?: boolean
+  groups?: Group[]
 }
 
 export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], opts: RenderOptions = {}) {
@@ -313,13 +342,30 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
   let belowKey = `${W}x${H}|${opts.transparent ? '' : doc.background}`
   let liveBelow = false
 
-  for (const l of layers) {
+  const gmap = new Map((opts.groups ?? []).map(g => [g.id, g]))
+  for (let li = 0; li < layers.length; li++) {
+    const l = layers[li]
+    const grp = l.groupId ? gmap.get(l.groupId) : undefined
+    if (grp && !grp.visible) { belowKey += `|g${grp.id}:off`; continue }
+    if (grp && grp.opacity < 1) {
+      // A faded group is flattened first, then drawn once, so its layers do not show through each other.
+      let end = li
+      while (end + 1 < layers.length && layers[end + 1].groupId === grp.id) end++
+      const run = layers.slice(li, end + 1)
+      const tmp = makeCanvas(W, H)
+      renderDoc(tmp, doc, run.map(x => ({ ...x, groupId: null } as Layer)), { scale: s, live: opts.live, noCache: true, transparent: true })
+      if (opts.live && run.some(x => x.id === opts.live!.layerId)) liveBelow = true
+      acc.globalAlpha = grp.opacity; acc.drawImage(tmp, 0, 0); acc.globalAlpha = 1
+      belowKey += `|g${grp.id}:${grp.opacity}:` + run.map(x => `${x.id}:${x.rev}`).join(',')
+      li = end
+      continue
+    }
     if (!l.visible) continue
     const live = opts.live && opts.live.layerId === l.id ? opts.live : null
     if (live) liveBelow = true
 
     if (l.type === 'adjustment') {
-      const settingsKey = `${l.kind}|${JSON.stringify(l.values)}|${l.effect}|${l.effect ? JSON.stringify(l.effectParams) : ''}`
+      const settingsKey = `${l.kind}|${JSON.stringify(l.values)}|${l.points ? JSON.stringify(l.points) : ''}|${l.effect}|${l.effect ? JSON.stringify(l.effectParams) : ''}`
       const key = `${belowKey}#${settingsKey}`
       let processed: HTMLCanvasElement
       const cached = opts.noCache ? undefined : adjCacheById.get(l.id)

@@ -40,6 +40,8 @@ interface LayerBase {
   /** Alpha mask in layer-local pixels (document pixels for adjustment layers). Opaque = visible. */
   mask: HTMLCanvasElement | null
   maskEnabled: boolean
+  /** Group this layer belongs to. Members of a group are always next to each other in the stack. */
+  groupId?: string | null
   /** Bumped on every visual change. Drives caches and thumbnails. */
   rev: number
 }
@@ -75,17 +77,21 @@ export interface ShapeLayer extends LayerBase {
 
 export type AdjustmentKind =
   | 'brightnessContrast' | 'hueSaturation' | 'levels' | 'temperature'
-  | 'blackWhite' | 'invert' | 'blur' | 'voidEffect'
+  | 'blackWhite' | 'invert' | 'blur' | 'curves' | 'voidEffect'
 
 export interface AdjustmentLayer extends LayerBase {
   type: 'adjustment'
   kind: AdjustmentKind
   /** Numeric settings for the built-in adjustments. */
   values: Record<string, number>
+  /** Only for kind === 'curves': control points, 0..255 on both axes, sorted by x. */
+  points?: [number, number][]
   /** Only for kind === 'voidEffect'. */
   effect?: EffectType
   effectParams?: EffectParams
 }
+
+export interface Group { id: string; name: string; visible: boolean; opacity: number; collapsed: boolean }
 
 export type Layer = RasterLayer | TextLayer | ShapeLayer | AdjustmentLayer
 

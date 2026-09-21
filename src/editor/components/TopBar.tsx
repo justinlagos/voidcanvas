@@ -1,13 +1,13 @@
 'use client'
 
-import { Download, Maximize, Minus, Plus, Redo2, Undo2, FolderOpen } from 'lucide-react'
+import { Download, Search, Maximize, Minus, Plus, Redo2, Undo2, FolderOpen } from 'lucide-react'
 import { AppNav, Logo } from '@/components/AppNav'
 import { saveProject } from '../io'
 import { useEditor } from '../store'
 import { stageApi } from './Stage'
 import { Button, IconButton, focusRing } from './ui'
 
-export function TopBar({ onExport, onAdd }: { onExport: () => void; onAdd: () => void }) {
+export function TopBar({ onExport, onAdd, onSearch }: { onExport: () => void; onAdd: () => void; onSearch: () => void }) {
   const doc = useEditor(s => s.doc)
   const zoom = useEditor(s => s.view.zoom)
   const canUndo = useEditor(s => s.historyIndex > 0)
@@ -34,6 +34,7 @@ export function TopBar({ onExport, onAdd }: { onExport: () => void; onAdd: () =>
             <IconButton label="Zoom in" shortcut="Ctrl++" onClick={() => stageApi.zoomBy(1.25)}><Plus size={16} /></IconButton>
             <IconButton label="Fit to screen" shortcut="Ctrl+0" onClick={() => stageApi.fit()}><Maximize size={15} /></IconButton>
           </div>
+          <button onClick={onSearch} title="Search every action (Ctrl+K)" className={`hidden lg:flex items-center gap-2 h-8 pl-2.5 pr-2 rounded-lg bg-void-900 border border-void-800 text-[12.5px] text-void-400 hover:text-white ${focusRing}`}><Search size={13} />Search actions<kbd className="ml-2 text-[10.5px] px-1.5 py-0.5 rounded bg-void-800 text-void-300">Ctrl K</kbd></button>
           <IconButton label="All designs" onClick={async () => { await saveProject(); s.closeDoc() }} className="hidden sm:inline-flex"><FolderOpen size={16} /></IconButton>
           <Button onClick={onAdd} className="!bg-[#8b7cff] !text-white hover:!bg-[#9a8dff] !px-2.5 sm:!px-3.5"><Plus size={15} /><span className="hidden sm:inline">Add</span><span className="sr-only sm:hidden">Add</span></Button>
           <Button primary onClick={onExport} className="!px-2.5 sm:!px-3.5"><Download size={15} /><span className="hidden sm:inline">Export</span><span className="sr-only sm:hidden">Export</span></Button>

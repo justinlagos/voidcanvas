@@ -1,6 +1,6 @@
 import { ctx2d, makeCanvas, renderDoc } from './engine'
 import { nextRev, useEditor } from './store'
-import type { Doc, Layer } from './types'
+import type { Doc, Group, Layer } from './types'
 
 // ─── IndexedDB ─────────────────────────────────────────────────────
 // One local database shared by every module: Editor projects, Studio boards,
@@ -106,10 +106,10 @@ export async function importFiles(files: File[] | Blob[], names?: string[]) {
 export interface ExportOptions { format: 'png' | 'jpeg' | 'webp'; scale: number; quality: number; transparent: boolean }
 
 export async function exportImage(o: ExportOptions): Promise<Blob> {
-  const { doc, layers } = useEditor.getState()
+  const { doc, layers, groups } = useEditor.getState()
   if (!doc) throw new Error('Nothing to export')
   const c = makeCanvas(doc.width * o.scale, doc.height * o.scale)
-  renderDoc(c, doc, layers, { scale: o.scale, noCache: true, transparent: o.transparent && o.format !== 'jpeg' })
+  renderDoc(c, doc, layers, { groups, scale: o.scale, noCache: true, transparent: o.transparent && o.format !== 'jpeg' })
   if (o.format === 'jpeg' && !doc.background) {
     const flat = makeCanvas(c.width, c.height); const x = ctx2d(flat)
     x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(c, 0, 0)
@@ -128,10 +128,10 @@ export function downloadBlob(blob: Blob, filename: string) {
 // ─── Projects ──────────────────────────────────────────────────────
 
 export interface ProjectSummary { id: string; name: string; updatedAt: number; width: number; height: number; thumb: string }
-interface StoredProject { id: string; doc: Doc; layers: any[]; swatches: string[]; blobs: Record<string, Blob> }
+interface StoredProject { id: string; doc: Doc; layers: any[]; groups?: Group[]; swatches: string[]; blobs: Record<string, Blob> }
 
 export async function saveProject(): Promise<void> {
-  const { doc, layers, swatches, markSaved } = useEditor.getState()
+  const { doc, layers, groups, swatches, markSaved } = useEditor.getState()
   if (!doc) return
   const blobs: Record<string, Blob> = {}
   const meta = await Promise.all(layers.map(async l => {
@@ -142,8 +142,8 @@ export async function saveProject(): Promise<void> {
   }))
   const k = Math.min(1, 360 / Math.max(doc.width, doc.height))
   const thumb = makeCanvas(doc.width * k, doc.height * k)
-  renderDoc(thumb, doc, layers, { scale: k, noCache: true })
-  const stored: StoredProject = { id: doc.id, doc, layers: meta, swatches, blobs }
+  renderDoc(thumb, doc, layers, { groups, scale: k, noCache: true })
+  const stored: StoredProject = { id: doc.id, doc, layers: meta, groups, swatches, blobs }
   await idb.put('projects', stored)
   const summary: ProjectSummary = { id: doc.id, name: doc.name, updatedAt: Date.now(), width: doc.width, height: doc.height, thumb: thumb.toDataURL('image/jpeg', 0.7) }
   await idb.put('index', summary)
@@ -159,7 +159,7 @@ export async function openProject(id: string): Promise<boolean> {
     if (m.type === 'raster') l.canvas = p.blobs[m.id] ? await blobToCanvas(p.blobs[m.id], 1e6) : makeCanvas(1, 1)
     return l as Layer
   }))
-  useEditor.getState().loadProject(p.doc, layers, p.swatches)
+  useEditor.getState().loadProject(p.doc, layers, p.swatches, p.groups ?? [])
   return true
 }
 

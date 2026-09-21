@@ -6,6 +6,7 @@ import { blobToCanvas, importFiles, openProject, saveProject, takeHandoff } from
 import { useEditor } from '../store'
 import type { ToolId } from '../types'
 import { AddMenu } from './AddMenu'
+import { CommandPalette } from './CommandPalette'
 import { ExportDialog } from './ExportDialog'
 import { LayersPanel } from './LayersPanel'
 import { OptionsBar } from './OptionsBar'
@@ -23,7 +24,7 @@ export function EditorShell() {
   const busy = useEditor(s => s.busy)
   const dirty = useEditor(s => s.dirty)
   const historyIndex = useEditor(s => s.historyIndex)
-  const [modal, setModal] = useState<null | 'add' | 'filters' | 'export'>(null)
+  const [modal, setModal] = useState<null | 'add' | 'filters' | 'export' | 'palette'>(null)
   const [panel, setPanel] = useState(false)
   const [shownToast, setShownToast] = useState<string | null>(null)
 
@@ -73,6 +74,8 @@ export function EditorShell() {
       const s = useEditor.getState(); if (!s.doc) return
       const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase()
       const stop = () => e.preventDefault()
+      if (mod && k === 'k') { stop(); setModal('palette'); return }
+      if (mod && k === 'g') { stop(); if (e.shiftKey) { const g = s.active()?.groupId; if (g) s.ungroup(g) } else s.groupSelected(); return }
       if (mod && k === 'z') { stop(); e.shiftKey ? s.redo() : s.undo(); return }
       if (mod && k === 'y') { stop(); s.redo(); return }
       if (mod && k === 'j') { stop(); if (s.selection) s.layerFromSelection(false); else if (s.activeId) s.duplicateLayer(s.activeId); return }
@@ -88,7 +91,7 @@ export function EditorShell() {
       if (mod) return
       if (k === 'escape') { if (s.crop) useEditor.setState({ crop: null }); else if (s.selection) s.setSelection(null, 'Deselect'); else if (s.editingMask) s.setEditingMask(false); return }
       if (k === 'enter' && s.crop && s.crop.w > 1) { s.cropTo(s.crop.x, s.crop.y, s.crop.w, s.crop.h); useEditor.setState({ crop: null }); return }
-      if (k === 'delete' || k === 'backspace') { stop(); if (s.selection) s.clearSelectionPixels(); else if (s.activeId) s.removeLayer(s.activeId); return }
+      if (k === 'delete' || k === 'backspace') { stop(); if (s.selection) s.clearSelectionPixels(); else s.removeSelected(); return }
       if (k === 'x') { s.swapColors(); return }
       if (k === 'd') { useEditor.setState({ fg: '#111111', bg: '#ffffff' }); return }
       if (k === '[' || k === ']') {
@@ -96,13 +99,15 @@ export function EditorShell() {
         else if (s.activeId) s.nudgeOrder(s.activeId, k === ']' ? 1 : -1)
         return
       }
-      if (k.startsWith('arrow') && s.activeId) {
-        const l = s.active(); if (!l || l.locked || l.type === 'adjustment') return
+      if (k.startsWith('arrow') && s.selectedIds.length) {
         stop()
         const d = e.shiftKey ? 10 : 1
-        s.updateLayer(l.id, { x: l.x + (k === 'arrowleft' ? -d : k === 'arrowright' ? d : 0), y: l.y + (k === 'arrowup' ? -d : k === 'arrowdown' ? d : 0) }, 'Nudge')
+        const dx = k === 'arrowleft' ? -d : k === 'arrowright' ? d : 0, dy = k === 'arrowup' ? -d : k === 'arrowdown' ? d : 0
+        for (const l of s.layers) if (s.selectedIds.includes(l.id) && !l.locked && l.type !== 'adjustment') s.updateLayer(l.id, { x: l.x + dx, y: l.y + dy })
+        s.commit('Nudge')
         return
       }
+      if (k === 'enter') { const l = s.active(); if (l?.type === 'text') { stop(); useEditor.setState({ editingTextId: l.id, tool: 'move' }) } return }
       if (e.shiftKey && k === 'm') { s.setTool('ellipse'); return }
       if (e.shiftKey && k === 'g') { s.setTool('gradient'); return }
       if (KEYS[k] && !e.altKey) s.setTool(KEYS[k])
@@ -113,7 +118,7 @@ export function EditorShell() {
 
   return (
     <main className="h-[100dvh] flex flex-col bg-void-950 text-void-100 overflow-hidden">
-      <TopBar onExport={() => setModal('export')} onAdd={() => setModal('add')} />
+      <TopBar onExport={() => setModal('export')} onAdd={() => setModal('add')} onSearch={() => setModal('palette')} />
       {!hasDoc ? <StartScreen /> : (
         <>
           <OptionsBar />
@@ -132,6 +137,7 @@ export function EditorShell() {
 
       {modal === 'add' && hasDoc && <AddMenu onClose={() => setModal(null)} />}
       {modal === 'filters' && hasDoc && <AddMenu filtersOnly onClose={() => setModal(null)} />}
+      {modal === 'palette' && hasDoc && <CommandPalette onClose={() => setModal(null)} open={m => setModal(m)} />}
       {modal === 'export' && hasDoc && <ExportDialog onClose={() => setModal(null)} />}
 
       {busy && (

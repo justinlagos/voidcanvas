@@ -24,8 +24,12 @@ Deploys to Netlify as before. No new npm dependencies were added.
 ## Editor
 
 - Layers: image, text, shape, adjustment. Reorder by drag, rename, lock, hide, duplicate, merge down.
+- Multi-select (Shift-click), move together, align to each other or the page, groups with their own visibility and opacity (Ctrl+G).
+- Smart guides: layers snap to the page and to each other's edges and centres.
+- Type directly on the canvas. Double-click or press Enter on a text layer.
+- Command palette (Ctrl+K): every tool, adjustment, filter and action, searchable.
 - Masks on any layer, painted with Brush (show) and Eraser (hide). "Remove background" creates a mask, so nothing is destroyed.
-- Adjustments as layers: brightness and contrast, hue and saturation, temperature, levels, black and white, blur, invert.
+- Adjustments as layers: curves, brightness and contrast, hue and saturation, temperature, levels, black and white, blur, invert.
 - All 60 Void effects as live filter layers. They always compute at max 1200px so preview, export and the Effects tool match.
 - Tools: move/resize/rotate with snapping, crop, text, shape, brush, eraser, fill, gradient, heal, clone stamp, rectangle/ellipse/lasso select, magic wand, eyedropper, pan, zoom. Pen pressure and pinch zoom supported.
 - 40-step undo, autosave, PNG/JPG/WebP export at 0.5x to 3x, transparent export, copy to clipboard, paste and drag-drop import.
@@ -48,11 +52,10 @@ Handoff between modules: `sendHandoff()` writes images, palette and size to the 
 
 ## Known limits
 
-- No layer groups, curves, or smart objects yet.
+- Groups are one level deep. No smart objects, though image layers keep full resolution through any resize until you paint on them.
 - Heal and clone are patch based, not generative.
-- Background removal model is trained on people. Products and objects need a different model or a hosted API.
+- Background removal: fast people model everywhere, plus an any-subject model (BiRefNet lite, MIT, 115 MB) that needs WebGPU. The any-subject path has not been tested on a real GPU browser yet.
 - Canvas 2D engine. Fine to around 4000px; a WebGL compositor is the next step for very large documents.
-- Text is edited in the side panel, not on the canvas.
 - No accounts, cloud sync, templates or community. These come with the Art Director Studio port (Supabase).
 
 ## License
