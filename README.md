@@ -42,7 +42,7 @@ Deploys to Netlify as before. No new npm dependencies were added.
 - ? opens the shortcut sheet.
 - Import PSD (keeps layers, groups, opacity, blend modes) and PDF (each page becomes a layer).
 - Studio brief reader now proposes a colour direction, palette and type feel, and opens a design pre-seeded with them (local now, swaps to live Artie once Supabase is wired).
-- Brand guideline builder: a full, unique brand system (palette with tints and accessible pairings, type scale, spacing, voice, three live mockups) from one colour and a name. Different every build. Exports to PDF.
+- Brand guideline builder: a full landscape deck or portrait document, 8 designed pages (cover, principles, logo, colour with usage ratios, type specimens, real mockups, voice, close), three art directions chosen per build so no two match. Page-by-page preview. Exports a real multi-page PDF or opens in the Editor as layers.
 - Masks on any layer, painted with Brush (show) and Eraser (hide). "Remove background" creates a mask, so nothing is destroyed.
 - Adjustments as layers: curves, brightness and contrast, hue and saturation, temperature, levels, black and white, blur, invert.
 - All 60 Void effects as live filter layers. They always compute at max 1200px so preview, export and the Effects tool match.

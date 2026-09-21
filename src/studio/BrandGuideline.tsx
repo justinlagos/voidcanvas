@@ -1,175 +1,114 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Download, ImagePlus, RefreshCw } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowLeft, Download, ImagePlus, Layers, Monitor, RefreshCw, FileText } from 'lucide-react'
 import { Button, focusRing } from '@/editor/components/ui'
-import { ensureFont } from '@/editor/io'
+import { canvasToBlob, sendHandoff } from '@/editor/io'
 import { extractPalette } from '@/editor/engine'
-import { generateBrand, onLight, type Brand } from './brandgen'
+import { generateBrand, type Brand } from './brandgen'
+import { PAGE_COUNT, SIZES, pageList, renderPage, type Orientation } from './brand-pages'
 
-function useObjectUrl(blob?: Blob | null) {
-  const url = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob])
-  useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])
-  return url
+function useLogoImage(blob: Blob | null) {
+  const [img, setImg] = useState<HTMLImageElement | null>(null)
+  useEffect(() => {
+    if (!blob) { setImg(null); return }
+    const url = URL.createObjectURL(blob); const i = new Image()
+    i.onload = () => setImg(i); i.onerror = () => setImg(null); i.src = url
+    return () => URL.revokeObjectURL(url)
+  }, [blob])
+  return img
 }
 
-// ── Mockups drawn from the brand, so every guideline shows the system in use ──
-
-function CardMock({ b }: { b: Brand }) {
-  const p = b.palette[0]
-  return (
-    <div className="rounded-xl overflow-hidden shadow-sm border border-black/5" style={{ background: p.hex, aspectRatio: '1.6' }}>
-      <div className="h-full p-5 flex flex-col justify-between" style={{ color: onLight(p.hex) ? '#fff' : '#111' }}>
-        <div style={{ fontFamily: b.fonts.heading, fontWeight: 700, fontSize: 22 }}>{b.name}</div>
-        <div>
-          <div style={{ fontFamily: b.fonts.body, fontSize: 12, opacity: 0.85 }}>{b.tagline || b.voice.tone}</div>
-          <div className="mt-2 inline-block px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{ background: b.accent, color: onLight(b.accent) ? '#fff' : '#111', borderRadius: b.radius }}>Get started</div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function PostMock({ b }: { b: Brand }) {
-  const bg = b.neutrals[0]
-  return (
-    <div className="rounded-xl overflow-hidden border border-black/5" style={{ background: bg, aspectRatio: '0.8' }}>
-      <div className="h-full p-5 flex flex-col" style={{ color: b.neutrals[4] }}>
-        <div className="w-8 h-8 rounded-lg mb-auto" style={{ background: b.palette[0].hex }} />
-        <div style={{ fontFamily: b.fonts.heading, fontWeight: 700, fontSize: 30, lineHeight: 1.05 }}>{b.voice.words[0]}</div>
-        <div className="mt-2" style={{ fontFamily: b.fonts.body, fontSize: 12, color: b.neutrals[3] }}>{b.tagline || b.name}</div>
-        <div className="mt-3 flex gap-1.5">{b.palette.slice(0, 3).map(c => <span key={c.hex} className="w-6 h-1.5 rounded-full" style={{ background: c.hex }} />)}</div>
-      </div>
-    </div>
-  )
-}
-
-function ButtonMock({ b }: { b: Brand }) {
-  return (
-    <div className="rounded-xl p-5 border border-black/5 flex flex-col gap-2.5 justify-center" style={{ background: b.neutrals[0], aspectRatio: '1.6' }}>
-      {[['Primary', b.accent, onLight(b.accent) ? '#fff' : '#111'], ['Secondary', b.palette[1].hex, onLight(b.palette[1].hex) ? '#fff' : '#111']].map(([label, bg, fg]) => (
-        <div key={label} className="px-4 py-2.5 text-center text-[13px] font-medium" style={{ background: bg, color: fg, borderRadius: b.radius, fontFamily: b.fonts.body }}>{label} button</div>
-      ))}
-      <div className="px-4 py-2.5 text-center text-[13px] font-medium border" style={{ borderColor: b.accent, color: b.accent, borderRadius: b.radius, fontFamily: b.fonts.body }}>Outline button</div>
-    </div>
-  )
-}
-
-// ── The document itself. Everything is data-driven off `brand`. ──
-
-function Guideline({ brand, logoUrl }: { brand: Brand; logoUrl: string | null }) {
-  const b = brand
-  useEffect(() => { ensureFont(b.fonts.heading, 700); ensureFont(b.fonts.body, 400) }, [b.fonts])
-  const Section = ({ n, title, children }: any) => (
-    <section className="px-10 py-9 border-t border-black/8 break-inside-avoid">
-      <div className="flex items-baseline gap-3 mb-5"><span className="text-[12px] tabular-nums text-black/40">{String(n).padStart(2, '0')}</span><h2 className="text-[15px] font-semibold tracking-tight" style={{ fontFamily: b.fonts.heading }}>{title}</h2></div>
-      {children}
-    </section>
-  )
-  return (
-    <div id="brand-doc" className="mx-auto bg-white text-[#111]" style={{ width: 820 }}>
-      {/* Cover */}
-      <div className="px-10 pt-14 pb-12" style={{ background: b.palette[0].hex, color: onLight(b.palette[0].hex) ? '#fff' : '#111' }}>
-        {logoUrl ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={logoUrl} alt="" className="h-12 mb-8 object-contain" /> : <div className="h-12 w-12 rounded-xl mb-8" style={{ background: onLight(b.palette[0].hex) ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.15)' }} />}
-        <div className="text-[13px] uppercase tracking-[0.2em] opacity-70 mb-3">Brand guidelines</div>
-        <h1 className="text-[52px] leading-[0.98] font-semibold tracking-[-0.02em]" style={{ fontFamily: b.fonts.heading }}>{b.name}</h1>
-        {b.tagline && <p className="mt-3 text-[16px] opacity-80" style={{ fontFamily: b.fonts.body }}>{b.tagline}</p>}
-        <p className="mt-8 text-[13px] opacity-70">Personality: {b.personality}. {b.voice.tone}.</p>
-      </div>
-
-      <Section n={1} title="Logo">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-xl border border-black/8 flex items-center justify-center p-8" style={{ minHeight: 150 }}>{logoUrl ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={logoUrl} alt="" className="max-h-16 object-contain" /> : <span className="text-black/30 text-[13px]">Add a logo to show it here</span>}</div>
-          <div className="rounded-xl flex items-center justify-center p-8" style={{ minHeight: 150, background: b.palette[0].hex }}>{logoUrl ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={logoUrl} alt="" className="max-h-16 object-contain" style={{ filter: onLight(b.palette[0].hex) ? 'brightness(0) invert(1)' : 'none' }} /> : <span className="text-white/50 text-[13px]">On brand colour</span>}</div>
-        </div>
-        <p className="mt-4 text-[13px] text-black/60" style={{ fontFamily: b.fonts.body }}>Keep clear space of at least {b.logo.clearSpace}× the logo height on every side. Never place the logo smaller than {b.logo.minWidth}px wide. Do not stretch, recolour outside the palette, or add effects.</p>
-      </Section>
-
-      <Section n={2} title="Colour">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {b.palette.map(c => (
-            <div key={c.hex} className="rounded-xl overflow-hidden border border-black/8">
-              <div className="h-20 flex items-end p-2.5" style={{ background: c.hex, color: c.onLight ? '#fff' : '#111' }}><span className="text-[12px] font-medium">{c.name}</span></div>
-              <div className="p-2.5"><div className="text-[12px] font-mono">{c.hex.toUpperCase()}</div><div className="flex gap-1 mt-1.5">{c.tints.map(t => <span key={t} className="flex-1 h-4 rounded" style={{ background: t }} />)}</div></div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-3 flex gap-1.5">{b.neutrals.map(n => <div key={n} className="flex-1 h-10 rounded-lg border border-black/8 flex items-end p-1.5" style={{ background: n }}><span className="text-[9px] font-mono" style={{ color: onLight(n) ? '#fff' : '#111' }}>{n.slice(1)}</span></div>)}</div>
-        <p className="mt-3 text-[13px] text-black/60" style={{ fontFamily: b.fonts.body }}>Primary carries the brand. Accent is for a single call to action per view. Neutrals build the layout. Each swatch above shows accessible text colour on it.</p>
-      </Section>
-
-      <Section n={3} title="Typography">
-        <div className="rounded-xl border border-black/8 divide-y divide-black/8">
-          {b.scale.map(s => <div key={s.label} className="flex items-baseline gap-5 px-4 py-3"><span className="w-16 text-[11px] text-black/40 shrink-0">{s.label} · {s.px}</span><span style={{ fontFamily: s.label === 'Body' || s.label === 'Small' ? b.fonts.body : b.fonts.heading, fontSize: Math.min(s.px, 40), fontWeight: s.weight, lineHeight: 1 }} className="truncate">{b.name} {b.voice.words[0]}</span></div>)}
-        </div>
-        <p className="mt-3 text-[13px] text-black/60" style={{ fontFamily: b.fonts.body }}>Headings in <b>{b.fonts.heading}</b>, body in <b>{b.fonts.body}</b>. {b.fonts.pairing}. Scale steps by a {(b.scale[1].px / b.scale[4].px).toFixed(2)}× ratio.</p>
-      </Section>
-
-      <Section n={4} title="In use">
-        <div className="grid grid-cols-3 gap-4"><CardMock b={b} /><PostMock b={b} /><ButtonMock b={b} /></div>
-        <p className="mt-3 text-[13px] text-black/60" style={{ fontFamily: b.fonts.body }}>The same system across a card, a social post and UI. Corners use a {b.radius}px radius. Spacing steps: {b.spacing.join(', ')}px.</p>
-      </Section>
-
-      <Section n={5} title="Voice">
-        <p className="text-[15px] mb-4" style={{ fontFamily: b.fonts.body }}>{b.voice.tone}.</p>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-xl border border-black/8 p-4"><div className="text-[12px] font-semibold text-emerald-700 mb-2">Do</div><ul className="space-y-1.5 text-[13px] text-black/70" style={{ fontFamily: b.fonts.body }}>{b.voice.dos.map(d => <li key={d}>{d}</li>)}</ul></div>
-          <div className="rounded-xl border border-black/8 p-4"><div className="text-[12px] font-semibold text-rose-700 mb-2">Don't</div><ul className="space-y-1.5 text-[13px] text-black/70" style={{ fontFamily: b.fonts.body }}>{b.voice.donts.map(d => <li key={d}>{d}</li>)}</ul></div>
-        </div>
-      </Section>
-      <div className="px-10 py-6 border-t border-black/8 text-[11px] text-black/40">{b.name} brand guidelines · generated in Voidcanvas Studio</div>
-    </div>
-  )
+function Page({ index, brand, logo, o, cssWidth }: { index: number; brand: Brand; logo: HTMLImageElement | null; o: Orientation; cssWidth: number }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    let live = true
+    renderPage(index, brand, logo, o, 1.5).then(c => { if (!live || !ref.current) return; const x = ref.current.getContext('2d')!; ref.current.width = c.width; ref.current.height = c.height; x.drawImage(c, 0, 0) })
+    return () => { live = false }
+  }, [index, brand, logo, o])
+  const ar = SIZES[o].h / SIZES[o].w
+  return <canvas ref={ref} className="block rounded-lg shadow-lg bg-white" style={{ width: cssWidth, height: cssWidth * ar }} />
 }
 
 const PERSONALITIES = ['Bold', 'Refined', 'Playful', 'Minimal', 'Warm', 'Technical']
 
 export function BrandGuideline({ onBack }: { onBack: () => void }) {
+  const router = useRouter()
   const [name, setName] = useState('')
   const [tagline, setTagline] = useState('')
   const [seed, setSeed] = useState('#8b7cff')
   const [pIndex, setPIndex] = useState(0)
-  const [logo, setLogo] = useState<Blob | null>(null)
+  const [logoBlob, setLogoBlob] = useState<Blob | null>(null)
   const [salt, setSalt] = useState(0)
-  const [exporting, setExporting] = useState(false)
-  const logoUrl = useObjectUrl(logo)
+  const [o, setO] = useState<Orientation>('landscape')
+  const [busy, setBusy] = useState<string | null>(null)
+  const [active, setActive] = useState(0)
+  const logo = useLogoImage(logoBlob)
   const file = useRef<HTMLInputElement>(null)
-
   const brand = useMemo(() => generateBrand({ name, tagline, seed: seed + ':' + salt, personality: pIndex }), [name, tagline, seed, pIndex, salt])
+  const pages = pageList()
 
   const onLogo = async (f: File) => {
-    setLogo(f)
-    try { const c = document.createElement('canvas'); c.width = 64; c.height = 64; const img = await createImageBitmap(f); c.getContext('2d')!.drawImage(img, 0, 0, 64, 64); const pal = extractPalette(c, 3); if (pal[0]) setSeed(pal[0]) } catch { /* keep current seed */ }
+    setLogoBlob(f)
+    try { const c = document.createElement('canvas'); c.width = 64; c.height = 64; const img = await createImageBitmap(f); c.getContext('2d')!.drawImage(img, 0, 0, 64, 64); const pal = extractPalette(c, 3); if (pal[0]) setSeed(pal[0]) } catch { /* keep seed */ }
   }
 
   const exportPdf = async () => {
-    setExporting(true)
+    setBusy('Building PDF')
+    try { const { exportBrandPdf } = await import('./brand-pdf'); await exportBrandPdf(brand, logo, o, `${(name || 'brand').replace(/[^\w ]+/g, '')} guidelines ${o}.pdf`) }
+    catch (e) { console.error(e); alert('Could not build the PDF.') } finally { setBusy(null) }
+  }
+
+  const openInEditor = async () => {
+    setBusy('Opening in Editor')
     try {
-      const { exportBrandPdf } = await import('./brand-pdf')
-      let img: HTMLImageElement | null = null
-      if (logoUrl) { img = new Image(); img.src = logoUrl; await img.decode().catch(() => { img = null }) }
-      await exportBrandPdf(brand, img, `${(name || 'brand').replace(/[^\w ]+/g, '')} guidelines.pdf`)
-    } catch (e) { console.error(e); alert('Could not build the PDF. Try again.') } finally { setExporting(false) }
+      const imgs: { name: string; blob: Blob }[] = []
+      for (let i = 0; i < PAGE_COUNT; i++) { const c = await renderPage(i, brand, logo, o, 1.5); imgs.push({ name: pages[i].title, blob: await canvasToBlob(c) }) }
+      const id = await sendHandoff({ from: 'studio', name: `${name || 'Brand'} guidelines`, size: { width: SIZES[o].w, height: SIZES[o].h }, palette: brand.palette.map(p => p.hex), images: imgs })
+      router.push(`/editor?inbox=${id}`)
+    } catch (e) { console.error(e); setBusy(null) }
   }
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row min-h-0">
       <aside className="lg:w-[320px] shrink-0 border-b lg:border-b-0 lg:border-r border-void-800/60 p-5 space-y-4 lg:overflow-y-auto">
         <button onClick={onBack} className={`flex items-center gap-1.5 text-[12.5px] text-void-400 hover:text-white rounded ${focusRing}`}><ArrowLeft size={14} />Back to Studio</button>
-        <div><h1 className="text-[20px] font-semibold tracking-tight">Brand guideline builder</h1><p className="mt-1 text-[12.5px] text-void-400">Fill in a little, get a complete system. Every build is different.</p></div>
+        <div><h1 className="text-[20px] font-semibold tracking-tight">Brand guideline builder</h1><p className="mt-1 text-[12.5px] text-void-400">Fill in a little, get a full deck or document. Designed pages, not a scroll.</p></div>
         <label className="block"><span className="block text-[12px] text-void-400 mb-1">Brand name</span><input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Northbound" className={`w-full h-9 px-2.5 rounded-lg bg-void-900 border border-void-800 text-[13px] ${focusRing}`} /></label>
         <label className="block"><span className="block text-[12px] text-void-400 mb-1">Tagline (optional)</span><input value={tagline} onChange={e => setTagline(e.target.value)} placeholder="What it stands for" className={`w-full h-9 px-2.5 rounded-lg bg-void-900 border border-void-800 text-[13px] ${focusRing}`} /></label>
         <div><span className="block text-[12px] text-void-400 mb-1.5">Starting colour</span><div className="flex items-center gap-2"><input type="color" value={seed} onChange={e => setSeed(e.target.value)} className={`w-9 h-9 rounded-lg bg-transparent cursor-pointer ${focusRing}`} /><span className="text-[12px] font-mono text-void-300">{seed}</span></div></div>
         <div><span className="block text-[12px] text-void-400 mb-1.5">Personality</span><div className="grid grid-cols-3 gap-1.5">{PERSONALITIES.map((p, i) => <button key={p} onClick={() => setPIndex(i)} aria-pressed={pIndex === i} className={`h-8 rounded-lg text-[12px] border ${focusRing} ${pIndex === i ? 'border-[#8b7cff] bg-[#8b7cff]/15 text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`}>{p}</button>)}</div></div>
-        <div><span className="block text-[12px] text-void-400 mb-1.5">Logo (optional)</span><input ref={file} type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) onLogo(f) }} /><Button onClick={() => file.current?.click()} className="w-full"><ImagePlus size={15} />{logo ? 'Change logo' : 'Add logo'}</Button><p className="mt-1.5 text-[11.5px] text-void-500">Its main colour becomes the starting colour.</p></div>
-        <div className="flex gap-2 pt-1">
-          <Button onClick={() => setSalt(s => s + 1)} className="flex-1"><RefreshCw size={15} />New take</Button>
-          <Button primary onClick={exportPdf} disabled={exporting} className="flex-1"><Download size={15} />{exporting ? 'Building' : 'PDF'}</Button>
+        <div><span className="block text-[12px] text-void-400 mb-1.5">Format</span><div className="grid grid-cols-2 gap-1.5">
+          <button onClick={() => setO('landscape')} aria-pressed={o === 'landscape'} className={`h-9 rounded-lg text-[12.5px] border flex items-center justify-center gap-1.5 ${focusRing} ${o === 'landscape' ? 'border-[#8b7cff] bg-[#8b7cff]/15 text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`}><Monitor size={14} />Deck</button>
+          <button onClick={() => setO('portrait')} aria-pressed={o === 'portrait'} className={`h-9 rounded-lg text-[12.5px] border flex items-center justify-center gap-1.5 ${focusRing} ${o === 'portrait' ? 'border-[#8b7cff] bg-[#8b7cff]/15 text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`}><FileText size={14} />Document</button>
+        </div></div>
+        <div><span className="block text-[12px] text-void-400 mb-1.5">Logo (optional)</span><input ref={file} type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) onLogo(f) }} /><Button onClick={() => file.current?.click()} className="w-full"><ImagePlus size={15} />{logoBlob ? 'Change logo' : 'Add logo'}</Button></div>
+        <div className="space-y-2 pt-1">
+          <Button onClick={() => setSalt(s => s + 1)} className="w-full"><RefreshCw size={15} />New art direction</Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button primary onClick={exportPdf} disabled={!!busy} className="w-full"><Download size={15} />PDF</Button>
+            <Button onClick={openInEditor} disabled={!!busy} className="w-full"><Layers size={15} />Editor</Button>
+          </div>
+          <p className="text-[11.5px] text-void-500 leading-relaxed">PDF exports all {PAGE_COUNT} pages. Editor opens them as layers to tweak by hand.</p>
         </div>
       </aside>
-      <section className="flex-1 min-w-0 overflow-y-auto bg-void-900/40 p-4 sm:p-8">
-        <div className="shadow-2xl rounded-xl overflow-hidden w-fit mx-auto"><Guideline brand={brand} logoUrl={logoUrl} /></div>
+
+      <section className="flex-1 min-w-0 flex flex-col lg:flex-row min-h-0">
+        <nav className="flex lg:flex-col gap-2 p-3 lg:w-[150px] shrink-0 overflow-x-auto lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-void-800/50 bg-void-950/40" aria-label="Pages">
+          {pages.map((p, i) => (
+            <button key={i} onClick={() => setActive(i)} aria-current={active === i} className={`shrink-0 rounded-lg overflow-hidden border-2 ${active === i ? 'border-[#8b7cff]' : 'border-transparent hover:border-void-600'} ${focusRing}`}>
+              <Page index={i} brand={brand} logo={logo} o={o} cssWidth={o === 'landscape' ? 124 : 86} />
+              <span className="block text-[10.5px] text-void-400 py-1 text-center truncate" style={{ width: o === 'landscape' ? 124 : 86 }}>{i + 1}. {p.title}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="flex-1 min-w-0 overflow-auto bg-void-900/40 p-4 sm:p-8 flex items-start justify-center">
+          <Page index={active} brand={brand} logo={logo} o={o} cssWidth={o === 'landscape' ? 1000 : 620} />
+        </div>
       </section>
+
+      {busy && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55"><div className="flex items-center gap-3 px-5 py-3.5 rounded-xl bg-[#17171c] border border-void-700 text-[13.5px]"><span className="w-4 h-4 rounded-full border-2 border-[#8b7cff] border-t-transparent animate-spin" />{busy}</div></div>}
     </div>
   )
 }

@@ -4,8 +4,12 @@
 
 export interface BrandInput { name: string; tagline?: string; seed: string; personality: number; industry?: string; logo?: Blob | null }
 
+export type ArtDirection = 'editorial' | 'graphic' | 'systematic'
+
 export interface Brand {
   name: string; tagline: string
+  direction: ArtDirection
+  ratios: { hex: string; pct: number }[]
   palette: { name: string; hex: string; tints: string[]; onLight: boolean }[]
   neutrals: string[]
   fonts: { heading: string; body: string; pairing: string }
@@ -16,6 +20,8 @@ export interface Brand {
   logo: { clearSpace: number; minWidth: number }
   personality: string
   accent: string
+  grid: { cols: number; gutter: number; margin: number }
+  principles: { title: string; body: string }[]
 }
 
 // ── seeded RNG so a given seed always rebuilds the same brand ──
@@ -75,6 +81,8 @@ const VOICE: Record<string, { tone: string; words: string[]; dos: string[]; dont
   Technical: { tone: 'Exact, credible, unfussy', words: ['Specific', 'Evidenced', 'Structured'], dos: ['Lead with the fact', 'Use consistent units', 'Label clearly'], donts: ['Overclaim', 'Round away precision', 'Add mood over substance'] },
 }
 
+export const b = <T,>(a: T[]) => a
+
 export function generateBrand(input: BrandInput): Brand {
   const r = rng(input.seed + input.name + input.personality)
   const [h0, s0, l0] = hexToHsl(input.seed)
@@ -102,8 +110,20 @@ export function generateBrand(input: BrandInput): Brand {
   const radius = [0, 4, 10, 18][Math.floor(r() * 4)]
   const voice = VOICE[personality]
 
+  const direction: ArtDirection = (['editorial', 'graphic', 'systematic'] as ArtDirection[])[Math.floor(r() * 3)]
+  const ratios = [
+    { hex: palette[0].hex, pct: 60 }, { hex: neutrals[0], pct: 25 }, { hex: palette[2]?.hex ?? palette[1].hex, pct: 10 }, { hex: neutrals[4], pct: 5 },
+  ]
+  const grid = { cols: [12, 12, 6, 8][Math.floor(r() * 4)], gutter: spaceBase * (r() > 0.5 ? 3 : 2), margin: [64, 80, 96][Math.floor(r() * 3)] }
+  const PRIN: [string, string][][] = [
+    [['Clarity first', 'Every layout should say one thing clearly before it says anything else.'], ['Confident space', 'White space is a design choice. Let the work breathe.'], ['One accent', 'A single accent colour per view carries the eye. Never compete.']],
+    [['Bold by default', 'Go large, go graphic. Timid is off-brand.'], ['System, not decoration', 'The grid does the work. Ornament earns its place or leaves.'], ['Human warmth', 'Sharp does not mean cold. Keep it people-first.']],
+    [['Precise', 'Specifics over vibes. Spacing, sizes and ratios are defined, not guessed.'], ['Consistent', 'The same rule everywhere beats a clever exception anywhere.'], ['Legible', 'If it cannot be read at a glance, it is not finished.']],
+  ]
+  const principles = PRIN[['editorial', 'graphic', 'systematic'].indexOf(direction)].map(([title, body]) => ({ title, body }))
   return {
     name: input.name || 'Your brand', tagline: input.tagline || '',
+    direction, ratios, grid, principles,
     palette, neutrals, fonts, scale, spacing, radius, voice,
     logo: { clearSpace: 1 + Math.round(r()), minWidth: [24, 32, 40][Math.floor(r() * 3)] },
     personality, accent: palette[2]?.hex ?? palette[0].hex,
