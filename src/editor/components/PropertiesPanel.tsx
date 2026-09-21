@@ -1,0 +1,198 @@
+'use client'
+
+import { useEffect, useRef } from 'react'
+import { AlignCenter, AlignLeft, AlignRight, Eclipse, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
+import { effectParams } from '@/components/ParamControls'
+import { defaultParams, type EffectParams } from '@/store/useStore'
+import { subjectMask } from '../ai'
+import { ADJUSTMENT_DEFAULTS } from '../engine'
+import { FONTS, ensureFont } from '../io'
+import { useEditor } from '../store'
+import { BLEND_MODES, type AdjustmentLayer, type Layer, type ShapeLayer, type TextLayer } from '../types'
+import { Button, ColorField, Section, Select, Slider, focusRing } from './ui'
+
+const ADJ_FIELDS: Record<string, { key: string; label: string; min: number; max: number }[]> = {
+  brightnessContrast: [{ key: 'brightness', label: 'Brightness', min: -100, max: 100 }, { key: 'contrast', label: 'Contrast', min: -100, max: 100 }],
+  hueSaturation: [{ key: 'hue', label: 'Hue', min: -180, max: 180 }, { key: 'saturation', label: 'Saturation', min: -100, max: 100 }, { key: 'lightness', label: 'Lightness', min: -100, max: 100 }],
+  levels: [{ key: 'black', label: 'Darkest point', min: 0, max: 254 }, { key: 'white', label: 'Brightest point', min: 1, max: 255 }, { key: 'gamma', label: 'Midtones', min: 10, max: 300 }],
+  temperature: [{ key: 'temperature', label: 'Warmth', min: -100, max: 100 }, { key: 'tint', label: 'Tint', min: -100, max: 100 }],
+  blackWhite: [{ key: 'amount', label: 'Amount', min: 0, max: 100 }],
+  blur: [{ key: 'radius', label: 'Amount', min: 1, max: 80 }],
+  invert: [],
+}
+
+export async function removeBackground(layerId: string) {
+  const s = useEditor.getState()
+  const l = s.layers.find(x => x.id === layerId)
+  if (!l || l.type !== 'raster') return
+  try {
+    const mask = await subjectMask(l.canvas, m => useEditor.getState().setBusy(m))
+    useEditor.getState().updateLayer(l.id, { mask, maskEnabled: true }, 'Remove background')
+    useEditor.getState().notify('Background hidden with a mask. Paint on the mask to fine-tune the edges.')
+  } catch (e) {
+    console.error(e)
+    useEditor.getState().notify('Could not load the background remover. Check your connection and try again.')
+  } finally { useEditor.getState().setBusy(null) }
+}
+
+export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }) {
+  const layer = useEditor(s => s.layers.find(l => l.id === s.activeId) ?? null)
+  const doc = useEditor(s => s.doc)
+  const editingMask = useEditor(s => s.editingMask)
+  const swatches = useEditor(s => s.swatches)
+  const s = useEditor.getState()
+  if (!doc) return null
+
+  const up = (patch: Partial<Layer>) => layer && s.updateLayer(layer.id, patch)
+  const commit = (label: string) => () => s.commit(label)
+
+  if (!layer) {
+    return (
+      <div>
+        <Section title="Design">
+          <p className="text-[12.5px] text-void-400 mb-3 tabular-nums">{doc.width} × {doc.height} px</p>
+          <ColorField label="Background" value={doc.background} allowNone onChange={v => s.setDoc({ background: v })} onCommit={commit('Background')} />
+          {!doc.background && <p className="mt-2 text-[12px] text-void-500">Transparent. PNG and WebP exports keep it see-through.</p>}
+        </Section>
+        <Section title="Colours">
+          <div className="flex flex-wrap gap-1.5">
+            {swatches.map(c => (
+              <button key={c} aria-label={`Use ${c}`} title={c} onClick={() => s.setFg(c)} className={`w-7 h-7 rounded-md border border-white/10 ${focusRing}`} style={{ background: c }} />
+            ))}
+          </div>
+          <p className="mt-2.5 text-[12px] text-void-500">Select a layer to edit it, or use Add to bring something in.</p>
+        </Section>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <Section title={layer.type === 'adjustment' ? layer.name : layer.type === 'text' ? 'Text' : layer.type === 'shape' ? 'Shape' : 'Image layer'}>
+        <div className="space-y-3">
+          <Slider label="Opacity" value={Math.round(layer.opacity * 100)} min={0} max={100} unit="%" onChange={v => up({ opacity: v / 100 })} onCommit={commit('Opacity')} />
+          <Select label="Blend" value={layer.blend} options={BLEND_MODES} onChange={v => s.updateLayer(layer.id, { blend: v }, 'Blend mode')} />
+        </div>
+      </Section>
+
+      {layer.type === 'raster' && (
+        <Section title="Quick actions">
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={() => removeBackground(layer.id)} className="col-span-2 !justify-start"><ImageOff size={15} />Remove background</Button>
+            <Button onClick={onOpenFilters} className="col-span-2 !justify-start"><Eclipse size={15} />Filters and adjustments</Button>
+            <Button onClick={() => s.flip(layer.id, 'h')}><FlipHorizontal2 size={15} />Mirror</Button>
+            <Button onClick={() => s.flip(layer.id, 'v')}><FlipVertical2 size={15} />Flip</Button>
+          </div>
+        </Section>
+      )}
+
+      {layer.type === 'text' && <TextProps layer={layer} />}
+      {layer.type === 'shape' && <ShapeProps layer={layer} />}
+      {layer.type === 'adjustment' && <AdjustmentProps layer={layer} />}
+
+      <Section title="Mask">
+        {layer.mask ? (
+          <div className="space-y-2">
+            <p className="text-[12px] text-void-400 leading-relaxed">A mask hides parts of a layer without deleting them.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button onClick={() => { s.setEditingMask(!editingMask); if (!editingMask) s.setTool('brush') }} className={editingMask ? '!bg-[#8b7cff] !text-white col-span-2' : 'col-span-2'}>{editingMask ? 'Done painting mask' : 'Paint on mask'}</Button>
+              <Button onClick={() => s.updateLayer(layer.id, { maskEnabled: !layer.maskEnabled }, 'Toggle mask')}>{layer.maskEnabled ? 'Turn off' : 'Turn on'}</Button>
+              <Button onClick={() => s.invertMask(layer.id)}>Invert</Button>
+              <Button onClick={() => s.removeMask(layer.id)} className="col-span-2">Delete mask</Button>
+            </div>
+          </div>
+        ) : (
+          <Button onClick={() => { s.addMask(layer.id, !!useEditor.getState().selection); s.setTool('brush') }} className="w-full">
+            {useEditor.getState().selection ? 'Mask from selection' : 'Add mask'}
+          </Button>
+        )}
+      </Section>
+    </div>
+  )
+}
+
+function TextProps({ layer }: { layer: TextLayer }) {
+  const s = useEditor.getState()
+  const focus = useEditor(st => st.focusText)
+  const ta = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    // Wait for the click that created the layer to finish, or the browser moves focus back to the page.
+    if (!focus || Date.now() - focus > 1500) return
+    const t = setTimeout(() => { ta.current?.focus(); ta.current?.select() }, 80)
+    return () => clearTimeout(t)
+  }, [focus, layer.id])
+  const up = (patch: Partial<TextLayer>) => s.updateLayer(layer.id, patch)
+  const setFont = async (fontFamily: string, fontWeight = layer.fontWeight, italic = layer.italic) => {
+    await ensureFont(fontFamily, fontWeight, italic)
+    s.updateLayer(layer.id, { fontFamily, fontWeight, italic }, 'Font')
+  }
+  const tog = (on: boolean) => `h-8 w-9 inline-flex items-center justify-center rounded-md ${focusRing} ${on ? 'bg-void-700 text-white' : 'bg-void-900 text-void-400 hover:text-white'}`
+  return (
+    <Section title="Type">
+      <div className="space-y-3">
+        <textarea ref={ta} aria-label="Text content" value={layer.text} rows={3} onChange={e => up({ text: e.target.value })} onBlur={() => s.commit('Edit text')}
+          className={`w-full px-2.5 py-2 rounded-lg bg-void-900 border border-void-800 text-[13px] leading-snug resize-y ${focusRing}`} />
+        <Select label="Font" value={layer.fontFamily} options={FONTS.map(f => ({ id: f, label: f }))} onChange={f => setFont(f)} />
+        <div className="flex items-center gap-1.5">
+          <button aria-label="Bold" aria-pressed={layer.fontWeight >= 700} className={tog(layer.fontWeight >= 700) + ' font-bold text-[13px]'} onClick={() => setFont(layer.fontFamily, layer.fontWeight >= 700 ? 400 : 700)}>B</button>
+          <button aria-label="Italic" aria-pressed={layer.italic} className={tog(layer.italic)} onClick={() => setFont(layer.fontFamily, layer.fontWeight, !layer.italic)}><Italic size={15} /></button>
+          <span className="w-2" />
+          {([['left', AlignLeft], ['center', AlignCenter], ['right', AlignRight]] as const).map(([a, Icon]) => (
+            <button key={a} aria-label={`Align ${a}`} aria-pressed={layer.align === a} className={tog(layer.align === a)} onClick={() => s.updateLayer(layer.id, { align: a }, 'Align')}><Icon size={15} /></button>
+          ))}
+        </div>
+        <Slider label="Size" value={layer.fontSize} min={8} max={600} unit="px" onChange={v => up({ fontSize: v })} onCommit={() => s.commit('Text size')} />
+        <Slider label="Line spacing" value={layer.lineHeight} min={0.7} max={2.5} step={0.05} onChange={v => up({ lineHeight: v })} onCommit={() => s.commit('Line spacing')} />
+        <Slider label="Letter spacing" value={layer.letterSpacing} min={-10} max={60} step={0.5} unit="px" onChange={v => up({ letterSpacing: v })} onCommit={() => s.commit('Letter spacing')} />
+        <ColorField label="Colour" value={layer.color} onChange={v => v && up({ color: v })} onCommit={() => s.commit('Text colour')} />
+      </div>
+    </Section>
+  )
+}
+
+function ShapeProps({ layer }: { layer: ShapeLayer }) {
+  const s = useEditor.getState()
+  const up = (patch: Partial<ShapeLayer>) => s.updateLayer(layer.id, patch)
+  return (
+    <Section title="Style">
+      <div className="space-y-3">
+        {layer.shape !== 'line' && <ColorField label="Fill" value={layer.fill} allowNone onChange={v => up({ fill: v })} onCommit={() => s.commit('Fill')} />}
+        <ColorField label="Outline" value={layer.stroke} allowNone={layer.shape !== 'line'} onChange={v => up({ stroke: v, strokeWidth: v && !layer.strokeWidth ? 6 : layer.strokeWidth })} onCommit={() => s.commit('Outline')} />
+        {layer.stroke && <Slider label="Outline width" value={layer.strokeWidth} min={1} max={120} unit="px" onChange={v => up(layer.shape === 'line' ? { strokeWidth: v, h: Math.max(v, 6) } : { strokeWidth: v })} onCommit={() => s.commit('Outline width')} />}
+        {layer.shape === 'rect' && <Slider label="Rounded corners" value={layer.radius} min={0} max={Math.round(Math.min(layer.w, layer.h) / 2)} unit="px" onChange={v => up({ radius: v })} onCommit={() => s.commit('Corners')} />}
+      </div>
+    </Section>
+  )
+}
+
+function AdjustmentProps({ layer }: { layer: AdjustmentLayer }) {
+  const s = useEditor.getState()
+  if (layer.kind === 'voidEffect' && layer.effect) {
+    const cfg = effectParams[layer.effect] ?? []
+    const p = layer.effectParams ?? defaultParams
+    const set = (k: keyof EffectParams, v: number | string) => s.updateLayer(layer.id, { effectParams: { ...p, [k]: v } } as Partial<AdjustmentLayer>)
+    return (
+      <Section title="Filter settings" action={<button aria-label="Reset" title="Reset" onClick={() => s.updateLayer(layer.id, { effectParams: { ...defaultParams } } as Partial<AdjustmentLayer>, 'Reset filter')} className={`text-void-400 hover:text-white rounded ${focusRing}`}><RotateCcw size={14} /></button>}>
+        <div className="space-y-3">
+          {cfg.filter(c => c.key !== 'opacity').map(c => c.type === 'color'
+            ? <ColorField key={c.key} label={c.label} value={p[c.key] as string} onChange={v => v && set(c.key, v)} onCommit={() => s.commit('Filter colour')} />
+            : <Slider key={c.key} label={c.label} value={p[c.key] as number} min={c.min ?? 0} max={c.max ?? 100} unit={c.unit} onChange={v => set(c.key, v)} onCommit={() => s.commit('Filter setting')} />)}
+          {cfg.length <= 1 && <p className="text-[12px] text-void-500">This filter has no settings. Use Opacity above to soften it.</p>}
+          <p className="text-[12px] text-void-500 leading-relaxed">Filters affect every layer beneath them and stay editable. Add a mask to limit where they apply.</p>
+        </div>
+      </Section>
+    )
+  }
+  const fields = ADJ_FIELDS[layer.kind] ?? []
+  return (
+    <Section title="Settings" action={<button aria-label="Reset" title="Reset" onClick={() => s.updateLayer(layer.id, { values: { ...ADJUSTMENT_DEFAULTS[layer.kind] } } as Partial<AdjustmentLayer>, 'Reset adjustment')} className={`text-void-400 hover:text-white rounded ${focusRing}`}><RotateCcw size={14} /></button>}>
+      <div className="space-y-3">
+        {fields.map(f => (
+          <Slider key={f.key} label={f.label} value={layer.values[f.key] ?? 0} min={f.min} max={f.max}
+            onChange={v => s.updateLayer(layer.id, { values: { ...layer.values, [f.key]: v } } as Partial<AdjustmentLayer>)} onCommit={() => s.commit(layer.name)} />
+        ))}
+        <p className="text-[12px] text-void-500 leading-relaxed">Affects every layer beneath it. Your original pixels are never changed.</p>
+      </div>
+    </Section>
+  )
+}

@@ -1,57 +1,59 @@
 # Voidcanvas
 
-Real-time image effects and artistic transformations.
+One app, three modules. Each works alone and they pass work to each other.
 
-## Features
+| Route | Module | What it does |
+|---|---|---|
+| `/` | Hub | Entry point and recent designs |
+| `/studio` | Studio | Brief, reference board, palette pulled from references, size preset. "Start design in Editor" opens it all as a design. |
+| `/editor` | Editor | Layered image editor: raster, text, shape and adjustment layers, masks, 16 blend modes, selections, retouching, 60 live filters, export. |
+| `/effects` | Effects | The original one-click effects tool. "Open in Editor" sends the result across. |
 
-- **16 Effects**: Halftone, dither, pixelate, ASCII, posterize, duotone, glitch, RGB shift, noise, wave, edge detection, blur, sharpen, vignette, invert
-- **Real-time Preview**: See changes instantly as you adjust parameters
-- **Parameter Controls**: Fine-tune each effect with intuitive sliders
-- **Export**: Download as PNG or JPG
-- **Responsive**: Works on desktop and mobile
+Everything is stored on the user's device (IndexedDB database `voidcanvas`). No backend yet.
 
-## Getting Started
+## Run
 
 ```bash
-# Install dependencies
 npm install
-
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
-npm start
+npm run dev        # http://localhost:3000
+npm run build && npm start
 ```
 
-## Tech Stack
+Deploys to Netlify as before. No new npm dependencies were added.
 
-- **Next.js 14** — React framework
-- **TypeScript** — Type safety
-- **Tailwind CSS** — Styling
-- **Framer Motion** — Animations
-- **Zustand** — State management
-- **Canvas API** — Image processing
+## Editor
 
-## Effects
+- Layers: image, text, shape, adjustment. Reorder by drag, rename, lock, hide, duplicate, merge down.
+- Masks on any layer, painted with Brush (show) and Eraser (hide). "Remove background" creates a mask, so nothing is destroyed.
+- Adjustments as layers: brightness and contrast, hue and saturation, temperature, levels, black and white, blur, invert.
+- All 60 Void effects as live filter layers. They always compute at max 1200px so preview, export and the Effects tool match.
+- Tools: move/resize/rotate with snapping, crop, text, shape, brush, eraser, fill, gradient, heal, clone stamp, rectangle/ellipse/lasso select, magic wand, eyedropper, pan, zoom. Pen pressure and pinch zoom supported.
+- 40-step undo, autosave, PNG/JPG/WebP export at 0.5x to 3x, transparent export, copy to clipboard, paste and drag-drop import.
+- Shortcuts follow Photoshop: V B E S J M L W G T U I C H Z, Ctrl+Z, Ctrl+J, Ctrl+D, [ ], Space to pan.
 
-| Effect | Description |
-|--------|-------------|
-| Halftone | Classic print-style dot pattern |
-| Dither | Floyd-Steinberg dithering |
-| Pixelate | Mosaic/pixel art effect |
-| ASCII | Text-based art rendering |
-| Posterize | Reduce color levels |
-| Duotone | Two-color gradient mapping |
-| Glitch | Digital corruption effect |
-| RGB Shift | Chromatic aberration |
-| Noise | Film grain texture |
-| Wave | Sine wave distortion |
-| Edge | Sobel edge detection |
-| Blur | Box blur averaging |
-| Sharpen | Unsharp mask sharpening |
-| Vignette | Edge darkening |
-| Invert | Color inversion |
+### Code map
+
+```
+src/editor/types.ts     layer and document types
+src/editor/engine.ts    compositor, adjustments, brush tip, flood select, heal, palette
+src/editor/store.ts     zustand store: document, layers, masks, selection, history
+src/editor/io.ts        IndexedDB, module handoff, import, export, fonts
+src/editor/ai.ts        in-browser background removal (transformers.js + MODNet, both Apache-2.0, loaded from CDN on first use)
+src/editor/components/  Stage (canvas + all tool logic) and UI
+src/studio/             Studio module
+src/components/AppNav   shared logo and module switch
+```
+
+Handoff between modules: `sendHandoff()` writes images, palette and size to the `inbox` store, then routes to `/editor?inbox=<id>`.
+
+## Known limits
+
+- No layer groups, curves, or smart objects yet.
+- Heal and clone are patch based, not generative.
+- Background removal model is trained on people. Products and objects need a different model or a hosted API.
+- Canvas 2D engine. Fine to around 4000px; a WebGL compositor is the next step for very large documents.
+- Text is edited in the side panel, not on the canvas.
+- No accounts, cloud sync, templates or community. These come with the Art Director Studio port (Supabase).
 
 ## License
 

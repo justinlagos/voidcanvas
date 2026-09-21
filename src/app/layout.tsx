@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Voidcanvas — Transform Your Images',
-  description: 'Real-time image effects and artistic transformations',
+  title: 'Voidcanvas: brief to finished design in your browser',
+  description: 'Studio for briefs and references, a layered Editor, and one-click Effects. Free, in your browser.',
 }
 
 export default function RootLayout({

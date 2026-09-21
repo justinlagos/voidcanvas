@@ -3,7 +3,7 @@
 import { useStore, EffectType } from '@/store/useStore'
 import { RotateCcw } from 'lucide-react'
 
-type ParamConfig = {
+export type ParamConfig = {
   key: 'intensity' | 'scale' | 'threshold' | 'amount' | 'frequency' | 'amplitude'
     | 'color1' | 'color2' | 'color3' | 'seed' | 'angle' | 'opacity'
     | 'mixR' | 'mixG' | 'mixB' | 'radius' | 'density' | 'segments' | 'posX' | 'posY'
@@ -17,7 +17,7 @@ type ParamConfig = {
 // Common opacity param reused everywhere
 const opacityParam: ParamConfig = { key: 'opacity', label: 'Opacity', min: 0, max: 100, unit: '%' }
 
-const effectParams: Record<EffectType, ParamConfig[]> = {
+export const effectParams: Record<EffectType, ParamConfig[]> = {
   none: [],
 
   // ── Artistic ──

@@ -2,8 +2,10 @@
 
 import { useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { Download, RotateCcw, Undo2, Trash2, ChevronDown } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Download, RotateCcw, Undo2, Trash2, Layers } from 'lucide-react'
 import { useStore } from '@/store/useStore'
+import { sendHandoff } from '@/editor/io'
 
 export function Toolbar() {
   const { originalImage, setOriginalImage, resetParams, undo, history, activeEffect, setActiveEffect } = useStore()
@@ -23,6 +25,19 @@ export function Toolbar() {
     link.href = canvas.toDataURL(mimeTypes[format], 0.95)
     link.click()
   }, [activeEffect])
+
+  const router = useRouter()
+  // Pass the current result to the Editor as the first layer of a new design.
+  const openInEditor = useCallback(() => {
+    const canvas = document.querySelector('canvas')
+    if (!canvas) return
+    canvas.toBlob(async (blob) => {
+      if (!blob) return
+      const name = activeEffect === 'none' ? 'Photo' : `${activeEffect} effect`
+      const id = await sendHandoff({ from: 'effects', name, images: [{ name, blob }] })
+      router.push(`/editor?inbox=${id}`)
+    }, 'image/png')
+  }, [activeEffect, router])
 
   const handleClear = useCallback(() => {
     setOriginalImage(null)
@@ -70,6 +85,17 @@ export function Toolbar() {
       </motion.button>
 
       <div className="w-px h-5 bg-void-700/50 mx-1" />
+
+      <motion.button
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.97 }}
+        onClick={openInEditor}
+        title="Keep working on this in the Editor: add layers, type and retouching"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#8b7cff] hover:bg-[#9a8dff] text-white rounded-md transition-colors"
+      >
+        <Layers size={14} />
+        <span className="text-xs font-medium whitespace-nowrap">Open in Editor</span>
+      </motion.button>
 
       {/* Export dropdown-like buttons */}
       <div className="flex items-center gap-0.5 bg-void-900 rounded-md p-0.5 border border-void-800/50">

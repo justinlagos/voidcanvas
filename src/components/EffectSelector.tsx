@@ -5,9 +5,9 @@ import { motion } from 'framer-motion'
 import { useStore, EffectType, EffectCategory } from '@/store/useStore'
 import { Search } from 'lucide-react'
 
-type EffectDef = { id: EffectType; name: string; icon: string; category: EffectCategory; description: string }
+export type EffectDef = { id: EffectType; name: string; icon: string; category: EffectCategory; description: string }
 
-const effects: EffectDef[] = [
+export const effects: EffectDef[] = [
   { id: 'none', name: 'Original', icon: '○', category: 'all', description: 'No effect applied' },
 
   // ── Artistic ──

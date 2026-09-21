@@ -127,7 +127,7 @@ interface Store {
   toggleSidebarSection: (section: string) => void
 }
 
-const defaultParams: EffectParams = {
+export const defaultParams: EffectParams = {
   intensity: 50,
   scale: 50,
   color1: '#000000',
