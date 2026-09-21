@@ -42,6 +42,8 @@ interface LayerBase {
   maskEnabled: boolean
   /** Group this layer belongs to. Members of a group are always next to each other in the stack. */
   groupId?: string | null
+  /** Artboard this layer lives on, when the document uses frames. */
+  frameId?: string | null
   /** Bumped on every visual change. Drives caches and thumbnails. */
   rev: number
 }
@@ -99,12 +101,24 @@ export interface Group { id: string; name: string; visible: boolean; opacity: nu
 
 export type Layer = RasterLayer | TextLayer | ShapeLayer | AdjustmentLayer
 
+export interface Frame {
+  id: string
+  name: string
+  x: number
+  y: number
+  width: number
+  height: number
+  background: string | null
+}
+
 export interface Doc {
   id: string
   name: string
   width: number
   height: number
   background: string | null // null = transparent
+  /** Optional artboards ("boards"). When present, layers each belong to a frame via layer.frameId. */
+  frames?: Frame[]
 }
 
 export type ToolId =

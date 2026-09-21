@@ -7,8 +7,9 @@ import {
 } from '../engine'
 import { importFiles } from '../io'
 import { tipOnce, useEditor } from '../store'
-import type { Layer, Rect, ToolId } from '../types'
+import type { Frame, Layer, Rect, ToolId } from '../types'
 import { FloatingBar } from './FloatingBar'
+import { frameAt, frameForLayer } from '../frames'
 
 const ACCENT = '#8b7cff'
 const PAINT_TOOLS: ToolId[] = ['brush', 'eraser', 'clone', 'heal']
@@ -111,6 +112,21 @@ export function Stage() {
 
     // ── Overlay ──
     const toScreen = (p: Pt): Pt => ({ x: p.x * zoom + panX, y: p.y * zoom + panY })
+
+    // Artboard outlines and labels
+    if (doc.frames && doc.frames.length) {
+      for (const f of doc.frames) {
+        const a = toScreen({ x: f.x, y: f.y })
+        const fw = f.width * zoom, fh = f.height * zoom
+        const on = f.id === s.activeFrameId
+        octx.fillStyle = on ? '#fff' : 'rgba(255,255,255,0.55)'
+        octx.font = `${on ? '600 ' : ''}${Math.max(11, Math.min(15, 13))}px Inter, sans-serif`
+        octx.fillText(f.name, a.x, a.y - 8)
+        octx.strokeStyle = on ? ACCENT : 'rgba(255,255,255,0.18)'
+        octx.lineWidth = on ? 2 : 1
+        octx.strokeRect(a.x, a.y, fw, fh)
+      }
+    }
 
     if (s.selection) {
       const key = `${s.selRev}|${zoom}|${panX}|${panY}|${w}x${h}`
@@ -221,9 +237,14 @@ export function Stage() {
     const { doc, setView } = useEditor.getState()
     if (!doc || !size.current.w) return
     const { w, h } = size.current
-    const pad = w < 640 ? 24 : 72
-    const zoom = Math.min((w - pad * 2) / doc.width, (h - pad * 2) / doc.height, 1)
-    setView({ zoom, panX: (w - doc.width * zoom) / 2, panY: (h - doc.height * zoom) / 2 })
+    const pad = w < 640 ? 24 : 90
+    let bx = 0, by = 0, bw = doc.width, bh = doc.height
+    if (doc.frames && doc.frames.length) {
+      bx = Math.min(...doc.frames.map(f => f.x)); by = Math.min(...doc.frames.map(f => f.y))
+      bw = Math.max(...doc.frames.map(f => f.x + f.width)) - bx; bh = Math.max(...doc.frames.map(f => f.y + f.height)) - by
+    }
+    const zoom = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh, 1)
+    setView({ zoom, panX: (w - bw * zoom) / 2 - bx * zoom, panY: (h - bh * zoom) / 2 - by * zoom })
   }, [])
 
   const zoomAt = useCallback((factor: number, at?: Pt, absolute?: number) => {
@@ -421,7 +442,7 @@ export function Stage() {
           snapX.push(b.x, b.x + b.w / 2, b.x + b.w); snapY.push(b.y, b.y + b.h / 2, b.y + b.h)
         }
         drag.current = { kind: 'move', start: p, items: moving.map(l => ({ id: l.id, ox: l.x, oy: l.y })), box, snapX, snapY, moved: false }
-      } else if (!e.shiftKey) s.setActive(null)
+      } else { if (s.doc?.frames?.length) { const f = frameAt(s.doc, p.x, p.y); if (f) s.setActiveFrame(f.id) } if (!e.shiftKey) s.setActive(null) }
       invalidate(); return
     }
 
@@ -585,7 +606,13 @@ export function Stage() {
     guides.current = { v: [], h: [] }
     if (!d || !s.doc) { invalidate(); return }
 
-    if (d.kind === 'move' && d.moved) s.commit('Move')
+    if (d.kind === 'move' && d.moved) {
+      if (s.doc?.frames?.length) {
+        for (const it of d.items) { const l = s.layers.find(x => x.id === it.id); if (!l) continue; const f = frameForLayer(s.doc, l); if ((f?.id ?? null) !== (l.frameId ?? null)) s.reassignLayerFrame(l.id, f?.id ?? null) }
+        const act = s.active(); if (act) { const f = frameForLayer(s.doc, act); if (f) s.setActiveFrame(f.id) }
+      }
+      s.commit('Move')
+    }
     if (d.kind === 'rotate') s.commit('Rotate')
     if (d.kind === 'resize') {
       // Bake scale into real dimensions so strokes and type stay crisp and predictable.

@@ -1,0 +1,72 @@
+'use client'
+
+import { useState } from 'react'
+import { LayoutGrid, Plus, Trash2, Copy } from 'lucide-react'
+import { SIZE_PRESETS } from '../presets'
+import { renderFrame } from '../io'
+import { useEditor } from '../store'
+import { Button, Modal, focusRing } from './ui'
+import { cascadeToFrames } from '../cascade'
+
+/** Add, rename, delete boards, and cascade the active board to many touchpoints at once. */
+export function BoardsPanel({ onClose }: { onClose: () => void }) {
+  const doc = useEditor(s => s.doc)
+  const activeFrameId = useEditor(s => s.activeFrameId)
+  const s = useEditor.getState()
+  const [tab, setTab] = useState<'boards' | 'cascade'>('boards')
+  const [picked, setPicked] = useState<Set<string>>(new Set(['square', 'story', 'yt', 'li']))
+  const frames = doc?.frames ?? []
+
+  return (
+    <Modal title="Boards" onClose={onClose} wide>
+      <div className="p-5">
+        <div className="flex gap-4 mb-4" role="tablist">
+          {(['boards', 'cascade'] as const).map(t => <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`text-[13px] font-semibold rounded ${focusRing} ${tab === t ? 'text-white' : 'text-void-500 hover:text-void-200'}`}>{t === 'boards' ? 'Boards' : 'Cascade to touchpoints'}</button>)}
+        </div>
+
+        {tab === 'boards' ? (
+          <div>
+            {!frames.length && <p className="text-[13px] text-void-400 mb-4">This design has one canvas. Add a board to turn it into a multi-board layout, then add more boards beside it.</p>}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {frames.map(f => (
+                <div key={f.id} className={`rounded-xl border p-2.5 ${f.id === activeFrameId ? 'border-[#8b7cff]' : 'border-void-800'}`}>
+                  <button onClick={() => { s.setActiveFrame(f.id) }} className="block w-full aspect-video rounded-lg bg-void-950 overflow-hidden mb-2">
+                    {/* thumbnail */}
+                    <FrameThumb id={f.id} />
+                  </button>
+                  <input value={f.name} onChange={e => s.renameFrame(f.id, e.target.value)} className={`w-full h-7 px-2 rounded bg-void-900 border border-void-800 text-[12px] ${focusRing}`} />
+                  <div className="flex justify-between mt-1.5 text-[11px] text-void-500"><span className="tabular-nums">{f.width}×{f.height}</span>
+                    <button aria-label="Delete board" onClick={() => { if (confirm(`Delete board “${f.name}”?`)) s.removeFrame(f.id) }} className="text-void-500 hover:text-rose-400"><Trash2 size={13} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4">
+              <p className="text-[12px] text-void-400 mb-2">Add a board</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {SIZE_PRESETS.slice(0, 8).map(p => <button key={p.id} onClick={() => s.addFrame({ name: p.label, width: p.width, height: p.height })} className={`flex items-center gap-2 p-2 rounded-lg bg-void-900 hover:bg-void-800 border border-void-800 text-left ${focusRing}`}><Plus size={14} className="text-[#b9afff] shrink-0" /><span className="text-[12px] truncate">{p.label}</span></button>)}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p className="text-[13px] text-void-400 mb-4">Take the active board and lay it out at every size you pick. Backgrounds fill, everything else keeps its place. New boards are added beside the current ones.</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {SIZE_PRESETS.map(p => { const on = picked.has(p.id); return (
+                <button key={p.id} aria-pressed={on} onClick={() => setPicked(v => { const n = new Set(v); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n })} className={`flex items-center gap-2 p-2.5 rounded-lg border text-left ${focusRing} ${on ? 'border-[#8b7cff] bg-[#8b7cff]/10' : 'border-void-800 bg-void-900 hover:bg-void-800'}`}>
+                  <span className="text-[12px] truncate"><span className="block font-medium">{p.label}</span><span className="block text-[11px] text-void-500 tabular-nums">{p.width}×{p.height}</span></span>
+                </button>) })}
+            </div>
+            <Button primary className="mt-4" onClick={() => { cascadeToFrames(activeFrameId, SIZE_PRESETS.filter(p => picked.has(p.id))); onClose() }}><LayoutGrid size={15} />Create {picked.size} boards</Button>
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+function FrameThumb({ id }: { id: string }) {
+  const [url] = useState(() => { try { const c = renderFrame(id, 0.4); return c ? c.toDataURL('image/jpeg', 0.6) : '' } catch { return '' } })
+  // eslint-disable-next-line @next/next/no-img-element
+  return url ? <img src={url} alt="" className="w-full h-full object-contain" /> : null
+}

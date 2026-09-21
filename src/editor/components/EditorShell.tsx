@@ -8,12 +8,17 @@ import type { ToolId } from '../types'
 import { AddMenu } from './AddMenu'
 import { CommandPalette } from './CommandPalette'
 import { BrandKitDialog, ResizeDialog, ShortcutSheet, applyBrand } from './Dialogs'
+import { BoardsPanel } from './BoardsPanel'
+import { PrivacyPanel } from './PrivacyPanel'
+import { initPrivateFromSession, isPrivate } from '../io'
 import { ExportDialog } from './ExportDialog'
 import { LayersPanel } from './LayersPanel'
 import { OptionsBar } from './OptionsBar'
 import { PropertiesPanel } from './PropertiesPanel'
 import { Stage, isTyping, stageApi } from './Stage'
 import { StartScreen } from './StartScreen'
+import { TabBar } from './TabBar'
+import { useTabs } from '../tabs'
 import { ToolRail } from './ToolRail'
 import { TopBar } from './TopBar'
 
@@ -25,7 +30,7 @@ export function EditorShell() {
   const busy = useEditor(s => s.busy)
   const dirty = useEditor(s => s.dirty)
   const historyIndex = useEditor(s => s.historyIndex)
-  const [modal, setModal] = useState<null | 'add' | 'filters' | 'export' | 'palette' | 'resize' | 'brand' | 'keys'>(null)
+  const [modal, setModal] = useState<null | 'add' | 'filters' | 'export' | 'palette' | 'resize' | 'brand' | 'keys' | 'boards' | 'privacy'>(null)
   const [panel, setPanel] = useState(false)
   const [shownToast, setShownToast] = useState<string | null>(null)
 
@@ -34,8 +39,10 @@ export function EditorShell() {
   // Brand kit applies to every design. Other parts of the editor open dialogs through a window event.
   const docId = useEditor(s => s.doc?.id)
   useEffect(() => { getBrand().then(applyBrand).catch(() => {}) }, [docId])
+  useEffect(() => { useTabs.getState().sync() }, [docId])
+  useEffect(() => { initPrivateFromSession() }, [])
   useEffect(() => {
-    const open = (e: Event) => setModal((e as CustomEvent).detail)
+    const open = (e: Event) => setModal((e as CustomEvent).detail as any)
     window.addEventListener('vc:open', open)
     return () => window.removeEventListener('vc:open', open)
   }, [])
@@ -57,6 +64,13 @@ export function EditorShell() {
       if (!h) return
       const ed = useEditor.getState()
       const canvases = await Promise.all(h.images.map(i => blobToCanvas(i.blob)))
+      if (h.boards && h.size && canvases.length > 1) {
+        // Each image becomes its own board, each holding one image layer.
+        const { buildFramedFromImages } = await import('../io')
+        buildFramedFromImages(h.name, canvases, h.images.map(i => i.name), h.size, h.palette)
+        ed.notify('Opened as boards. Each page is its own board; drag elements between them.')
+        return
+      }
       const size = h.size ?? (canvases[0] ? { width: canvases[0].width, height: canvases[0].height } : { width: 1080, height: 1350 })
       ed.newDoc({ name: h.name, ...size, background: h.from === 'studio' ? '#ffffff' : null })
       canvases.forEach((c, i) => useEditor.getState().addImage(c, c.width, c.height, h.images[i].name))
@@ -67,7 +81,7 @@ export function EditorShell() {
 
   // Autosave
   useEffect(() => {
-    if (!dirty || !hasDoc) return
+    if (!dirty || !hasDoc || isPrivate()) return
     const t = setTimeout(() => { saveProject().catch(() => useEditor.getState().notify('Could not save. Your browser storage may be full.')) }, 1800)
     return () => clearTimeout(t)
   }, [dirty, historyIndex, hasDoc])
@@ -137,6 +151,7 @@ export function EditorShell() {
   return (
     <main className="h-[100dvh] flex flex-col bg-void-950 text-void-100 overflow-hidden">
       <TopBar onExport={() => setModal('export')} onAdd={() => setModal('add')} onSearch={() => setModal('palette')} />
+      {hasDoc && <TabBar onNew={() => useEditor.getState().closeDoc()} />}
       {!hasDoc ? <StartScreen /> : (
         <>
           <OptionsBar />
@@ -159,6 +174,8 @@ export function EditorShell() {
       {modal === 'resize' && hasDoc && <ResizeDialog onClose={() => setModal(null)} />}
       {modal === 'brand' && <BrandKitDialog onClose={() => setModal(null)} />}
       {modal === 'keys' && <ShortcutSheet onClose={() => setModal(null)} />}
+      {modal === 'boards' && hasDoc && <BoardsPanel onClose={() => setModal(null)} />}
+      {modal === 'privacy' && <PrivacyPanel onClose={() => setModal(null)} />}
       {modal === 'export' && hasDoc && <ExportDialog onClose={() => setModal(null)} />}
 
       {busy && (

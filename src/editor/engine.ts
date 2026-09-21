@@ -1,5 +1,5 @@
 import { applyEffect } from '@/lib/effects'
-import type { AdjustmentLayer, Doc, Group, Layer, RasterLayer, Rect, TextLayer } from './types'
+import type { AdjustmentLayer, Doc, Frame, Group, Layer, RasterLayer, Rect, TextLayer } from './types'
 
 // ─── Canvas helpers ────────────────────────────────────────────────
 
@@ -334,6 +334,8 @@ export interface RenderOptions {
   noCache?: boolean
   transparent?: boolean
   groups?: Group[]
+  /** Override which frames to draw; omit to use doc.frames, pass [] to force flat. */
+  frameRects?: Frame[]
 }
 
 export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], opts: RenderOptions = {}) {
@@ -345,7 +347,12 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
   acc.globalAlpha = 1
   acc.globalCompositeOperation = 'source-over'
   acc.clearRect(0, 0, W, H)
-  if (doc.background && !opts.transparent) { acc.fillStyle = doc.background; acc.fillRect(0, 0, W, H) }
+  const frames = opts.frameRects === undefined ? doc.frames : opts.frameRects
+  if (frames && frames.length) {
+    // Artboard mode: each frame is an opaque board; the area between boards stays transparent.
+    for (const f of frames) { if (f.background && !opts.transparent) { acc.fillStyle = f.background; acc.fillRect(f.x * s, f.y * s, f.width * s, f.height * s) } }
+  } else if (doc.background && !opts.transparent) { acc.fillStyle = doc.background; acc.fillRect(0, 0, W, H) }
+  const frameById = new Map((frames ?? []).map(f => [f.id, f]))
 
   let belowKey = `${W}x${H}|${opts.transparent ? '' : doc.background}`
   let liveBelow = false
@@ -401,6 +408,8 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
       const m = layerMatrix(l, doc)
       const needsTemp = (l.mask && l.maskEnabled) || !!live
       acc.save()
+      const clipF = l.frameId ? frameById.get(l.frameId) : undefined
+      if (clipF) { acc.beginPath(); acc.rect(clipF.x * s, clipF.y * s, clipF.width * s, clipF.height * s); acc.clip() }
       acc.globalAlpha = l.opacity
       acc.globalCompositeOperation = l.blend
       acc.imageSmoothingQuality = 'high'

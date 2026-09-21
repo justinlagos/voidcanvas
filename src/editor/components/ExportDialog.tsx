@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import { Copy, Download } from 'lucide-react'
-import { downloadBlob, exportImage, type ExportOptions } from '../io'
+import { downloadBlob, exportAllFrames, exportImage, type ExportOptions } from '../io'
 import { useEditor } from '../store'
 import { Button, Modal, Slider, focusRing } from './ui'
 
 export function ExportDialog({ onClose }: { onClose: () => void }) {
   const doc = useEditor(s => s.doc)!
+  const hasFrames = !!doc.frames?.length
   const [o, setO] = useState<ExportOptions>({ format: 'png', scale: 1, quality: 0.92, transparent: !doc.background })
   const [working, setWorking] = useState(false)
   const max = Math.max(doc.width, doc.height)
@@ -46,6 +47,10 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
             <input type="checkbox" checked={o.transparent} onChange={e => setO({ ...o, transparent: e.target.checked })} className="w-4 h-4 accent-[#8b7cff]" />
             Leave out the background colour
           </label>
+        )}
+        {hasFrames && (
+          <button onClick={async () => { setWorking(true); try { downloadBlob(await exportAllFrames(2), `${doc.name.replace(/[^\w\- ]+/g, '') || 'boards'}.zip`); onClose() } catch { useEditor.getState().notify('Export failed.') } finally { setWorking(false) } }}
+            className={`w-full mb-2 h-10 rounded-lg text-[13px] font-medium bg-void-800 text-void-100 hover:bg-void-700 ${focusRing}`}>Each board as its own PNG (zip)</button>
         )}
         <div className="flex gap-2 pt-1">
           <Button primary disabled={working} onClick={() => run(false)} className="flex-1"><Download size={15} />{working ? 'Exporting' : 'Download'}</Button>

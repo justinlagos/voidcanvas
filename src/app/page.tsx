@@ -3,6 +3,9 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Logo } from '@/components/AppNav'
+import { Lock } from 'lucide-react'
+import { PrivacyPanel, PrivateBadge } from '@/editor/components/PrivacyPanel'
+import { initPrivateFromSession } from '@/editor/io'
 import { listProjects, type ProjectSummary } from '@/editor/io'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b7cff]'
@@ -39,14 +42,18 @@ function Art({ kind }: { kind: string }) {
 
 export default function Home() {
   const [recent, setRecent] = useState<ProjectSummary[]>([])
-  useEffect(() => { listProjects().then(setRecent).catch(() => {}) }, [])
+  const [privacy, setPrivacy] = useState(false)
+  useEffect(() => { initPrivateFromSession(); listProjects().then(setRecent).catch(() => {}) }, [])
 
   return (
     <main className="min-h-[100dvh] bg-void-950 text-void-100">
-      <header className="h-14 flex items-center px-5 sm:px-8"><Logo /></header>
+      <header className="h-14 flex items-center justify-between px-5 sm:px-8"><div className="flex items-center gap-3"><Logo /><PrivateBadge /></div>
+        <button onClick={() => setPrivacy(true)} className="flex items-center gap-1.5 text-[13px] text-void-400 hover:text-white"><Lock size={14} />Your privacy</button>
+      </header>
       <div className="max-w-5xl mx-auto px-5 sm:px-8 pt-8 sm:pt-14 pb-16">
         <h1 className="text-[34px] sm:text-[52px] leading-[1.04] font-semibold tracking-[-0.03em] max-w-3xl">From the brief to the finished file, in one tab.</h1>
-        <p className="mt-4 text-[15px] sm:text-[17px] text-void-400 max-w-xl leading-relaxed">Three tools that work alone and hand work to each other. Free to use, runs in your browser, and your files stay on your device.</p>
+        <p className="mt-4 text-[15px] sm:text-[17px] text-void-400 max-w-xl leading-relaxed">Three tools that work alone and hand work to each other. Free to use, and your files never leave your browser.</p>
+        <button onClick={() => setPrivacy(true)} className="mt-4 inline-flex items-center gap-2 px-3 h-9 rounded-full bg-void-900 border border-void-800 text-[13px] text-void-300 hover:text-white hover:border-void-600"><Lock size={14} className="text-[#b9afff]" />No account. No cloud. Private by default.</button>
 
         <div className="mt-10 grid md:grid-cols-3 gap-4">
           {MODULES.map((m, i) => (
@@ -78,6 +85,7 @@ export default function Home() {
           </section>
         )}
       </div>
+      {privacy && <PrivacyPanel onClose={() => setPrivacy(false)} />}
     </main>
   )
 }

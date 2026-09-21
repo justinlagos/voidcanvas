@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { defaultParams, type EffectType } from '@/store/useStore'
 import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, layerBounds, layerMatrix, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
-import type { AdjustmentKind, AdjustmentLayer, Doc, Group, Layer, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
+import type { AdjustmentKind, AdjustmentLayer, Doc, Frame, Group, Layer, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
 
 // Revisions are globally unique so a given (id, rev) always means the same pixels, even across undo branches.
 let REV = 1
@@ -34,6 +34,7 @@ interface EditorState {
   /** Every selected layer. activeId is always one of them. */
   selectedIds: string[]
   editingTextId: string | null
+  activeFrameId: string | null
   /** Hold to see the design without any adjustments or filters. */
   compare: boolean
   editingMask: boolean
@@ -61,9 +62,15 @@ interface EditorState {
   // document
   newDoc: (d: { name?: string; width: number; height: number; background: string | null }) => void
   loadProject: (doc: Doc, layers: Layer[], swatches?: string[], groups?: Group[]) => void
+  loadFramed: (doc: Doc, layers: Layer[], swatches?: string[], groups?: Group[]) => void
   closeDoc: () => void
   setDoc: (patch: Partial<Doc>, commit?: boolean) => void
   cropTo: (x: number, y: number, w: number, h: number) => void
+  setActiveFrame: (id: string | null) => void
+  addFrame: (preset: { name: string; width: number; height: number }) => void
+  removeFrame: (id: string) => void
+  renameFrame: (id: string, name: string) => void
+  reassignLayerFrame: (layerId: string, frameId: string | null) => void
 
   // layers
   active: () => Layer | null
@@ -136,6 +143,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   activeId: null,
   selectedIds: [],
   editingTextId: null,
+  activeFrameId: null,
   compare: false,
   editingMask: false,
   selection: null,
@@ -173,6 +181,12 @@ export const useEditor = create<EditorState>((set, get) => ({
     set({ dirty: false })
   },
 
+  loadFramed: (doc, layers, swatches, groups) => {
+    const top = layers[layers.length - 1]?.id ?? null
+    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, activeFrameId: doc.frames?.[0]?.id ?? null, selection: null, editingMask: false, history: [], historyIndex: -1, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
+    get().commit('Open'); set({ dirty: false })
+  },
+
   closeDoc: () => set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, history: [], historyIndex: -1 }),
 
   setDoc: (patch, commit) => {
@@ -194,6 +208,33 @@ export const useEditor = create<EditorState>((set, get) => ({
     })
     set({ doc: { ...doc, width: w, height: h }, layers: next, selection: null, selRev: get().selRev + 1, docRev: get().docRev + 1 })
     get().commit('Crop')
+  },
+
+  setActiveFrame: (id) => set({ activeFrameId: id }),
+
+  addFrame: (preset) => {
+    const { doc } = get(); if (!doc) return
+    const frames = doc.frames ?? []
+    // place the new board to the right of the widest existing one
+    const maxX = frames.length ? Math.max(...frames.map(f => f.x + f.width)) + 120 : 0
+    const f: Frame = { id: uid(), name: preset.name, x: maxX, y: 0, width: preset.width, height: preset.height, background: '#ffffff' }
+    set({ doc: { ...doc, frames: [...frames, f] }, activeFrameId: f.id, docRev: get().docRev + 1 })
+    get().commit('Add board')
+  },
+
+  removeFrame: (id) => {
+    const { doc, layers } = get(); if (!doc?.frames) return
+    set({ doc: { ...doc, frames: doc.frames.filter(f => f.id !== id) }, layers: layers.filter(l => l.frameId !== id), activeFrameId: null, selectedIds: [], activeId: null, docRev: get().docRev + 1 })
+    get().commit('Delete board')
+  },
+
+  renameFrame: (id, name) => {
+    const { doc } = get(); if (!doc?.frames) return
+    set({ doc: { ...doc, frames: doc.frames.map(f => f.id === id ? { ...f, name } : f) }, docRev: get().docRev + 1 })
+  },
+
+  reassignLayerFrame: (layerId, frameId) => {
+    set({ layers: get().layers.map(l => l.id === layerId ? ({ ...l, frameId, rev: nextRev() } as Layer) : l), docRev: get().docRev + 1 })
   },
 
   active: () => get().layers.find(l => l.id === get().activeId) ?? null,
@@ -267,7 +308,8 @@ export const useEditor = create<EditorState>((set, get) => ({
     const { layers, activeId } = get()
     const idx = activeId ? layers.findIndex(x => x.id === activeId) : layers.length - 1
     const next = [...layers]
-    const host = idx >= 0 ? layers[idx] : null
+    const st = get(); const host = idx >= 0 ? layers[idx] : null
+    if (st.doc?.frames?.length && l.frameId === undefined) l = { ...l, frameId: st.activeFrameId ?? st.doc.frames[0].id } as Layer
     let at = idx + 1
     if (host?.groupId && l.groupId === undefined) {
       // Adjustments land above the whole group so they keep affecting everything beneath them.

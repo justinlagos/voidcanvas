@@ -65,7 +65,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
     try {
       const imgs: { name: string; blob: Blob }[] = []
       for (let i = 0; i < PAGE_COUNT; i++) { const c = await renderPage(i, brand, logo, o, 1.5); imgs.push({ name: pages[i].title, blob: await canvasToBlob(c) }) }
-      const id = await sendHandoff({ from: 'studio', name: `${name || 'Brand'} guidelines`, size: { width: SIZES[o].w, height: SIZES[o].h }, palette: brand.palette.map(p => p.hex), images: imgs })
+      const id = await sendHandoff({ from: 'studio', boards: true, name: `${name || 'Brand'} guidelines`, size: { width: SIZES[o].w, height: SIZES[o].h }, palette: brand.palette.map(p => p.hex), images: imgs })
       router.push(`/editor?inbox=${id}`)
     } catch (e) { console.error(e); setBusy(null) }
   }

@@ -1,11 +1,12 @@
 'use client'
 
-import { Download, Search, Maximize, Scaling, Palette, Minus, Plus, Redo2, Undo2, FolderOpen } from 'lucide-react'
+import { Download, Search, Maximize, Scaling, Palette, LayoutGrid, Lock, X, Minus, Plus, Redo2, Undo2, FolderOpen } from 'lucide-react'
 import { AppNav, Logo } from '@/components/AppNav'
 import { saveProject } from '../io'
 import { useEditor } from '../store'
 import { stageApi } from './Stage'
 import { Button, IconButton, focusRing } from './ui'
+import { PrivateBadge } from './PrivacyPanel'
 
 export function TopBar({ onExport, onAdd, onSearch }: { onExport: () => void; onAdd: () => void; onSearch: () => void }) {
   const doc = useEditor(s => s.doc)
@@ -19,6 +20,7 @@ export function TopBar({ onExport, onAdd, onSearch }: { onExport: () => void; on
     <header className="h-12 shrink-0 flex items-center gap-1 sm:gap-3 px-2 sm:px-3 border-b border-void-800/60 bg-void-950">
       <Logo compact={!!doc} />
       <AppNav />
+      <PrivateBadge />
       {doc && (
         <>
           <input aria-label="Design name" value={doc.name} onChange={e => s.setDoc({ name: e.target.value })} onBlur={() => useEditor.setState({ dirty: true })}
@@ -37,7 +39,10 @@ export function TopBar({ onExport, onAdd, onSearch }: { onExport: () => void; on
           <button onClick={onSearch} title="Search every action (Ctrl+K)" className={`hidden lg:flex items-center gap-2 h-8 pl-2.5 pr-2 rounded-lg bg-void-900 border border-void-800 text-[12.5px] text-void-400 hover:text-white ${focusRing}`}><Search size={13} />Search actions<kbd className="ml-2 text-[10.5px] px-1.5 py-0.5 rounded bg-void-800 text-void-300">Ctrl K</kbd></button>
           <IconButton label="Resize for other formats" onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'resize' }))} className="hidden sm:inline-flex"><Scaling size={16} /></IconButton>
           <IconButton label="Brand kit" onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'brand' }))} className="hidden sm:inline-flex"><Palette size={16} /></IconButton>
+          <IconButton label="Boards: add and manage them" onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'boards' }))} className="hidden sm:inline-flex"><LayoutGrid size={16} /></IconButton>
           <IconButton label="All designs" onClick={async () => { await saveProject(); s.closeDoc() }} className="hidden sm:inline-flex"><FolderOpen size={16} /></IconButton>
+          <IconButton label="Your privacy" onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'privacy' }))}><Lock size={16} /></IconButton>
+          <IconButton label="Close to home" onClick={async () => { await saveProject(); s.closeDoc(); window.location.href = '/' }}><X size={17} /></IconButton>
           <Button onClick={onAdd} className="!bg-[#8b7cff] !text-white hover:!bg-[#9a8dff] !px-2.5 sm:!px-3.5"><Plus size={15} /><span className="hidden sm:inline">Add</span><span className="sr-only sm:hidden">Add</span></Button>
           <Button primary onClick={onExport} className="!px-2.5 sm:!px-3.5"><Download size={15} /><span className="hidden sm:inline">Export</span><span className="sr-only sm:hidden">Export</span></Button>
         </>

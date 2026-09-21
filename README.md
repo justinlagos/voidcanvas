@@ -1,5 +1,8 @@
 # Voidcanvas
 
+**Your files don't leave your browser.** Edit locally, no cloud, no account, private by default. Projects are stored only in the browser via IndexedDB. The only outbound calls are web fonts (Google Fonts) and a one-time background-removal model download; neither sends any image or design. A **private session** mode keeps everything in memory (nothing written to disk) for shared computers, and **Delete all my data** wipes the local database.
+
+
 One app, three modules. Each works alone and they pass work to each other.
 
 | Route | Module | What it does |
@@ -64,6 +67,14 @@ src/components/AppNav   shared logo and module switch
 ```
 
 Handoff between modules: `sendHandoff()` writes images, palette and size to the `inbox` store, then routes to `/editor?inbox=<id>`.
+
+## Artboards, tabs, cascade
+
+- The editor supports **artboards** (called boards): multiple frames on one infinite canvas, each with its own layers. Drag a layer across a board boundary and it joins that board. Purely additive: a plain single-canvas design is unchanged.
+- Brand guidelines open in the editor as one board per page. PSD files whose top level is layer groups import as one board per group.
+- **File tabs** across the top with close buttons; a close-to-home button returns to the splash page. Switching tabs saves the current design.
+- **Boards panel** (grid icon) to add, rename, delete boards and to **cascade**: take one board and lay it out at every touchpoint you pick (Instagram, Story, YouTube, LinkedIn, print) as new boards in one click.
+- Export any single board, or every board as its own PNG in a zip.
 
 ## Studio
 

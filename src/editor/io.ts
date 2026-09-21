@@ -1,4 +1,5 @@
-import { ctx2d, makeCanvas, renderDoc } from './engine'
+import { ctx2d, makeCanvas, renderDoc, uid } from './engine'
+import { layoutFrames } from './frames'
 import { nextRev, useEditor } from './store'
 import type { Doc, Group, Layer } from './types'
 
@@ -29,11 +30,30 @@ async function tx<T>(store: StoreName, mode: IDBTransactionMode, fn: (s: IDBObje
   })
 }
 
+// Private session: everything lives in memory only and is dropped when the tab closes.
+// No project, board, or brand data is ever written to disk in this mode.
+let PRIVATE = false
+const mem = new Map<StoreName, Map<string, any>>(STORES.map(s => [s, new Map()]))
+const clone = (v: any) => (typeof structuredClone === 'function' ? structuredClone(v) : v)
+
+export function setPrivateMode(on: boolean) { PRIVATE = on; if (typeof sessionStorage !== 'undefined') { try { on ? sessionStorage.setItem('vc-private', '1') : sessionStorage.removeItem('vc-private') } catch { /* ignore */ } } }
+export function isPrivate() { return PRIVATE }
+export function initPrivateFromSession() { if (typeof sessionStorage !== 'undefined') { try { PRIVATE = sessionStorage.getItem('vc-private') === '1' } catch { /* ignore */ } } return PRIVATE }
+
 export const idb = {
-  get: <T>(store: StoreName, id: string) => tx<T | undefined>(store, 'readonly', s => s.get(id)),
-  all: <T>(store: StoreName) => tx<T[]>(store, 'readonly', s => s.getAll()),
-  put: (store: StoreName, v: unknown) => tx(store, 'readwrite', s => s.put(v)),
-  del: (store: StoreName, id: string) => tx(store, 'readwrite', s => s.delete(id)),
+  get: <T>(store: StoreName, id: string): Promise<T | undefined> => PRIVATE ? Promise.resolve(clone(mem.get(store)!.get(id))) : tx<T | undefined>(store, 'readonly', s => s.get(id)),
+  all: <T>(store: StoreName): Promise<T[]> => PRIVATE ? Promise.resolve(Array.from(mem.get(store)!.values()).map(clone)) : tx<T[]>(store, 'readonly', s => s.getAll()),
+  put: (store: StoreName, v: any) => { if (PRIVATE) { mem.get(store)!.set(v.id, clone(v)); return Promise.resolve(undefined as any) } return tx(store, 'readwrite', s => s.put(v)) },
+  del: (store: StoreName, id: string) => { if (PRIVATE) { mem.get(store)!.delete(id); return Promise.resolve(undefined as any) } return tx(store, 'readwrite', s => s.delete(id)) },
+}
+
+/** Wipe every trace on this device: the whole IndexedDB database and any in-memory session. */
+export async function wipeEverything(): Promise<void> {
+  Array.from(mem.values()).forEach(m => m.clear())
+  if (typeof indexedDB === 'undefined') return
+  try {
+    await new Promise<void>((res) => { const r = indexedDB.deleteDatabase(DB); r.onsuccess = () => res(); r.onerror = () => res(); r.onblocked = () => res() })
+  } catch { /* ignore */ }
 }
 
 // ─── Handoff between modules ───────────────────────────────────────
@@ -46,6 +66,8 @@ export interface Handoff {
   palette?: string[]
   size?: { width: number; height: number }
   note?: string
+  /** True when each image should become its own artboard. */
+  boards?: boolean
 }
 
 export async function sendHandoff(h: Omit<Handoff, 'id'>): Promise<string> {
@@ -107,6 +129,25 @@ export async function importFiles(files: File[] | Blob[], names?: string[]) {
 // ─── Export ────────────────────────────────────────────────────────
 
 export interface ExportOptions { format: 'png' | 'jpeg' | 'webp' | 'pdf'; scale: number; quality: number; transparent: boolean }
+
+/** Render one artboard (frame) to its own canvas at scale. */
+export function renderFrame(frameId: string, scale = 1): HTMLCanvasElement | null {
+  const { doc, layers, groups } = useEditor.getState()
+  const f = doc?.frames?.find(x => x.id === frameId); if (!doc || !f) return null
+  const full = makeCanvas(doc.width * scale, doc.height * scale)
+  renderDoc(full, doc, layers, { groups, scale, noCache: true })
+  const out = makeCanvas(f.width * scale, f.height * scale)
+  ctx2d(out).drawImage(full, f.x * scale, f.y * scale, f.width * scale, f.height * scale, 0, 0, f.width * scale, f.height * scale)
+  return out
+}
+
+export async function exportAllFrames(scale = 2): Promise<Blob> {
+  const { doc } = useEditor.getState()
+  if (!doc?.frames) throw new Error('No artboards')
+  const files: { name: string; blob: Blob }[] = []
+  for (const f of doc.frames) { const c = renderFrame(f.id, scale); if (c) files.push({ name: `${f.name.replace(/[^\w ]+/g, '') || 'board'}.png`, blob: await canvasToBlob(c) }) }
+  return zipFiles(files)
+}
 
 export async function exportImage(o: ExportOptions): Promise<Blob> {
   const { doc, layers, groups } = useEditor.getState()
@@ -173,7 +214,8 @@ export async function openProject(id: string, asCopy = false): Promise<boolean> 
     return l as Layer
   }))
   const doc = asCopy ? { ...p.doc, id: 'd' + Date.now().toString(36), name: p.doc.name.replace(/ template$/i, '') } : p.doc
-  useEditor.getState().loadProject(doc, layers, p.swatches, p.groups ?? [])
+  if (doc.frames?.length) useEditor.getState().loadFramed(doc, layers, p.swatches, p.groups ?? [])
+  else useEditor.getState().loadProject(doc, layers, p.swatches, p.groups ?? [])
   if (asCopy) useEditor.setState({ dirty: true })
   return true
 }
@@ -266,3 +308,17 @@ export async function zipFiles(files: { name: string; blob: Blob }[]): Promise<B
 export interface BrandKit { id: 'default'; colors: string[]; fonts: string[]; logos: { id: string; name: string; blob: Blob }[] }
 export const getBrand = async (): Promise<BrandKit> => (await idb.get<BrandKit>('brand', 'default')) ?? { id: 'default', colors: [], fonts: [], logos: [] }
 export const saveBrand = (b: BrandKit) => idb.put('brand', b)
+
+/** Build a framed document where each image is one artboard with one image layer. */
+export function buildFramedFromImages(name: string, canvases: HTMLCanvasElement[], names: string[], size: { width: number; height: number }, palette?: string[]) {
+  const { frames, width, height } = layoutFrames(canvases.map((c, i) => ({ name: names[i] || `Board ${i + 1}`, width: size.width, height: size.height, background: '#ffffff' })))
+  const doc: Doc = { id: uid(), name, width, height, background: null, frames }
+  const base = (nm: string) => ({ id: uid(), name: nm, visible: true, locked: false, opacity: 1, blend: 'source-over' as const, x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, mask: null, maskEnabled: true, groupId: null as string | null, rev: nextRev() })
+  const layers: Layer[] = canvases.map((c, i) => {
+    const f = frames[i]
+    const k = Math.min(f.width / c.width, f.height / c.height)
+    return { ...base(names[i] || `Art ${i + 1}`), type: 'raster', canvas: c, frameId: f.id, scaleX: k, scaleY: k, x: f.x + (f.width - c.width * k) / 2, y: f.y + (f.height - c.height * k) / 2 } as Layer
+  })
+  useEditor.getState().loadFramed(doc, layers, undefined, [])
+  if (palette?.length) useEditor.setState({ swatches: Array.from(new Set([...palette, ...useEditor.getState().swatches])).slice(0, 21), fg: palette[0] })
+}

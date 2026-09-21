@@ -42,9 +42,28 @@ export async function importPsd(file: Blob, name: string) {
       layers.push(l)
     }
   }
-  // PSD stores bottom layer first, which matches our array order.
   walk(psd.children ?? [], null)
   if (!layers.length) { ed.notify('That PSD has no layers we can read. Try flattening it first.'); return }
+
+  // Photoshop artboards appear as top-level layer groups. If the file has 2+ groups, bring each in as a board.
+  const topGroups = (psd.children ?? []).filter((n: any) => n.children)
+  if (topGroups.length >= 2 && topGroups.length === (psd.children ?? []).length) {
+    const frames = groups.map((g, i) => {
+      const gl = layers.filter(l => l.groupId === g.id)
+      const xs = gl.map(l => l.x), ys = gl.map(l => l.y)
+      const x0 = Math.min(0, ...xs), y0 = Math.min(0, ...ys)
+      return { id: g.id, name: g.name, x: x0, y: y0, width: W, height: H, background: null as string | null }
+    })
+    // lay boards out side by side so they do not overlap
+    let ox = 0
+    const placed = frames.map(f => { const nf = { ...f, x: ox, y: 0 }; ox += f.width + 120; return nf })
+    const shift = new Map(groups.map((g, i) => [g.id, { dx: placed[i].x - frames[i].x, dy: placed[i].y - frames[i].y }]))
+    const framedLayers = layers.map(l => { const s = l.groupId ? shift.get(l.groupId) : null; return s ? { ...l, x: l.x + s.dx, y: l.y + s.dy, frameId: l.groupId, groupId: null } : { ...l, frameId: null } }) as any
+    const doc = { id: uid(), name: name.replace(/\.psd$/i, ''), width: ox - 120, height: H, background: null, frames: placed }
+    ed.loadFramed(doc, framedLayers, undefined, [])
+    ed.notify(`Imported ${placed.length} boards from the PSD.`)
+    return
+  }
 
   ed.newDoc({ name: name.replace(/\.psd$/i, ''), width: W, height: H, background: null })
   useEditor.setState({ layers, groups, activeId: layers[layers.length - 1].id, selectedIds: [layers[layers.length - 1].id] })
