@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, Eclipse, FolderPlus, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
+import { AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, Eclipse, FolderPlus, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
 import { effectParams } from '@/components/ParamControls'
 import { defaultParams, type EffectParams } from '@/store/useStore'
 import { subjectMask } from '../ai'
-import { ADJUSTMENT_DEFAULTS } from '../engine'
+import { ADJUSTMENT_DEFAULTS, layerBounds } from '../engine'
 import { FONTS, ensureFont } from '../io'
 import { useEditor } from '../store'
 import { BLEND_MODES, type AdjustmentLayer, type Layer, type ShapeLayer, type TextLayer } from '../types'
@@ -34,6 +34,18 @@ export async function removeBackground(layerId: string, mode: 'person' | 'any' =
     console.error(e)
     useEditor.getState().notify('Could not load the background remover. Check your connection and try again.')
   } finally { useEditor.getState().setBusy(null) }
+}
+
+function NumField({ label, value, onCommit }: { label: string; value: number; onCommit: (v: number) => void }) {
+  return (
+    <label className="flex items-center gap-1.5 bg-void-900 border border-void-800 rounded-lg px-2 h-8">
+      <span className="text-[11px] text-void-500 w-3">{label}</span>
+      <input type="number" defaultValue={Math.round(value)} key={Math.round(value)}
+        onBlur={e => { const v = Number(e.target.value); if (Number.isFinite(v)) onCommit(v) }}
+        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+        className="min-w-0 flex-1 bg-transparent text-[12px] tabular-nums text-void-100 outline-none" />
+    </label>
+  )
 }
 
 export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }) {
@@ -76,6 +88,24 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
           <IconButton key={how} label={count > 1 ? label : `${label} on the page`} onClick={() => s.align(how)}><Icon size={16} /></IconButton>
         ))}
       </div>
+      {count === 1 && layer && layer.type !== 'adjustment' && (() => {
+        const b = layerBounds(layer, doc!)
+        return (
+          <div className="grid grid-cols-2 gap-1.5 mt-2.5">
+            <NumField label="X" value={b.x} onCommit={v => { s.setLayerBox(layer.id, { x: v }); s.commit('Move') }} />
+            <NumField label="Y" value={b.y} onCommit={v => { s.setLayerBox(layer.id, { y: v }); s.commit('Move') }} />
+            <NumField label="W" value={b.w} onCommit={v => { s.setLayerBox(layer.id, { w: v }); s.commit('Resize') }} />
+            <NumField label="H" value={b.h} onCommit={v => { s.setLayerBox(layer.id, { h: v }); s.commit('Resize') }} />
+          </div>
+        )
+      })()}
+      {count > 2 && (
+        <div className="flex items-center gap-1.5 mt-2.5">
+          <span className="text-[12px] text-void-500 mr-1">Distribute</span>
+          <IconButton label="Distribute horizontally" onClick={() => s.distribute('h')}><AlignHorizontalDistributeCenter size={16} /></IconButton>
+          <IconButton label="Distribute vertically" onClick={() => s.distribute('v')}><AlignVerticalDistributeCenter size={16} /></IconButton>
+        </div>
+      )}
       {count > 1 && <Button onClick={() => s.groupSelected()} className="w-full mt-2.5"><FolderPlus size={15} />Group these layers</Button>}
       {count > 1 && <p className="mt-2 text-[12px] text-void-500">Drag any of them to move them together.</p>}
     </Section>

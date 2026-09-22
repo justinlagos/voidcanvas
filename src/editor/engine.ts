@@ -409,8 +409,9 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
       // Clipping mask: this layer shows only where the base layer (directly below) is opaque.
       let clipBaseCanvas: HTMLCanvasElement | null = null
       if (l.clipId) {
-        const base = layers[li - 1]
-        if (base && base.id === l.clipId && base.type !== 'adjustment') clipBaseCanvas = renderLayerAlpha(doc, base, s)
+        // Base is the layer named by clipId (the nearest non-clipped layer below). Supports a run of clipped layers sharing one base.
+        const base = layers.find(x => x.id === l.clipId)
+        if (base && base.type !== 'adjustment') clipBaseCanvas = renderLayerAlpha(doc, base, s)
       }
       const needsTemp = (l.mask && l.maskEnabled) || !!live || !!clipBaseCanvas
       acc.save()

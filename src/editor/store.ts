@@ -83,6 +83,8 @@ interface EditorState {
   ungroup: (groupId: string) => void
   updateGroup: (groupId: string, patch: Partial<Group>, commitLabel?: string) => void
   align: (how: 'left' | 'hcenter' | 'right' | 'top' | 'vcenter' | 'bottom') => void
+  distribute: (axis: 'h' | 'v') => void
+  setLayerBox: (id: string, box: { x?: number; y?: number; w?: number; h?: number }) => void
   removeSelected: () => void
   addLayer: (l: Layer, label?: string) => void
   addBlank: () => void
@@ -335,6 +337,40 @@ export const useEditor = create<EditorState>((set, get) => ({
     get().commit('Align')
   },
 
+  distribute: (axis) => {
+    const { layers, selectedIds, doc } = get(); if (!doc) return
+    const sel = layers.filter(l => selectedIds.includes(l.id) && l.type !== 'adjustment' && !l.locked)
+    if (sel.length < 3) return
+    const boxes = sel.map(l => ({ l, b: layerBounds(l, doc) }))
+    // sort along the axis, keep the two extremes fixed, space the middles evenly by gap.
+    boxes.sort((a, b) => axis === 'h' ? (a.b.x - b.b.x) : (a.b.y - b.b.y))
+    const first = boxes[0].b, last = boxes[boxes.length - 1].b
+    const totalSpan = axis === 'h' ? (last.x + last.w) - first.x : (last.y + last.h) - first.y
+    const sumSize = boxes.reduce((n, x) => n + (axis === 'h' ? x.b.w : x.b.h), 0)
+    const gap = (totalSpan - sumSize) / (boxes.length - 1)
+    let cursor = axis === 'h' ? first.x : first.y
+    const moves = new Map<string, { dx: number; dy: number }>()
+    boxes.forEach(({ l, b }) => {
+      if (axis === 'h') { moves.set(l.id, { dx: cursor - b.x, dy: 0 }); cursor += b.w + gap }
+      else { moves.set(l.id, { dx: 0, dy: cursor - b.y }); cursor += b.h + gap }
+    })
+    set({ layers: layers.map(l => { const m = moves.get(l.id); return m ? ({ ...l, x: l.x + m.dx, y: l.y + m.dy, rev: nextRev() } as Layer) : l }), docRev: get().docRev + 1 })
+    get().commit('Distribute')
+  },
+
+  // Set a layer's document-space box precisely. x/y move the top-left of the unrotated bounds; w/h rescale from it.
+  setLayerBox: (id, box) => {
+    const { layers, doc } = get(); if (!doc) return
+    const l = layers.find(x => x.id === id); if (!l || l.type === 'adjustment') return
+    const b = layerBounds(l, doc)
+    const patch: any = {}
+    if (box.x != null) patch.x = l.x + (box.x - b.x)
+    if (box.y != null) patch.y = l.y + (box.y - b.y)
+    if (box.w != null && b.w > 0) { const k = box.w / b.w; if (l.type === 'text') patch.fontSize = Math.max(1, l.fontSize * k); else patch.scaleX = l.scaleX * k }
+    if (box.h != null && b.h > 0) { const k = box.h / b.h; if (l.type === 'text') { /* text height follows fontSize */ } else patch.scaleY = l.scaleY * k }
+    set({ layers: layers.map(x => x.id === id ? ({ ...x, ...patch, rev: nextRev() } as Layer) : x), docRev: get().docRev + 1 })
+  },
+
   removeSelected: () => {
     const { layers, selectedIds, groups } = get(); if (!selectedIds.length) return
     const next = layers.filter(l => !selectedIds.includes(l.id))
@@ -543,19 +579,21 @@ export const useEditor = create<EditorState>((set, get) => ({
   canClip: (id) => {
     const st = get(); const lid = id ?? st.activeId; if (!lid) return false
     const idx = st.layers.findIndex(l => l.id === lid); if (idx <= 0) return false
-    const l = st.layers[idx], base = st.layers[idx - 1]
+    const l = st.layers[idx], below = st.layers[idx - 1]
     if (l.type === 'adjustment' || l.clipId) return false
-    if (base.type === 'adjustment') return false
-    if ((l.groupId ?? null) !== (base.groupId ?? null)) return false
-    if ((l.frameId ?? null) !== (base.frameId ?? null)) return false
+    if (below.type === 'adjustment') return false
+    if ((l.groupId ?? null) !== (below.groupId ?? null)) return false
+    if ((l.frameId ?? null) !== (below.frameId ?? null)) return false
     return true
   },
 
   createClippingMask: (id) => {
     const st = get(); const lid = id ?? st.activeId; if (!lid || !st.canClip(lid)) return
     const idx = st.layers.findIndex(l => l.id === lid)
-    const base = st.layers[idx - 1]
-    set({ layers: st.layers.map(l => l.id === lid ? ({ ...l, clipId: base.id, rev: nextRev() } as Layer) : l), docRev: st.docRev + 1 })
+    const below = st.layers[idx - 1]
+    // If the layer below is itself clipped, join the same base run; otherwise the below layer becomes the base.
+    const baseId = below.clipId ?? below.id
+    set({ layers: st.layers.map(l => l.id === lid ? ({ ...l, clipId: baseId, rev: nextRev() } as Layer) : l), docRev: st.docRev + 1 })
     get().commit('Create clipping mask')
   },
 

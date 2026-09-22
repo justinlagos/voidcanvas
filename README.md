@@ -68,6 +68,10 @@ src/components/AppNav   shared logo and module switch
 
 Handoff between modules: `sendHandoff()` writes images, palette and size to the `inbox` store, then routes to `/editor?inbox=<id>`.
 
+## Precision and distribution
+
+Selecting a single layer shows X, Y, W, H numeric fields for exact positioning and sizing (type a value, press Enter). Selecting three or more layers adds Distribute horizontally / vertically alongside the existing align controls. Clipping masks now support multiple layers sharing one base.
+
 ## Clipping masks
 
 Select a layer and choose Clip to below (floating bar, the Layers-panel scissor button, or Alt+Ctrl/Cmd+G) to clip it to the layer directly beneath: it shows only where that base layer is opaque. The clipped layer moves and resizes non-destructively inside the base, and Release clip restores the full layer. Clipped layers appear indented under their base with a clip indicator.
