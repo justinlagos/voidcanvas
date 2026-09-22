@@ -35,6 +35,7 @@ export function ToolPage({ def }: { def: ToolDef }) {
   const srcRef = useRef<HTMLCanvasElement | null>(null)
   const outRef = useRef<HTMLCanvasElement>(null)
   const [ready, setReady] = useState(false)
+  const [imgRev, setImgRev] = useState(0)
   const [isSample, setIsSample] = useState(true)
   const [over, setOver] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -52,9 +53,9 @@ export function ToolPage({ def }: { def: ToolDef }) {
     ctx.putImageData(applyEffect(ctx, img, def.effect, params), 0, 0)
   }, [def.effect, params])
 
-  useEffect(() => { if (ready) render() }, [ready, params, render])
+  useEffect(() => { if (ready) render() }, [ready, imgRev, params, render])
 
-  const loadCanvas = (c: HTMLCanvasElement, sample: boolean) => { srcRef.current = c; setIsSample(sample); setReady(true) }
+  const loadCanvas = (c: HTMLCanvasElement, sample: boolean) => { srcRef.current = c; setIsSample(sample); setReady(true); setImgRev(v => v + 1) }
 
   const loadFile = async (file: File) => {
     if (!file.type.startsWith('image/')) return
