@@ -37,7 +37,7 @@ function HistoryList() {
         <li key={i}>
           <button onClick={() => useEditor.getState().jumpTo(i)} aria-current={i === index}
             className={`w-full flex items-center gap-2.5 px-2.5 h-8 rounded-lg text-left text-[12.5px] ${focusRing} ${i === index ? 'bg-void-800 text-white' : i > index ? 'text-void-600 hover:bg-void-900' : 'text-void-300 hover:bg-void-900'}`}>
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${i === index ? 'bg-[#8b7cff]' : i > index ? 'bg-void-700' : 'bg-void-500'}`} />{h.label}
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${i === index ? 'bg-accent' : i > index ? 'bg-void-700' : 'bg-void-500'}`} />{h.label}
           </button>
         </li>
       ))}
@@ -69,7 +69,7 @@ function LayerRows({ list, ctx }: { list: Layer[]; ctx: RowCtx }) {
             <li className={`flex items-center gap-1.5 pl-1 pr-1.5 py-1 rounded-lg ${allOn ? 'bg-void-800/70' : 'hover:bg-void-900'}`} onClick={() => s.selectGroup(g.id)}>
               <button aria-label={g.visible ? 'Hide group' : 'Show group'} onClick={e => { e.stopPropagation(); s.updateGroup(g.id, { visible: !g.visible }, 'Toggle group') }} className={`w-7 h-7 shrink-0 inline-flex items-center justify-center rounded-md ${focusRing} ${g.visible ? 'text-void-300' : 'text-void-600'} hover:text-white`}>{g.visible ? <Eye size={15} /> : <EyeOff size={15} />}</button>
               <button aria-label={g.collapsed ? 'Expand group' : 'Collapse group'} onClick={e => { e.stopPropagation(); s.updateGroup(g.id, { collapsed: !g.collapsed }) }} className={`w-5 h-7 shrink-0 inline-flex items-center justify-center text-void-400 hover:text-white rounded ${focusRing}`}>{g.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</button>
-              <Folder size={15} className="shrink-0 text-[#b9afff]" />
+              <Folder size={15} className="shrink-0 text-accent-light" />
               {renaming === g.id ? (
                 <input autoFocus defaultValue={g.name} onClick={e => e.stopPropagation()} onBlur={e => { s.updateGroup(g.id, { name: e.target.value.trim() || g.name }); setRenaming(null) }} onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }} className={`min-w-0 flex-1 h-7 px-1.5 rounded bg-void-950 border border-void-700 text-[12.5px] ${focusRing}`} />
               ) : <span onDoubleClick={() => setRenaming(g.id)} title="Double-click to rename" className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-void-100">{g.name}</span>}
@@ -82,13 +82,13 @@ function LayerRows({ list, ctx }: { list: Layer[]; ctx: RowCtx }) {
             onDragOver={e => { e.preventDefault(); setOver(i) }}
             onDrop={e => { e.preventDefault(); if (dragId && dragId !== l.id) s.moveLayer(dragId, i); setOver(null) }}
             onClick={e => (e.shiftKey || e.metaKey || e.ctrlKey ? s.toggleSelect(l.id) : s.setActive(l.id))}
-            className={`group flex items-center gap-2 pl-1 pr-1.5 py-1 rounded-lg cursor-default border ${over === i && dragId ? 'border-[#8b7cff]' : 'border-transparent'} ${on ? 'bg-void-800' : 'hover:bg-void-900'}`}>
+            className={`group flex items-center gap-2 pl-1 pr-1.5 py-1 rounded-lg cursor-default border ${over === i && dragId ? 'border-accent' : 'border-transparent'} ${on ? 'bg-void-800' : 'hover:bg-void-900'}`}>
             {l.clipId && <CornerDownRight size={13} className="shrink-0 -mr-1 text-void-500" aria-label="Clipped to layer below" />}
             <button aria-label={l.visible ? 'Hide layer' : 'Show layer'} onClick={e => { e.stopPropagation(); s.updateLayer(l.id, { visible: !l.visible }, l.visible ? 'Hide layer' : 'Show layer') }}
               className={`w-7 h-7 shrink-0 inline-flex items-center justify-center rounded-md ${focusRing} ${l.visible ? 'text-void-300' : 'text-void-600'} hover:text-white`}>
               {l.visible ? <Eye size={15} /> : <EyeOff size={15} />}
             </button>
-            <span className={`shrink-0 rounded-md p-[2px] ${l.id === activeId && !editingMask ? 'ring-2 ring-[#8b7cff]' : ''}`}>
+            <span className={`shrink-0 rounded-md p-[2px] ${l.id === activeId && !editingMask ? 'ring-2 ring-accent' : ''}`}>
               {l.type === 'adjustment'
                 ? <span className="w-9 h-9 rounded-[5px] bg-void-700 flex items-center justify-center text-void-200"><SlidersHorizontal size={15} /></span>
                 : l.type === 'text' ? <span className="w-9 h-9 rounded-[5px] bg-void-700 flex items-center justify-center text-void-200"><Type size={15} /></span>
@@ -96,7 +96,7 @@ function LayerRows({ list, ctx }: { list: Layer[]; ctx: RowCtx }) {
                 : <Thumb layer={l} />}
             </span>
             {l.mask && (
-              <span title="Mask: click to paint on it" className={`shrink-0 rounded-md p-[2px] cursor-pointer ${on && editingMask ? 'ring-2 ring-[#8b7cff]' : ''} ${l.maskEnabled ? '' : 'opacity-40'}`}
+              <span title="Mask: click to paint on it" className={`shrink-0 rounded-md p-[2px] cursor-pointer ${on && editingMask ? 'ring-2 ring-accent' : ''} ${l.maskEnabled ? '' : 'opacity-40'}`}
                 onClick={e => { e.stopPropagation(); useEditor.setState({ activeId: l.id, editingMask: true }) }}>
                 <Thumb layer={l} mask />
               </span>
@@ -151,7 +151,7 @@ export function LayersPanel() {
           <IconButton label="Send backward" shortcut="[" disabled={!active || idx <= 0} onClick={() => active && s.nudgeOrder(active.id, -1)} className="!h-7 !w-7"><ChevronDown size={15} /></IconButton>
           <IconButton label="Group selected layers" shortcut="Ctrl+G" disabled={selectedIds.length < 2} onClick={() => s.groupSelected()} className="!h-7 !w-7"><FolderPlus size={14} /></IconButton>
           {active?.clipId
-            ? <IconButton label="Release clipping mask" shortcut="Alt+Ctrl+G" onClick={() => active && s.releaseClippingMask(active.id)} className="!h-7 !w-7 text-[#b9afff]"><Scissors size={14} /></IconButton>
+            ? <IconButton label="Release clipping mask" shortcut="Alt+Ctrl+G" onClick={() => active && s.releaseClippingMask(active.id)} className="!h-7 !w-7 text-accent-light"><Scissors size={14} /></IconButton>
             : <IconButton label="Clip to layer below" shortcut="Alt+Ctrl+G" disabled={!active || !s.canClip(active?.id)} onClick={() => active && s.createClippingMask(active.id)} className="!h-7 !w-7"><Scissors size={14} /></IconButton>}
           <IconButton label="Merge with the layer below" disabled={!active || idx <= 0} onClick={() => active && s.mergeDown(active.id)} className="!h-7 !w-7"><Combine size={14} /></IconButton>
           <IconButton label="Duplicate" shortcut="Ctrl+J" disabled={!active} onClick={() => active && s.duplicateLayer(active.id)} className="!h-7 !w-7"><Copy size={14} /></IconButton>
@@ -169,9 +169,9 @@ export function LayersPanel() {
             const activeB = f.id === activeFrameId
             return (
               <Fragment key={f.id}>
-                <li className={`group flex items-center gap-1.5 pl-1 pr-1.5 py-1.5 mt-0.5 rounded-lg ${activeB ? 'bg-[#8b7cff]/15' : 'hover:bg-void-900'}`} onClick={() => s.setActiveFrame(f.id)}>
+                <li className={`group flex items-center gap-1.5 pl-1 pr-1.5 py-1.5 mt-0.5 rounded-lg ${activeB ? 'bg-accent-soft' : 'hover:bg-void-900'}`} onClick={() => s.setActiveFrame(f.id)}>
                   <button aria-label={isCol ? 'Expand board' : 'Collapse board'} onClick={e => { e.stopPropagation(); setCollapsed(c => { const n = new Set(c); n.has(f.id) ? n.delete(f.id) : n.add(f.id); return n }) }} className={`w-5 h-7 shrink-0 inline-flex items-center justify-center text-void-400 hover:text-white rounded ${focusRing}`}>{isCol ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</button>
-                  <LayoutGrid size={15} className={`shrink-0 ${activeB ? 'text-[#b9afff]' : 'text-void-400'}`} />
+                  <LayoutGrid size={15} className={`shrink-0 ${activeB ? 'text-accent-light' : 'text-void-400'}`} />
                   {renaming === f.id ? (
                     <input autoFocus defaultValue={f.name} onClick={e => e.stopPropagation()} onBlur={e => { s.renameFrame(f.id, e.target.value.trim() || f.name); setRenaming(null) }} onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }} className={`min-w-0 flex-1 h-7 px-1.5 rounded bg-void-950 border border-void-700 text-[12.5px] ${focusRing}`} />
                   ) : <span onDoubleClick={() => setRenaming(f.id)} title="Double-click to rename" className={`min-w-0 flex-1 truncate text-[12.5px] font-semibold ${activeB ? 'text-white' : 'text-void-200'}`}>{f.name}</span>}

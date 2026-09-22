@@ -52,7 +52,7 @@ export function OptionsBar() {
           <Num label="Size" value={o.size} min={1} max={400} unit="px" onChange={v => set('size', v)} />
           {tool !== 'heal' && <Num label="Softness" value={(1 - o.hardness) * 100} min={0} max={100} unit="%" onChange={v => set('hardness', 1 - v / 100)} />}
           {tool !== 'heal' && <Num label="Strength" value={o.opacity * 100} min={1} max={100} unit="%" onChange={v => set('opacity', v / 100)} />}
-          {editingMask && <span className="text-[12px] text-[#b9afff] shrink-0">Painting on the mask: Brush shows, Eraser hides.</span>}
+          {editingMask && <span className="text-[12px] text-accent-light shrink-0">Painting on the mask: Brush shows, Eraser hides.</span>}
           {tool === 'clone' && <span className="text-[12px] text-void-400 shrink-0">{cloneSource ? 'Source set. Alt-click to change it.' : 'Alt-click to choose where to copy from.'}</span>}
           {tool === 'heal' && <span className="text-[12px] text-void-400 shrink-0">Paint over a spot, then let go.</span>}
         </>

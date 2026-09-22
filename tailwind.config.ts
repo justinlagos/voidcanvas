@@ -12,6 +12,12 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        accent: {
+          DEFAULT: '#8b7cff',
+          hover: '#9a8dff',
+          light: '#b9afff',
+          soft: 'rgba(139,124,255,0.15)',
+        },
         void: {
           50: '#f7f7f8',
           100: '#eeeef0',

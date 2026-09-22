@@ -7,6 +7,10 @@
 :root {
   --background: #0d0d10;
   --foreground: #eeeef0;
+  /* Brand accent, single source of truth. */
+  --accent: #8b7cff;
+  --accent-hover: #9a8dff;
+  --accent-light: #b9afff;
 }
 
 * {

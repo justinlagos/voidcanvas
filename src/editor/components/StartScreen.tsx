@@ -27,8 +27,8 @@ export function StartScreen() {
           onClick={() => file.current?.click()}
           onDragOver={e => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)}
           onDrop={e => { e.preventDefault(); setOver(false); importFiles(Array.from(e.dataTransfer.files)) }}
-          className={`mt-7 w-full flex flex-col sm:flex-row items-center gap-4 rounded-2xl border border-dashed px-6 py-7 text-left transition-colors ${focusRing} ${over ? 'border-[#8b7cff] bg-[#8b7cff]/10' : 'border-void-700 hover:border-void-500 bg-void-900/40'}`}>
-          <span className="w-12 h-12 rounded-xl bg-[#8b7cff] text-white flex items-center justify-center shrink-0"><ImagePlus size={22} /></span>
+          className={`mt-7 w-full flex flex-col sm:flex-row items-center gap-4 rounded-2xl border border-dashed px-6 py-7 text-left transition-colors ${focusRing} ${over ? 'border-accent bg-accent/10' : 'border-void-700 hover:border-void-500 bg-void-900/40'}`}>
+          <span className="w-12 h-12 rounded-xl bg-accent text-white flex items-center justify-center shrink-0"><ImagePlus size={22} /></span>
           <span>
             <span className="block text-[15px] font-medium">Open a photo</span>
             <span className="block text-[13px] text-void-400">Drop a photo, PSD or PDF, choose a file, or paste with Ctrl+V. PSDs keep their layers.</span>
@@ -42,7 +42,7 @@ export function StartScreen() {
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
               {recent.filter(p => p.template).map(p => (
                 <div key={p.id} className="group relative">
-                  <button onClick={() => openProject(p.id, true)} className={`block w-full rounded-xl overflow-hidden bg-void-900 border border-void-800 hover:border-[#8b7cff] text-left ${focusRing}`}>
+                  <button onClick={() => openProject(p.id, true)} className={`block w-full rounded-xl overflow-hidden bg-void-900 border border-void-800 hover:border-accent text-left ${focusRing}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <span className="block aspect-[4/3] bg-void-950"><img src={p.thumb} alt="" className="w-full h-full object-contain" /></span>
                     <span className="block px-2.5 py-2 text-[12.5px] font-medium truncate">{p.name}</span>
@@ -73,22 +73,25 @@ export function StartScreen() {
           </section>
         )}
 
-        {groups.map(g => (
-          <section key={g} className="mt-10">
-            <h2 className="text-[13px] font-semibold text-void-200 mb-3">{g}</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-              {SIZE_PRESETS.filter(p => p.group === g).map(p => {
-                const k = 56 / Math.max(p.width, p.height)
-                return (
-                  <button key={p.id} onClick={() => start(p.width, p.height, p.label)} className={`flex flex-col items-center gap-3 rounded-xl bg-void-900/60 hover:bg-void-800 border border-void-800/70 px-3 pt-5 pb-3 ${focusRing}`}>
-                    <span className="h-14 flex items-center"><span className="block rounded-[3px] bg-white/90" style={{ width: p.width * k, height: p.height * k }} /></span>
-                    <span className="text-center"><span className="block text-[12.5px] font-medium">{p.label}</span><span className="block text-[11.5px] text-void-500 tabular-nums">{p.width} × {p.height}</span></span>
-                  </button>
-                )
-              })}
+        <section className="mt-8">
+          {groups.map((g, gi) => (
+            <div key={g} className={gi > 0 ? 'mt-5' : ''}>
+              <h2 className="text-[12px] font-semibold text-void-400 uppercase tracking-wide mb-2">{g}</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {SIZE_PRESETS.filter(p => p.group === g).map(p => {
+                  const k = 20 / Math.max(p.width, p.height)
+                  return (
+                    <button key={p.id} onClick={() => start(p.width, p.height, p.label)}
+                      className={`flex items-center gap-2.5 rounded-lg bg-void-900/50 hover:bg-void-800 border border-void-800/70 px-2.5 h-12 text-left ${focusRing}`}>
+                      <span className="w-6 flex items-center justify-center shrink-0"><span className="block rounded-[2px] bg-white/70" style={{ width: Math.max(4, p.width * k), height: Math.max(4, p.height * k) }} /></span>
+                      <span className="min-w-0"><span className="block text-[12.5px] font-medium truncate">{p.label}</span><span className="block text-[11px] text-void-500 tabular-nums">{p.width} × {p.height}</span></span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </section>
-        ))}
+          ))}
+        </section>
 
         <section className="mt-10 pb-10">
           <h2 className="text-[13px] font-semibold text-void-200 mb-3">Custom size</h2>

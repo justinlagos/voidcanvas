@@ -70,6 +70,7 @@ interface EditorState {
   addFrame: (preset: { name: string; width: number; height: number }) => void
   removeFrame: (id: string) => void
   renameFrame: (id: string, name: string) => void
+  setFrameSize: (id: string, width: number, height: number) => void
   duplicateFrame: (id: string) => void
   organiseFrames: () => void
   reassignLayerFrame: (layerId: string, frameId: string | null) => void
@@ -93,6 +94,7 @@ interface EditorState {
   addShape: (shape: ShapeLayer['shape'], x: number, y: number, w: number, h: number) => string
   addAdjustment: (kind: AdjustmentKind, effect?: EffectType) => void
   updateLayer: (id: string, patch: Partial<Layer>, commitLabel?: string) => void
+  updateLayers: (updates: { id: string; patch: Partial<Layer> }[]) => void
   removeLayer: (id: string) => void
   duplicateLayer: (id: string) => void
   moveLayer: (id: string, toIndex: number) => void
@@ -238,6 +240,13 @@ export const useEditor = create<EditorState>((set, get) => ({
   renameFrame: (id, name) => {
     const { doc } = get(); if (!doc?.frames) return
     set({ doc: { ...doc, frames: doc.frames.map(f => f.id === id ? { ...f, name } : f) }, docRev: get().docRev + 1 })
+  },
+
+  setFrameSize: (id, width, height) => {
+    const { doc } = get(); if (!doc?.frames) return
+    const w = Math.min(8000, Math.max(16, Math.round(width))), h = Math.min(8000, Math.max(16, Math.round(height)))
+    set({ doc: { ...doc, frames: doc.frames.map(f => f.id === id ? { ...f, width: w, height: h } : f) }, docRev: get().docRev + 1 })
+    get().commit('Resize board')
   },
 
   duplicateFrame: (id) => {
@@ -445,6 +454,11 @@ export const useEditor = create<EditorState>((set, get) => ({
     }
     if (kind === 'voidEffect' && effect) l.name = effect.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()) + ' filter'
     get().addLayer(l, 'Add ' + l.name.toLowerCase())
+  },
+
+  updateLayers: (updates) => {
+    const map = new Map(updates.map(u => [u.id, u.patch]))
+    set({ layers: get().layers.map(l => { const patch = map.get(l.id); return patch ? ({ ...l, ...patch, rev: nextRev() } as Layer) : l }), docRev: get().docRev + 1 })
   },
 
   updateLayer: (id, patch, commitLabel) => {

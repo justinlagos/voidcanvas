@@ -11,7 +11,7 @@ const MODULES = [
 
 export function Logo({ compact = false }: { compact?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2.5 shrink-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#8b7cff]" aria-label="Voidcanvas home">
+    <Link href="/" className="flex items-center gap-2.5 shrink-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent" aria-label="Voidcanvas home">
       <span className="w-7 h-7 bg-white rounded-md flex items-center justify-center">
         <span className="text-void-950 font-bold text-sm tracking-tight">V</span>
       </span>
@@ -30,7 +30,7 @@ export function AppNav() {
         return (
           <Link
             key={m.href} href={m.href} title={m.hint} aria-current={on ? 'page' : undefined}
-            className={`px-2 sm:px-3 py-1.5 rounded-md text-[12px] sm:text-[13px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#8b7cff] ${on ? 'bg-void-700/70 text-white' : 'text-void-400 hover:text-white'}`}
+            className={`px-2 sm:px-3 py-1.5 rounded-md text-[12px] sm:text-[13px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${on ? 'bg-void-700/70 text-white' : 'text-void-400 hover:text-white'}`}
           >
             {m.label}
           </Link>

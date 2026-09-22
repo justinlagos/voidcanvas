@@ -10,7 +10,7 @@ import { defaultParams, type EffectType, type EffectParams } from '@/store/useSt
 import { Logo } from '@/components/AppNav'
 import { canvasToBlob, downloadBlob, sendHandoff } from '@/editor/io'
 
-const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b7cff]'
+const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const MAX = 2400
 
 export interface ToolDef {
@@ -107,7 +107,7 @@ export function ToolPage({ def }: { def: ToolDef }) {
       <div className="flex-1 w-full max-w-6xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
         {/* Title */}
         <div className="mb-7 max-w-3xl">
-          <div className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#b9afff] mb-3"><span className="w-1.5 h-1.5 rounded-full bg-[#8b7cff]" />Free browser tool</div>
+          <div className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent-light mb-3"><span className="w-1.5 h-1.5 rounded-full bg-accent" />Free browser tool</div>
           <h1 className="text-[36px] sm:text-[46px] font-semibold tracking-[-0.03em] leading-[1.02]">{def.name}</h1>
           <p className="mt-3 text-[16px] sm:text-[17px] text-void-300 leading-relaxed">{def.tagline}</p>
         </div>
@@ -119,21 +119,21 @@ export function ToolPage({ def }: { def: ToolDef }) {
           <section
             onDragOver={e => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)}
             onDrop={e => { e.preventDefault(); setOver(false); const f = e.dataTransfer.files[0]; if (f) loadFile(f) }}
-            className={`relative rounded-2xl border overflow-hidden flex-1 min-w-0 h-[440px] lg:h-[560px] flex items-center justify-center transition-colors ${over ? 'border-[#8b7cff] bg-[#8b7cff]/[0.06]' : 'border-void-800 bg-[#0e0e12]'}`}>
+            className={`relative rounded-2xl border overflow-hidden flex-1 min-w-0 h-[440px] lg:h-[560px] flex items-center justify-center transition-colors ${over ? 'border-accent bg-accent/[0.06]' : 'border-void-800 bg-[#0e0e12]'}`}>
             <div className="w-full h-full p-4 flex items-center justify-center" style={{ background: 'repeating-conic-gradient(#141418 0% 25%, #0e0e12 0% 50%) 50% / 22px 22px' }}>
               <canvas ref={outRef} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
             </div>
             {isSample && ready && (
-              <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 h-7 rounded-full bg-black/60 backdrop-blur text-[11.5px] text-void-200 border border-white/10"><Sparkles size={12} className="text-[#b9afff]" />Example. Drop your own image to start.</span>
+              <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 h-7 rounded-full bg-black/60 backdrop-blur text-[11.5px] text-void-200 border border-white/10"><Sparkles size={12} className="text-accent-light" />Example. Drop your own image to start.</span>
             )}
-            {over && <div className="absolute inset-0 flex items-center justify-center bg-[#8b7cff]/10 pointer-events-none"><span className="px-4 h-10 inline-flex items-center rounded-xl bg-[#8b7cff] text-white text-[13px] font-medium">Drop to load</span></div>}
-            {busy && <div className="absolute inset-0 flex items-center justify-center bg-black/50"><span className="w-5 h-5 rounded-full border-2 border-[#8b7cff] border-t-transparent animate-spin" /></div>}
+            {over && <div className="absolute inset-0 flex items-center justify-center bg-accent/10 pointer-events-none"><span className="px-4 h-10 inline-flex items-center rounded-xl bg-accent text-white text-[13px] font-medium">Drop to load</span></div>}
+            {busy && <div className="absolute inset-0 flex items-center justify-center bg-black/50"><span className="w-5 h-5 rounded-full border-2 border-accent border-t-transparent animate-spin" /></div>}
           </section>
 
           {/* Controls */}
           <aside className="lg:w-[320px] shrink-0 rounded-2xl border border-void-800 bg-[#101014] flex flex-col">
             <div className="p-5 flex flex-col gap-4 flex-1">
-              <button onClick={() => fileRef.current?.click()} className={`w-full h-11 rounded-xl bg-[#8b7cff] text-white text-[13.5px] font-medium flex items-center justify-center gap-2 hover:bg-[#9a8dff] ${focus}`}><Upload size={16} />Upload your image</button>
+              <button onClick={() => fileRef.current?.click()} className={`w-full h-11 rounded-xl bg-accent text-white text-[13.5px] font-medium flex items-center justify-center gap-2 hover:bg-accent-hover ${focus}`}><Upload size={16} />Upload your image</button>
               <div className="border-t border-void-800/70 pt-4">
                 <h2 className="text-[13px] font-semibold text-void-200 mb-3">Adjust</h2>
                 <div className="space-y-3.5">
@@ -167,7 +167,7 @@ export function ToolPage({ def }: { def: ToolDef }) {
           <div>
             <h2 className="text-[17px] font-semibold mb-2.5">About the {def.name.toLowerCase()}</h2>
             <p className="text-[14px] text-void-400 leading-relaxed">{def.about}</p>
-            <p className="mt-5 inline-flex items-center gap-1.5 text-[12.5px] text-void-500"><Lock size={12} className="text-[#b9afff]" />Free, no account, private by default.</p>
+            <p className="mt-5 inline-flex items-center gap-1.5 text-[12.5px] text-void-500"><Lock size={12} className="text-accent-light" />Free, no account, private by default.</p>
           </div>
           <div className="divide-y divide-void-800/60">
             {def.faqs.map(f => <div key={f.q} className="py-3.5 first:pt-0"><h3 className="text-[14px] font-medium">{f.q}</h3><p className="mt-1.5 text-[13.5px] text-void-400 leading-relaxed">{f.a}</p></div>)}
@@ -177,7 +177,7 @@ export function ToolPage({ def }: { def: ToolDef }) {
 
       <footer className="border-t border-void-800/60 px-5 sm:px-8 py-5">
         <div className="max-w-6xl mx-auto flex items-center justify-between text-[12px] text-void-500">
-          <Link href="/" className={`inline-flex items-center gap-2 hover:text-void-300 ${focus}`}><Logo compact />Voidcanvas</Link>
+          <Logo />
           <span className="flex items-center gap-4">
             <Link href="/editor" className={`hover:text-white ${focus}`}>Editor</Link>
             <Link href="/effects" className={`hover:text-white ${focus}`}>Effects</Link>

@@ -40,16 +40,16 @@ export function StudioShell() {
           <h1 className="text-[26px] sm:text-[32px] font-semibold tracking-tight">Start with the brief</h1>
           <p className="mt-1.5 text-[14px] text-void-400 max-w-xl">Write down what the job is, collect the references that feel right, and Studio pulls the colours out for you. When you are ready, it all opens in the Editor.</p>
           <div className="mt-6 grid sm:grid-cols-2 gap-3 max-w-2xl">
-            <button onClick={() => setMode('brand')} className={`flex items-center gap-3.5 p-4 rounded-2xl bg-gradient-to-br from-[#8b7cff]/20 to-void-900 border border-[#8b7cff]/30 hover:border-[#8b7cff]/60 text-left ${focusRing}`}>
-              <span className="w-11 h-11 rounded-xl bg-[#8b7cff] text-white flex items-center justify-center shrink-0"><BookOpen size={20} /></span>
+            <button onClick={() => setMode('brand')} className={`flex items-center gap-3.5 p-4 rounded-2xl bg-gradient-to-br from-[#8b7cff]/20 to-void-900 border border-accent/30 hover:border-accent/60 text-left ${focusRing}`}>
+              <span className="w-11 h-11 rounded-xl bg-accent text-white flex items-center justify-center shrink-0"><BookOpen size={20} /></span>
               <span><span className="block text-[14px] font-semibold">Brand guideline builder</span><span className="block text-[12.5px] text-void-400">A full, unique brand system with mockups. Export to PDF.</span></span>
             </button>
-            <div className="flex items-center gap-3.5 p-4 rounded-2xl bg-void-900 border border-void-800 text-void-400 text-[12.5px]"><Sparkles size={18} className="text-[#b9afff] shrink-0" />Reference boards read your brief and pull a palette, then open in the Editor.</div>
+            <div className="flex items-center gap-3.5 p-4 rounded-2xl bg-void-900 border border-void-800 text-void-400 text-[12.5px]"><Sparkles size={18} className="text-accent-light shrink-0" />Reference boards read your brief and pull a palette, then open in the Editor.</div>
           </div>
           <h2 className="mt-9 mb-3 text-[13px] font-semibold text-void-200">Reference boards</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             <button onClick={create} className={`aspect-[4/3] rounded-2xl border border-dashed border-void-700 hover:border-void-500 flex flex-col items-center justify-center gap-2 text-[13.5px] font-medium ${focusRing}`}>
-              <span className="w-10 h-10 rounded-xl bg-[#8b7cff] text-white flex items-center justify-center"><Plus size={20} /></span>New project
+              <span className="w-10 h-10 rounded-xl bg-accent text-white flex items-center justify-center"><Plus size={20} /></span>New project
             </button>
             {boards?.map(b => <BoardCard key={b.id} board={b} onOpen={() => setOpenId(b.id)} onDelete={async () => { if (confirm(`Delete “${b.title}”? This cannot be undone.`)) { await idb.del('boards', b.id); reload() } }} />)}
           </div>
@@ -83,12 +83,12 @@ function RefTile({ r, selected, onToggle, onRemove }: { r: Ref; selected: boolea
   const url = useObjectUrl(r.blob)
   return (
     <div className="group relative break-inside-avoid mb-3">
-      <button onClick={onToggle} aria-pressed={selected} aria-label={`${selected ? 'Deselect' : 'Select'} ${r.name}`} className={`block w-full rounded-xl overflow-hidden border-2 ${selected ? 'border-[#8b7cff]' : 'border-transparent'} ${focusRing}`}>
+      <button onClick={onToggle} aria-pressed={selected} aria-label={`${selected ? 'Deselect' : 'Select'} ${r.name}`} className={`block w-full rounded-xl overflow-hidden border-2 ${selected ? 'border-accent' : 'border-transparent'} ${focusRing}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {url && <img src={url} alt={r.name} className="w-full block" />}
         <span className="flex h-1.5">{r.palette.map(c => <span key={c} className="flex-1" style={{ background: c }} />)}</span>
       </button>
-      {selected && <span className="absolute top-2 left-2 w-5 h-5 rounded-full bg-[#8b7cff] text-white flex items-center justify-center pointer-events-none"><Check size={12} strokeWidth={3} /></span>}
+      {selected && <span className="absolute top-2 left-2 w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center pointer-events-none"><Check size={12} strokeWidth={3} /></span>}
       <button aria-label={`Remove ${r.name}`} onClick={onRemove} className={`absolute top-2 right-2 w-7 h-7 rounded-md bg-black/70 text-void-200 hover:text-white items-center justify-center hidden group-hover:flex focus:flex ${focusRing}`}><Trash2 size={13} /></button>
     </div>
   )
@@ -157,18 +157,18 @@ function BoardView({ board: initial, onBack }: { board: Board; onBack: () => voi
           <textarea value={board.brief} onChange={e => setBoard({ ...board, brief: e.target.value, read: undefined })} rows={7} placeholder="Who is it for? What should they feel or do? What must be on it? Paste the client's words here."
             className={`w-full px-3 py-2.5 rounded-xl bg-void-900 border border-void-800 text-[13px] leading-relaxed placeholder:text-void-600 resize-y ${focusRing}`} />
           {board.brief.trim().length > 30 && !board.read && (
-            <button onClick={() => setBoard({ ...board, read: readBrief(board.brief) })} className={`mt-2 inline-flex items-center gap-1.5 text-[12.5px] text-[#b9afff] hover:text-white rounded ${focusRing}`}><Sparkles size={14} />Pull out the key points</button>
+            <button onClick={() => setBoard({ ...board, read: readBrief(board.brief) })} className={`mt-2 inline-flex items-center gap-1.5 text-[12.5px] text-accent-light hover:text-white rounded ${focusRing}`}><Sparkles size={14} />Pull out the key points</button>
           )}
           {board.read && (
             <div className="mt-2.5 rounded-xl bg-void-900/70 border border-void-800 p-3 space-y-2 text-[12.5px]">
               <p><span className="text-void-500">Audience:</span> {board.read.audience}</p>
               <p><span className="text-void-500">Feel:</span> {board.read.feel.join(', ') || 'not stated'}</p>
-              <div><span className="text-void-500">Must include:</span>{board.read.must.length ? <ul className="mt-1 space-y-0.5">{board.read.must.map((m, i) => <li key={i} className="flex gap-1.5"><Check size={13} className="mt-0.5 shrink-0 text-[#8b7cff]" />{m}</li>)}</ul> : ' nothing pinned down yet'}</div>
+              <div><span className="text-void-500">Must include:</span>{board.read.must.length ? <ul className="mt-1 space-y-0.5">{board.read.must.map((m, i) => <li key={i} className="flex gap-1.5"><Check size={13} className="mt-0.5 shrink-0 text-accent" />{m}</li>)}</ul> : ' nothing pinned down yet'}</div>
               <div className="pt-1"><span className="text-void-500">Colour direction:</span> {board.read.direction}
                 <div className="flex gap-1 mt-1.5">{board.read.palette.map(c => <span key={c} className="h-6 flex-1 rounded" style={{ background: c }} />)}</div>
               </div>
               <p><span className="text-void-500">Type:</span> {board.read.type}</p>
-              <button onClick={() => startFromRead(board)} className={`mt-1 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-[#8b7cff] hover:text-white rounded ${focusRing}`}><Sparkles size={14} />Open a design with this direction</button>
+              <button onClick={() => startFromRead(board)} className={`mt-1 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-accent hover:text-white rounded ${focusRing}`}><Sparkles size={14} />Open a design with this direction</button>
               <p className="text-[11px] text-void-500 pt-1">Read from your words. When accounts are on, Artie writes this and shows options.</p>
             </div>
           )}
@@ -209,12 +209,12 @@ function BoardView({ board: initial, onBack }: { board: Board; onBack: () => voi
           <Button onClick={() => file.current?.click()}><ImagePlus size={15} />Add images</Button>
         </div>
         {board.refs.length === 0 ? (
-          <button onClick={() => file.current?.click()} className={`w-full rounded-2xl border border-dashed py-20 px-6 text-center ${over ? 'border-[#8b7cff] bg-[#8b7cff]/10' : 'border-void-700 hover:border-void-500'} ${focusRing}`}>
+          <button onClick={() => file.current?.click()} className={`w-full rounded-2xl border border-dashed py-20 px-6 text-center ${over ? 'border-accent bg-accent/10' : 'border-void-700 hover:border-void-500'} ${focusRing}`}>
             <span className="block text-[15px] font-medium">Drop your references here</span>
             <span className="block mt-1 text-[13px] text-void-400">Screenshots, photos, past work. You can also paste with Ctrl+V.</span>
           </button>
         ) : (
-          <div className={`columns-2 md:columns-3 xl:columns-4 gap-3 rounded-2xl ${over ? 'outline outline-2 outline-[#8b7cff]' : ''}`}>
+          <div className={`columns-2 md:columns-3 xl:columns-4 gap-3 rounded-2xl ${over ? 'outline outline-2 outline-accent' : ''}`}>
             {board.refs.map(r => (
               <RefTile key={r.id} r={r} selected={selected.has(r.id)}
                 onToggle={() => setSelected(s => { const n = new Set(s); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n })}

@@ -47,7 +47,7 @@ export function ResizeDialog({ onClose }: { onClose: () => void }) {
             const on = picked.has(p.id), k = 44 / Math.max(p.width, p.height), same = p.width === doc.width && p.height === doc.height
             return (
               <button key={p.id} disabled={same} aria-pressed={on} onClick={() => setPicked(v => { const n = new Set(v); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n })}
-                className={`flex items-center gap-3 p-2.5 rounded-xl border text-left disabled:opacity-35 ${focusRing} ${on && !same ? 'border-[#8b7cff] bg-[#8b7cff]/10' : 'border-void-800 bg-void-900 hover:bg-void-800'}`}>
+                className={`flex items-center gap-3 p-2.5 rounded-xl border text-left disabled:opacity-35 ${focusRing} ${on && !same ? 'border-accent bg-accent/10' : 'border-void-800 bg-void-900 hover:bg-void-800'}`}>
                 <span className="w-11 h-11 shrink-0 flex items-center justify-center"><span className="block rounded-[2px] bg-white/85" style={{ width: p.width * k, height: p.height * k }} /></span>
                 <span className="min-w-0"><span className="block text-[12.5px] font-medium truncate">{p.label}</span><span className="block text-[11.5px] text-void-500 tabular-nums">{same ? 'Current size' : `${p.width} × ${p.height}`}</span></span>
               </button>
@@ -99,7 +99,7 @@ export function BrandKitDialog({ onClose }: { onClose: () => void }) {
           <h3 className="text-[13px] font-semibold mb-1">Fonts</h3>
           <p className="text-[12px] text-void-500 mb-2.5">The first one becomes the default for new text.</p>
           <div className="flex flex-wrap gap-1.5">
-            {FONTS.map(f => { const on = kit.fonts.includes(f); return <button key={f} aria-pressed={on} onClick={() => update({ fonts: on ? kit.fonts.filter(x => x !== f) : [...kit.fonts, f] })} className={`h-8 px-2.5 rounded-lg text-[12.5px] border ${focusRing} ${on ? 'border-[#8b7cff] bg-[#8b7cff]/15 text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`}>{on ? `${kit.fonts.indexOf(f) + 1}. ` : ''}{f}</button> })}
+            {FONTS.map(f => { const on = kit.fonts.includes(f); return <button key={f} aria-pressed={on} onClick={() => update({ fonts: on ? kit.fonts.filter(x => x !== f) : [...kit.fonts, f] })} className={`h-8 px-2.5 rounded-lg text-[12.5px] border ${focusRing} ${on ? 'border-accent bg-accent-soft text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`}>{on ? `${kit.fonts.indexOf(f) + 1}. ` : ''}{f}</button> })}
           </div>
         </section>
         <section>

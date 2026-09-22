@@ -80,10 +80,10 @@ export function AddMenu({ onClose, filtersOnly }: { onClose: () => void; filters
         {!filtersOnly && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <input ref={file} type="file" accept="image/*,.psd,.pdf" multiple hidden onChange={e => { importFiles(Array.from(e.target.files ?? [])); onClose() }} />
-            <button className={tile} onClick={() => file.current?.click()}><ImagePlus size={18} className="text-[#b9afff]" /><span className="text-[13px] font-medium">Photo</span></button>
-            <button className={tile} onClick={done(() => s.addText())}><Type size={18} className="text-[#b9afff]" /><span className="text-[13px] font-medium">Text</span></button>
-            <button className={tile} onClick={done(() => { const d = useEditor.getState().doc!; const k = Math.round(Math.min(d.width, d.height) * 0.35); s.addShape('rect', (d.width - k) / 2, (d.height - k) / 2, k, k) })}><Shapes size={18} className="text-[#b9afff]" /><span className="text-[13px] font-medium">Shape</span></button>
-            <button className={tile} onClick={done(() => { s.addBlank(); s.setTool('brush') })}><Layers size={18} className="text-[#b9afff]" /><span className="text-[13px] font-medium">Blank layer</span></button>
+            <button className={tile} onClick={() => file.current?.click()}><ImagePlus size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Photo</span></button>
+            <button className={tile} onClick={done(() => s.addText())}><Type size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Text</span></button>
+            <button className={tile} onClick={done(() => { const d = useEditor.getState().doc!; const k = Math.round(Math.min(d.width, d.height) * 0.35); s.addShape('rect', (d.width - k) / 2, (d.height - k) / 2, k, k) })}><Shapes size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Shape</span></button>
+            <button className={tile} onClick={done(() => { s.addBlank(); s.setTool('brush') })}><Layers size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Blank layer</span></button>
           </div>
         )}
 

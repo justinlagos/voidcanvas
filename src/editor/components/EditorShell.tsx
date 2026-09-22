@@ -183,7 +183,7 @@ export function EditorShell() {
 
       {busy && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55" role="status" aria-live="polite">
-          <div className="flex items-center gap-3 px-5 py-3.5 rounded-xl bg-[#17171c] border border-void-700 text-[13.5px]"><span className="w-4 h-4 rounded-full border-2 border-[#8b7cff] border-t-transparent animate-spin" />{busy}</div>
+          <div className="flex items-center gap-3 px-5 py-3.5 rounded-xl bg-[#17171c] border border-void-700 text-[13.5px]"><span className="w-4 h-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />{busy}</div>
         </div>
       )}
       {shownToast && (

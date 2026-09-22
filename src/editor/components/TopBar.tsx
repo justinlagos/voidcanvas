@@ -46,7 +46,7 @@ export function TopBar({ onExport, onAdd, onSearch }: { onExport: () => void; on
           <IconButton label="All designs" onClick={async () => { await saveProject(); s.closeDoc() }} className="hidden sm:inline-flex"><FolderOpen size={16} /></IconButton>
           <IconButton label="Your privacy" onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'privacy' }))}><Lock size={16} /></IconButton>
           <IconButton label="Close to home" onClick={async () => { await saveProject(); s.closeDoc(); window.location.href = '/' }}><X size={17} /></IconButton>
-          <Button onClick={onAdd} className="!bg-[#8b7cff] !text-white hover:!bg-[#9a8dff] !px-2.5 sm:!px-3.5"><Plus size={15} /><span className="hidden sm:inline">Add</span><span className="sr-only sm:hidden">Add</span></Button>
+          <Button onClick={onAdd} className="!bg-accent !text-white hover:!bg-[#9a8dff] !px-2.5 sm:!px-3.5"><Plus size={15} /><span className="hidden sm:inline">Add</span><span className="sr-only sm:hidden">Add</span></Button>
           <Button primary onClick={onExport} className="!px-2.5 sm:!px-3.5"><Download size={15} /><span className="hidden sm:inline">Export</span><span className="sr-only sm:hidden">Export</span></Button>
         </>
       )}

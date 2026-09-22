@@ -154,7 +154,7 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
           <div className="space-y-2">
             <p className="text-[12px] text-void-400 leading-relaxed">A mask hides parts of a layer without deleting them.</p>
             <div className="grid grid-cols-2 gap-2">
-              <Button onClick={() => { s.setEditingMask(!editingMask); if (!editingMask) s.setTool('brush') }} className={editingMask ? '!bg-[#8b7cff] !text-white col-span-2' : 'col-span-2'}>{editingMask ? 'Done painting mask' : 'Paint on mask'}</Button>
+              <Button onClick={() => { s.setEditingMask(!editingMask); if (!editingMask) s.setTool('brush') }} className={editingMask ? '!bg-accent !text-white col-span-2' : 'col-span-2'}>{editingMask ? 'Done painting mask' : 'Paint on mask'}</Button>
               <Button onClick={() => s.updateLayer(layer.id, { maskEnabled: !layer.maskEnabled }, 'Toggle mask')}>{layer.maskEnabled ? 'Turn off' : 'Turn on'}</Button>
               <Button onClick={() => s.invertMask(layer.id)}>Invert</Button>
               <Button onClick={() => s.removeMask(layer.id)} className="col-span-2">Delete mask</Button>

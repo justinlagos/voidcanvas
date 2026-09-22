@@ -11,7 +11,7 @@ export function Toolbar() {
   const { originalImage, setOriginalImage, resetParams, undo, history, activeEffect, setActiveEffect } = useStore()
 
   const handleDownload = useCallback((format: 'png' | 'jpg' | 'webp') => {
-    const canvas = document.querySelector('canvas')
+    const canvas = (document.querySelector('canvas[data-result-canvas]') || document.querySelector('canvas')) as HTMLCanvasElement | null
     if (!canvas) return
 
     const link = document.createElement('a')
@@ -29,7 +29,7 @@ export function Toolbar() {
   const router = useRouter()
   // Pass the current result to the Editor as the first layer of a new design.
   const openInEditor = useCallback(() => {
-    const canvas = document.querySelector('canvas')
+    const canvas = (document.querySelector('canvas[data-result-canvas]') || document.querySelector('canvas')) as HTMLCanvasElement | null
     if (!canvas) return
     canvas.toBlob(async (blob) => {
       if (!blob) return
@@ -91,7 +91,7 @@ export function Toolbar() {
         whileTap={{ scale: 0.97 }}
         onClick={openInEditor}
         title="Keep working on this in the Editor: add layers, type and retouching"
-        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#8b7cff] hover:bg-[#9a8dff] text-white rounded-md transition-colors"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-accent hover:bg-accent-hover text-white rounded-md transition-colors"
       >
         <Layers size={14} />
         <span className="text-xs font-medium whitespace-nowrap">Open in Editor</span>

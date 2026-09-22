@@ -23,7 +23,7 @@ export function FloatingBar() {
   // If there is no room above (layer near the top of the canvas), drop the bar below the layer instead.
   const placeBelow = wantAbove < 8
   const top = placeBelow ? bottomEdge + 14 : wantAbove
-  const btn = 'h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12.5px] text-void-100 hover:bg-void-700 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#8b7cff]'
+  const btn = 'h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12.5px] text-void-100 hover:bg-void-700 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent'
   return (
     <div data-floating className="absolute z-10 flex items-center gap-0.5 p-1 rounded-xl bg-[#1c1c22] border border-void-700 shadow-xl -translate-x-1/2" style={{ left: Math.max(150, cx), top: Math.max(8, top) }}>
       {layer.type === 'raster' && <button className={btn} onClick={() => removeBackground(layer.id)}><ImageOff size={14} />Remove background</button>}

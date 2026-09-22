@@ -81,7 +81,7 @@ export function CommandPalette({ onClose, open }: { onClose: () => void; open: (
         <ul ref={list} className="max-h-[52vh] overflow-y-auto p-1.5" role="listbox">
           {shown.map((c, n) => (
             <li key={c.group + c.label} role="option" aria-selected={n === i} onPointerEnter={() => setI(n)} onClick={() => go(c)}
-              className={`flex items-center gap-3 px-3 h-9 rounded-lg cursor-pointer text-[13px] ${n === i ? 'bg-[#8b7cff] text-white' : 'text-void-200'}`}>
+              className={`flex items-center gap-3 px-3 h-9 rounded-lg cursor-pointer text-[13px] ${n === i ? 'bg-accent text-white' : 'text-void-200'}`}>
               <span className={`w-20 shrink-0 text-[11.5px] ${n === i ? 'text-white/75' : 'text-void-500'}`}>{c.group}</span>
               <span className="truncate">{c.label}</span>
               {c.hint && <span className={`ml-auto shrink-0 truncate max-w-[45%] text-[11.5px] ${n === i ? 'text-white/75' : 'text-void-500'}`}>{c.hint}</span>}

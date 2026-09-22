@@ -33,7 +33,7 @@ export function PrivacyPanel({ onClose }: { onClose: () => void }) {
     <Modal title="Your privacy" onClose={onClose}>
       <div className="p-5 space-y-5">
         <div className="flex items-start gap-3">
-          <span className="w-9 h-9 rounded-xl bg-[#8b7cff] text-white flex items-center justify-center shrink-0"><Lock size={18} /></span>
+          <span className="w-9 h-9 rounded-xl bg-accent text-white flex items-center justify-center shrink-0"><Lock size={18} /></span>
           <p className="text-[14px] text-void-200 leading-relaxed">Your files don't leave your browser. Edit locally, no cloud, no account, private by default.</p>
         </div>
         <ul className="space-y-2">
@@ -44,11 +44,11 @@ export function PrivacyPanel({ onClose }: { onClose: () => void }) {
         <div className="rounded-xl border border-void-800 p-4">
           <div className="flex items-center justify-between gap-3">
             <div><p className="text-[13px] font-medium">Private session</p><p className="text-[12px] text-void-400 mt-0.5">For shared or public computers. Nothing is written to this device; everything clears when you close the tab.</p></div>
-            <button role="switch" aria-checked={priv} onClick={togglePrivate} className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${focusRing} ${priv ? 'bg-[#8b7cff]' : 'bg-void-700'}`}>
+            <button role="switch" aria-checked={priv} onClick={togglePrivate} className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${focusRing} ${priv ? 'bg-accent' : 'bg-void-700'}`}>
               <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${priv ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>
           </div>
-          {priv && <p className="mt-2.5 text-[12px] text-[#b9afff]">Private session is on. Save and recents are turned off.</p>}
+          {priv && <p className="mt-2.5 text-[12px] text-accent-light">Private session is on. Save and recents are turned off.</p>}
         </div>
 
         <div className="rounded-xl border border-void-800 p-4">
@@ -66,5 +66,5 @@ export function PrivateBadge() {
   const [on, setOn] = useState(false)
   useEffect(() => { initPrivateFromSession(); setOn(isPrivate()); const i = setInterval(() => setOn(isPrivate()), 1000); return () => clearInterval(i) }, [])
   if (!on) return null
-  return <span className="inline-flex items-center gap-1 px-2 h-6 rounded-full bg-[#8b7cff]/20 text-[#b9afff] text-[11.5px] font-medium border border-[#8b7cff]/30"><Lock size={11} />Private</span>
+  return <span className="inline-flex items-center gap-1 px-2 h-6 rounded-full bg-accent/20 text-accent-light text-[11.5px] font-medium border border-accent/30"><Lock size={11} />Private</span>
 }

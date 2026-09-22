@@ -8,7 +8,7 @@ import { PrivacyPanel, PrivateBadge } from '@/editor/components/PrivacyPanel'
 import { initPrivateFromSession } from '@/editor/io'
 import { listProjects, type ProjectSummary } from '@/editor/io'
 
-const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b7cff]'
+const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
 // Each module is a complete tool on its own. The arrows between them are real: work moves with one click.
 const MODULES = [
@@ -53,14 +53,14 @@ export default function Home() {
       <div className="max-w-5xl mx-auto px-5 sm:px-8 pt-8 sm:pt-14 pb-16">
         <h1 className="text-[34px] sm:text-[52px] leading-[1.04] font-semibold tracking-[-0.03em] max-w-3xl">From the brief to the finished file, in one tab.</h1>
         <p className="mt-4 text-[15px] sm:text-[17px] text-void-400 max-w-xl leading-relaxed">Three tools that work alone and hand work to each other. Free to use, and your files never leave your browser.</p>
-        <button onClick={() => setPrivacy(true)} className="mt-4 inline-flex items-center gap-2 px-3 h-9 rounded-full bg-void-900 border border-void-800 text-[13px] text-void-300 hover:text-white hover:border-void-600"><Lock size={14} className="text-[#b9afff]" />No account. No cloud. Private by default.</button>
+        <button onClick={() => setPrivacy(true)} className="mt-4 inline-flex items-center gap-2 px-3 h-9 rounded-full bg-void-900 border border-void-800 text-[13px] text-void-300 hover:text-white hover:border-void-600"><Lock size={14} className="text-accent-light" />No account. No cloud. Private by default.</button>
 
         <div className="mt-10 grid md:grid-cols-3 gap-4">
           {MODULES.map((m, i) => (
             <Link key={m.href} href={m.href} className={`group relative flex flex-col rounded-2xl bg-[#131318] border border-void-800/80 hover:border-void-600 transition-colors ${focus}`}>
               <span className="block h-36 p-4 bg-[#0f0f13] rounded-t-2xl"><Art kind={m.art} /></span>
               <span className="block p-5">
-                <span className="block text-[12.5px] text-[#b9afff] font-medium">{m.line}</span>
+                <span className="block text-[12.5px] text-accent-light font-medium">{m.line}</span>
                 <span className="block mt-0.5 text-[20px] font-semibold tracking-tight">{m.name}</span>
                 <span className="block mt-2 text-[13.5px] text-void-400 leading-relaxed">{m.body}</span>
                 <span className="inline-block mt-4 text-[13px] font-medium text-white underline underline-offset-4 decoration-void-600 group-hover:decoration-white">Open {m.name}</span>

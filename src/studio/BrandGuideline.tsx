@@ -78,10 +78,10 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
         <label className="block"><span className="block text-[12px] text-void-400 mb-1">Brand name</span><input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Northbound" className={`w-full h-9 px-2.5 rounded-lg bg-void-900 border border-void-800 text-[13px] ${focusRing}`} /></label>
         <label className="block"><span className="block text-[12px] text-void-400 mb-1">Tagline (optional)</span><input value={tagline} onChange={e => setTagline(e.target.value)} placeholder="What it stands for" className={`w-full h-9 px-2.5 rounded-lg bg-void-900 border border-void-800 text-[13px] ${focusRing}`} /></label>
         <div><span className="block text-[12px] text-void-400 mb-1.5">Starting colour</span><div className="flex items-center gap-2"><input type="color" value={seed} onChange={e => setSeed(e.target.value)} className={`w-9 h-9 rounded-lg bg-transparent cursor-pointer ${focusRing}`} /><span className="text-[12px] font-mono text-void-300">{seed}</span></div></div>
-        <div><span className="block text-[12px] text-void-400 mb-1.5">Personality</span><div className="grid grid-cols-3 gap-1.5">{PERSONALITIES.map((p, i) => <button key={p} onClick={() => setPIndex(i)} aria-pressed={pIndex === i} className={`h-8 rounded-lg text-[12px] border ${focusRing} ${pIndex === i ? 'border-[#8b7cff] bg-[#8b7cff]/15 text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`}>{p}</button>)}</div></div>
+        <div><span className="block text-[12px] text-void-400 mb-1.5">Personality</span><div className="grid grid-cols-3 gap-1.5">{PERSONALITIES.map((p, i) => <button key={p} onClick={() => setPIndex(i)} aria-pressed={pIndex === i} className={`h-8 rounded-lg text-[12px] border ${focusRing} ${pIndex === i ? 'border-accent bg-accent-soft text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`}>{p}</button>)}</div></div>
         <div><span className="block text-[12px] text-void-400 mb-1.5">Format</span><div className="grid grid-cols-2 gap-1.5">
-          <button onClick={() => setO('landscape')} aria-pressed={o === 'landscape'} className={`h-9 rounded-lg text-[12.5px] border flex items-center justify-center gap-1.5 ${focusRing} ${o === 'landscape' ? 'border-[#8b7cff] bg-[#8b7cff]/15 text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`}><Monitor size={14} />Deck</button>
-          <button onClick={() => setO('portrait')} aria-pressed={o === 'portrait'} className={`h-9 rounded-lg text-[12.5px] border flex items-center justify-center gap-1.5 ${focusRing} ${o === 'portrait' ? 'border-[#8b7cff] bg-[#8b7cff]/15 text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`}><FileText size={14} />Document</button>
+          <button onClick={() => setO('landscape')} aria-pressed={o === 'landscape'} className={`h-9 rounded-lg text-[12.5px] border flex items-center justify-center gap-1.5 ${focusRing} ${o === 'landscape' ? 'border-accent bg-accent-soft text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`}><Monitor size={14} />Deck</button>
+          <button onClick={() => setO('portrait')} aria-pressed={o === 'portrait'} className={`h-9 rounded-lg text-[12.5px] border flex items-center justify-center gap-1.5 ${focusRing} ${o === 'portrait' ? 'border-accent bg-accent-soft text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`}><FileText size={14} />Document</button>
         </div></div>
         <div><span className="block text-[12px] text-void-400 mb-1.5">Logo (optional)</span><input ref={file} type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) onLogo(f) }} /><Button onClick={() => file.current?.click()} className="w-full"><ImagePlus size={15} />{logoBlob ? 'Change logo' : 'Add logo'}</Button></div>
         <div className="space-y-2 pt-1">
@@ -97,7 +97,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
       <section className="flex-1 min-w-0 flex flex-col lg:flex-row min-h-0">
         <nav className="flex lg:flex-col gap-2 p-3 lg:w-[150px] shrink-0 overflow-x-auto lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-void-800/50 bg-void-950/40" aria-label="Pages">
           {pages.map((p, i) => (
-            <button key={i} onClick={() => setActive(i)} aria-current={active === i} className={`shrink-0 rounded-lg overflow-hidden border-2 ${active === i ? 'border-[#8b7cff]' : 'border-transparent hover:border-void-600'} ${focusRing}`}>
+            <button key={i} onClick={() => setActive(i)} aria-current={active === i} className={`shrink-0 rounded-lg overflow-hidden border-2 ${active === i ? 'border-accent' : 'border-transparent hover:border-void-600'} ${focusRing}`}>
               <Page index={i} brand={brand} logo={logo} o={o} cssWidth={o === 'landscape' ? 124 : 86} />
               <span className="block text-[10.5px] text-void-400 py-1 text-center truncate" style={{ width: o === 'landscape' ? 124 : 86 }}>{i + 1}. {p.title}</span>
             </button>
@@ -108,7 +108,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
         </div>
       </section>
 
-      {busy && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55"><div className="flex items-center gap-3 px-5 py-3.5 rounded-xl bg-[#17171c] border border-void-700 text-[13.5px]"><span className="w-4 h-4 rounded-full border-2 border-[#8b7cff] border-t-transparent animate-spin" />{busy}</div></div>}
+      {busy && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55"><div className="flex items-center gap-3 px-5 py-3.5 rounded-xl bg-[#17171c] border border-void-700 text-[13.5px]"><span className="w-4 h-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />{busy}</div></div>}
     </div>
   )
 }

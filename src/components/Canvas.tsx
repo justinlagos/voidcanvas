@@ -185,6 +185,7 @@ export function Canvas() {
           {/* Processed canvas */}
           <canvas
             ref={canvasRef}
+            data-result-canvas
             className="block"
             style={showComparison ? { clipPath: `inset(0 ${100 - comparisonPosition}% 0 0)` } : {}}
           />

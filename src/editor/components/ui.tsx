@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 
-export const focusRing = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#8b7cff]'
+export const focusRing = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
 /** A small styled tooltip that appears after a short hover delay. Shows a label and, optionally, a shortcut keycap. */
 export function Tooltip({ label, shortcut, side = 'right', children }: { label: string; shortcut?: string; side?: 'right' | 'top' | 'bottom' | 'left'; children: ReactNode }) {
@@ -41,7 +41,7 @@ export function IconButton({ label, shortcut, active, disabled, onClick, childre
       <button
         type="button" onClick={onClick} disabled={disabled} aria-label={shortcut ? `${label} (${shortcut})` : label} aria-pressed={active}
         className={`h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-lg transition-colors ${focusRing} ${
-          active ? 'bg-[#8b7cff] text-white' : 'text-void-300 hover:bg-void-800 hover:text-white'
+          active ? 'bg-accent text-white' : 'text-void-300 hover:bg-void-800 hover:text-white'
         } disabled:opacity-30 disabled:pointer-events-none ${className}`}
       >
         {children}
@@ -68,7 +68,7 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
       </span>
       <span className="relative block h-4">
         <span className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded bg-void-800" />
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded bg-[#8b7cff]" style={{ width: `${pct}%` }} />
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded bg-accent" style={{ width: `${pct}%` }} />
         <input
           type="range" min={min} max={max} step={step} value={value}
           onChange={e => onChange(Number(e.target.value))}

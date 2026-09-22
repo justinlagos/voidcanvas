@@ -19,6 +19,8 @@ type Pt = { x: number; y: number }
 type Drag =
   | { kind: 'pan'; sx: number; sy: number; px: number; py: number }
   | { kind: 'move'; start: Pt; items: { id: string; ox: number; oy: number }[]; box: Rect; snapX: number[]; snapY: number[]; moved: boolean }
+  | { kind: 'select'; start: Pt; cur: Pt; add: boolean; base: string[] }
+  | { kind: 'gresize'; anchor: Pt; box: Rect; items: { id: string; l: Layer }[] }
   | { kind: 'resize'; id: string; h: number; l0: Layer; w: number; hgt: number; anchor: Pt }
   | { kind: 'rotate'; id: string; center: Pt; a0: number; r0: number }
   | { kind: 'stroke'; last: Pt; carry: number; snapshot?: HTMLCanvasElement; offset?: Pt; tool: ToolId }
@@ -154,6 +156,15 @@ export function Stage() {
         const pts = layerCorners(l, doc).map(toScreen)
         octx.beginPath(); pts.forEach((p, i) => (i ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y))); octx.closePath(); octx.stroke()
       }
+      // Group bounding box + corner handles for multi-selection.
+      const gb = selectionBox()
+      if (gb) {
+        const c = boxHandles(gb).map(toScreen)
+        octx.strokeStyle = ACCENT; octx.lineWidth = 1.5
+        octx.beginPath(); c.forEach((p, i) => (i ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y))); octx.closePath(); octx.stroke()
+        octx.fillStyle = '#fff'; octx.strokeStyle = ACCENT; octx.lineWidth = 1.5
+        for (const p of c) { octx.beginPath(); octx.rect(p.x - 4, p.y - 4, 8, 8); octx.fill(); octx.stroke() }
+      }
     }
     if (s.tool === 'move' && !s.editingTextId && s.selectedIds.length === 1 && active && active.type !== 'adjustment' && active.visible) {
       octx.strokeStyle = ACCENT; octx.lineWidth = 1.5
@@ -176,6 +187,12 @@ export function Stage() {
     for (const gy of guides.current.h) { const y = gy * zoom + panY; octx.beginPath(); octx.moveTo(0, y); octx.lineTo(w, y); octx.stroke() }
 
     const d = drag.current
+    if (d?.kind === 'select') {
+      const a = toScreen(d.start), b = toScreen(d.cur)
+      const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y), rw = Math.abs(b.x - a.x), rh = Math.abs(b.y - a.y)
+      octx.fillStyle = 'rgba(139,124,255,0.12)'; octx.fillRect(x, y, rw, rh)
+      octx.strokeStyle = ACCENT; octx.lineWidth = 1; octx.strokeRect(x + 0.5, y + 0.5, rw, rh)
+    }
     if (d?.kind === 'box') {
       const a = toScreen(d.start), b = toScreen(d.cur)
       octx.setLineDash([5, 4]); octx.strokeStyle = '#fff'; octx.lineWidth = 1.25
@@ -218,6 +235,18 @@ export function Stage() {
     if (composite) needComposite.current = true
     if (!raf.current) raf.current = requestAnimationFrame(draw)
   }, [draw])
+
+  /** Axis-aligned bounding box of all selected non-adjustment layers, in document space. */
+  function selectionBox(): Rect | null {
+    const st = useEditor.getState()
+    const sel = st.layers.filter(l => st.selectedIds.includes(l.id) && l.type !== 'adjustment' && l.visible)
+    if (sel.length < 2) return null
+    const bs = sel.map(l => layerBounds(l, st.doc!))
+    const x = Math.min(...bs.map(b => b.x)), y = Math.min(...bs.map(b => b.y))
+    return { x, y, w: Math.max(...bs.map(b => b.x + b.w)) - x, h: Math.max(...bs.map(b => b.y + b.h)) - y }
+  }
+  /** The 4 corner handles of a rect, in document space. */
+  function boxHandles(r: Rect): Pt[] { return [{ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y }, { x: r.x + r.w, y: r.y + r.h }, { x: r.x, y: r.y + r.h }] }
 
   /** 8 resize handles plus the rotate handle (index 8), in document space. */
   function handlePoints(l: Layer): Pt[] {
@@ -439,6 +468,22 @@ export function Stage() {
 
     if (t === 'move') {
       const act = s.active()
+      // Multi-selection: hit-test the group corner handles to scale the whole selection.
+      if (s.selectedIds.length > 1) {
+        const gb = selectionBox()
+        if (gb) {
+          const corners = boxHandles(gb)
+          const tol = 9 / s.view.zoom
+          for (let i = 0; i < 4; i++) {
+            if (Math.abs(p.x - corners[i].x) < tol && Math.abs(p.y - corners[i].y) < tol) {
+              const anchor = corners[(i + 2) % 4] // opposite corner stays fixed
+              const items = s.layers.filter(l => s.selectedIds.includes(l.id) && l.type !== 'adjustment' && !l.locked).map(l => ({ id: l.id, l }))
+              drag.current = { kind: 'gresize', anchor, box: gb, items }
+              return
+            }
+          }
+        }
+      }
       if (s.selectedIds.length === 1 && act && act.type !== 'adjustment' && !act.locked && act.visible) {
         const hp = handlePoints(act)
         const tol = 11 / s.view.zoom
@@ -472,7 +517,12 @@ export function Stage() {
           snapX.push(b.x, b.x + b.w / 2, b.x + b.w); snapY.push(b.y, b.y + b.h / 2, b.y + b.h)
         }
         drag.current = { kind: 'move', start: p, items: moving.map(l => ({ id: l.id, ox: l.x, oy: l.y })), box, snapX, snapY, moved: false }
-      } else { if (s.doc?.frames?.length) { const f = frameAt(s.doc, p.x, p.y); if (f) s.setActiveFrame(f.id) } if (!e.shiftKey) s.setActive(null) }
+      } else {
+        if (s.doc?.frames?.length) { const f = frameAt(s.doc, p.x, p.y); if (f) s.setActiveFrame(f.id) }
+        // Start a marquee selection band. Shift keeps the current selection and adds to it.
+        drag.current = { kind: 'select', start: p, cur: p, add: e.shiftKey, base: e.shiftKey ? [...s.selectedIds] : [] }
+        if (!e.shiftKey) s.setActive(null)
+      }
       invalidate(); return
     }
 
@@ -544,6 +594,41 @@ export function Stage() {
     const p = toDoc(sp.x, sp.y)
 
     if (d.kind === 'pan') { s.setView({ panX: d.px + sp.x - d.sx, panY: d.py + sp.y - d.sy }); return }
+
+    if (d.kind === 'gresize') {
+      const bw = d.box.w, bh = d.box.h
+      // scale factor from anchor to current pointer, relative to the original box span
+      const sx = Math.abs(p.x - d.anchor.x) / bw, sy = Math.abs(p.y - d.anchor.y) / bh
+      const k = Math.max(0.05, Math.min(sx, sy)) // uniform scale, keep aspect
+      s.updateLayers(d.items.map(it => {
+        const b = layerBounds(it.l, s.doc!)
+        // new top-left: scale the offset from the anchor
+        const nx = d.anchor.x + (b.x - d.anchor.x) * k
+        const ny = d.anchor.y + (b.y - d.anchor.y) * k
+        const patch: any = { x: it.l.x + (nx - b.x) }
+        patch.y = it.l.y + (ny - b.y)
+        if (it.l.type === 'text') patch.fontSize = Math.max(1, it.l.fontSize * k)
+        else if (it.l.type === 'shape') { patch.w = it.l.w * k; patch.h = it.l.h * k; patch.strokeWidth = it.l.strokeWidth * k; patch.radius = it.l.radius * k }
+        else { patch.scaleX = it.l.scaleX * k; patch.scaleY = it.l.scaleY * k }
+        return { id: it.id, patch }
+      }))
+      invalidate(); return
+    }
+    if (d.kind === 'select') {
+      d.cur = p
+      const rx = Math.min(d.start.x, p.x), ry = Math.min(d.start.y, p.y)
+      const rw = Math.abs(p.x - d.start.x), rh = Math.abs(p.y - d.start.y)
+      // Select every visible, non-adjustment layer whose bounds intersect the band.
+      const hits: string[] = []
+      for (const l of s.layers) {
+        if (!l.visible || l.type === 'adjustment') continue
+        const b = layerBounds(l, s.doc!)
+        if (b.x < rx + rw && b.x + b.w > rx && b.y < ry + rh && b.y + b.h > ry) hits.push(l.id)
+      }
+      const next = Array.from(new Set([...(d.add ? d.base : []), ...hits]))
+      useEditor.setState({ selectedIds: next, activeId: next[next.length - 1] ?? null })
+      invalidate(); return
+    }
 
     if (d.kind === 'move') {
       let dx = p.x - d.start.x, dy = p.y - d.start.y
@@ -636,6 +721,7 @@ export function Stage() {
     guides.current = { v: [], h: [] }
     if (!d || !s.doc) { invalidate(); return }
 
+    if (d.kind === 'gresize') { s.commit('Resize selection'); drag.current = null; invalidate(); return }
     if (d.kind === 'move' && d.moved) {
       if (s.doc?.frames?.length) {
         for (const it of d.items) { const l = s.layers.find(x => x.id === it.id); if (!l) continue; const f = frameForLayer(s.doc, l); if ((f?.id ?? null) !== (l.frameId ?? null)) s.reassignLayerFrame(l.id, f?.id ?? null) }
