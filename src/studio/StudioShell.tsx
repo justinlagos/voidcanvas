@@ -79,15 +79,28 @@ function BoardCard({ board, onOpen, onDelete }: { board: Board; onOpen: () => vo
   )
 }
 
-function RefTile({ r, selected, onToggle, onRemove }: { r: Ref; selected: boolean; onToggle: () => void; onRemove: () => void }) {
+function RefTile({ r, selected, onToggle, onRemove, pinned, onPin }: { r: Ref; selected: boolean; onToggle: () => void; onRemove: () => void; pinned: Set<string>; onPin: (hex: string) => void }) {
   const url = useObjectUrl(r.blob)
   return (
     <div className="group relative break-inside-avoid mb-3">
-      <button onClick={onToggle} aria-pressed={selected} aria-label={`${selected ? 'Deselect' : 'Select'} ${r.name}`} className={`block w-full rounded-xl overflow-hidden border-2 ${selected ? 'border-accent' : 'border-transparent'} ${focusRing}`}>
+      <button onClick={onToggle} aria-pressed={selected} aria-label={`${selected ? 'Deselect' : 'Select'} ${r.name}`} className={`block w-full rounded-t-xl overflow-hidden border-2 border-b-0 ${selected ? 'border-accent' : 'border-transparent'} ${focusRing}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {url && <img src={url} alt={r.name} className="w-full block" />}
-        <span className="flex h-1.5">{r.palette.map(c => <span key={c} className="flex-1" style={{ background: c }} />)}</span>
       </button>
+      {/* HEX tags: click a swatch to pin/unpin it into the board palette */}
+      <div className={`flex rounded-b-xl overflow-hidden border-2 border-t-0 ${selected ? 'border-accent' : 'border-transparent'}`}>
+        {r.palette.map(c => {
+          const on = pinned.has(c.toLowerCase())
+          const dark = parseInt(c.slice(1, 3), 16) * 0.3 + parseInt(c.slice(3, 5), 16) * 0.59 + parseInt(c.slice(5, 7), 16) * 0.11 > 140
+          return (
+            <button key={c} onClick={() => onPin(c)} title={`${on ? 'Unpin' : 'Pin'} ${c}`} aria-pressed={on}
+              className={`group/sw relative flex-1 h-7 flex items-center justify-center ${focusRing}`} style={{ background: c }}>
+              <span className={`text-[9px] font-mono leading-none opacity-0 group-hover/sw:opacity-100 ${dark ? 'text-black/80' : 'text-white/90'}`}>{c.replace('#', '').toUpperCase()}</span>
+              {on && <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-white border border-black/20 flex items-center justify-center"><Check size={7} strokeWidth={4} className="text-black" /></span>}
+            </button>
+          )
+        })}
+      </div>
       {selected && <span className="absolute top-2 left-2 w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center pointer-events-none"><Check size={12} strokeWidth={3} /></span>}
       <button aria-label={`Remove ${r.name}`} onClick={onRemove} className={`absolute top-2 right-2 w-7 h-7 rounded-md bg-black/70 text-void-200 hover:text-white items-center justify-center hidden group-hover:flex focus:flex ${focusRing}`}><Trash2 size={13} /></button>
     </div>
@@ -100,6 +113,8 @@ function BoardView({ board: initial, onBack }: { board: Board; onBack: () => voi
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [over, setOver] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
+  const [pinned, setPinned] = useState<Set<string>>(new Set())
+  const togglePin = (hex: string) => setPinned(p => { const n = new Set(p); const k = hex.toLowerCase(); n.has(k) ? n.delete(k) : n.add(k); return n })
   const file = useRef<HTMLInputElement>(null)
   const first = useRef(true)
 
@@ -125,11 +140,12 @@ function BoardView({ board: initial, onBack }: { board: Board; onBack: () => voi
 
   // Board palette: the most common distinct colours across every reference.
   const palette = useMemo(() => {
-    const out: string[] = []
     const far = (a: string, b: string) => [1, 3, 5].reduce((n, i) => n + Math.abs(parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16)), 0) > 60
+    // Pinned colours come first, then the most common distinct colours across references.
+    const out: string[] = Array.from(pinned).map(h => board.refs.flatMap(r => r.palette).find(c => c.toLowerCase() === h) ?? h)
     for (let i = 0; i < 5; i++) for (const r of board.refs) { const c = r.palette[i]; if (c && out.every(o => far(o, c))) out.push(c) }
     return out.slice(0, 8)
-  }, [board.refs])
+  }, [board.refs, pinned])
 
   const preset = SIZE_PRESETS.find(p => p.id === board.presetId) ?? SIZE_PRESETS[0]
   const chosen = board.refs.filter(r => selected.has(r.id))
@@ -216,7 +232,7 @@ function BoardView({ board: initial, onBack }: { board: Board; onBack: () => voi
         ) : (
           <div className={`columns-2 md:columns-3 xl:columns-4 gap-3 rounded-2xl ${over ? 'outline outline-2 outline-accent' : ''}`}>
             {board.refs.map(r => (
-              <RefTile key={r.id} r={r} selected={selected.has(r.id)}
+              <RefTile key={r.id} r={r} selected={selected.has(r.id)} pinned={pinned} onPin={togglePin}
                 onToggle={() => setSelected(s => { const n = new Set(s); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n })}
                 onRemove={() => { setBoard(b => ({ ...b, refs: b.refs.filter(x => x.id !== r.id) })); setSelected(s => { const n = new Set(s); n.delete(r.id); return n }) }} />
             ))}

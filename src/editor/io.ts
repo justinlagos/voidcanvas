@@ -222,8 +222,75 @@ export async function openProject(id: string, asCopy = false): Promise<boolean> 
   return true
 }
 
+// ─── .void portable file (self-contained, no backend) ──────────────
+// A .void file is the whole project as one JSON: metadata plus every asset base64-encoded inline.
+
+const blobToBase64 = (b: Blob) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res((r.result as string).split(',')[1] ?? ''); r.onerror = rej; r.readAsDataURL(b) })
+const base64ToBlob = (b64: string, type = 'image/png') => { const bin = atob(b64); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); return new Blob([arr], { type }) }
+
+/** Serialize the current design (or a stored one) to a self-contained .void file and download it. */
+export async function exportVoidFile(): Promise<void> {
+  const { doc, layers, groups, swatches } = useEditor.getState()
+  if (!doc) return
+  const blobs: Record<string, string> = {}
+  const meta = await Promise.all(layers.map(async (l: any) => {
+    const { canvas, mask, rev, ...rest } = l
+    if (mask) blobs[l.id + ':mask'] = await blobToBase64(await canvasToBlob(mask))
+    if (l.type === 'raster' && canvas) blobs[l.id] = await blobToBase64(await canvasToBlob(canvas))
+    return { ...rest, hasMask: !!mask }
+  }))
+  const bundle = { format: 'voidcanvas', version: 1, doc, layers: meta, groups, swatches, blobs }
+  const json = JSON.stringify(bundle)
+  downloadBlob(new Blob([json], { type: 'application/json' }), `${(doc.name || 'design').replace(/[^\w\- ]+/g, '')}.void`)
+}
+
+/** Load a .void file into the editor. */
+export async function importVoidFile(file: File): Promise<boolean> {
+  try {
+    const bundle = JSON.parse(await file.text())
+    if (bundle.format !== 'voidcanvas') { useEditor.getState().notify('That is not a Voidcanvas (.void) file.'); return false }
+    const layers: Layer[] = await Promise.all((bundle.layers as any[]).map(async m => {
+      const { hasMask, ...rest } = m
+      const l: any = { ...rest, rev: nextRev(), mask: hasMask && bundle.blobs[m.id + ':mask'] ? await blobToCanvas(base64ToBlob(bundle.blobs[m.id + ':mask']), 1e6) : null }
+      if (m.type === 'raster') l.canvas = bundle.blobs[m.id] ? await blobToCanvas(base64ToBlob(bundle.blobs[m.id]), 1e6) : makeCanvas(1, 1)
+      return l as Layer
+    }))
+    const doc = { ...bundle.doc, id: 'd' + Date.now().toString(36) }
+    if (doc.frames?.length) useEditor.getState().loadFramed(doc, layers, bundle.swatches, bundle.groups ?? [])
+    else useEditor.getState().loadProject(doc, layers, bundle.swatches, bundle.groups ?? [])
+    useEditor.getState().notify('Opened your .void file.')
+    return true
+  } catch { useEditor.getState().notify('Could not read that .void file.'); return false }
+}
+
 export const listProjects = async () => (await idb.all<ProjectSummary>('index')).sort((a, b) => b.updatedAt - a.updatedAt)
 export async function deleteProject(id: string) { await idb.del('projects', id); await idb.del('index', id) }
+
+/** Duplicate a stored project as a new independent copy (no editor open needed). */
+export async function duplicateProject(id: string): Promise<ProjectSummary | null> {
+  const p = await idb.get<StoredProject>('projects', id); if (!p) return null
+  const nid = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
+  const copy: StoredProject = { ...p, id: nid, doc: { ...p.doc, id: nid, name: p.doc.name + ' copy' } }
+  await idb.put('projects', copy)
+  const old = await idb.get<ProjectSummary>('index', id)
+  const summary: ProjectSummary = { ...(old as ProjectSummary), id: nid, name: copy.doc.name, updatedAt: Date.now() }
+  await idb.put('index', summary)
+  return summary
+}
+
+/** Render a stored project to a full-resolution PNG and download it, without opening the editor. */
+export async function exportProjectPng(id: string): Promise<void> {
+  const p = await idb.get<StoredProject>('projects', id); if (!p) return
+  const layers: Layer[] = await Promise.all(p.layers.map(async (m: any) => {
+    const { hasMask, ...rest } = m
+    const l: any = { ...rest, rev: nextRev(), mask: hasMask && p.blobs[m.id + ':mask'] ? await blobToCanvas(p.blobs[m.id + ':mask'], 1e6) : null }
+    if (m.type === 'raster') l.canvas = p.blobs[m.id] ? await blobToCanvas(p.blobs[m.id], 1e6) : makeCanvas(1, 1)
+    return l as Layer
+  }))
+  const c = makeCanvas(p.doc.width, p.doc.height)
+  renderDoc(c, p.doc, layers, { groups: p.groups ?? [], scale: 1, noCache: true })
+  downloadBlob(await canvasToBlob(c), `${p.doc.name.replace(/[^\w\- ]+/g, '') || 'design'}.png`)
+}
 
 // ─── Fonts ─────────────────────────────────────────────────────────
 

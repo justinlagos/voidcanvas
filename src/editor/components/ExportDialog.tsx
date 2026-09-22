@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Copy, Download } from 'lucide-react'
-import { downloadBlob, exportAllFrames, exportImage, type ExportOptions } from '../io'
+import { downloadBlob, exportAllFrames, exportImage, exportVoidFile, type ExportOptions } from '../io'
 import { useEditor } from '../store'
 import { Button, Modal, Slider, focusRing } from './ui'
 
@@ -52,6 +52,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           <button onClick={async () => { setWorking(true); try { downloadBlob(await exportAllFrames(2), `${doc.name.replace(/[^\w\- ]+/g, '') || 'boards'}.zip`); onClose() } catch { useEditor.getState().notify('Export failed.') } finally { setWorking(false) } }}
             className={`w-full mb-2 h-10 rounded-lg text-[13px] font-medium bg-void-800 text-void-100 hover:bg-void-700 ${focusRing}`}>Each board as its own PNG (zip)</button>
         )}
+        <button onClick={async () => { setWorking(true); try { await exportVoidFile(); onClose() } catch { useEditor.getState().notify('Export failed.') } finally { setWorking(false) } }}
+          className={`w-full mb-2 h-10 rounded-lg text-[13px] font-medium bg-void-800 text-void-100 hover:bg-void-700 ${focusRing}`}>Save as .void file (keeps layers, opens only here)</button>
         <div className="flex gap-2 pt-1">
           <Button primary disabled={working} onClick={() => run(false)} className="flex-1"><Download size={15} />{working ? 'Exporting' : 'Download'}</Button>
           <Button disabled={working} onClick={() => run(true)}><Copy size={15} />Copy image</Button>

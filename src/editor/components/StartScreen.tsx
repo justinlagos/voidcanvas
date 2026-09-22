@@ -1,11 +1,29 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ImagePlus, Trash2 } from 'lucide-react'
-import { deleteProject, importFiles, listProjects, openProject, type ProjectSummary } from '../io'
+import { ImagePlus, Trash2, MoreHorizontal, Download, Copy } from 'lucide-react'
+import { deleteProject, duplicateProject, exportProjectPng, importFiles, importVoidFile, listProjects, openProject, type ProjectSummary } from '../io'
 import { SIZE_PRESETS } from '../presets'
 import { useEditor } from '../store'
 import { Button, focusRing } from './ui'
+
+function RecentMenu({ p, onChanged }: { p: ProjectSummary; onChanged: (fn: (r: ProjectSummary[]) => ProjectSummary[]) => void }) {
+  const [open, setOpen] = useState(false)
+  useEffect(() => { if (!open) return; const h = () => setOpen(false); window.addEventListener('pointerdown', h); return () => window.removeEventListener('pointerdown', h) }, [open])
+  return (
+    <div className="absolute top-1.5 right-1.5" onPointerDown={e => e.stopPropagation()}>
+      <button aria-label={`Actions for ${p.name}`} onClick={() => setOpen(o => !o)}
+        className={`w-7 h-7 rounded-md bg-black/70 text-void-200 hover:text-white items-center justify-center hidden group-hover:flex focus:flex ${open ? '!flex' : ''} ${focusRing}`}><MoreHorizontal size={14} /></button>
+      {open && (
+        <div className="absolute right-0 mt-1 w-40 rounded-lg bg-surface-overlay border border-white/[0.08] shadow-xl py-1 z-10 text-[12.5px]">
+          <button onClick={async () => { setOpen(false); await exportProjectPng(p.id) }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-void-200 hover:bg-surface-sunken ${focusRing}`}><Download size={13} />Export PNG</button>
+          <button onClick={async () => { setOpen(false); const c = await duplicateProject(p.id); if (c) onChanged(r => [c, ...r]) }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-void-200 hover:bg-surface-sunken ${focusRing}`}><Copy size={13} />Duplicate</button>
+          <button onClick={async () => { setOpen(false); if (confirm(`Delete “${p.name}”? This cannot be undone.`)) { await deleteProject(p.id); onChanged(r => r.filter(x => x.id !== p.id)) } }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-rose-400 hover:bg-surface-sunken ${focusRing}`}><Trash2 size={13} />Delete</button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function StartScreen() {
   const file = useRef<HTMLInputElement>(null)
@@ -14,6 +32,7 @@ export function StartScreen() {
   const [w, setW] = useState(1600), [h, setH] = useState(1200)
   useEffect(() => { listProjects().then(setRecent).catch(() => {}) }, [])
   const start = (width: number, height: number, name?: string) => useEditor.getState().newDoc({ width, height, background: '#ffffff', name })
+  const handleFiles = (files: File[]) => { const v = files.find(f => f.name.endsWith('.void')); if (v) { importVoidFile(v); return } importFiles(files) }
   const groups = Array.from(new Set(SIZE_PRESETS.map(p => p.group)))
 
   return (
@@ -22,16 +41,16 @@ export function StartScreen() {
         <h1 className="text-[26px] sm:text-[32px] font-semibold tracking-tight">What are you making?</h1>
         <p className="mt-1.5 text-[14px] text-void-400">Start from a photo or pick a size. Everything stays on your device until you export.</p>
 
-        <input ref={file} type="file" accept="image/*,.psd,.pdf" multiple hidden onChange={e => importFiles(Array.from(e.target.files ?? []))} />
+        <input ref={file} type="file" accept="image/*,.psd,.pdf,.void" multiple hidden onChange={e => handleFiles(Array.from(e.target.files ?? []))} />
         <button
           onClick={() => file.current?.click()}
           onDragOver={e => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)}
-          onDrop={e => { e.preventDefault(); setOver(false); importFiles(Array.from(e.dataTransfer.files)) }}
+          onDrop={e => { e.preventDefault(); setOver(false); handleFiles(Array.from(e.dataTransfer.files)) }}
           className={`mt-7 w-full flex flex-col sm:flex-row items-center gap-4 rounded-2xl border border-dashed px-6 py-7 text-left transition-colors ${focusRing} ${over ? 'border-accent bg-accent/10' : 'border-void-700 hover:border-void-500 bg-void-900/40'}`}>
           <span className="w-12 h-12 rounded-xl bg-accent text-white flex items-center justify-center shrink-0"><ImagePlus size={22} /></span>
           <span>
             <span className="block text-[15px] font-medium">Open a photo</span>
-            <span className="block text-[13px] text-void-400">Drop a photo, PSD or PDF, choose a file, or paste with Ctrl+V. PSDs keep their layers.</span>
+            <span className="block text-[13px] text-void-400">Drop a photo, PSD, PDF or .void file, choose a file, or paste with Ctrl+V. PSDs and .void files keep their layers.</span>
           </span>
         </button>
 
@@ -65,8 +84,7 @@ export function StartScreen() {
                     <span className="block aspect-[4/3] bg-void-950"><img src={p.thumb} alt="" className="w-full h-full object-contain" /></span>
                     <span className="block px-2.5 py-2"><span className="block text-[12.5px] font-medium truncate">{p.name}</span><span className="block text-[11.5px] text-void-500 tabular-nums">{p.width} × {p.height}</span></span>
                   </button>
-                  <button aria-label={`Delete ${p.name}`} onClick={async () => { if (confirm(`Delete “${p.name}”? This cannot be undone.`)) { await deleteProject(p.id); setRecent(r => r.filter(x => x.id !== p.id)) } }}
-                    className={`absolute top-1.5 right-1.5 w-7 h-7 rounded-md bg-black/70 text-void-200 hover:text-white items-center justify-center hidden group-hover:flex focus:flex ${focusRing}`}><Trash2 size={13} /></button>
+                  <RecentMenu p={p} onChanged={setRecent} />
                 </div>
               ))}
             </div>
