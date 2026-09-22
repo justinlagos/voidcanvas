@@ -68,6 +68,10 @@ src/components/AppNav   shared logo and module switch
 
 Handoff between modules: `sendHandoff()` writes images, palette and size to the `inbox` store, then routes to `/editor?inbox=<id>`.
 
+## Tooltips and shortcuts
+
+Every tool and icon button shows a styled tooltip after a short hover delay, with the action name and a shortcut keycap. The floating action bar now sits clear of the rotate handle above a selected element, flipping below the element when there is no room above.
+
 ## Precision and distribution
 
 Selecting a single layer shows X, Y, W, H numeric fields for exact positioning and sizing (type a value, press Enter). Selecting three or more layers adds Distribute horizontally / vertically alongside the existing align controls. Clipping masks now support multiple layers sharing one base.

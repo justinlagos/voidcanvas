@@ -14,7 +14,15 @@ export function FloatingBar() {
   const s = useEditor.getState()
   const b = layerBounds(layer, doc)
   const cx = view.panX + (b.x + b.w / 2) * view.zoom
-  const top = view.panY + b.y * view.zoom - 58 - (layer.rotation === 0 ? 0 : 8)
+  const topEdge = view.panY + b.y * view.zoom
+  const bottomEdge = view.panY + (b.y + b.h) * view.zoom
+  const BAR_H = 44
+  // The rotate handle sits ~28px above the layer's top; clear it (handle + gap) so the bar never covers it.
+  const ROTATE_CLEAR = 46
+  const wantAbove = topEdge - ROTATE_CLEAR - BAR_H
+  // If there is no room above (layer near the top of the canvas), drop the bar below the layer instead.
+  const placeBelow = wantAbove < 8
+  const top = placeBelow ? bottomEdge + 14 : wantAbove
   const btn = 'h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12.5px] text-void-100 hover:bg-void-700 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#8b7cff]'
   return (
     <div data-floating className="absolute z-10 flex items-center gap-0.5 p-1 rounded-xl bg-[#1c1c22] border border-void-700 shadow-xl -translate-x-1/2" style={{ left: Math.max(150, cx), top: Math.max(8, top) }}>

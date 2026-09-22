@@ -1,23 +1,52 @@
 'use client'
 
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 
 export const focusRing = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#8b7cff]'
 
-export function IconButton({ label, shortcut, active, disabled, onClick, children, className = '' }: {
-  label: string; shortcut?: string; active?: boolean; disabled?: boolean; onClick?: () => void; children: ReactNode; className?: string
+/** A small styled tooltip that appears after a short hover delay. Shows a label and, optionally, a shortcut keycap. */
+export function Tooltip({ label, shortcut, side = 'right', children }: { label: string; shortcut?: string; side?: 'right' | 'top' | 'bottom' | 'left'; children: ReactNode }) {
+  const [show, setShow] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const open = () => { timer.current = setTimeout(() => setShow(true), 450) }
+  const close = () => { if (timer.current) clearTimeout(timer.current); setShow(false) }
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+  const pos = side === 'right' ? 'left-full top-1/2 -translate-y-1/2 ml-2'
+    : side === 'left' ? 'right-full top-1/2 -translate-y-1/2 mr-2'
+    : side === 'top' ? 'bottom-full left-1/2 -translate-x-1/2 mb-2'
+    : 'top-full left-1/2 -translate-x-1/2 mt-2'
+  return (
+    <span className="relative inline-flex" onPointerEnter={open} onPointerLeave={close} onPointerDown={close}>
+      {children}
+      {show && (
+        <span role="tooltip" className={`pointer-events-none absolute z-50 whitespace-nowrap flex items-center gap-1.5 px-2 h-7 rounded-lg bg-[#26262e] border border-void-700 shadow-xl text-[12px] text-void-100 ${pos}`}>
+          {label}
+          {shortcut && <KeyCap>{shortcut}</KeyCap>}
+        </span>
+      )}
+    </span>
+  )
+}
+
+export function KeyCap({ children }: { children: ReactNode }) {
+  return <kbd className="inline-flex items-center h-5 min-w-[18px] px-1 justify-center rounded bg-void-900 border border-void-700 text-[10.5px] font-medium text-void-300">{children}</kbd>
+}
+
+export function IconButton({ label, shortcut, active, disabled, onClick, children, className = '', tipSide = 'top' }: {
+  label: string; shortcut?: string; active?: boolean; disabled?: boolean; onClick?: () => void; children: ReactNode; className?: string; tipSide?: 'right' | 'top' | 'bottom' | 'left'
 }) {
   return (
-    <button
-      type="button" onClick={onClick} disabled={disabled} aria-label={label} aria-pressed={active}
-      title={shortcut ? `${label} (${shortcut})` : label}
-      className={`h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-lg transition-colors ${focusRing} ${
-        active ? 'bg-[#8b7cff] text-white' : 'text-void-300 hover:bg-void-800 hover:text-white'
-      } disabled:opacity-30 disabled:pointer-events-none ${className}`}
-    >
-      {children}
-    </button>
+    <Tooltip label={label} shortcut={shortcut} side={tipSide}>
+      <button
+        type="button" onClick={onClick} disabled={disabled} aria-label={shortcut ? `${label} (${shortcut})` : label} aria-pressed={active}
+        className={`h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-lg transition-colors ${focusRing} ${
+          active ? 'bg-[#8b7cff] text-white' : 'text-void-300 hover:bg-void-800 hover:text-white'
+        } disabled:opacity-30 disabled:pointer-events-none ${className}`}
+      >
+        {children}
+      </button>
+    </Tooltip>
   )
 }
 

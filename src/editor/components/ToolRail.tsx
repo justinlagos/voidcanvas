@@ -35,7 +35,7 @@ export function ToolRail() {
       {TOOLS.map((t, i) => (
         <span key={t.id} className="contents">
           {i > 0 && TOOLS[i - 1].group !== t.group && <span className="shrink-0 md:w-6 md:h-px w-px h-6 bg-void-800 mx-0.5 md:my-1" />}
-          <IconButton label={t.label} shortcut={t.key} active={tool === t.id} onClick={() => setTool(t.id)}>
+          <IconButton label={t.label} shortcut={t.key} tipSide="right" active={tool === t.id} onClick={() => setTool(t.id)}>
             <t.icon size={18} strokeWidth={1.75} />
           </IconButton>
         </span>
