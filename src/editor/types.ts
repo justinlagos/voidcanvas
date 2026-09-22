@@ -44,6 +44,8 @@ interface LayerBase {
   groupId?: string | null
   /** Artboard this layer lives on, when the document uses frames. */
   frameId?: string | null
+  /** When set, this layer is clipped to the layer directly below it (the clip base): it shows only where the base is opaque. */
+  clipId?: string | null
   /** Bumped on every visual change. Drives caches and thumbnails. */
   rev: number
 }

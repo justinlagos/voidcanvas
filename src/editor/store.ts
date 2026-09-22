@@ -103,6 +103,9 @@ interface EditorState {
   // masks
   addMask: (id: string, fromSelection?: boolean) => void
   removeMask: (id: string) => void
+  createClippingMask: (id?: string) => void
+  releaseClippingMask: (id?: string) => void
+  canClip: (id?: string) => boolean
   invertMask: (id: string) => void
   setEditingMask: (v: boolean) => void
 
@@ -535,6 +538,33 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   removeMask: (id) => { get().updateLayer(id, { mask: null }, 'Remove mask'); set({ editingMask: false }) },
+
+  // A layer can be clipped if there is a non-adjustment layer directly below it in the same frame/group.
+  canClip: (id) => {
+    const st = get(); const lid = id ?? st.activeId; if (!lid) return false
+    const idx = st.layers.findIndex(l => l.id === lid); if (idx <= 0) return false
+    const l = st.layers[idx], base = st.layers[idx - 1]
+    if (l.type === 'adjustment' || l.clipId) return false
+    if (base.type === 'adjustment') return false
+    if ((l.groupId ?? null) !== (base.groupId ?? null)) return false
+    if ((l.frameId ?? null) !== (base.frameId ?? null)) return false
+    return true
+  },
+
+  createClippingMask: (id) => {
+    const st = get(); const lid = id ?? st.activeId; if (!lid || !st.canClip(lid)) return
+    const idx = st.layers.findIndex(l => l.id === lid)
+    const base = st.layers[idx - 1]
+    set({ layers: st.layers.map(l => l.id === lid ? ({ ...l, clipId: base.id, rev: nextRev() } as Layer) : l), docRev: st.docRev + 1 })
+    get().commit('Create clipping mask')
+  },
+
+  releaseClippingMask: (id) => {
+    const st = get(); const lid = id ?? st.activeId; if (!lid) return
+    const l = st.layers.find(x => x.id === lid); if (!l?.clipId) return
+    set({ layers: st.layers.map(x => x.id === lid ? ({ ...x, clipId: null, rev: nextRev() } as Layer) : x), docRev: st.docRev + 1 })
+    get().commit('Release clipping mask')
+  },
 
   invertMask: (id) => {
     const l = get().layers.find(x => x.id === id); if (!l?.mask) return

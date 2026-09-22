@@ -406,7 +406,13 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
       acc.globalCompositeOperation = 'source-over'
     } else {
       const m = layerMatrix(l, doc)
-      const needsTemp = (l.mask && l.maskEnabled) || !!live
+      // Clipping mask: this layer shows only where the base layer (directly below) is opaque.
+      let clipBaseCanvas: HTMLCanvasElement | null = null
+      if (l.clipId) {
+        const base = layers[li - 1]
+        if (base && base.id === l.clipId && base.type !== 'adjustment') clipBaseCanvas = renderLayerAlpha(doc, base, s)
+      }
+      const needsTemp = (l.mask && l.maskEnabled) || !!live || !!clipBaseCanvas
       acc.save()
       const clipF = l.frameId ? frameById.get(l.frameId) : undefined
       if (clipF) { acc.beginPath(); acc.rect(clipF.x * s, clipF.y * s, clipF.width * s, clipF.height * s); acc.clip() }
@@ -427,7 +433,23 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
           t.globalCompositeOperation = 'destination-in'
           t.drawImage(liveMask(maskSrc ?? fullMaskSized(w, h), live), 0, 0)
         }
-        acc.drawImage(tmp, 0, 0)
+        if (clipBaseCanvas) {
+          // The clip base is in document space; composite the layer into doc space, then intersect with the base alpha.
+          acc.restore(); acc.save()
+          if (clipF) { acc.beginPath(); acc.rect(clipF.x * s, clipF.y * s, clipF.width * s, clipF.height * s); acc.clip() }
+          const docTmp = makeCanvas(W, H); const dt = ctx2d(docTmp)
+          dt.setTransform(new DOMMatrix().scale(s, s).multiply(m))
+          dt.drawImage(tmp, 0, 0)
+          dt.setTransform(1, 0, 0, 1, 0, 0)
+          dt.globalCompositeOperation = 'destination-in'
+          dt.drawImage(clipBaseCanvas, 0, 0)
+          acc.setTransform(1, 0, 0, 1, 0, 0)
+          acc.globalAlpha = l.opacity
+          acc.globalCompositeOperation = l.blend
+          acc.drawImage(docTmp, 0, 0)
+        } else {
+          acc.drawImage(tmp, 0, 0)
+        }
       }
       acc.restore()
     }
@@ -438,6 +460,23 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
     const ids = new Set(layers.map(l => l.id))
     Array.from(adjCacheById.keys()).forEach(k => { if (!ids.has(k)) adjCacheById.delete(k) })
   }
+}
+
+/** Render a single layer's pixels onto a full document-size canvas at scale s. Used as a clip base. */
+function renderLayerAlpha(doc: Doc, layer: Layer, s: number): HTMLCanvasElement {
+  const W = Math.round(doc.width * s), H = Math.round(doc.height * s)
+  const c = makeCanvas(W, H); const x = ctx2d(c)
+  if (layer.type === 'adjustment') return c // adjustments have no shape to clip to
+  const m = layerMatrix(layer, doc)
+  x.save(); x.setTransform(new DOMMatrix().scale(s, s).multiply(m))
+  const { w, h } = layerSize(layer, doc)
+  const tmp = makeCanvas(w, h); const t = ctx2d(tmp)
+  drawLayerContent(t, layer)
+  const maskSrc = layer.mask && layer.maskEnabled ? layer.mask : null
+  if (maskSrc) { t.globalCompositeOperation = 'destination-in'; t.drawImage(maskSrc, 0, 0) }
+  x.drawImage(tmp, 0, 0)
+  x.restore()
+  return c
 }
 
 function fullMaskSized(w: number, h: number) {

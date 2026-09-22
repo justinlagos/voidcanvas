@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, ChevronUp, Copy, Folder, FolderPlus, Eye, EyeOff, Lock, SlidersHorizontal, Trash2, Type, Unlock, Combine, Shapes, LayoutGrid } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp, Copy, Folder, FolderPlus, Eye, EyeOff, Lock, SlidersHorizontal, Trash2, Type, Unlock, Combine, Shapes, LayoutGrid, CornerDownRight, Scissors } from 'lucide-react'
 import { ctx2d, drawLayerContent, layerSize } from '../engine'
 import { useEditor } from '../store'
 import type { Frame, Layer } from '../types'
@@ -77,12 +77,13 @@ function LayerRows({ list, ctx }: { list: Layer[]; ctx: RowCtx }) {
             </li>
           )}
           {!(g && g.collapsed) && (
-          <li role="option" aria-selected={on} style={g ? { marginLeft: 18 } : undefined} draggable={renaming !== l.id}
+          <li role="option" aria-selected={on} style={l.clipId ? { marginLeft: (g ? 18 : 0) + 16 } : (g ? { marginLeft: 18 } : undefined)} draggable={renaming !== l.id}
             onDragStart={() => setDragId(l.id)} onDragEnd={() => { setDragId(null); setOver(null) }}
             onDragOver={e => { e.preventDefault(); setOver(i) }}
             onDrop={e => { e.preventDefault(); if (dragId && dragId !== l.id) s.moveLayer(dragId, i); setOver(null) }}
             onClick={e => (e.shiftKey || e.metaKey || e.ctrlKey ? s.toggleSelect(l.id) : s.setActive(l.id))}
             className={`group flex items-center gap-2 pl-1 pr-1.5 py-1 rounded-lg cursor-default border ${over === i && dragId ? 'border-[#8b7cff]' : 'border-transparent'} ${on ? 'bg-void-800' : 'hover:bg-void-900'}`}>
+            {l.clipId && <CornerDownRight size={13} className="shrink-0 -mr-1 text-void-500" aria-label="Clipped to layer below" />}
             <button aria-label={l.visible ? 'Hide layer' : 'Show layer'} onClick={e => { e.stopPropagation(); s.updateLayer(l.id, { visible: !l.visible }, l.visible ? 'Hide layer' : 'Show layer') }}
               className={`w-7 h-7 shrink-0 inline-flex items-center justify-center rounded-md ${focusRing} ${l.visible ? 'text-void-300' : 'text-void-600'} hover:text-white`}>
               {l.visible ? <Eye size={15} /> : <EyeOff size={15} />}
@@ -149,6 +150,9 @@ export function LayersPanel() {
           <IconButton label="Bring forward" shortcut="]" disabled={!active || idx === layers.length - 1} onClick={() => active && s.nudgeOrder(active.id, 1)} className="!h-7 !w-7"><ChevronUp size={15} /></IconButton>
           <IconButton label="Send backward" shortcut="[" disabled={!active || idx <= 0} onClick={() => active && s.nudgeOrder(active.id, -1)} className="!h-7 !w-7"><ChevronDown size={15} /></IconButton>
           <IconButton label="Group selected layers" shortcut="Ctrl+G" disabled={selectedIds.length < 2} onClick={() => s.groupSelected()} className="!h-7 !w-7"><FolderPlus size={14} /></IconButton>
+          {active?.clipId
+            ? <IconButton label="Release clipping mask" shortcut="Alt+Ctrl+G" onClick={() => active && s.releaseClippingMask(active.id)} className="!h-7 !w-7 text-[#b9afff]"><Scissors size={14} /></IconButton>
+            : <IconButton label="Clip to layer below" shortcut="Alt+Ctrl+G" disabled={!active || !s.canClip(active?.id)} onClick={() => active && s.createClippingMask(active.id)} className="!h-7 !w-7"><Scissors size={14} /></IconButton>}
           <IconButton label="Merge with the layer below" disabled={!active || idx <= 0} onClick={() => active && s.mergeDown(active.id)} className="!h-7 !w-7"><Combine size={14} /></IconButton>
           <IconButton label="Duplicate" shortcut="Ctrl+J" disabled={!active} onClick={() => active && s.duplicateLayer(active.id)} className="!h-7 !w-7"><Copy size={14} /></IconButton>
           <IconButton label="Delete layer" shortcut="Delete" disabled={!active} onClick={() => s.removeSelected()} className="!h-7 !w-7"><Trash2 size={14} /></IconButton>

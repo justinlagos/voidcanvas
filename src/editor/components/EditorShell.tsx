@@ -107,6 +107,7 @@ export function EditorShell() {
       if (k === '\\') { if (!s.compare) useEditor.setState({ compare: true }); return }
       if (e.key === '?') { setModal('keys'); return }
       if (mod && k === 'k') { stop(); setModal('palette'); return }
+      if (mod && e.altKey && k === 'g') { stop(); const a = s.active(); if (a?.clipId) s.releaseClippingMask(a.id); else if (a && s.canClip(a.id)) s.createClippingMask(a.id); return }
       if (mod && k === 'g') { stop(); if (e.shiftKey) { const g = s.active()?.groupId; if (g) s.ungroup(g) } else s.groupSelected(); return }
       if (mod && k === 'z') { stop(); e.shiftKey ? s.redo() : s.undo(); return }
       if (mod && k === 'y') { stop(); s.redo(); return }
