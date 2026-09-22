@@ -143,6 +143,8 @@ export function EditorShell() {
       if (k === 'enter') { const l = s.active(); if (l?.type === 'text') { stop(); useEditor.setState({ editingTextId: l.id, tool: 'move' }) } return }
       if (e.shiftKey && k === 'm') { s.setTool('ellipse'); return }
       if (e.shiftKey && k === 'g') { s.setTool('gradient'); return }
+      if (!mod && e.shiftKey && e.code === 'Digit2') { stop(); stageApi.fitSelection(); return }
+      if (!mod && e.shiftKey && e.code === 'Digit1') { stop(); stageApi.fitFrame(); return }
       if (KEYS[k] && !e.altKey) s.setTool(KEYS[k])
     }
     window.addEventListener('keydown', onKey); window.addEventListener('paste', onPaste)

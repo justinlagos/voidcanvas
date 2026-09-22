@@ -1,6 +1,6 @@
 'use client'
 
-import { Download, Search, Maximize, Scaling, Palette, LayoutGrid, Lock, X, Minus, Plus, Redo2, Undo2, FolderOpen } from 'lucide-react'
+import { Download, Search, Maximize, Scaling, Palette, LayoutGrid, Lock, X, Minus, Plus, Redo2, Undo2, FolderOpen, Frame, Crosshair } from 'lucide-react'
 import { AppNav, Logo } from '@/components/AppNav'
 import { saveProject } from '../io'
 import { useEditor } from '../store'
@@ -15,6 +15,7 @@ export function TopBar({ onExport, onAdd, onSearch }: { onExport: () => void; on
   const canRedo = useEditor(s => s.historyIndex < s.history.length - 1)
   const dirty = useEditor(s => s.dirty)
   const s = useEditor.getState()
+  const hasFrames = useEditor(st => !!st.doc?.frames?.length)
 
   return (
     <header className="h-12 shrink-0 flex items-center gap-1 sm:gap-3 px-2 sm:px-3 border-b border-void-800/60 bg-void-950">
@@ -35,6 +36,8 @@ export function TopBar({ onExport, onAdd, onSearch }: { onExport: () => void; on
             <button onClick={() => stageApi.zoomTo(1)} title="Zoom to 100%" className={`w-14 h-8 rounded-md text-[12px] tabular-nums text-void-200 hover:bg-void-800 ${focusRing}`}>{Math.round(zoom * 100)}%</button>
             <IconButton label="Zoom in" shortcut="Ctrl++" onClick={() => stageApi.zoomBy(1.25)}><Plus size={16} /></IconButton>
             <IconButton label="Fit to screen" shortcut="Ctrl+0" onClick={() => stageApi.fit()}><Maximize size={15} /></IconButton>
+            <IconButton label="Fit selection" shortcut="Shift+2" onClick={() => stageApi.fitSelection()}><Crosshair size={15} /></IconButton>
+            {hasFrames && <IconButton label="Fit board" shortcut="Shift+1" onClick={() => stageApi.fitFrame()}><Frame size={15} /></IconButton>}
           </div>
           <button onClick={onSearch} title="Search every action (Ctrl+K)" className={`hidden lg:flex items-center gap-2 h-8 pl-2.5 pr-2 rounded-lg bg-void-900 border border-void-800 text-[12.5px] text-void-400 hover:text-white ${focusRing}`}><Search size={13} />Search actions<kbd className="ml-2 text-[10.5px] px-1.5 py-0.5 rounded bg-void-800 text-void-300">Ctrl K</kbd></button>
           <IconButton label="Resize for other formats" onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'resize' }))} className="hidden sm:inline-flex"><Scaling size={16} /></IconButton>

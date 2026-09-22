@@ -68,6 +68,10 @@ src/components/AppNav   shared logo and module switch
 
 Handoff between modules: `sendHandoff()` writes images, palette and size to the `inbox` store, then routes to `/editor?inbox=<id>`.
 
+## Navigation and zoom
+
+Fit to screen (Ctrl+0), fit selection (Shift+2), and fit board (Shift+1, when the doc uses boards) join the existing zoom in/out, 100%, wheel/trackpad zoom (Ctrl/Cmd+wheel), two-finger pan, spacebar-drag and middle-mouse pan. Fit to screen always brings all work back into view, so artwork is never lost off-screen.
+
 ## Tooltips and shortcuts
 
 Every tool and icon button shows a styled tooltip after a short hover delay, with the action name and a shortcut keycap. The floating action bar now sits clear of the rotate handle above a selected element, flipping below the element when there is no room above.

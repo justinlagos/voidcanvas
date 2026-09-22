@@ -24,8 +24,8 @@ type Drag =
   | { kind: 'stroke'; last: Pt; carry: number; snapshot?: HTMLCanvasElement; offset?: Pt; tool: ToolId }
   | { kind: 'box'; tool: ToolId; start: Pt; cur: Pt; pts: Pt[]; add: boolean; sub: boolean }
 
-export const stageApi: { fit: () => void; zoomBy: (f: number) => void; zoomTo: (z: number) => void } = {
-  fit: () => {}, zoomBy: () => {}, zoomTo: () => {},
+export const stageApi: { fit: () => void; fitSelection: () => void; fitFrame: () => void; zoomBy: (f: number) => void; zoomTo: (z: number) => void } = {
+  fit: () => {}, fitSelection: () => {}, fitFrame: () => {}, zoomBy: () => {}, zoomTo: () => {},
 }
 
 export function Stage() {
@@ -247,6 +247,34 @@ export function Stage() {
     setView({ zoom, panX: (w - bw * zoom) / 2 - bx * zoom, panY: (h - bh * zoom) / 2 - by * zoom })
   }, [])
 
+  // Fit an arbitrary document-space box into view with padding.
+  const fitBox = useCallback((bx: number, by: number, bw: number, bh: number) => {
+    const { setView } = useEditor.getState()
+    if (!size.current.w || bw <= 0 || bh <= 0) return
+    const { w, h } = size.current
+    const pad = w < 640 ? 24 : 80
+    const zoom = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh, 4)
+    setView({ zoom, panX: (w - bw * zoom) / 2 - bx * zoom, panY: (h - bh * zoom) / 2 - by * zoom })
+  }, [])
+
+  const fitSelection = useCallback(() => {
+    const { doc, layers, selectedIds } = useEditor.getState()
+    if (!doc) return
+    const sel = layers.filter(l => selectedIds.includes(l.id) && l.type !== 'adjustment')
+    if (!sel.length) { fit(); return }
+    const boxes = sel.map(l => layerBounds(l, doc))
+    const bx = Math.min(...boxes.map(b => b.x)), by = Math.min(...boxes.map(b => b.y))
+    const bw = Math.max(...boxes.map(b => b.x + b.w)) - bx, bh = Math.max(...boxes.map(b => b.y + b.h)) - by
+    fitBox(bx - 40, by - 40, bw + 80, bh + 80)
+  }, [fit, fitBox])
+
+  const fitFrame = useCallback(() => {
+    const { doc, activeFrameId } = useEditor.getState()
+    const f = doc?.frames?.find(x => x.id === activeFrameId) ?? doc?.frames?.[0]
+    if (!f) { fit(); return }
+    fitBox(f.x, f.y, f.width, f.height)
+  }, [fit, fitBox])
+
   const zoomAt = useCallback((factor: number, at?: Pt, absolute?: number) => {
     const { view: v, setView } = useEditor.getState()
     const p = at ?? { x: size.current.w / 2, y: size.current.h / 2 }
@@ -257,9 +285,11 @@ export function Stage() {
 
   useEffect(() => {
     stageApi.fit = fit
+    stageApi.fitSelection = fitSelection
+    stageApi.fitFrame = fitFrame
     stageApi.zoomBy = f => zoomAt(f)
     stageApi.zoomTo = z => zoomAt(1, undefined, z)
-  }, [fit, zoomAt])
+  }, [fit, fitSelection, fitFrame, zoomAt])
 
   useEffect(() => {
     const el = wrap.current!
