@@ -228,6 +228,99 @@ export async function openProject(id: string, asCopy = false): Promise<boolean> 
 const blobToBase64 = (b: Blob) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res((r.result as string).split(',')[1] ?? ''); r.onerror = rej; r.readAsDataURL(b) })
 const base64ToBlob = (b64: string, type = 'image/png') => { const bin = atob(b64); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); return new Blob([arr], { type }) }
 
+// PNG chunk tools: embed the project bundle inside a real PNG so the file previews as the design
+// everywhere (Finder, Preview, Quick Look) while still carrying the full editable project.
+const PNG_SIG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+
+/** Insert a tEXt chunk (keyword "voidcanvas") holding `text` into `pngBytes`, before IEND. */
+function embedTextChunk(pngBytes: Uint8Array, keyword: string, text: string): Uint8Array {
+  const enc = new TextEncoder()
+  const kw = enc.encode(keyword), tx = enc.encode(text)
+  const data = new Uint8Array(kw.length + 1 + tx.length)
+  data.set(kw, 0); data[kw.length] = 0; data.set(tx, kw.length + 1)
+  const type = enc.encode('tEXt')
+  const len = data.length
+  const chunk = new Uint8Array(12 + len)
+  const dv = new DataView(chunk.buffer)
+  dv.setUint32(0, len)
+  chunk.set(type, 4); chunk.set(data, 8)
+  const crcInput = new Uint8Array(type.length + data.length)
+  crcInput.set(type, 0); crcInput.set(data, type.length)
+  dv.setUint32(8 + len, crc32(crcInput))
+  // find IEND (last 12 bytes normally) and splice before it
+  const iend = pngBytes.length - 12
+  const out = new Uint8Array(pngBytes.length + chunk.length)
+  out.set(pngBytes.subarray(0, iend), 0)
+  out.set(chunk, iend)
+  out.set(pngBytes.subarray(iend), iend + chunk.length)
+  return out
+}
+
+/** Read the embedded "voidcanvas" tEXt chunk out of a PNG, if present. */
+function readTextChunk(pngBytes: Uint8Array, keyword: string): string | null {
+  for (let i = 0; i < 8; i++) if (pngBytes[i] !== PNG_SIG[i]) return null
+  const dec = new TextDecoder()
+  const u32 = (o: number) => ((pngBytes[o] << 24) | (pngBytes[o + 1] << 16) | (pngBytes[o + 2] << 8) | pngBytes[o + 3]) >>> 0
+  let off = 8
+  while (off + 8 <= pngBytes.length) {
+    const len = u32(off)
+    const type = dec.decode(pngBytes.subarray(off + 4, off + 8))
+    if (type === 'tEXt') {
+      const data = pngBytes.subarray(off + 8, off + 8 + len)
+      const zero = data.indexOf(0)
+      if (zero > 0 && dec.decode(data.subarray(0, zero)) === keyword) return dec.decode(data.subarray(zero + 1))
+    }
+    if (type === 'IEND') break
+    off += 12 + len
+  }
+  return null
+}
+
+/** Build the project bundle (metadata + base64 assets) for the current design. */
+async function buildBundle() {
+  const { doc, layers, groups, swatches } = useEditor.getState()
+  if (!doc) return null
+  const blobs: Record<string, string> = {}
+  const meta = await Promise.all(layers.map(async (l: any) => {
+    const { canvas, mask, rev, ...rest } = l
+    if (mask) blobs[l.id + ':mask'] = await blobToBase64(await canvasToBlob(mask))
+    if (l.type === 'raster' && canvas) blobs[l.id] = await blobToBase64(await canvasToBlob(canvas))
+    return { ...rest, hasMask: !!mask }
+  }))
+  return { format: 'voidcanvas', version: 1, doc, layers: meta, groups, swatches, blobs }
+}
+
+/** Restore a bundle object into the editor. */
+async function loadBundle(bundle: any): Promise<boolean> {
+  if (bundle?.format !== 'voidcanvas') return false
+  const layers: Layer[] = await Promise.all((bundle.layers as any[]).map(async m => {
+    const { hasMask, ...rest } = m
+    const l: any = { ...rest, rev: nextRev(), mask: hasMask && bundle.blobs[m.id + ':mask'] ? await blobToCanvas(base64ToBlob(bundle.blobs[m.id + ':mask']), 1e6) : null }
+    if (m.type === 'raster') l.canvas = bundle.blobs[m.id] ? await blobToCanvas(base64ToBlob(bundle.blobs[m.id]), 1e6) : makeCanvas(1, 1)
+    return l as Layer
+  }))
+  const doc = { ...bundle.doc, id: 'd' + Date.now().toString(36) }
+  if (doc.frames?.length) useEditor.getState().loadFramed(doc, layers, bundle.swatches, bundle.groups ?? [])
+  else useEditor.getState().loadProject(doc, layers, bundle.swatches, bundle.groups ?? [])
+  return true
+}
+
+/** Export the design as a PNG that previews as the artwork AND carries the full editable project inside it. */
+export async function exportVoidPng(): Promise<void> {
+  const { doc, layers, groups } = useEditor.getState()
+  if (!doc) return
+  const bundle = await buildBundle(); if (!bundle) return
+  // render the visible design at a sensible thumbnail-friendly resolution
+  const maxDim = 1600
+  const k = Math.min(1, maxDim / Math.max(doc.width, doc.height))
+  const c = makeCanvas(Math.round(doc.width * k), Math.round(doc.height * k))
+  renderDoc(c, doc, layers, { groups, scale: k, noCache: true })
+  const pngBlob = await canvasToBlob(c, 'image/png')
+  const bytes = new Uint8Array(await pngBlob.arrayBuffer())
+  const withData = embedTextChunk(bytes, 'voidcanvas', JSON.stringify(bundle))
+  downloadBlob(new Blob([withData as BlobPart], { type: 'image/png' }), `${(doc.name || 'design').replace(/[^\w\- ]+/g, '')}.void.png`)
+}
+
 /** Serialize the current design (or a stored one) to a self-contained .void file and download it. */
 export async function exportVoidFile(): Promise<void> {
   const { doc, layers, groups, swatches } = useEditor.getState()
@@ -245,22 +338,23 @@ export async function exportVoidFile(): Promise<void> {
 }
 
 /** Load a .void file into the editor. */
+/** Open a Voidcanvas file: either a .void JSON or a .void.png with the project embedded in a PNG chunk. */
 export async function importVoidFile(file: File): Promise<boolean> {
   try {
-    const bundle = JSON.parse(await file.text())
-    if (bundle.format !== 'voidcanvas') { useEditor.getState().notify('That is not a Voidcanvas (.void) file.'); return false }
-    const layers: Layer[] = await Promise.all((bundle.layers as any[]).map(async m => {
-      const { hasMask, ...rest } = m
-      const l: any = { ...rest, rev: nextRev(), mask: hasMask && bundle.blobs[m.id + ':mask'] ? await blobToCanvas(base64ToBlob(bundle.blobs[m.id + ':mask']), 1e6) : null }
-      if (m.type === 'raster') l.canvas = bundle.blobs[m.id] ? await blobToCanvas(base64ToBlob(bundle.blobs[m.id]), 1e6) : makeCanvas(1, 1)
-      return l as Layer
-    }))
-    const doc = { ...bundle.doc, id: 'd' + Date.now().toString(36) }
-    if (doc.frames?.length) useEditor.getState().loadFramed(doc, layers, bundle.swatches, bundle.groups ?? [])
-    else useEditor.getState().loadProject(doc, layers, bundle.swatches, bundle.groups ?? [])
-    useEditor.getState().notify('Opened your .void file.')
+    let bundle: any = null
+    const buf = new Uint8Array(await file.arrayBuffer())
+    const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47
+    if (isPng) {
+      const text = readTextChunk(buf, 'voidcanvas')
+      if (!text) { useEditor.getState().notify('That PNG has no Voidcanvas project inside it.'); return false }
+      bundle = JSON.parse(text)
+    } else {
+      bundle = JSON.parse(new TextDecoder().decode(buf))
+    }
+    if (!(await loadBundle(bundle))) { useEditor.getState().notify('That is not a Voidcanvas file.'); return false }
+    useEditor.getState().notify('Opened your Voidcanvas file.')
     return true
-  } catch { useEditor.getState().notify('Could not read that .void file.'); return false }
+  } catch { useEditor.getState().notify('Could not read that file.'); return false }
 }
 
 export const listProjects = async () => (await idb.all<ProjectSummary>('index')).sort((a, b) => b.updatedAt - a.updatedAt)
