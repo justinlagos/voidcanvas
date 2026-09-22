@@ -28,7 +28,7 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
         {tab === 'boards' ? (
           <div>
             {!frames.length && <p className="text-[13px] text-void-400 mb-4">This design has one canvas. Add a board to turn it into a multi-board layout, then add more boards beside it.</p>}
-            {frames.length > 1 && <button onClick={() => { s.organiseFrames(); onClose() }} className={`mb-3 inline-flex items-center gap-2 h-9 px-3 rounded-lg bg-void-900 border border-void-800 text-[12.5px] text-void-200 hover:text-white ${focusRing}`}><Wand2 size={14} />Organise boards into a clean grid</button>}
+            {frames.length > 1 && <button onClick={() => { s.organiseFrames(); onClose() }} className={`mb-3 inline-flex items-center gap-2 h-9 px-3 rounded-lg bg-surface-sunken border border-white/[0.06] text-[12.5px] text-void-200 hover:text-white ${focusRing}`}><Wand2 size={14} />Organise boards into a clean grid</button>}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
               {frames.map(f => (
                 <div key={f.id} className={`rounded-xl border p-2.5 ${f.id === activeFrameId ? 'border-accent' : 'border-void-800'}`}>
@@ -36,12 +36,12 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
                     {/* thumbnail */}
                     <FrameThumb id={f.id} />
                   </button>
-                  <input value={f.name} onChange={e => s.renameFrame(f.id, e.target.value)} className={`w-full h-7 px-2 rounded bg-void-900 border border-void-800 text-[12px] ${focusRing}`} />
+                  <input value={f.name} onChange={e => s.renameFrame(f.id, e.target.value)} className={`w-full h-7 px-2 rounded bg-surface-sunken border border-white/[0.06] text-[12px] ${focusRing}`} />
                   <div className="flex items-center justify-between mt-1.5 text-[11px] text-void-500">
                     <span className="flex items-center gap-1">
-                      <input type="number" defaultValue={f.width} key={'w'+f.width} onBlur={e => { const v = Number(e.target.value); if (v > 0) s.setFrameSize(f.id, v, f.height) }} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} className={`w-12 h-6 px-1 rounded bg-void-900 border border-void-800 text-[11px] tabular-nums text-void-200 ${focusRing}`} aria-label="Board width" />
+                      <input type="number" defaultValue={f.width} key={'w'+f.width} onBlur={e => { const v = Number(e.target.value); if (v > 0) s.setFrameSize(f.id, v, f.height) }} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} className={`w-12 h-6 px-1 rounded bg-surface-sunken border border-white/[0.06] text-[11px] tabular-nums text-void-200 ${focusRing}`} aria-label="Board width" />
                       <span>×</span>
-                      <input type="number" defaultValue={f.height} key={'h'+f.height} onBlur={e => { const v = Number(e.target.value); if (v > 0) s.setFrameSize(f.id, f.width, v) }} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} className={`w-12 h-6 px-1 rounded bg-void-900 border border-void-800 text-[11px] tabular-nums text-void-200 ${focusRing}`} aria-label="Board height" />
+                      <input type="number" defaultValue={f.height} key={'h'+f.height} onBlur={e => { const v = Number(e.target.value); if (v > 0) s.setFrameSize(f.id, f.width, v) }} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} className={`w-12 h-6 px-1 rounded bg-surface-sunken border border-white/[0.06] text-[11px] tabular-nums text-void-200 ${focusRing}`} aria-label="Board height" />
                     </span>
                     <span className="flex items-center gap-1.5">
                       <button aria-label="Duplicate board" title="Duplicate board" onClick={() => s.duplicateFrame(f.id)} className="text-void-400 hover:text-white"><Copy size={13} /></button>
@@ -57,8 +57,8 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
                 {SIZE_PRESETS.slice(0, 8).map(p => <button key={p.id} onClick={() => s.addFrame({ name: p.label, width: p.width, height: p.height })} className={`flex items-center gap-2 p-2 rounded-lg bg-void-900 hover:bg-void-800 border border-void-800 text-left ${focusRing}`}><Plus size={14} className="text-accent-light shrink-0" /><span className="text-[12px] truncate">{p.label}</span></button>)}
               </div>
               <div className="mt-3 flex items-end gap-2">
-                <label className="block"><span className="block text-[11px] text-void-500 mb-1">Width</span><input type="number" value={cw} min={16} max={8000} onChange={e => setCw(Number(e.target.value))} className={`w-20 h-8 px-2 rounded-lg bg-void-900 border border-void-800 text-[12px] tabular-nums ${focusRing}`} /></label>
-                <label className="block"><span className="block text-[11px] text-void-500 mb-1">Height</span><input type="number" value={ch} min={16} max={8000} onChange={e => setCh(Number(e.target.value))} className={`w-20 h-8 px-2 rounded-lg bg-void-900 border border-void-800 text-[12px] tabular-nums ${focusRing}`} /></label>
+                <label className="block"><span className="block text-[11px] text-void-500 mb-1">Width</span><input type="number" value={cw} min={16} max={8000} onChange={e => setCw(Number(e.target.value))} className={`w-20 h-8 px-2 rounded-lg bg-surface-sunken border border-white/[0.06] text-[12px] tabular-nums ${focusRing}`} /></label>
+                <label className="block"><span className="block text-[11px] text-void-500 mb-1">Height</span><input type="number" value={ch} min={16} max={8000} onChange={e => setCh(Number(e.target.value))} className={`w-20 h-8 px-2 rounded-lg bg-surface-sunken border border-white/[0.06] text-[12px] tabular-nums ${focusRing}`} /></label>
                 <Button onClick={() => s.addFrame({ name: `${cw}×${ch}`, width: Math.min(8000, Math.max(16, cw)), height: Math.min(8000, Math.max(16, ch)) })}><Plus size={14} />Add custom board</Button>
               </div>
             </div>

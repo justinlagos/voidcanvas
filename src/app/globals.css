@@ -5,12 +5,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --background: #0d0d10;
+  --background: #0c0c0e;
   --foreground: #eeeef0;
   /* Brand accent, single source of truth. */
   --accent: #8b7cff;
   --accent-hover: #9a8dff;
   --accent-light: #b9afff;
+  /* 4-step surface elevation */
+  --surface-base: #0c0c0e;
+  --surface-raised: #141416;
+  --surface-overlay: #1a1a1e;
+  --surface-sunken: #222228;
+  --hairline: rgba(255,255,255,0.06);
 }
 
 * {

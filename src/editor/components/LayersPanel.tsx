@@ -71,7 +71,7 @@ function LayerRows({ list, ctx }: { list: Layer[]; ctx: RowCtx }) {
               <button aria-label={g.collapsed ? 'Expand group' : 'Collapse group'} onClick={e => { e.stopPropagation(); s.updateGroup(g.id, { collapsed: !g.collapsed }) }} className={`w-5 h-7 shrink-0 inline-flex items-center justify-center text-void-400 hover:text-white rounded ${focusRing}`}>{g.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</button>
               <Folder size={15} className="shrink-0 text-accent-light" />
               {renaming === g.id ? (
-                <input autoFocus defaultValue={g.name} onClick={e => e.stopPropagation()} onBlur={e => { s.updateGroup(g.id, { name: e.target.value.trim() || g.name }); setRenaming(null) }} onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }} className={`min-w-0 flex-1 h-7 px-1.5 rounded bg-void-950 border border-void-700 text-[12.5px] ${focusRing}`} />
+                <input autoFocus defaultValue={g.name} onClick={e => e.stopPropagation()} onBlur={e => { s.updateGroup(g.id, { name: e.target.value.trim() || g.name }); setRenaming(null) }} onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }} className={`min-w-0 flex-1 h-7 px-1.5 rounded bg-surface-sunken border border-white/[0.08] text-[12.5px] ${focusRing}`} />
               ) : <span onDoubleClick={() => setRenaming(g.id)} title="Double-click to rename" className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-void-100">{g.name}</span>}
               <span className="text-[11px] tabular-nums text-void-500 pr-1">{g.opacity < 1 ? `${Math.round(g.opacity * 100)}%` : ''}</span>
             </li>
@@ -104,7 +104,7 @@ function LayerRows({ list, ctx }: { list: Layer[]; ctx: RowCtx }) {
             {renaming === l.id ? (
               <input autoFocus defaultValue={l.name} onBlur={e => { s.updateLayer(l.id, { name: e.target.value.trim() || l.name }); setRenaming(null) }}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }}
-                className={`min-w-0 flex-1 h-7 px-1.5 rounded bg-void-950 border border-void-700 text-[12.5px] ${focusRing}`} />
+                className={`min-w-0 flex-1 h-7 px-1.5 rounded bg-surface-sunken border border-white/[0.08] text-[12.5px] ${focusRing}`} />
             ) : (
               <span onDoubleClick={() => setRenaming(l.id)} title="Double-click to rename" className={`min-w-0 flex-1 truncate text-[12.5px] ${l.visible ? 'text-void-100' : 'text-void-500'}`}>
                 {l.type === 'text' ? (l.text.split('\n')[0] || 'Text') : l.name}
@@ -173,7 +173,7 @@ export function LayersPanel() {
                   <button aria-label={isCol ? 'Expand board' : 'Collapse board'} onClick={e => { e.stopPropagation(); setCollapsed(c => { const n = new Set(c); n.has(f.id) ? n.delete(f.id) : n.add(f.id); return n }) }} className={`w-5 h-7 shrink-0 inline-flex items-center justify-center text-void-400 hover:text-white rounded ${focusRing}`}>{isCol ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</button>
                   <LayoutGrid size={15} className={`shrink-0 ${activeB ? 'text-accent-light' : 'text-void-400'}`} />
                   {renaming === f.id ? (
-                    <input autoFocus defaultValue={f.name} onClick={e => e.stopPropagation()} onBlur={e => { s.renameFrame(f.id, e.target.value.trim() || f.name); setRenaming(null) }} onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }} className={`min-w-0 flex-1 h-7 px-1.5 rounded bg-void-950 border border-void-700 text-[12.5px] ${focusRing}`} />
+                    <input autoFocus defaultValue={f.name} onClick={e => e.stopPropagation()} onBlur={e => { s.renameFrame(f.id, e.target.value.trim() || f.name); setRenaming(null) }} onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }} className={`min-w-0 flex-1 h-7 px-1.5 rounded bg-surface-sunken border border-white/[0.08] text-[12.5px] ${focusRing}`} />
                   ) : <span onDoubleClick={() => setRenaming(f.id)} title="Double-click to rename" className={`min-w-0 flex-1 truncate text-[12.5px] font-semibold ${activeB ? 'text-white' : 'text-void-200'}`}>{f.name}</span>}
                   <button aria-label="Duplicate board" title="Duplicate board" onClick={e => { e.stopPropagation(); s.duplicateFrame(f.id) }} className={`w-6 h-6 shrink-0 inline-flex items-center justify-center rounded text-void-500 opacity-0 group-hover:opacity-100 hover:text-white ${focusRing}`}><Copy size={12} /></button>
                   <span className="text-[10.5px] tabular-nums text-void-500 pr-0.5">{f.width}×{f.height}</span>

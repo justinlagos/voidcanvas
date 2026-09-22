@@ -84,7 +84,18 @@ export function ToolPage({ def }: { def: ToolDef }) {
   }, [])
 
   const download = async () => { if (outRef.current) downloadBlob(await canvasToBlob(outRef.current), `${def.slug}.png`) }
-  const openInEditor = async () => {
+  // Send the ORIGINAL image plus a live, re-editable filter layer (matches the reference's "Send to Layer Stack").
+  const sendToLayerStack = async () => {
+    const src = srcRef.current; if (!src) return
+    const blob = await canvasToBlob(src)
+    const liveParams: Record<string, number> = {}
+    for (const c of cfg) liveParams[c.key] = params[c.key] as number
+    if ('seed' in params) liveParams.seed = params.seed as number
+    const id = await sendHandoff({ from: 'effects', name: def.name, images: [{ name: 'Photo', blob }], liveEffect: { effect: def.effect, params: liveParams } })
+    router.push(`/editor?inbox=${id}`)
+  }
+  // Flattened result as a plain layer (kept as a secondary option).
+  const openFlattened = async () => {
     if (!outRef.current) return
     const blob = await canvasToBlob(outRef.current)
     const id = await sendHandoff({ from: 'effects', name: `${def.name} result`, images: [{ name: def.name, blob }] })
@@ -148,7 +159,7 @@ export function ToolPage({ def }: { def: ToolDef }) {
               </div>
               <div className="mt-auto pt-3 space-y-2 border-t border-void-800/70">
                 <button onClick={download} className={`w-full h-11 rounded-xl bg-white text-void-950 text-[13.5px] font-medium flex items-center justify-center gap-2 hover:bg-void-100 ${focus}`}><Download size={16} />Download PNG</button>
-                <button onClick={openInEditor} className={`w-full h-11 rounded-xl bg-void-800 text-void-100 text-[13.5px] font-medium flex items-center justify-center gap-2 hover:bg-void-700 ${focus}`}><Layers size={16} />Open in Editor</button>
+                <button onClick={sendToLayerStack} className={`w-full h-11 rounded-xl bg-void-800 text-void-100 text-[13.5px] font-medium flex items-center justify-center gap-2 hover:bg-void-700 ${focus}`}><Layers size={16} />Send to Layer Stack</button>
                 <button onClick={() => setParams({ ...defaultParams })} className={`w-full h-9 rounded-lg text-[12.5px] text-void-400 hover:text-white flex items-center justify-center gap-1.5 ${focus}`}><RotateCcw size={13} />Reset adjustments</button>
               </div>
             </div>

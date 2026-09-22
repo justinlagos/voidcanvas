@@ -82,9 +82,9 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
 
 export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <section className="px-4 py-3.5 border-b border-void-800/60">
-      <div className="flex items-center justify-between mb-2.5">
-        <h3 className="text-[12px] font-semibold text-void-200">{title}</h3>
+    <section className="px-4 py-3 border-b border-white/[0.05]">
+      <div className="flex items-center justify-between h-6 mb-2">
+        <h3 className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-void-500">{title}</h3>
         {action}
       </div>
       {children}
@@ -110,7 +110,7 @@ export function ColorField({ label, value, onChange, onCommit, allowNone }: {
             <input
               aria-label={`${label} hex`} value={value} spellCheck={false}
               onChange={e => { if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) { onChange(e.target.value); onCommit?.() } }}
-              className={`w-[76px] h-7 px-2 rounded-md bg-void-900 border border-void-800 text-[12px] font-mono text-void-200 ${focusRing}`}
+              className={`w-[76px] h-7 px-2 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px] font-mono text-void-200 ${focusRing}`}
             />
           </>
         )}
@@ -127,7 +127,7 @@ export function Select<T extends string | number>({ label, value, options, onCha
       <span className="text-[12px] text-void-400 shrink-0">{label}</span>
       <select
         value={value} onChange={e => onChange((typeof value === 'number' ? Number(e.target.value) : e.target.value) as T)}
-        className={`h-8 min-w-0 flex-1 max-w-[170px] px-2 rounded-md bg-void-900 border border-void-800 text-[12.5px] text-void-100 ${focusRing}`}
+        className={`h-8 min-w-0 flex-1 max-w-[170px] px-2 rounded-md bg-surface-sunken border border-white/[0.06] text-[12.5px] text-void-100 ${focusRing}`}
       >
         {options.map(o => <option key={String(o.id)} value={o.id}>{o.label}</option>)}
       </select>

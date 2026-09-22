@@ -12,6 +12,12 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        surface: {
+          base: '#0c0c0e',    // canvas viewport / app background
+          raised: '#141416',  // top bar, status bar
+          overlay: '#1a1a1e', // side panels, flyouts, modals
+          sunken: '#222228',  // inputs, swatches, layer items
+        },
         accent: {
           DEFAULT: '#8b7cff',
           hover: '#9a8dff',

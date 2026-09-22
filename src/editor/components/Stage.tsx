@@ -115,18 +115,35 @@ export function Stage() {
     // ── Overlay ──
     const toScreen = (p: Pt): Pt => ({ x: p.x * zoom + panX, y: p.y * zoom + panY })
 
-    // Artboard outlines and labels
+    // Artboard outlines and interactive title badges.
     if (doc.frames && doc.frames.length) {
       for (const f of doc.frames) {
         const a = toScreen({ x: f.x, y: f.y })
         const fw = f.width * zoom, fh = f.height * zoom
         const on = f.id === s.activeFrameId
-        octx.fillStyle = on ? '#fff' : 'rgba(255,255,255,0.55)'
-        octx.font = `${on ? '600 ' : ''}${Math.max(11, Math.min(15, 13))}px Inter, sans-serif`
-        octx.fillText(f.name, a.x, a.y - 8)
-        octx.strokeStyle = on ? ACCENT : 'rgba(255,255,255,0.18)'
-        octx.lineWidth = on ? 2 : 1
-        octx.strokeRect(a.x, a.y, fw, fh)
+        // crisp 1px outline (accent when active)
+        octx.strokeStyle = on ? ACCENT : 'rgba(255,255,255,0.08)'
+        octx.lineWidth = on ? 1.5 : 1
+        octx.strokeRect(a.x - 0.5, a.y - 0.5, fw + 1, fh + 1)
+        // title badge: name + dimensions in a pill above the board
+        const label = f.name
+        const dim = `${f.width}×${f.height}`
+        octx.font = `600 12px Inter, sans-serif`
+        const nameW = octx.measureText(label).width
+        octx.font = `500 11px Inter, sans-serif`
+        const dimW = octx.measureText(dim).width
+        const padX = 8, gap = 8, badgeH = 20, badgeW = padX * 2 + nameW + gap + dimW
+        const by = a.y - badgeH - 7
+        octx.fillStyle = on ? ACCENT : 'rgba(30,30,36,0.92)'
+        octx.beginPath(); octx.roundRect(a.x, by, badgeW, badgeH, 6); octx.fill()
+        octx.textBaseline = 'middle'
+        octx.font = `600 12px Inter, sans-serif`
+        octx.fillStyle = on ? '#fff' : 'rgba(255,255,255,0.9)'
+        octx.fillText(label, a.x + padX, by + badgeH / 2 + 0.5)
+        octx.font = `500 11px Inter, sans-serif`
+        octx.fillStyle = on ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.45)'
+        octx.fillText(dim, a.x + padX + nameW + gap, by + badgeH / 2 + 0.5)
+        octx.textBaseline = 'alphabetic'
       }
     }
 
@@ -792,7 +809,7 @@ export function Stage() {
   return (
     <div
       ref={wrap}
-      className="relative flex-1 min-w-0 min-h-0 overflow-hidden bg-[#131318] touch-none select-none"
+      className="relative flex-1 min-w-0 min-h-0 overflow-hidden bg-surface-base touch-none select-none"
       style={{ cursor: cursorFor(tool) }}
       onPointerDown={onDown}
       onPointerMove={onMove}

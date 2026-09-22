@@ -31,7 +31,7 @@ export function ToolRail() {
 
   return (
     <aside aria-label="Tools"
-      className="order-last md:order-none shrink-0 flex md:flex-col items-center gap-0.5 px-2 py-1.5 md:py-2.5 md:w-[52px] overflow-x-auto md:overflow-y-auto md:overflow-x-hidden border-t md:border-t-0 md:border-r border-void-800/60 bg-[#101014]">
+      className="order-last md:order-none shrink-0 flex md:flex-col items-center gap-0.5 px-2 py-1.5 md:py-2.5 md:w-[52px] overflow-x-auto md:overflow-y-auto md:overflow-x-hidden border-t md:border-t-0 md:border-r border-white/[0.06] bg-surface-overlay">
       {TOOLS.map((t, i) => (
         <span key={t.id} className="contents">
           {i > 0 && TOOLS[i - 1].group !== t.group && <span className="shrink-0 md:w-6 md:h-px w-px h-6 bg-void-800 mx-0.5 md:my-1" />}

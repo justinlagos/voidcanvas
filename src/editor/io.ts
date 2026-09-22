@@ -68,6 +68,8 @@ export interface Handoff {
   note?: string
   /** True when each image should become its own artboard. */
   boards?: boolean
+  /** When set, add the image plus a live, re-editable filter layer on top (from a tool page). */
+  liveEffect?: { effect: string; params: Record<string, number> }
 }
 
 export async function sendHandoff(h: Omit<Handoff, 'id'>): Promise<string> {

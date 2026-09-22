@@ -349,8 +349,21 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
   acc.clearRect(0, 0, W, H)
   const frames = opts.frameRects === undefined ? doc.frames : opts.frameRects
   if (frames && frames.length) {
-    // Artboard mode: each frame is an opaque board; the area between boards stays transparent.
-    for (const f of frames) { if (f.background && !opts.transparent) { acc.fillStyle = f.background; acc.fillRect(f.x * s, f.y * s, f.width * s, f.height * s) } }
+    // Artboard mode: each frame is an opaque board floating above the canvas with a soft shadow.
+    for (const f of frames) {
+      if (opts.transparent) continue
+      acc.save()
+      acc.shadowColor = 'rgba(0,0,0,0.45)'; acc.shadowBlur = 24 * s; acc.shadowOffsetY = 4 * s
+      acc.fillStyle = f.background ?? '#ffffff'
+      acc.fillRect(f.x * s, f.y * s, f.width * s, f.height * s)
+      acc.restore()
+      if (!f.background) { // transparent board: clear the fill we used only to cast the shadow, leave checker to the UI
+        acc.clearRect(f.x * s, f.y * s, f.width * s, f.height * s)
+        // re-cast shadow via a thin frame so an empty transparent board still floats
+        acc.save(); acc.shadowColor = 'rgba(0,0,0,0.45)'; acc.shadowBlur = 24 * s; acc.shadowOffsetY = 4 * s
+        acc.strokeStyle = 'rgba(0,0,0,0.001)'; acc.lineWidth = 1; acc.strokeRect(f.x * s, f.y * s, f.width * s, f.height * s); acc.restore()
+      }
+    }
   } else if (doc.background && !opts.transparent) { acc.fillStyle = doc.background; acc.fillRect(0, 0, W, H) }
   const frameById = new Map((frames ?? []).map(f => [f.id, f]))
 

@@ -74,6 +74,14 @@ export function EditorShell() {
       const size = h.size ?? (canvases[0] ? { width: canvases[0].width, height: canvases[0].height } : { width: 1080, height: 1350 })
       ed.newDoc({ name: h.name, ...size, background: h.from === 'studio' ? '#ffffff' : null })
       canvases.forEach((c, i) => useEditor.getState().addImage(c, c.width, c.height, h.images[i].name))
+      if (h.liveEffect) {
+        // Add the effect as a live, re-editable filter layer over the image.
+        const st = useEditor.getState()
+        st.addAdjustment('voidEffect', h.liveEffect.effect as any)
+        const fl = st.active()
+        if (fl && fl.type === 'adjustment') st.updateLayer(fl.id, { effectParams: { ...(fl.effectParams ?? {}), ...h.liveEffect.params } } as any)
+        ed.notify('Added as a live filter layer. Adjust it any time in the layers panel.')
+      }
       if (h.palette?.length) { useEditor.setState({ swatches: Array.from(new Set([...h.palette, ...useEditor.getState().swatches])).slice(0, 21), fg: h.palette[0] }) }
       if (h.from === 'studio') ed.notify('Your references are in as layers and the board palette is in your colours.')
     })
@@ -162,7 +170,7 @@ export function EditorShell() {
             <ToolRail />
             <Stage />
             <button onClick={() => setPanel(true)} aria-label="Open layers and settings" className="md:hidden absolute right-3 top-3 z-10 h-10 px-3 rounded-full bg-void-900/95 border border-void-700 text-[13px] flex items-center gap-2 shadow-lg"><PanelRight size={16} />Layers</button>
-            <aside aria-label="Layer settings" className={`${panel ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[288px] shrink-0 absolute md:static inset-x-0 bottom-0 z-20 max-h-[70%] md:max-h-none rounded-t-2xl md:rounded-none border-t md:border-t-0 md:border-l border-void-800/60 bg-[#101014] shadow-2xl md:shadow-none`}>
+            <aside aria-label="Layer settings" className={`${panel ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[288px] shrink-0 absolute md:static inset-x-0 bottom-0 z-20 max-h-[70%] md:max-h-none rounded-t-2xl md:rounded-none border-t md:border-t-0 md:border-l border-white/[0.06] bg-surface-overlay shadow-2xl md:shadow-none`}>
               <div className="md:hidden flex items-center justify-between px-4 pt-3"><span className="text-[13px] font-semibold">Layers and settings</span><button aria-label="Close panel" onClick={() => setPanel(false)} className="w-9 h-9 flex items-center justify-center text-void-300"><X size={18} /></button></div>
               <div className="overflow-y-auto md:max-h-[58%] shrink md:shrink-0 border-b border-void-800/60"><PropertiesPanel onOpenFilters={() => setModal('filters')} /></div>
               <LayersPanel />

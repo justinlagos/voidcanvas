@@ -18,7 +18,7 @@ export function TopBar({ onExport, onAdd, onSearch }: { onExport: () => void; on
   const hasFrames = useEditor(st => !!st.doc?.frames?.length)
 
   return (
-    <header className="h-12 shrink-0 flex items-center gap-1 sm:gap-3 px-2 sm:px-3 border-b border-void-800/60 bg-void-950">
+    <header className="h-12 shrink-0 flex items-center gap-1 sm:gap-3 px-2 sm:px-3 border-b border-white/[0.06] bg-surface-raised">
       <Logo compact={!!doc} />
       <AppNav />
       <PrivateBadge />
@@ -39,7 +39,7 @@ export function TopBar({ onExport, onAdd, onSearch }: { onExport: () => void; on
             <IconButton label="Fit selection" shortcut="Shift+2" onClick={() => stageApi.fitSelection()}><Crosshair size={15} /></IconButton>
             {hasFrames && <IconButton label="Fit board" shortcut="Shift+1" onClick={() => stageApi.fitFrame()}><Frame size={15} /></IconButton>}
           </div>
-          <button onClick={onSearch} title="Search every action (Ctrl+K)" className={`hidden lg:flex items-center gap-2 h-8 pl-2.5 pr-2 rounded-lg bg-void-900 border border-void-800 text-[12.5px] text-void-400 hover:text-white ${focusRing}`}><Search size={13} />Search actions<kbd className="ml-2 text-[10.5px] px-1.5 py-0.5 rounded bg-void-800 text-void-300">Ctrl K</kbd></button>
+          <button onClick={onSearch} title="Search every action (Ctrl+K)" className={`hidden lg:flex items-center gap-2 h-8 pl-2.5 pr-2 rounded-lg bg-surface-sunken border border-white/[0.06] text-[12.5px] text-void-400 hover:text-white ${focusRing}`}><Search size={13} />Search actions<kbd className="ml-2 text-[10.5px] px-1.5 py-0.5 rounded bg-void-800 text-void-300">Ctrl K</kbd></button>
           <IconButton label="Resize for other formats" onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'resize' }))} className="hidden sm:inline-flex"><Scaling size={16} /></IconButton>
           <IconButton label="Brand kit" onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'brand' }))} className="hidden sm:inline-flex"><Palette size={16} /></IconButton>
           <IconButton label="Boards: add and manage them" onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'boards' }))} className="hidden sm:inline-flex"><LayoutGrid size={16} /></IconButton>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, Eclipse, FolderPlus, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
 import { effectParams } from '@/components/ParamControls'
 import { defaultParams, type EffectParams } from '@/store/useStore'
@@ -36,12 +36,21 @@ export async function removeBackground(layerId: string, mode: 'person' | 'any' =
   } finally { useEditor.getState().setBusy(null) }
 }
 
-function NumField({ label, value, onCommit }: { label: string; value: number; onCommit: (v: number) => void }) {
+function NumField({ label, value, onCommit, step = 1 }: { label: string; value: number; onCommit: (v: number) => void; step?: number }) {
+  const scrub = useRef<{ x: number; v: number } | null>(null)
+  const [live, setLive] = useState<number | null>(null)
+  const shown = live ?? Math.round(value)
   return (
-    <label className="flex items-center gap-1.5 bg-void-900 border border-void-800 rounded-lg px-2 h-8">
-      <span className="text-[11px] text-void-500 w-3">{label}</span>
-      <input type="number" defaultValue={Math.round(value)} key={Math.round(value)}
-        onBlur={e => { const v = Number(e.target.value); if (Number.isFinite(v)) onCommit(v) }}
+    <label className="flex items-center gap-1.5 bg-surface-sunken border border-white/[0.06] rounded-lg px-2 h-8 focus-within:border-accent/60">
+      {/* drag the label sideways to scrub the value */}
+      <span
+        onPointerDown={e => { (e.target as HTMLElement).setPointerCapture(e.pointerId); scrub.current = { x: e.clientX, v: value }; setLive(Math.round(value)) }}
+        onPointerMove={e => { if (!scrub.current) return; const nv = scrub.current.v + (e.clientX - scrub.current.x) * step * (e.shiftKey ? 10 : 1); setLive(Math.round(nv)) }}
+        onPointerUp={() => { if (scrub.current && live != null) onCommit(live); scrub.current = null; setLive(null) }}
+        className="text-[11px] text-void-500 w-3 cursor-ew-resize select-none touch-none">{label}</span>
+      <input type="number" value={shown} key={scrub.current ? 'scrub' : Math.round(value)}
+        onChange={e => setLive(Number(e.target.value))}
+        onBlur={e => { const v = Number(e.target.value); if (Number.isFinite(v)) onCommit(v); setLive(null) }}
         onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
         className="min-w-0 flex-1 bg-transparent text-[12px] tabular-nums text-void-100 outline-none" />
     </label>
@@ -190,7 +199,7 @@ function TextProps({ layer }: { layer: TextLayer }) {
     <Section title="Type">
       <div className="space-y-3">
         <textarea ref={ta} aria-label="Text content" value={layer.text} rows={3} onChange={e => up({ text: e.target.value })} onBlur={() => s.commit('Edit text')}
-          className={`w-full px-2.5 py-2 rounded-lg bg-void-900 border border-void-800 text-[13px] leading-snug resize-y ${focusRing}`} />
+          className={`w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-white/[0.06] text-[13px] leading-snug resize-y ${focusRing}`} />
         <Select label="Font" value={layer.fontFamily} options={FONTS.map(f => ({ id: f, label: f }))} onChange={f => setFont(f)} />
         <div className="flex items-center gap-1.5">
           <button aria-label="Bold" aria-pressed={layer.fontWeight >= 700} className={tog(layer.fontWeight >= 700) + ' font-bold text-[13px]'} onClick={() => setFont(layer.fontFamily, layer.fontWeight >= 700 ? 400 : 700)}>B</button>
@@ -257,7 +266,7 @@ function AdjustmentProps({ layer }: { layer: AdjustmentLayer }) {
       <Section title="Curve" action={<button aria-label="Reset" title="Reset" onClick={() => s.updateLayer(layer.id, { points: [[0, 0], [255, 255]] } as Partial<AdjustmentLayer>, 'Reset curve')} className={`text-void-400 hover:text-white rounded ${focusRing}`}><RotateCcw size={14} /></button>}>
         <CurvesEditor points={pts} onChange={setPts} onCommit={() => s.commit('Curves')} />
         <div className="flex flex-wrap gap-1.5 mt-3">
-          {CURVE_PRESETS.map(p => <button key={p.label} onClick={() => s.updateLayer(layer.id, { points: p.points } as Partial<AdjustmentLayer>, 'Curves')} className={`h-7 px-2.5 rounded-md text-[12px] bg-void-900 border border-void-800 text-void-300 hover:text-white ${focusRing}`}>{p.label}</button>)}
+          {CURVE_PRESETS.map(p => <button key={p.label} onClick={() => s.updateLayer(layer.id, { points: p.points } as Partial<AdjustmentLayer>, 'Curves')} className={`h-7 px-2.5 rounded-md text-[12px] bg-surface-sunken border border-white/[0.06] text-void-300 hover:text-white ${focusRing}`}>{p.label}</button>)}
         </div>
         <p className="mt-2.5 text-[12px] text-void-500 leading-relaxed">Click the line to add a point, drag to bend it, double-click a point to remove it.</p>
       </Section>
