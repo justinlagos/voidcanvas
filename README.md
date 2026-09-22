@@ -68,7 +68,11 @@ src/components/AppNav   shared logo and module switch
 
 Handoff between modules: `sendHandoff()` writes images, palette and size to the `inbox` store, then routes to `/editor?inbox=<id>`.
 
-## Artboards, tabs, cascade
+## Tool pages
+
+Standalone, SEO-friendly single-purpose tools at `/tools/<name>`, built on the effects engine and sharing the privacy model (image never leaves the browser). First three: `/tools/halftone`, `/tools/dither`, `/tools/glitch`. Each: upload, live preview, controls, reset, download PNG, and Open in Editor (hands the result to the editor as a layer). Linked from the hub, listed in sitemap.xml.
+
+## Boards, tabs, cascade
 
 - The editor supports **artboards** (called boards): multiple frames on one infinite canvas, each with its own layers. Drag a layer across a board boundary and it joins that board. Purely additive: a plain single-canvas design is unchanged.
 - Brand guidelines open in the editor as one board per page. PSD files whose top level is layer groups import as one board per group.

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { LayoutGrid, Plus, Trash2, Copy } from 'lucide-react'
+import { LayoutGrid, Plus, Trash2, Copy, Wand2 } from 'lucide-react'
 import { SIZE_PRESETS } from '../presets'
 import { renderFrame } from '../io'
 import { useEditor } from '../store'
@@ -27,6 +27,7 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
         {tab === 'boards' ? (
           <div>
             {!frames.length && <p className="text-[13px] text-void-400 mb-4">This design has one canvas. Add a board to turn it into a multi-board layout, then add more boards beside it.</p>}
+            {frames.length > 1 && <button onClick={() => { s.organiseFrames(); onClose() }} className={`mb-3 inline-flex items-center gap-2 h-9 px-3 rounded-lg bg-void-900 border border-void-800 text-[12.5px] text-void-200 hover:text-white ${focusRing}`}><Wand2 size={14} />Organise boards into a clean grid</button>}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
               {frames.map(f => (
                 <div key={f.id} className={`rounded-xl border p-2.5 ${f.id === activeFrameId ? 'border-[#8b7cff]' : 'border-void-800'}`}>
@@ -35,8 +36,11 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
                     <FrameThumb id={f.id} />
                   </button>
                   <input value={f.name} onChange={e => s.renameFrame(f.id, e.target.value)} className={`w-full h-7 px-2 rounded bg-void-900 border border-void-800 text-[12px] ${focusRing}`} />
-                  <div className="flex justify-between mt-1.5 text-[11px] text-void-500"><span className="tabular-nums">{f.width}×{f.height}</span>
-                    <button aria-label="Delete board" onClick={() => { if (confirm(`Delete board “${f.name}”?`)) s.removeFrame(f.id) }} className="text-void-500 hover:text-rose-400"><Trash2 size={13} /></button>
+                  <div className="flex items-center justify-between mt-1.5 text-[11px] text-void-500"><span className="tabular-nums">{f.width}×{f.height}</span>
+                    <span className="flex items-center gap-1.5">
+                      <button aria-label="Duplicate board" title="Duplicate board" onClick={() => s.duplicateFrame(f.id)} className="text-void-400 hover:text-white"><Copy size={13} /></button>
+                      <button aria-label="Delete board" title="Delete board" onClick={() => { if (confirm(`Delete board “${f.name}”?`)) s.removeFrame(f.id) }} className="text-void-500 hover:text-rose-400"><Trash2 size={13} /></button>
+                    </span>
                   </div>
                 </div>
               ))}

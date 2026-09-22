@@ -70,6 +70,8 @@ interface EditorState {
   addFrame: (preset: { name: string; width: number; height: number }) => void
   removeFrame: (id: string) => void
   renameFrame: (id: string, name: string) => void
+  duplicateFrame: (id: string) => void
+  organiseFrames: () => void
   reassignLayerFrame: (layerId: string, frameId: string | null) => void
 
   // layers
@@ -231,6 +233,40 @@ export const useEditor = create<EditorState>((set, get) => ({
   renameFrame: (id, name) => {
     const { doc } = get(); if (!doc?.frames) return
     set({ doc: { ...doc, frames: doc.frames.map(f => f.id === id ? { ...f, name } : f) }, docRev: get().docRev + 1 })
+  },
+
+  duplicateFrame: (id) => {
+    const { doc, layers, groups } = get(); if (!doc?.frames) return
+    const src = doc.frames.find(f => f.id === id); if (!src) return
+    const nf = { ...src, id: uid(), name: src.name + ' copy' }
+    // place the copy to the right of the widest board
+    nf.x = Math.max(...doc.frames.map(f => f.x + f.width)) + 120; nf.y = src.y
+    const dx = nf.x - src.x, dy = nf.y - src.y
+    const srcLayers = layers.filter(l => l.frameId === id)
+    // copy layers, remap group ids so the copy's groups are independent
+    const groupMap = new Map<string, string>()
+    for (const l of srcLayers) if (l.groupId && !groupMap.has(l.groupId)) groupMap.set(l.groupId, uid())
+    const copies = srcLayers.map(l => ({ ...l, id: uid(), frameId: nf.id, groupId: l.groupId ? groupMap.get(l.groupId)! : null, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer))
+    const newGroups = groups.filter(g => groupMap.has(g.id)).map(g => ({ ...g, id: groupMap.get(g.id)! }))
+    // insert copies right after the source board's layers so stacking stays sane
+    set({ doc: { ...doc, frames: [...doc.frames, nf] }, layers: [...layers, ...copies], groups: [...groups, ...newGroups], activeFrameId: nf.id, docRev: get().docRev + 1 })
+    get().commit('Duplicate board')
+  },
+
+  organiseFrames: () => {
+    const { doc } = get(); if (!doc?.frames?.length) return
+    const gap = 120
+    const cols = Math.ceil(Math.sqrt(doc.frames.length))
+    const colW: number[] = [], rowH: number[] = []
+    doc.frames.forEach((f, i) => { const c = i % cols, r = Math.floor(i / cols); colW[c] = Math.max(colW[c] ?? 0, f.width); rowH[r] = Math.max(rowH[r] ?? 0, f.height) })
+    const xOff = [0]; for (let c = 1; c <= cols; c++) xOff[c] = xOff[c - 1] + colW[c - 1] + gap
+    const rows = Math.ceil(doc.frames.length / cols); const yOff = [0]; for (let r = 1; r <= rows; r++) yOff[r] = yOff[r - 1] + rowH[r - 1] + gap
+    // move each board and its layers by the delta
+    const deltas = new Map<string, { dx: number; dy: number }>()
+    const placed = doc.frames.map((f, i) => { const c = i % cols, r = Math.floor(i / cols); const nx = xOff[c], ny = yOff[r]; deltas.set(f.id, { dx: nx - f.x, dy: ny - f.y }); return { ...f, x: nx, y: ny } })
+    const layers = get().layers.map(l => { const d = l.frameId ? deltas.get(l.frameId) : null; return d ? ({ ...l, x: l.x + d.dx, y: l.y + d.dy, rev: nextRev() } as Layer) : l })
+    set({ doc: { ...doc, frames: placed, width: xOff[cols] - gap, height: yOff[rows] - gap }, layers, docRev: get().docRev + 1 })
+    get().commit('Organise boards')
   },
 
   reassignLayerFrame: (layerId, frameId) => {

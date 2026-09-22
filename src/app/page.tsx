@@ -70,6 +70,16 @@ export default function Home() {
           ))}
         </div>
 
+        <section className="mt-12">
+          <h2 className="text-[13px] font-semibold text-void-200 mb-3">Quick tools, no account needed</h2>
+          <div className="flex flex-wrap gap-2">
+            {[['halftone','Halftone'],['dither','Dither'],['glitch','Glitch']].map(([slug,name]) => (
+              <Link key={slug} href={`/tools/${slug}`} className={`h-9 px-3.5 rounded-lg bg-void-900 border border-void-800 text-[13px] text-void-200 hover:text-white hover:border-void-600 flex items-center ${focus}`}>{name}</Link>
+            ))}
+            <Link href="/effects" className={`h-9 px-3.5 rounded-lg bg-void-900 border border-void-800 text-[13px] text-void-200 hover:text-white hover:border-void-600 flex items-center ${focus}`}>All 60 effects</Link>
+          </div>
+        </section>
+
         {recent.length > 0 && (
           <section className="mt-14">
             <h2 className="text-[13px] font-semibold text-void-200 mb-3">Your recent designs</h2>
