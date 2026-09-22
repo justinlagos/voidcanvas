@@ -411,12 +411,15 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
         dctx.globalCompositeOperation = 'destination-in'
         dctx.drawImage(m, 0, 0, W, H)
       }
+      acc.save()
+      // A filter on a board only changes that board, never the rest of the document.
+      const adjFrame = l.frameId ? frameById.get(l.frameId) : undefined
+      if (adjFrame) { acc.beginPath(); acc.rect(adjFrame.x * s, adjFrame.y * s, adjFrame.width * s, adjFrame.height * s); acc.clip() }
       acc.globalAlpha = l.opacity
       // An adjustment replaces what is below it, so blend modes other than normal are drawn over the original.
       acc.globalCompositeOperation = l.blend
       acc.drawImage(draw, 0, 0)
-      acc.globalAlpha = 1
-      acc.globalCompositeOperation = 'source-over'
+      acc.restore()
     } else {
       const m = layerMatrix(l, doc)
       // Clipping mask: this layer shows only where the base layer (directly below) is opaque.

@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { LayoutGrid, Plus, Trash2, Copy, Wand2 } from 'lucide-react'
+import { LayoutGrid, Plus, Trash2, Copy, Wand2, RefreshCw } from 'lucide-react'
 import { SIZE_PRESETS } from '../presets'
 import { renderFrame } from '../io'
 import { useEditor } from '../store'
 import { Button, Modal, focusRing } from './ui'
-import { cascadeToFrames } from '../cascade'
+import { cascadeToFrames, resyncVariants } from '../cascade'
 
 /** Add, rename, delete boards, and cascade the active board to many touchpoints at once. */
 export function BoardsPanel({ onClose }: { onClose: () => void }) {
@@ -44,6 +44,7 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
                       <input type="number" defaultValue={f.height} key={'h'+f.height} onBlur={e => { const v = Number(e.target.value); if (v > 0) s.setFrameSize(f.id, f.width, v) }} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} className={`w-12 h-6 px-1 rounded bg-surface-sunken border border-white/[0.06] text-[11px] tabular-nums text-void-200 ${focusRing}`} aria-label="Board height" />
                     </span>
                     <span className="flex items-center gap-1.5">
+                      {frames.some(x => x.linkedFrom === f.id) && <button aria-label="Re-sync variants" title="Update linked variants from this board" onClick={() => resyncVariants(f.id)} className="text-void-400 hover:text-white"><RefreshCw size={13} /></button>}
                       <button aria-label="Duplicate board" title="Duplicate board" onClick={() => s.duplicateFrame(f.id)} className="text-void-400 hover:text-white"><Copy size={13} /></button>
                       <button aria-label="Delete board" title="Delete board" onClick={() => { if (confirm(`Delete board “${f.name}”?`)) s.removeFrame(f.id) }} className="text-void-500 hover:text-rose-400"><Trash2 size={13} /></button>
                     </span>

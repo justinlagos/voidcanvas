@@ -16,6 +16,7 @@ interface Cmd { label: string; hint?: string; group: string; run: () => void }
 /** Ctrl+K. Every action in the editor, searchable, so nobody has to hunt through panels. */
 export function CommandPalette({ onClose, open }: { onClose: () => void; open: (m: 'add' | 'export') => void }) {
   const [q, setQ] = useState('')
+  const docRev = useEditor(st => st.docRev)
   const [i, setI] = useState(0)
   const list = useRef<HTMLUListElement>(null)
 
@@ -28,6 +29,12 @@ export function CommandPalette({ onClose, open }: { onClose: () => void; open: (
       { label: 'Add photo, shape or blank layer', group: 'Add', run: () => open('add') },
       ...(Object.keys(ADJUSTMENT_LABELS) as AdjustmentKind[]).filter(k => k !== 'voidEffect').map(k => ({ label: ADJUSTMENT_LABELS[k], group: 'Adjustment', run: () => s().addAdjustment(k) })),
       ...effects.filter(e => e.id !== 'none').map(e => ({ label: e.name, hint: e.description, group: 'Filter', run: () => s().addAdjustment('voidEffect', e.id) })),
+      // Layer traversal: jump straight to any layer by name.
+      ...s().layers.slice().reverse().filter(l => l.type !== 'adjustment' || true).map(l => ({
+        label: l.type === 'text' ? (l.text.split('\n')[0] || 'Text') : l.name,
+        hint: l.type, group: 'Go to layer',
+        run: () => { s().setActive(l.id); stageApi.fitSelection() },
+      })),
       { label: 'Remove background', group: 'Layer', run: onActive(id => removeBackground(id)) },
       { label: 'Duplicate layer', hint: 'Ctrl+J', group: 'Layer', run: onActive(id => s().duplicateLayer(id)) },
       { label: 'Delete selected layers', hint: 'Delete', group: 'Layer', run: () => s().removeSelected() },
@@ -52,7 +59,7 @@ export function CommandPalette({ onClose, open }: { onClose: () => void; open: (
       { label: 'Undo', hint: 'Ctrl+Z', group: 'Edit', run: () => s().undo() },
       { label: 'Redo', hint: 'Ctrl+Shift+Z', group: 'Edit', run: () => s().redo() },
     ]
-  }, [open])
+  }, [open, docRev])
 
   const shown = useMemo(() => {
     const words = q.toLowerCase().split(/\s+/).filter(Boolean)

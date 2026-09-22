@@ -18,7 +18,7 @@ const HANDLES: [number, number][] = [[0, 0], [0.5, 0], [1, 0], [1, 0.5], [1, 1],
 type Pt = { x: number; y: number }
 type Drag =
   | { kind: 'pan'; sx: number; sy: number; px: number; py: number }
-  | { kind: 'move'; start: Pt; items: { id: string; ox: number; oy: number }[]; box: Rect; snapX: number[]; snapY: number[]; moved: boolean }
+  | { kind: 'move'; start: Pt; items: { id: string; ox: number; oy: number }[]; box: Rect; snapX: number[]; snapY: number[]; siblings: Rect[]; moved: boolean }
   | { kind: 'select'; start: Pt; cur: Pt; add: boolean; base: string[] }
   | { kind: 'gresize'; anchor: Pt; box: Rect; items: { id: string; l: Layer }[] }
   | { kind: 'resize'; id: string; h: number; l0: Layer; w: number; hgt: number; anchor: Pt }
@@ -41,6 +41,7 @@ export function Stage() {
   const pinch = useRef<{ d: number; zoom: number; mid: Pt; panX: number; panY: number } | null>(null)
   const cursor = useRef<Pt | null>(null)
   const guides = useRef<{ v: number[]; h: number[] }>({ v: [], h: [] })
+  const dist = useRef<{ x: number; y: number; w: number; h: number; px: number; axis: 'h' | 'v' }[]>([])
   const ants = useRef<{ key: string; canvas: HTMLCanvasElement | null }>({ key: '', canvas: null })
   const antsPhase = useRef(0)
   const space = useRef(false)
@@ -49,6 +50,7 @@ export function Stage() {
   const size = useRef({ w: 0, h: 0, dpr: 1 })
 
   const docRev = useEditor(s => s.docRev)
+  const editingTextId = useEditor(s => s.editingTextId)
   const selRev = useEditor(s => s.selRev)
   const view = useEditor(s => s.view)
   const tool = useEditor(s => s.tool)
@@ -202,6 +204,35 @@ export function Stage() {
     octx.strokeStyle = '#ff4fa3'; octx.lineWidth = 1
     for (const gx of guides.current.v) { const x = gx * zoom + panX; octx.beginPath(); octx.moveTo(x, 0); octx.lineTo(x, h); octx.stroke() }
     for (const gy of guides.current.h) { const y = gy * zoom + panY; octx.beginPath(); octx.moveTo(0, y); octx.lineTo(w, y); octx.stroke() }
+    // Distance markers: magenta bars with the pixel gap between the moving object and its nearest sibling.
+    if (dist.current.length) {
+      const MAG = '#ff3db4'
+      octx.save()
+      octx.strokeStyle = MAG; octx.fillStyle = MAG; octx.lineWidth = 1
+      for (const m of dist.current) {
+        const sx0 = m.x * zoom + panX, sy0 = m.y * zoom + panY
+        if (m.axis === 'h') {
+          const sx1 = (m.x + m.w) * zoom + panX
+          octx.beginPath(); octx.moveTo(sx0, sy0); octx.lineTo(sx1, sy0); octx.stroke()
+          // end caps
+          octx.beginPath(); octx.moveTo(sx0, sy0 - 4); octx.lineTo(sx0, sy0 + 4); octx.moveTo(sx1, sy0 - 4); octx.lineTo(sx1, sy0 + 4); octx.stroke()
+          // label
+          const t = `${m.px}`; octx.font = '600 11px Inter, sans-serif'; const tw = octx.measureText(t).width
+          const mx = (sx0 + sx1) / 2
+          octx.fillStyle = MAG; octx.beginPath(); octx.roundRect(mx - tw / 2 - 5, sy0 - 20, tw + 10, 15, 4); octx.fill()
+          octx.fillStyle = '#fff'; octx.textAlign = 'center'; octx.textBaseline = 'middle'; octx.fillText(t, mx, sy0 - 12); octx.textAlign = 'left'; octx.textBaseline = 'alphabetic'; octx.fillStyle = MAG
+        } else {
+          const sy1 = (m.y + m.h) * zoom + panY
+          octx.beginPath(); octx.moveTo(sx0, sy0); octx.lineTo(sx0, sy1); octx.stroke()
+          octx.beginPath(); octx.moveTo(sx0 - 4, sy0); octx.lineTo(sx0 + 4, sy0); octx.moveTo(sx0 - 4, sy1); octx.lineTo(sx0 + 4, sy1); octx.stroke()
+          const t = `${m.px}`; octx.font = '600 11px Inter, sans-serif'; const tw = octx.measureText(t).width
+          const my = (sy0 + sy1) / 2
+          octx.fillStyle = MAG; octx.beginPath(); octx.roundRect(sx0 + 6, my - 7.5, tw + 10, 15, 4); octx.fill()
+          octx.fillStyle = '#fff'; octx.textAlign = 'center'; octx.textBaseline = 'middle'; octx.fillText(t, sx0 + 6 + tw / 2 + 5, my); octx.textAlign = 'left'; octx.textBaseline = 'alphabetic'; octx.fillStyle = MAG
+        }
+      }
+      octx.restore()
+    }
 
     const d = drag.current
     if (d?.kind === 'select') {
@@ -353,7 +384,8 @@ export function Stage() {
   }, [fit, invalidate])
 
   useEffect(() => { fit() }, [docId, fit])
-  useEffect(() => { invalidate(true) }, [docRev, compare, invalidate])
+  // Recomposite when text editing opens or closes: the edited layer is hidden from the canvas while its textarea is open.
+  useEffect(() => { invalidate(true) }, [docRev, compare, editingTextId, invalidate])
   useEffect(() => { invalidate() }, [selRev, view, tool, activeId, crop, optSize, invalidate])
 
   useEffect(() => {
@@ -533,7 +565,9 @@ export function Stage() {
           const b = layerBounds(o, s.doc)
           snapX.push(b.x, b.x + b.w / 2, b.x + b.w); snapY.push(b.y, b.y + b.h / 2, b.y + b.h)
         }
-        drag.current = { kind: 'move', start: p, items: moving.map(l => ({ id: l.id, ox: l.x, oy: l.y })), box, snapX, snapY, moved: false }
+        const siblings: Rect[] = []
+        for (const o of st.layers) { if (st.selectedIds.includes(o.id) || !o.visible || o.type === 'adjustment') continue; siblings.push(layerBounds(o, s.doc)) }
+        drag.current = { kind: 'move', start: p, items: moving.map(l => ({ id: l.id, ox: l.x, oy: l.y })), box, snapX, snapY, siblings, moved: false }
       } else {
         if (s.doc?.frames?.length) { const f = frameAt(s.doc, p.x, p.y); if (f) s.setActiveFrame(f.id) }
         // Start a marquee selection band. Shift keeps the current selection and adds to it.
@@ -668,6 +702,28 @@ export function Stage() {
         if (sx) { dx += sx.d; guides.current.v.push(sx.g) }
         if (sy) { dy += sy.d; guides.current.h.push(sy.g) }
       }
+      // Distance markers: show the pixel gap to siblings that overlap on the perpendicular axis.
+      dist.current = []
+      const mb = { x: d.box.x + dx, y: d.box.y + dy, w: d.box.w, h: d.box.h }
+      const overlapY = (a: Rect, b: Rect) => Math.max(a.y, b.y) < Math.min(a.y + a.h, b.y + b.h)
+      const overlapX = (a: Rect, b: Rect) => Math.max(a.x, b.x) < Math.min(a.x + a.w, b.x + b.w)
+      type Near = { gap: number; b: Rect } | null
+      let nearL: Near = null, nearR: Near = null, nearT: Near = null, nearB: Near = null
+      for (const b of d.siblings) {
+        if (overlapY(mb, b)) {
+          if (b.x + b.w <= mb.x + 0.5) { const gap = mb.x - (b.x + b.w); if (!nearL || gap < nearL.gap) nearL = { gap, b } }
+          if (b.x >= mb.x + mb.w - 0.5) { const gap = b.x - (mb.x + mb.w); if (!nearR || gap < nearR.gap) nearR = { gap, b } }
+        }
+        if (overlapX(mb, b)) {
+          if (b.y + b.h <= mb.y + 0.5) { const gap = mb.y - (b.y + b.h); if (!nearT || gap < nearT.gap) nearT = { gap, b } }
+          if (b.y >= mb.y + mb.h - 0.5) { const gap = b.y - (mb.y + mb.h); if (!nearB || gap < nearB.gap) nearB = { gap, b } }
+        }
+      }
+      const cy = mb.y + mb.h / 2, cx = mb.x + mb.w / 2
+      if (nearL) dist.current.push({ x: nearL.b.x + nearL.b.w, y: cy, w: nearL.gap, h: 0, px: Math.round(nearL.gap), axis: 'h' })
+      if (nearR) dist.current.push({ x: mb.x + mb.w, y: cy, w: nearR.gap, h: 0, px: Math.round(nearR.gap), axis: 'h' })
+      if (nearT) dist.current.push({ x: cx, y: nearT.b.y + nearT.b.h, w: 0, h: nearT.gap, px: Math.round(nearT.gap), axis: 'v' })
+      if (nearB) dist.current.push({ x: cx, y: mb.y + mb.h, w: 0, h: nearB.gap, px: Math.round(nearB.gap), axis: 'v' })
       for (const it of d.items) s.updateLayer(it.id, { x: it.ox + dx, y: it.oy + dy })
       return
     }
@@ -735,7 +791,7 @@ export function Stage() {
     if (pinch.current) { if (pointers.current.size < 2) pinch.current = null; return }
     const s = useEditor.getState()
     const d = drag.current; drag.current = null
-    guides.current = { v: [], h: [] }
+    guides.current = { v: [], h: [] }; dist.current = []
     if (!d || !s.doc) { invalidate(); return }
 
     if (d.kind === 'gresize') { s.commit('Resize selection'); drag.current = null; invalidate(); return }

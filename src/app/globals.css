@@ -63,8 +63,8 @@ input[type="range"] {
   z-index: 1;
 }
 
-input[type="range"]::-webkit-slider-track {
-  background: #1a1a1f;
+input[type="range"]::-webkit-slider-runnable-track {
+  background: #34343d;
   height: 4px;
   border-radius: 2px;
 }
@@ -91,7 +91,7 @@ input[type="range"]::-webkit-slider-thumb:active {
 }
 
 input[type="range"]::-moz-range-track {
-  background: #1a1a1f;
+  background: #34343d;
   height: 4px;
   border-radius: 2px;
 }
@@ -135,11 +135,11 @@ input[type="color"]::-webkit-color-swatch {
 }
 
 /* Editor sliders draw their own filled track underneath the native input. */
-input[type="range"].vc-range::-webkit-slider-track { background: transparent; }
+input[type="range"].vc-range::-webkit-slider-runnable-track { background: transparent; }
 input[type="range"].vc-range::-moz-range-track { background: transparent; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
-input[type="range"].vc-bar::-webkit-slider-track { background: #3a3a44; }
+input[type="range"].vc-bar::-webkit-slider-runnable-track { background: #3a3a44; }
 input[type="range"].vc-bar::-moz-range-track { background: #3a3a44; }

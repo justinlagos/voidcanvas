@@ -111,6 +111,8 @@ export interface Frame {
   width: number
   height: number
   background: string | null
+  /** When set, this board was cascaded from a master board and can be re-synced from it. */
+  linkedFrom?: string | null
 }
 
 export interface Doc {
