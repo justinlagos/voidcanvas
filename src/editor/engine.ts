@@ -1,5 +1,6 @@
 import { applyEffect } from '@/lib/effects'
-import type { AdjustmentLayer, Doc, Frame, Group, Layer, RasterLayer, Rect, TextLayer } from './types'
+import type { AdjustmentLayer, Doc, Frame, Group, HueBand, Layer, RasterLayer, Rect, ShapeLayer, SubPath, TextLayer } from './types'
+import { drawStyled, hasActiveStyles } from './styles'
 
 // ─── Canvas helpers ────────────────────────────────────────────────
 
@@ -30,21 +31,74 @@ export function fontString(l: TextLayer): string {
   return `${l.italic ? 'italic ' : ''}${l.fontWeight} ${l.fontSize}px "${l.fontFamily}", Inter, system-ui, sans-serif`
 }
 
+const STRETCH: [number, string][] = [[50, 'ultra-condensed'], [62.5, 'extra-condensed'], [75, 'condensed'], [87.5, 'semi-condensed'], [100, 'normal'], [112.5, 'semi-expanded'], [125, 'expanded'], [150, 'extra-expanded'], [200, 'ultra-expanded']]
+
 function applyTextStyle(ctx: CanvasRenderingContext2D, l: TextLayer) {
+  const c = ctx as any
+  if (l.stretch && l.stretch !== 100) {
+    const kw = STRETCH.reduce((a, b) => (Math.abs(b[0] - l.stretch!) < Math.abs(a[0] - l.stretch!) ? b : a))[1]
+    c.fontStretch = kw
+  } else c.fontStretch = 'normal'
   ctx.font = fontString(l)
-  ;(ctx as any).letterSpacing = `${l.letterSpacing}px`
+  c.letterSpacing = `${l.letterSpacing}px`
+  c.wordSpacing = `${l.wordSpacing ?? 0}px`
+  c.fontKerning = l.kerning === false ? 'none' : 'normal'
+  c.fontVariantCaps = l.caps === 'small' ? 'small-caps' : 'normal'
+}
+
+export interface TextLine { text: string; width: number; y: number; justify: boolean; first: boolean }
+const layoutCache = new Map<string, { lines: TextLine[]; w: number; h: number }>()
+
+/** Lines, positions and size of a text layer. Point text keeps its own line breaks; paragraph text wraps at boxWidth. */
+export function textLayout(l: TextLayer): { lines: TextLine[]; w: number; h: number } {
+  const key = [l.text, l.fontFamily, l.fontSize, l.fontWeight, l.italic, l.letterSpacing, l.lineHeight, l.boxWidth ?? '', l.caps ?? '', l.kerning ?? '', l.wordSpacing ?? '', l.stretch ?? '', l.indent ?? '', l.spaceAfter ?? ''].join('\u0001')
+  const hit = layoutCache.get(key)
+  if (hit) return hit
+  if (!measureCtx) measureCtx = ctx2d(makeCanvas(1, 1))
+  applyTextStyle(measureCtx, l)
+  const m = (t: string) => measureCtx!.measureText(t).width
+  const src = l.caps === 'all' ? l.text.toUpperCase() : l.text
+  const lh = l.fontSize * l.lineHeight
+  const indent = l.indent ?? 0, after = l.spaceAfter ?? 0
+  const lines: TextLine[] = []
+  let y = 0
+  const paras = (src || ' ').split('\n')
+  paras.forEach((para, pi) => {
+    if (!l.boxWidth) {
+      lines.push({ text: para, width: m(para || ' '), y, justify: false, first: true }); y += lh
+    } else {
+      const words = para.split(/(\s+)/).filter(w => w.length)
+      let cur = '', first = true
+      const avail = () => Math.max(8, l.boxWidth! - 4 - (first ? indent : 0))
+      const push = (t: string, last: boolean) => { lines.push({ text: t, width: m(t || ' '), y, justify: !last, first }); y += lh; first = false }
+      for (const w of words) {
+        const next = cur + w
+        if (m(next.trimEnd()) <= avail() || !cur.trim()) {
+          // A single word wider than the box is broken by character.
+          if (!cur.trim() && m(w) > avail() && w.trim()) {
+            let chunk = ''
+            for (const ch of w) { if (m(chunk + ch) > avail() && chunk) { push(chunk, false); chunk = '' } chunk += ch }
+            cur = chunk
+          } else cur = next
+        } else { push(cur.trimEnd(), false); cur = w.trimStart() }
+      }
+      push(cur.trimEnd(), true)
+    }
+    if (pi < paras.length - 1) y += after
+  })
+  const w = l.boxWidth ? l.boxWidth : Math.ceil(Math.max(1, ...lines.map(x => x.width)) + indent) + 4
+  const out = { lines, w, h: Math.ceil(y) + 4 }
+  if (layoutCache.size > 400) layoutCache.clear()
+  layoutCache.set(key, out)
+  return out
 }
 
 export function layerSize(l: Layer, doc?: Doc): { w: number; h: number } {
   if (l.type === 'raster') return { w: l.canvas.width, h: l.canvas.height }
   if (l.type === 'shape') return { w: l.w, h: l.h }
   if (l.type === 'adjustment') return { w: doc?.width ?? 1, h: doc?.height ?? 1 }
-  if (!measureCtx) measureCtx = ctx2d(makeCanvas(1, 1))
-  applyTextStyle(measureCtx, l)
-  const lines = (l.text || ' ').split('\n')
-  let w = 1
-  for (const line of lines) w = Math.max(w, measureCtx.measureText(line || ' ').width)
-  return { w: Math.ceil(w) + 4, h: Math.ceil(lines.length * l.fontSize * l.lineHeight) + 4 }
+  const t = textLayout(l)
+  return { w: t.w, h: t.h }
 }
 
 /** Local (layer pixel) space to document space. */
@@ -121,6 +175,29 @@ export function hitLayer(layers: Layer[], x: number, y: number, doc: Doc, groups
 
 // ─── Drawing layer content (local space) ───────────────────────────
 
+export function tracePath(ctx: CanvasRenderingContext2D, subpaths: SubPath[]) {
+  for (const sp of subpaths) {
+    const n = sp.nodes
+    if (!n.length) continue
+    ctx.moveTo(n[0].x, n[0].y)
+    for (let i = 1; i < n.length; i++) ctx.bezierCurveTo(n[i - 1].outX, n[i - 1].outY, n[i].inX, n[i].inY, n[i].x, n[i].y)
+    if (sp.closed && n.length > 1) { const a = n[n.length - 1], b = n[0]; ctx.bezierCurveTo(a.outX, a.outY, b.inX, b.inY, b.x, b.y); ctx.closePath() }
+  }
+}
+
+export function polygonPoints(l: Pick<ShapeLayer, 'w' | 'h' | 'sides' | 'star'>, inset = 0): { x: number; y: number }[] {
+  const n = Math.max(3, Math.round(l.sides ?? 5)), star = l.star ?? 1
+  const rx = Math.max(0.5, l.w / 2 - inset), ry = Math.max(0.5, l.h / 2 - inset)
+  const pts: { x: number; y: number }[] = []
+  const steps = star < 1 ? n * 2 : n
+  for (let i = 0; i < steps; i++) {
+    const a = -Math.PI / 2 + (i / steps) * Math.PI * 2
+    const k = star < 1 && i % 2 ? star : 1
+    pts.push({ x: l.w / 2 + Math.cos(a) * rx * k, y: l.h / 2 + Math.sin(a) * ry * k })
+  }
+  return pts
+}
+
 export function drawLayerContent(ctx: CanvasRenderingContext2D, l: Layer, k = 1) {
   if (l.type === 'raster') {
     ctx.drawImage(l.canvas, 0, 0)
@@ -128,21 +205,52 @@ export function drawLayerContent(ctx: CanvasRenderingContext2D, l: Layer, k = 1)
     applyTextStyle(ctx, l)
     ctx.fillStyle = l.color
     ctx.textBaseline = 'alphabetic'
-    ctx.textAlign = l.align
-    const { w } = layerSize(l)
+    const lay = textLayout(l)
+    const w = lay.w
     const lh = l.fontSize * l.lineHeight
-    const ax = l.align === 'left' ? 2 : l.align === 'center' ? w / 2 : w - 2
-    const lines = l.text.split('\n')
-    const yAt = (i: number) => 2 + i * lh + (lh - l.fontSize) / 2 + l.fontSize * 0.82
+    const indent = l.indent ?? 0
+    const yAt = (y: number) => 2 + y + (lh - l.fontSize) / 2 + l.fontSize * 0.82 - (l.baselineShift ?? 0)
     // Shadow offsets ignore canvas transforms, so scale them by hand (k = on-screen scale of this layer).
+    const paint = (fn: (text: string, x: number, y: number) => void) => {
+      for (const line of lay.lines) {
+        const y = yAt(line.y)
+        const ind = line.first ? indent : 0
+        if (l.align === 'justify' && line.justify && l.boxWidth) {
+          ctx.textAlign = 'left'
+          const words = line.text.split(/\s+/).filter(Boolean)
+          const widths = words.map(t => ctx.measureText(t).width)
+          const gap = words.length > 1 ? (w - 4 - ind - widths.reduce((a, b) => a + b, 0)) / (words.length - 1) : 0
+          let x = 2 + ind
+          words.forEach((t, i) => { fn(t, x, y); x += widths[i] + gap })
+        } else {
+          const al = l.align === 'justify' ? 'left' : l.align
+          ctx.textAlign = al
+          const x = al === 'left' ? 2 + ind : al === 'center' ? w / 2 : w - 2
+          fn(line.text, x, y)
+        }
+      }
+    }
     if (l.shadow) { ctx.shadowColor = l.shadow.color; ctx.shadowBlur = l.shadow.blur * k; ctx.shadowOffsetX = l.shadow.x * k; ctx.shadowOffsetY = l.shadow.y * k }
     if (l.outline && l.outline.width > 0) {
       ctx.strokeStyle = l.outline.color; ctx.lineWidth = l.outline.width * 2; ctx.lineJoin = 'round'
-      lines.forEach((line, i) => ctx.strokeText(line, ax, yAt(i)))
+      paint((t, x, y) => ctx.strokeText(t, x, y))
       ctx.shadowColor = 'transparent'
     }
-    lines.forEach((line, i) => ctx.fillText(line, ax, yAt(i)))
+    paint((t, x, y) => ctx.fillText(t, x, y))
     ctx.shadowColor = 'transparent'
+    if (l.underline || l.strike) {
+      const th = Math.max(1, l.fontSize / 16)
+      for (const line of lay.lines) {
+        if (!line.text.trim()) continue
+        const ind = line.first ? indent : 0
+        const lw = l.align === 'justify' && line.justify && l.boxWidth ? w - 4 - ind : line.width
+        const x0 = l.align === 'center' ? w / 2 - lw / 2 : l.align === 'right' ? w - 2 - lw : 2 + ind
+        const base = yAt(line.y)
+        if (l.underline) ctx.fillRect(x0, base + l.fontSize * 0.1, lw, th)
+        if (l.strike) ctx.fillRect(x0, base - l.fontSize * 0.3, lw, th)
+      }
+    }
+    ctx.textAlign = 'left'
   } else if (l.type === 'shape') {
     const sw = l.stroke ? l.strokeWidth : 0
     ctx.beginPath()
@@ -150,12 +258,16 @@ export function drawLayerContent(ctx: CanvasRenderingContext2D, l: Layer, k = 1)
       ctx.ellipse(l.w / 2, l.h / 2, Math.max(0.5, l.w / 2 - sw / 2), Math.max(0.5, l.h / 2 - sw / 2), 0, 0, Math.PI * 2)
     } else if (l.shape === 'line') {
       ctx.moveTo(0, l.h / 2); ctx.lineTo(l.w, l.h / 2)
+    } else if (l.shape === 'polygon') {
+      polygonPoints(l, sw / 2).forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath()
+    } else if (l.shape === 'path') {
+      tracePath(ctx, l.subpaths ?? [])
     } else {
       const r = Math.min(l.radius, l.w / 2, l.h / 2)
       ctx.roundRect(sw / 2, sw / 2, Math.max(1, l.w - sw), Math.max(1, l.h - sw), r)
     }
-    if (l.fill && l.shape !== 'line') { ctx.fillStyle = l.fill; ctx.fill() }
-    if (l.stroke && sw > 0) { ctx.strokeStyle = l.stroke; ctx.lineWidth = sw; ctx.lineCap = 'round'; ctx.stroke() }
+    if (l.fill && l.shape !== 'line') { ctx.fillStyle = l.fill; ctx.fill('evenodd') }
+    if (l.stroke && sw > 0) { ctx.strokeStyle = l.stroke; ctx.lineWidth = sw; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke() }
   }
 }
 
@@ -216,6 +328,61 @@ export const ADJUSTMENT_DEFAULTS: Record<string, Record<string, number>> = {
   blur: { radius: 8 },
   curves: {},
   voidEffect: {},
+  vibrance: { vibrance: 40, saturation: 0 },
+  exposure: { exposure: 0, offset: 0, gamma: 100 },
+  colorBalance: { sCR: 0, sMG: 0, sYB: 0, mCR: 0, mMG: 0, mYB: 0, hCR: 0, hMG: 0, hYB: 0, preserve: 1 },
+  channelMixer: { rr: 100, rg: 0, rb: 0, gr: 0, gg: 100, gb: 0, br: 0, bg: 0, bb: 100, mono: 0 },
+  photoFilter: { density: 25, preserve: 1 },
+  gradientMap: { reverse: 0 },
+  posterize: { levels: 4 },
+  threshold: { level: 128 },
+  lut: { amount: 100 },
+}
+
+export const HUE_BANDS: { id: HueBand; label: string; center: number; swatch: string }[] = [
+  { id: 'reds', label: 'Reds', center: 0, swatch: '#ff3b3b' }, { id: 'yellows', label: 'Yellows', center: 60, swatch: '#ffd23b' },
+  { id: 'greens', label: 'Greens', center: 120, swatch: '#3bd16b' }, { id: 'cyans', label: 'Cyans', center: 180, swatch: '#3bd8ff' },
+  { id: 'blues', label: 'Blues', center: 240, swatch: '#3b6bff' }, { id: 'magentas', label: 'Magentas', center: 300, swatch: '#ff3bd8' },
+]
+
+/** Weight of a hue (0..360) for a band: full within 15 degrees, feathered to zero at 45. */
+export function bandWeight(hueDeg: number, center: number) {
+  let d = Math.abs(hueDeg - center) % 360; if (d > 180) d = 360 - d
+  return d <= 15 ? 1 : d >= 45 ? 0 : 1 - (d - 15) / 30
+}
+
+const hexRgb = (h: string) => { const n = parseInt(h.replace('#', '').padEnd(6, '0').slice(0, 6), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] }
+
+function levelsLut(black: number, white: number, gamma100: number) {
+  const lo = black, hi = Math.max(lo + 1, white), g = 100 / Math.max(10, gamma100)
+  const lut = new Uint8ClampedArray(256)
+  for (let i = 0; i < 256; i++) lut[i] = clamp255(Math.pow(Math.min(1, Math.max(0, (i - lo) / (hi - lo))), g) * 255)
+  return lut
+}
+function channelLuts(d: Uint8ClampedArray, luts: (Uint8ClampedArray | null)[]) {
+  const [r, g, b] = luts
+  for (let i = 0; i < d.length; i += 4) { if (r) d[i] = r[d[i]]; if (g) d[i + 1] = g[d[i + 1]]; if (b) d[i + 2] = b[d[i + 2]] }
+}
+
+function hslToRgb(h: number, s: number, l: number, out: Uint8ClampedArray, i: number) {
+  if (s === 0) { out[i] = out[i + 1] = out[i + 2] = l * 255; return }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q
+  out[i] = hue2rgb(p, q, h + 1 / 3) * 255; out[i + 1] = hue2rgb(p, q, h) * 255; out[i + 2] = hue2rgb(p, q, h - 1 / 3) * 255
+}
+
+/** Parse an Adobe/Resolve .cube 3D LUT. */
+export function parseCube(text: string, name: string): { size: number; data: number[]; name: string } | null {
+  let size = 0; const data: number[] = []
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line || line.startsWith('#')) continue
+    if (/^LUT_3D_SIZE/i.test(line)) { size = parseInt(line.split(/\s+/)[1], 10); continue }
+    if (/^[A-Z_]/i.test(line)) continue
+    const v = line.split(/\s+/).map(Number)
+    if (v.length >= 3 && v.every(Number.isFinite)) data.push(v[0], v[1], v[2])
+  }
+  if (!size || data.length < size * size * size * 3) return null
+  return { size, data: data.slice(0, size * size * size * 3), name }
 }
 
 /** Smooth tone curve through the control points (monotone cubic, so it never overshoots). */
@@ -255,10 +422,10 @@ function applyBuiltIn(img: ImageData, l: AdjustmentLayer, scale: number) {
       lutApply(d, lut); break
     }
     case 'levels': {
-      const lo = v.black, hi = Math.max(lo + 1, v.white), g = 100 / Math.max(10, v.gamma)
-      const lut = new Uint8ClampedArray(256)
-      for (let i = 0; i < 256; i++) lut[i] = clamp255(Math.pow(Math.min(1, Math.max(0, (i - lo) / (hi - lo))), g) * 255)
-      lutApply(d, lut); break
+      lutApply(d, levelsLut(v.black, v.white, v.gamma))
+      const cl = l.channelLevels
+      if (cl) channelLuts(d, (['r', 'g', 'b'] as const).map(c => cl[c] ? levelsLut(cl[c]![0], cl[c]![1], cl[c]![2]) : null))
+      break
     }
     case 'invert': for (let i = 0; i < d.length; i += 4) { d[i] = 255 - d[i]; d[i + 1] = 255 - d[i + 1]; d[i + 2] = 255 - d[i + 2] } break
     case 'blackWhite': {
@@ -276,18 +443,139 @@ function applyBuiltIn(img: ImageData, l: AdjustmentLayer, scale: number) {
     }
     case 'hueSaturation': {
       const dh = v.hue / 360, ds = v.saturation / 100, dl = v.lightness / 100
-      for (let i = 0; i < d.length; i += 4) {
+      if (dh || ds || dl) for (let i = 0; i < d.length; i += 4) {
         let [h, s, li] = rgbToHsl(d[i], d[i + 1], d[i + 2])
         h = (h + dh + 1) % 1
         s = Math.min(1, Math.max(0, ds >= 0 ? s + (1 - s) * ds * (s > 0.02 ? 1 : 0) : s * (1 + ds)))
         li = Math.min(1, Math.max(0, dl >= 0 ? li + (1 - li) * dl : li * (1 + dl)))
-        if (s === 0) { d[i] = d[i + 1] = d[i + 2] = li * 255; continue }
-        const q = li < 0.5 ? li * (1 + s) : li + s - li * s, p = 2 * li - q
-        d[i] = hue2rgb(p, q, h + 1 / 3) * 255; d[i + 1] = hue2rgb(p, q, h) * 255; d[i + 2] = hue2rgb(p, q, h - 1 / 3) * 255
+        hslToRgb(h, s, li, d, i)
+      }
+      // Targeted colour bands: each shifts only the hues near its centre, feathered at the edges.
+      const bands = l.bands ? HUE_BANDS.filter(b => { const x = l.bands![b.id]; return x && (x.hue || x.saturation || x.lightness) }) : []
+      if (bands.length) {
+        for (let i = 0; i < d.length; i += 4) {
+          let [h, s, li] = rgbToHsl(d[i], d[i + 1], d[i + 2])
+          if (s < 0.02) continue
+          let changed = false
+          for (const b of bands) {
+            const w = bandWeight(h * 360, b.center); if (!w) continue
+            const x = l.bands![b.id]!
+            h = (h + (x.hue / 360) * w + 1) % 1
+            const bs = (x.saturation / 100) * w, bl = (x.lightness / 100) * w
+            s = Math.min(1, Math.max(0, bs >= 0 ? s + (1 - s) * bs : s * (1 + bs)))
+            li = Math.min(1, Math.max(0, bl >= 0 ? li + (1 - li) * bl : li * (1 + bl)))
+            changed = true
+          }
+          if (changed) hslToRgb(h, s, li, d, i)
+        }
       }
       break
     }
-    case 'curves': lutApply(d, curveLut(l.points ?? [[0, 0], [255, 255]])); break
+    case 'curves': {
+      lutApply(d, curveLut(l.points ?? [[0, 0], [255, 255]]))
+      const cp = l.channelPoints
+      if (cp) channelLuts(d, (['r', 'g', 'b'] as const).map(c => cp[c] && cp[c]!.length >= 2 ? curveLut(cp[c]!) : null))
+      break
+    }
+    case 'vibrance': {
+      const vib = v.vibrance / 100, sat = v.saturation / 100
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i + 1], b = d[i + 2]
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b), cs = (mx - mn) / 255
+        const y = r * 0.299 + g * 0.587 + b * 0.114
+        const f = 1 + sat + vib * (1 - cs) * (vib > 0 ? 1 : cs + 0.3)
+        d[i] = clamp255(y + (r - y) * f); d[i + 1] = clamp255(y + (g - y) * f); d[i + 2] = clamp255(y + (b - y) * f)
+      }
+      break
+    }
+    case 'exposure': {
+      const k = Math.pow(2, v.exposure / 100), off = v.offset / 100, g = 100 / Math.max(10, v.gamma)
+      const lut = new Uint8ClampedArray(256)
+      for (let i = 0; i < 256; i++) lut[i] = clamp255(Math.pow(Math.max(0, (i / 255) * k + off), g) * 255)
+      lutApply(d, lut); break
+    }
+    case 'colorBalance': {
+      const f = 0.6
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i + 1], b = d[i + 2]
+        const L = (Math.max(r, g, b) + Math.min(r, g, b)) / 510
+        const wS = Math.max(0, 1 - L * 2) ** 1.2, wH = Math.max(0, L * 2 - 1) ** 1.2, wM = 1 - Math.abs(L * 2 - 1)
+        let nr = r + (wS * v.sCR + wM * v.mCR + wH * v.hCR) * f
+        let ng = g + (wS * v.sMG + wM * v.mMG + wH * v.hMG) * f
+        let nb = b + (wS * v.sYB + wM * v.mYB + wH * v.hYB) * f
+        if (v.preserve) {
+          const y0 = r * 0.299 + g * 0.587 + b * 0.114, y1 = nr * 0.299 + ng * 0.587 + nb * 0.114, dy = y0 - y1
+          nr += dy; ng += dy; nb += dy
+        }
+        d[i] = clamp255(nr); d[i + 1] = clamp255(ng); d[i + 2] = clamp255(nb)
+      }
+      break
+    }
+    case 'channelMixer': {
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i + 1], b = d[i + 2]
+        const nr = (r * v.rr + g * v.rg + b * v.rb) / 100
+        if (v.mono) { d[i] = d[i + 1] = d[i + 2] = clamp255(nr); continue }
+        d[i] = clamp255(nr); d[i + 1] = clamp255((r * v.gr + g * v.gg + b * v.gb) / 100); d[i + 2] = clamp255((r * v.br + g * v.bg + b * v.bb) / 100)
+      }
+      break
+    }
+    case 'photoFilter': {
+      const [fr, fg, fb] = hexRgb(l.colors?.[0] ?? '#ec8a00'), k = v.density / 100
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i + 1], b = d[i + 2]
+        let nr = r + (r * fr / 255 - r) * k, ng = g + (g * fg / 255 - g) * k, nb = b + (b * fb / 255 - b) * k
+        if (v.preserve) {
+          const y0 = r * 0.299 + g * 0.587 + b * 0.114, y1 = nr * 0.299 + ng * 0.587 + nb * 0.114, q = y1 > 0.5 ? y0 / y1 : 1
+          nr *= q; ng *= q; nb *= q
+        }
+        d[i] = clamp255(nr); d[i + 1] = clamp255(ng); d[i + 2] = clamp255(nb)
+      }
+      break
+    }
+    case 'gradientMap': {
+      const cols = (l.colors?.length ? l.colors : ['#000000', '#ffffff']).map(hexRgb)
+      if (v.reverse) cols.reverse()
+      const map = new Uint8ClampedArray(256 * 3)
+      for (let t = 0; t < 256; t++) {
+        const p = (t / 255) * (cols.length - 1), a = Math.floor(p), bI = Math.min(cols.length - 1, a + 1), f = p - a
+        for (let c = 0; c < 3; c++) map[t * 3 + c] = cols[a][c] + (cols[bI][c] - cols[a][c]) * f
+      }
+      for (let i = 0; i < d.length; i += 4) {
+        const y = Math.round(d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114)
+        d[i] = map[y * 3]; d[i + 1] = map[y * 3 + 1]; d[i + 2] = map[y * 3 + 2]
+      }
+      break
+    }
+    case 'posterize': {
+      const n = Math.max(2, Math.round(v.levels)), lut = new Uint8ClampedArray(256)
+      for (let i = 0; i < 256; i++) lut[i] = Math.round(Math.round((i / 255) * (n - 1)) / (n - 1) * 255)
+      lutApply(d, lut); break
+    }
+    case 'threshold': {
+      for (let i = 0; i < d.length; i += 4) { const y = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114; d[i] = d[i + 1] = d[i + 2] = y >= v.level ? 255 : 0 }
+      break
+    }
+    case 'lut': {
+      const L = l.lut; if (!L) break
+      const N = L.size, D = L.data, amt = v.amount / 100
+      const at = (r: number, g: number, b: number, c: number) => D[((b * N + g) * N + r) * 3 + c]
+      for (let i = 0; i < d.length; i += 4) {
+        const fr = (d[i] / 255) * (N - 1), fg = (d[i + 1] / 255) * (N - 1), fb = (d[i + 2] / 255) * (N - 1)
+        const r0 = Math.floor(fr), g0 = Math.floor(fg), b0 = Math.floor(fb)
+        const r1 = Math.min(N - 1, r0 + 1), g1 = Math.min(N - 1, g0 + 1), b1 = Math.min(N - 1, b0 + 1)
+        const tr = fr - r0, tg = fg - g0, tb = fb - b0
+        for (let c = 0; c < 3; c++) {
+          const c00 = at(r0, g0, b0, c) * (1 - tr) + at(r1, g0, b0, c) * tr
+          const c10 = at(r0, g1, b0, c) * (1 - tr) + at(r1, g1, b0, c) * tr
+          const c01 = at(r0, g0, b1, c) * (1 - tr) + at(r1, g0, b1, c) * tr
+          const c11 = at(r0, g1, b1, c) * (1 - tr) + at(r1, g1, b1, c) * tr
+          const val = ((c00 * (1 - tg) + c10 * tg) * (1 - tb) + (c01 * (1 - tg) + c11 * tg) * tb) * 255
+          d[i + c] = clamp255(d[i + c] + (val - d[i + c]) * amt)
+        }
+      }
+      break
+    }
     case 'blur': boxBlur(img, Math.max(1, v.radius * scale * 0.6)); break
   }
 }
@@ -324,7 +612,7 @@ export interface LiveStroke {
   layerId: string
   buffer: HTMLCanvasElement
   opacity: number
-  mode: 'paint' | 'erase' | 'mask-hide' | 'mask-reveal'
+  mode: 'paint' | 'erase' | 'mask-hide' | 'mask-reveal' | 'overlay'
 }
 
 export interface RenderOptions {
@@ -338,6 +626,8 @@ export interface RenderOptions {
   frameRects?: Frame[]
   /** Board backgrounds without their drop shadow. The Stage draws its own shadows on the pasteboard. */
   noShadow?: boolean
+  /** Treat this group as the root: used when a group is flattened on its own. */
+  root?: string | null
 }
 
 export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], opts: RenderOptions = {}) {
@@ -362,7 +652,6 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
       acc.restore()
       if (!f.background) { // transparent board: clear the fill we used only to cast the shadow, leave checker to the UI
         acc.clearRect(f.x * s, f.y * s, f.width * s, f.height * s)
-        // re-cast shadow via a thin frame so an empty transparent board still floats
         acc.save(); acc.shadowColor = 'rgba(0,0,0,0.45)'; acc.shadowBlur = 24 * s; acc.shadowOffsetY = 4 * s
         acc.strokeStyle = 'rgba(0,0,0,0.001)'; acc.lineWidth = 1; acc.strokeRect(f.x * s, f.y * s, f.width * s, f.height * s); acc.restore()
       }
@@ -370,33 +659,56 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
   } else if (doc.background && !opts.transparent) { acc.fillStyle = doc.background; acc.fillRect(0, 0, W, H) }
   const frameById = new Map((frames ?? []).map(f => [f.id, f]))
 
-  let belowKey = `${W}x${H}|${opts.transparent ? '' : doc.background}`
+  let belowKey = `${W}x${H}|${opts.transparent ? '' : doc.background}|${opts.root ?? ''}`
   let liveBelow = false
-
   const gmap = new Map((opts.groups ?? []).map(g => [g.id, g]))
-  for (let li = 0; li < layers.length; li++) {
-    const l = layers[li]
-    const grp = l.groupId ? gmap.get(l.groupId) : undefined
-    if (grp && !grp.visible) { belowKey += `|g${grp.id}:off`; continue }
-    if (grp && grp.opacity < 1) {
-      // A faded group is flattened first, then drawn once, so its layers do not show through each other.
-      let end = li
-      while (end + 1 < layers.length && layers[end + 1].groupId === grp.id) end++
-      const run = layers.slice(li, end + 1)
-      const tmp = makeCanvas(W, H)
-      renderDoc(tmp, doc, run.map(x => ({ ...x, groupId: null } as Layer)), { scale: s, live: opts.live, noCache: true, transparent: true })
-      if (opts.live && run.some(x => x.id === opts.live!.layerId)) liveBelow = true
-      acc.globalAlpha = grp.opacity; acc.drawImage(tmp, 0, 0); acc.globalAlpha = 1
-      belowKey += `|g${grp.id}:${grp.opacity}:` + run.map(x => `${x.id}:${x.rev}`).join(',')
-      li = end
-      continue
+
+  /** The group directly inside `container` that holds this layer, or undefined when the layer sits in `container` itself. */
+  const childGroup = (l: Layer, container: string | null): Group | undefined => {
+    let gid = l.groupId ?? null, prev: Group | undefined, guard = 0
+    while (gid && gid !== container && guard++ < 64) {
+      const g = gmap.get(gid); if (!g) return prev
+      prev = g; gid = g.parentId ?? null
     }
-    if (!l.visible) continue
+    return gid === container ? prev : undefined
+  }
+
+  const drawList = (list: Layer[], container: string | null) => {
+    for (let li = 0; li < list.length; li++) {
+      const l = list[li]
+      const grp = childGroup(l, container)
+      if (grp) {
+        let end = li
+        while (end + 1 < list.length && childGroup(list[end + 1], container)?.id === grp.id) end++
+        const run = list.slice(li, end + 1)
+        li = end
+        if (!grp.visible) { belowKey += `|g${grp.id}:off`; continue }
+        const isolated = grp.opacity < 1 || (!!grp.blend && grp.blend !== 'pass')
+        if (isolated) {
+          // A faded or blended group is flattened first, then drawn once, so its layers do not show through each other.
+          const tmp = makeCanvas(W, H)
+          renderDoc(tmp, doc, run, { ...opts, scale: s, noCache: true, transparent: true, root: grp.id, frameRects: frames ?? [] })
+          if (opts.live && run.some(x => x.id === opts.live!.layerId)) liveBelow = true
+          acc.save()
+          acc.globalAlpha = grp.opacity
+          acc.globalCompositeOperation = !grp.blend || grp.blend === 'pass' ? 'source-over' : grp.blend
+          acc.drawImage(tmp, 0, 0)
+          acc.restore()
+          belowKey += `|g${grp.id}:${grp.opacity}:${grp.blend}:` + run.map(x => `${x.id}:${x.rev}`).join(',')
+        } else drawList(run, grp.id)
+        continue
+      }
+      drawLayer(l, list)
+    }
+  }
+
+  const drawLayer = (l: Layer, siblings: Layer[]) => {
+    if (!l.visible) return
     const live = opts.live && opts.live.layerId === l.id ? opts.live : null
     if (live) liveBelow = true
 
     if (l.type === 'adjustment') {
-      const settingsKey = `${l.kind}|${JSON.stringify(l.values)}|${l.points ? JSON.stringify(l.points) : ''}|${l.effect}|${l.effect ? JSON.stringify(l.effectParams) : ''}`
+      const settingsKey = `${l.kind}|${JSON.stringify(l.values)}|${l.points ? JSON.stringify(l.points) : ''}|${JSON.stringify(l.channelPoints ?? '')}|${JSON.stringify(l.channelLevels ?? '')}|${JSON.stringify(l.bands ?? '')}|${(l.colors ?? []).join(',')}|${l.lut?.name ?? ''}|${l.effect}|${l.effect ? JSON.stringify(l.effectParams) : ''}`
       const key = `${belowKey}#${settingsKey}`
       let processed: HTMLCanvasElement
       const cached = opts.noCache ? undefined : adjCacheById.get(l.id)
@@ -425,18 +737,19 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
       acc.restore()
     } else {
       const m = layerMatrix(l, doc)
-      // Clipping mask: this layer shows only where the base layer (directly below) is opaque.
+      // Clipping mask: this layer shows only where the base layer is opaque.
       let clipBaseCanvas: HTMLCanvasElement | null = null
       if (l.clipId) {
-        // Base is the layer named by clipId (the nearest non-clipped layer below). Supports a run of clipped layers sharing one base.
-        const base = layers.find(x => x.id === l.clipId)
+        const base = siblings.find(x => x.id === l.clipId) ?? layers.find(x => x.id === l.clipId)
         if (base && base.type !== 'adjustment') clipBaseCanvas = renderLayerAlpha(doc, base, s)
       }
-      const needsTemp = (l.mask && l.maskEnabled) || !!live || !!clipBaseCanvas
+      const styled = hasActiveStyles(l)
+      const fill = l.fillOpacity ?? 1
+      const needsTemp = (l.mask && l.maskEnabled) || !!live || !!clipBaseCanvas || styled
       acc.save()
       const clipF = l.frameId ? frameById.get(l.frameId) : undefined
       if (clipF) { acc.beginPath(); acc.rect(clipF.x * s, clipF.y * s, clipF.width * s, clipF.height * s); acc.clip() }
-      acc.globalAlpha = l.opacity
+      acc.globalAlpha = l.opacity * (styled ? 1 : fill)
       acc.globalCompositeOperation = l.blend
       acc.imageSmoothingQuality = 'high'
       acc.setTransform(new DOMMatrix().scale(s, s).multiply(m))
@@ -453,20 +766,20 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
           t.globalCompositeOperation = 'destination-in'
           t.drawImage(liveMask(maskSrc ?? fullMaskSized(w, h), live), 0, 0)
         }
-        if (clipBaseCanvas) {
-          // The clip base is in document space; composite the layer into doc space, then intersect with the base alpha.
+        if (clipBaseCanvas || styled) {
+          // Work in document space: intersect with the clip base, then draw with styles.
           acc.restore(); acc.save()
           if (clipF) { acc.beginPath(); acc.rect(clipF.x * s, clipF.y * s, clipF.width * s, clipF.height * s); acc.clip() }
           const docTmp = makeCanvas(W, H); const dt = ctx2d(docTmp)
+          dt.imageSmoothingQuality = 'high'
           dt.setTransform(new DOMMatrix().scale(s, s).multiply(m))
           dt.drawImage(tmp, 0, 0)
           dt.setTransform(1, 0, 0, 1, 0, 0)
-          dt.globalCompositeOperation = 'destination-in'
-          dt.drawImage(clipBaseCanvas, 0, 0)
+          if (clipBaseCanvas) { dt.globalCompositeOperation = 'destination-in'; dt.drawImage(clipBaseCanvas, 0, 0) }
           acc.setTransform(1, 0, 0, 1, 0, 0)
           acc.globalAlpha = l.opacity
-          acc.globalCompositeOperation = l.blend
-          acc.drawImage(docTmp, 0, 0)
+          if (styled) drawStyled(acc, docTmp, l, s)
+          else { acc.globalAlpha = l.opacity * fill; acc.globalCompositeOperation = l.blend; acc.drawImage(docTmp, 0, 0) }
         } else {
           acc.drawImage(tmp, 0, 0)
         }
@@ -475,6 +788,8 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
     }
     belowKey += `|${l.id}:${l.rev}`
   }
+
+  drawList(layers, opts.root ?? null)
   // Drop cache entries for layers that no longer exist.
   if (adjCacheById.size > 24) {
     const ids = new Set(layers.map(l => l.id))
@@ -702,4 +1017,34 @@ export function extractPalette(src: CanvasImageSource, count = 6): string[] {
     if (picked.length >= count) break
   }
   return picked.map(p => '#' + p.map(v => Math.round(v).toString(16).padStart(2, '0')).join(''))
+}
+
+// ─── Dodge, burn, sponge ───────────────────────────────────────────
+
+/** Lighten, darken or change saturation where `stroke` is painted. `amount` 0..1 is the tool's exposure. */
+export function toneStroke(src: HTMLCanvasElement, stroke: HTMLCanvasElement, kind: 'dodge' | 'burn' | 'sponge', range: 'shadows' | 'midtones' | 'highlights', amount: number, sponge: 'saturate' | 'desaturate' = 'desaturate'): HTMLCanvasElement {
+  const b = maskBounds(stroke)
+  const out = cloneCanvas(src)
+  if (!b) return out
+  const x = ctx2d(out, true)
+  const img = x.getImageData(b.x, b.y, b.w, b.h), d = img.data
+  const m = ctx2d(stroke, true).getImageData(b.x, b.y, b.w, b.h).data
+  for (let i = 0; i < d.length; i += 4) {
+    const w = (m[i + 3] / 255) * amount
+    if (!w || !d[i + 3]) continue
+    const r = d[i], g = d[i + 1], bl = d[i + 2]
+    if (kind === 'sponge') {
+      const y = r * 0.299 + g * 0.587 + bl * 0.114
+      const f = sponge === 'saturate' ? 1 + w * 0.8 : 1 - w * 0.8
+      d[i] = clamp255(y + (r - y) * f); d[i + 1] = clamp255(y + (g - y) * f); d[i + 2] = clamp255(y + (bl - y) * f)
+      continue
+    }
+    const L = (r * 0.299 + g * 0.587 + bl * 0.114) / 255
+    const rw = range === 'shadows' ? (1 - L) ** 2 : range === 'highlights' ? L * L : 1 - Math.abs(L * 2 - 1) * 0.8
+    const k = w * rw * 0.6
+    if (kind === 'dodge') { d[i] = r + (255 - r) * k; d[i + 1] = g + (255 - g) * k; d[i + 2] = bl + (255 - bl) * k }
+    else { d[i] = r * (1 - k); d[i + 1] = g * (1 - k); d[i + 2] = bl * (1 - k) }
+  }
+  x.putImageData(img, b.x, b.y)
+  return out
 }

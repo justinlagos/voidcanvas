@@ -8,12 +8,12 @@ import type { Doc, Group, Layer, TextLayer } from './types'
 // and an inbox used to pass work from one module to another.
 
 const DB = 'voidcanvas'
-const STORES = ['projects', 'index', 'inbox', 'boards', 'brand'] as const
-type StoreName = (typeof STORES)[number]
+const STORES = ['projects', 'index', 'inbox', 'boards', 'brand', 'versions', 'versionIndex'] as const
+export type StoreName = (typeof STORES)[number]
 
 function open(): Promise<IDBDatabase> {
   return new Promise((res, rej) => {
-    const req = indexedDB.open(DB, 3)
+    const req = indexedDB.open(DB, 4)
     req.onupgradeneeded = () => { for (const s of STORES) if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s, { keyPath: 'id' }) }
     req.onsuccess = () => res(req.result)
     req.onerror = () => rej(req.error)
@@ -220,8 +220,38 @@ export function downloadBlob(blob: Blob, filename: string) {
 
 // ─── Projects ──────────────────────────────────────────────────────
 
+/** Fonts added from files on this device. Saved inside each design that uses them, so they travel with it. */
+export const localFonts = new Map<string, Blob>()
+export async function registerLocalFont(family: string, blob: Blob) {
+  const face = new FontFace(family, await blob.arrayBuffer())
+  await face.load(); (document.fonts as any).add(face)
+  localFonts.set(family, blob)
+}
+
+/** Split canvases out of the doc (saved channels) so it can be stored. */
+export async function packDoc(doc: Doc, put: (key: string, c: HTMLCanvasElement) => Promise<void>): Promise<any> {
+  const { channels, ...rest } = doc
+  if (channels?.length) for (const c of channels) await put('ch:' + c.id, c.mask)
+  return { ...rest, channelMeta: channels?.map(c => ({ id: c.id, name: c.name })) ?? [] }
+}
+export async function unpackDoc(d: any, get: (key: string) => Promise<HTMLCanvasElement | null>): Promise<Doc> {
+  const { channelMeta, ...rest } = d ?? {}
+  const channels = [] as NonNullable<Doc['channels']>
+  for (const m of channelMeta ?? []) { const c = await get('ch:' + m.id); if (c) channels.push({ id: m.id, name: m.name, mask: c }) }
+  return { ...rest, ...(channels.length ? { channels } : {}) } as Doc
+}
+async function packFonts(layers: Layer[]): Promise<Record<string, Blob>> {
+  const out: Record<string, Blob> = {}
+  for (const l of layers) if (l.type === 'text' && localFonts.has(l.fontFamily)) out[l.fontFamily] = localFonts.get(l.fontFamily)!
+  return out
+}
+async function unpackFonts(fonts: Record<string, Blob> | undefined) {
+  if (!fonts) return
+  for (const [family, blob] of Object.entries(fonts)) { if (!localFonts.has(family)) { try { await registerLocalFont(family, blob) } catch { /* broken font file */ } } }
+}
+
 export interface ProjectSummary { id: string; name: string; updatedAt: number; width: number; height: number; thumb: string; template?: boolean }
-interface StoredProject { id: string; doc: Doc; layers: any[]; groups?: Group[]; swatches: string[]; blobs: Record<string, Blob> }
+export interface StoredProject { id: string; doc: Doc; layers: any[]; groups?: Group[]; swatches: string[]; blobs: Record<string, Blob>; fonts?: Record<string, Blob> }
 
 export async function saveProject(): Promise<void> {
   const { doc, layers, groups, swatches, markSaved } = useEditor.getState()
@@ -232,6 +262,13 @@ export async function saveProject(): Promise<void> {
 
 /** Save any design, open or not. Used for autosave, templates and resized copies. */
 export async function saveDesign(doc: Doc, layers: Layer[], groups: Group[], swatches: string[], template = false): Promise<void> {
+  const { stored, summary } = await storeDesign(doc, layers, groups, swatches, template)
+  await idb.put('projects', stored)
+  await idb.put('index', summary)
+}
+
+/** Build the stored form of a design (used by saves and by version snapshots). */
+export async function storeDesign(doc: Doc, layers: Layer[], groups: Group[], swatches: string[], template = false): Promise<{ stored: StoredProject; summary: ProjectSummary }> {
   const blobs: Record<string, Blob> = {}
   const meta = await Promise.all(layers.map(async l => {
     const { mask, ...rest } = l as any
@@ -242,22 +279,31 @@ export async function saveDesign(doc: Doc, layers: Layer[], groups: Group[], swa
   const k = Math.min(1, 360 / Math.max(doc.width, doc.height))
   const thumb = makeCanvas(doc.width * k, doc.height * k)
   renderDoc(thumb, doc, layers, { groups, scale: k, noCache: true })
-  const stored: StoredProject = { id: doc.id, doc, layers: meta, groups, swatches, blobs }
-  await idb.put('projects', stored)
+  const packed = await packDoc(doc, async (k, c) => { blobs[k] = await canvasToBlob(c) })
+  const stored: StoredProject = { id: doc.id, doc: packed, layers: meta, groups, swatches, blobs, fonts: await packFonts(layers) }
   const summary: ProjectSummary = { id: doc.id, name: doc.name, updatedAt: Date.now(), width: doc.width, height: doc.height, thumb: thumb.toDataURL('image/jpeg', 0.7), template }
-  await idb.put('index', summary)
+  return { stored, summary }
 }
 
-export async function openProject(id: string, asCopy = false): Promise<boolean> {
-  const p = await idb.get<StoredProject>('projects', id)
-  if (!p) return false
+/** Turn a stored project back into live layers. */
+export async function restoreStored(p: StoredProject): Promise<{ doc: Doc; layers: Layer[] }> {
+  await unpackFonts(p.fonts)
   const layers: Layer[] = await Promise.all(p.layers.map(async m => {
     const { hasMask, ...rest } = m
     const l: any = { ...rest, rev: nextRev(), mask: hasMask && p.blobs[m.id + ':mask'] ? await blobToCanvas(p.blobs[m.id + ':mask'], 1e6) : null }
     if (m.type === 'raster') l.canvas = p.blobs[m.id] ? await blobToCanvas(p.blobs[m.id], 1e6) : makeCanvas(1, 1)
     return l as Layer
   }))
-  const doc = asCopy ? { ...p.doc, id: 'd' + Date.now().toString(36), name: p.doc.name.replace(/ template$/i, '') } : p.doc
+  const doc = await unpackDoc(p.doc, async k => (p.blobs[k] ? blobToCanvas(p.blobs[k], 1e6) : null))
+  return { doc, layers }
+}
+
+export async function openProject(id: string, asCopy = false): Promise<boolean> {
+  const p = await idb.get<StoredProject>('projects', id)
+  if (!p) return false
+  const r = await restoreStored(p)
+  const layers = r.layers
+  const doc = asCopy ? { ...r.doc, id: 'd' + Date.now().toString(36), name: r.doc.name.replace(/ template$/i, '') } : r.doc
   if (doc.frames?.length) useEditor.getState().loadFramed(doc, layers, p.swatches, p.groups ?? [])
   else useEditor.getState().loadProject(doc, layers, p.swatches, p.groups ?? [])
   if (asCopy) useEditor.setState({ dirty: true })
@@ -329,7 +375,8 @@ async function buildBundle() {
     if (l.type === 'raster' && canvas) blobs[l.id] = await blobToBase64(await canvasToBlob(canvas))
     return { ...rest, hasMask: !!mask }
   }))
-  return { format: 'voidcanvas', version: 1, doc, layers: meta, groups, swatches, blobs }
+  const packed = await packDoc(doc, async (k, c) => { blobs[k] = await blobToBase64(await canvasToBlob(c)) })
+  return { format: 'voidcanvas', version: 2, doc: packed, layers: meta, groups, swatches, blobs }
 }
 
 /** Restore a bundle object into the editor. */
@@ -341,7 +388,8 @@ async function loadBundle(bundle: any): Promise<boolean> {
     if (m.type === 'raster') l.canvas = bundle.blobs[m.id] ? await blobToCanvas(base64ToBlob(bundle.blobs[m.id]), 1e6) : makeCanvas(1, 1)
     return l as Layer
   }))
-  const doc = { ...bundle.doc, id: 'd' + Date.now().toString(36) }
+  const unpacked = await unpackDoc(bundle.doc, async k => (bundle.blobs[k] ? blobToCanvas(base64ToBlob(bundle.blobs[k]), 1e6) : null))
+  const doc = { ...unpacked, id: 'd' + Date.now().toString(36) }
   if (doc.frames?.length) useEditor.getState().loadFramed(doc, layers, bundle.swatches, bundle.groups ?? [])
   else useEditor.getState().loadProject(doc, layers, bundle.swatches, bundle.groups ?? [])
   return true
@@ -374,7 +422,8 @@ export async function exportVoidFile(): Promise<void> {
     if (l.type === 'raster' && canvas) blobs[l.id] = await blobToBase64(await canvasToBlob(canvas))
     return { ...rest, hasMask: !!mask }
   }))
-  const bundle = { format: 'voidcanvas', version: 1, doc, layers: meta, groups, swatches, blobs }
+  const packed = await packDoc(doc, async (k, c) => { blobs[k] = await blobToBase64(await canvasToBlob(c)) })
+  const bundle = { format: 'voidcanvas', version: 2, doc: packed, layers: meta, groups, swatches, blobs }
   const json = JSON.stringify(bundle)
   downloadBlob(new Blob([json], { type: 'application/json' }), `${(doc.name || 'design').replace(/[^\w\- ]+/g, '')}.void`)
 }

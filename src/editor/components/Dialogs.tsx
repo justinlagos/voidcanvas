@@ -7,6 +7,8 @@ import { FONTS, canvasToBlob, downloadBlob, getBrand, saveBrand, saveDesign, zip
 import { SIZE_PRESETS } from '../presets'
 import { resizeDesign } from '../resize'
 import { useEditor } from '../store'
+import { buildActions, prettyKey } from '../actions'
+import { TOOLS } from './ToolRail'
 import { Button, Modal, focusRing } from './ui'
 
 // ─── Resize to every format ────────────────────────────────────────
@@ -136,15 +138,27 @@ const KEYS: [string, [string, string][]][] = [
 ]
 
 export function ShortcutSheet({ onClose }: { onClose: () => void }) {
+  // Built from the same lists the menus and tools use, so it is always complete and correct.
+  const [q, setQ] = useState('')
+  const acts = Object.values(buildActions()).filter(a => a.hotkey || a.shortcut)
+  const groups: [string, [string, string][]][] = [
+    ['Tools', TOOLS.map(t => [t.key, t.label.split(':')[0]] as [string, string])],
+    ['Menus', acts.map(a => [prettyKey(a.hotkey ?? a.shortcut), a.label.replace(/…$/, '')] as [string, string])],
+    ['Canvas', [['Space + drag', 'Pan'], ['Ctrl + wheel', 'Zoom'], ['[ and ]', 'Brush size, or layer order'], ['0 to 9', 'Opacity (brush or layer)'], ['Alt + drag', 'Move without snapping'], ['Shift + drag', 'Keep straight or even'], ['\\ (hold)', 'See before adjustments'], ['Enter', 'Edit text, finish path'], ['Esc', 'Cancel, deselect'], ['Q', 'Quick mask'], ['X / D', 'Swap / reset colours'], ['Ctrl+2 to 5', 'View RGB, red, green, blue'], ['Two-finger tap', 'Undo (touch)'], ['Three-finger tap', 'Redo (touch)']]],
+  ]
+  const match = (k: string, v: string) => !q || (k + ' ' + v).toLowerCase().includes(q.toLowerCase())
   return (
     <Modal title="Keyboard shortcuts" onClose={onClose} wide>
-      <div className="p-5 grid sm:grid-cols-3 gap-6">
-        {KEYS.map(([title, rows]) => (
-          <section key={title}><h3 className="text-[13px] font-semibold mb-2.5">{title}</h3>
-            <dl className="space-y-1.5">{rows.map(([k, v]) => <div key={k} className="flex items-baseline justify-between gap-3 text-[12.5px]"><dt className="text-void-400">{v}</dt><dd><kbd className="px-1.5 py-0.5 rounded bg-void-800 text-void-100 text-[11.5px] whitespace-nowrap">{k}</kbd></dd></div>)}</dl>
-          </section>
-        ))}
-        <p className="sm:col-span-3 text-[12px] text-void-500">Coming from Photoshop? The tool keys are the same. On a Mac, use Cmd where it says Ctrl.</p>
+      <div className="p-5">
+        <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Find a shortcut" className={`w-full h-9 px-3 mb-4 rounded-lg bg-surface-sunken border border-white/[0.06] text-[13px] ${focusRing}`} />
+        <div className="grid sm:grid-cols-3 gap-6 max-h-[60vh] overflow-y-auto">
+          {groups.map(([title, rows]) => (
+            <section key={title}><h3 className="text-[13px] font-semibold mb-2.5">{title}</h3>
+              <dl className="space-y-1.5">{rows.filter(([k, v]) => match(k, v)).map(([k, v]) => <div key={title + k + v} className="flex items-baseline justify-between gap-3 text-[12.5px]"><dt className="text-void-400">{v}</dt><dd><kbd className="px-1.5 py-0.5 rounded bg-void-800 text-void-100 text-[11.5px] whitespace-nowrap">{k}</kbd></dd></div>)}</dl>
+            </section>
+          ))}
+        </div>
+        <p className="mt-4 text-[12px] text-void-500">Coming from Photoshop? The tool keys are the same, and Shift plus a tool key cycles through its family. On a Mac, use Cmd where it says Ctrl.</p>
       </div>
     </Modal>
   )

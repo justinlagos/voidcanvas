@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import { AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, Eclipse, FolderPlus, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
 import { effectParams } from '@/components/ParamControls'
 import { defaultParams, type EffectParams } from '@/store/useStore'
-import { subjectMask } from '../ai'
-import { ADJUSTMENT_DEFAULTS, layerBounds } from '../engine'
+import { ADJUSTMENT_DEFAULTS, HUE_BANDS, layerBounds, layerSize } from '../engine'
+import { ColorButton, hexToRgb } from './ColorPicker'
+import type { HueBand } from '../types'
+const layerSizeOf = (l: TextLayer) => layerSize(l).w
 import { FONTS, ensureFont } from '../io'
 import { useEditor } from '../store'
 import { BLEND_MODES, type AdjustmentLayer, type Layer, type ShapeLayer, type TextLayer } from '../types'
@@ -20,20 +22,16 @@ const ADJ_FIELDS: Record<string, { key: string; label: string; min: number; max:
   blackWhite: [{ key: 'amount', label: 'Amount', min: 0, max: 100 }],
   blur: [{ key: 'radius', label: 'Amount', min: 1, max: 80 }],
   invert: [],
+  vibrance: [{ key: 'vibrance', label: 'Vibrance', min: -100, max: 100 }, { key: 'saturation', label: 'Saturation', min: -100, max: 100 }],
+  exposure: [{ key: 'exposure', label: 'Exposure (stops × 100)', min: -500, max: 500 }, { key: 'offset', label: 'Offset', min: -50, max: 50 }, { key: 'gamma', label: 'Gamma', min: 10, max: 300 }],
+  posterize: [{ key: 'levels', label: 'Levels', min: 2, max: 32 }],
+  threshold: [{ key: 'level', label: 'Level', min: 1, max: 255 }],
+  lut: [{ key: 'amount', label: 'Strength', min: 0, max: 100 }],
 }
 
 export async function removeBackground(layerId: string, mode: 'person' | 'any' = 'person') {
-  const s = useEditor.getState()
-  const l = s.layers.find(x => x.id === layerId)
-  if (!l || l.type !== 'raster') return
-  try {
-    const mask = await subjectMask(l.canvas, m => useEditor.getState().setBusy(m), mode)
-    useEditor.getState().updateLayer(l.id, { mask, maskEnabled: true }, 'Remove background')
-    useEditor.getState().notify('Background hidden with a mask. Paint on the mask to fine-tune the edges.')
-  } catch (e) {
-    console.error(e)
-    useEditor.getState().notify('Could not load the background remover. Check your connection and try again.')
-  } finally { useEditor.getState().setBusy(null) }
+  const { removeBackgroundLayer } = await import('../ai-tools')
+  return removeBackgroundLayer(layerId, mode)
 }
 
 function NumField({ label, value, onCommit, step = 1 }: { label: string; value: number; onCommit: (v: number) => void; step?: number }) {
@@ -213,6 +211,7 @@ function TextProps({ layer }: { layer: TextLayer }) {
             <button key={a} aria-label={`Align ${a}`} aria-pressed={layer.align === a} className={tog(layer.align === a)} onClick={() => s.updateLayer(layer.id, { align: a }, 'Align')}><Icon size={15} /></button>
           ))}
         </div>
+        <label className="flex items-center gap-2 text-[12.5px] text-void-300"><input type="checkbox" checked={!!layer.boxWidth} onChange={e => s.updateLayer(layer.id, { boxWidth: e.target.checked ? Math.max(120, Math.round(layerSizeOf(layer))) : null }, e.target.checked ? 'Text box' : 'Point text')} />Wrap text in a box</label>
         <Slider label="Size" value={layer.fontSize} min={8} max={600} unit="px" onChange={v => up({ fontSize: v })} onCommit={() => s.commit('Text size')} />
         <Slider label="Line spacing" value={layer.lineHeight} min={0.7} max={2.5} step={0.05} onChange={v => up({ lineHeight: v })} onCommit={() => s.commit('Line spacing')} />
         <Slider label="Letter spacing" value={layer.letterSpacing} min={-10} max={60} step={0.5} unit="px" onChange={v => up({ letterSpacing: v })} onCommit={() => s.commit('Letter spacing')} />
@@ -239,6 +238,10 @@ function ShapeProps({ layer }: { layer: ShapeLayer }) {
         {layer.shape !== 'line' && <ColorField label="Fill" value={layer.fill} allowNone onChange={v => up({ fill: v })} onCommit={() => s.commit('Fill')} />}
         <ColorField label="Outline" value={layer.stroke} allowNone={layer.shape !== 'line'} onChange={v => up({ stroke: v, strokeWidth: v && !layer.strokeWidth ? 6 : layer.strokeWidth })} onCommit={() => s.commit('Outline')} />
         {layer.stroke && <Slider label="Outline width" value={layer.strokeWidth} min={1} max={120} unit="px" onChange={v => up(layer.shape === 'line' ? { strokeWidth: v, h: Math.max(v, 6) } : { strokeWidth: v })} onCommit={() => s.commit('Outline width')} />}
+        {layer.shape === 'polygon' && <>
+          <Slider label="Points" value={layer.sides ?? 5} min={3} max={40} onChange={v => up({ sides: v })} onCommit={() => s.commit('Points')} />
+          <Slider label="Star depth" value={Math.round((1 - (layer.star ?? 1)) * 100)} min={0} max={90} unit="%" onChange={v => up({ star: 1 - v / 100 })} onCommit={() => s.commit('Star depth')} />
+        </>}
         {layer.shape === 'rect' && <Slider label="Rounded corners" value={layer.radius} min={0} max={Math.round(Math.min(layer.w, layer.h) / 2)} unit="px" onChange={v => up({ radius: v })} onCommit={() => s.commit('Corners')} />}
       </div>
     </Section>
@@ -263,7 +266,8 @@ function AdjustmentProps({ layer }: { layer: AdjustmentLayer }) {
       </Section>
     )
   }
-  if (layer.kind === 'curves') {
+  if (layer.kind === 'curves') return <CurvesProps layer={layer} />
+  if (false as boolean) {
     const pts = layer.points ?? [[0, 0], [255, 255]]
     const setPts = (points: [number, number][]) => s.updateLayer(layer.id, { points } as Partial<AdjustmentLayer>)
     return (
@@ -276,6 +280,8 @@ function AdjustmentProps({ layer }: { layer: AdjustmentLayer }) {
       </Section>
     )
   }
+  const special = <SpecialAdjustment layer={layer} />
+  if (['colorBalance', 'channelMixer', 'photoFilter', 'gradientMap', 'levels', 'hueSaturation'].includes(layer.kind)) return special
   const fields = ADJ_FIELDS[layer.kind] ?? []
   return (
     <Section title="Settings" action={<button aria-label="Reset" title="Reset" onClick={() => s.updateLayer(layer.id, { values: { ...ADJUSTMENT_DEFAULTS[layer.kind] } } as Partial<AdjustmentLayer>, 'Reset adjustment')} className={`text-void-400 hover:text-white rounded ${focusRing}`}><RotateCcw size={14} /></button>}>
@@ -289,3 +295,160 @@ function AdjustmentProps({ layer }: { layer: AdjustmentLayer }) {
     </Section>
   )
 }
+
+// ─── Channel-aware curves ──────────────────────────────────────────
+
+function CurvesProps({ layer }: { layer: AdjustmentLayer }) {
+  const s = useEditor.getState()
+  const [ch, setCh] = useState<'rgb' | 'r' | 'g' | 'b'>('rgb')
+  const pts = ch === 'rgb' ? (layer.points ?? [[0, 0], [255, 255]]) : (layer.channelPoints?.[ch] ?? [[0, 0], [255, 255]])
+  const setPts = (points: [number, number][]) => ch === 'rgb' ? s.updateLayer(layer.id, { points } as Partial<AdjustmentLayer>) : s.updateLayer(layer.id, { channelPoints: { ...(layer.channelPoints ?? {}), [ch]: points } } as Partial<AdjustmentLayer>)
+  return (
+    <Section title="Curve" action={<button aria-label="Reset" title="Reset" onClick={() => s.updateLayer(layer.id, { points: [[0, 0], [255, 255]], channelPoints: {} } as Partial<AdjustmentLayer>, 'Reset curve')} className={`text-void-400 hover:text-white rounded ${focusRing}`}><RotateCcw size={14} /></button>}>
+      <ChannelTabs value={ch} onChange={setCh} />
+      <CurvesEditor points={pts} onChange={setPts} onCommit={() => s.commit('Curves')} />
+      {ch === 'rgb' && <div className="flex flex-wrap gap-1.5 mt-3">
+        {CURVE_PRESETS.map(p => <button key={p.label} onClick={() => s.updateLayer(layer.id, { points: p.points } as Partial<AdjustmentLayer>, 'Curves')} className={`h-7 px-2.5 rounded-md text-[12px] bg-surface-sunken border border-white/[0.06] text-void-300 hover:text-white ${focusRing}`}>{p.label}</button>)}
+      </div>}
+      <p className="mt-2.5 text-[12px] text-void-500 leading-relaxed">Click the line to add a point, drag to bend it, double-click a point to remove it. Red, Green and Blue fix colour casts.</p>
+    </Section>
+  )
+}
+
+function ChannelTabs({ value, onChange }: { value: 'rgb' | 'r' | 'g' | 'b'; onChange: (v: 'rgb' | 'r' | 'g' | 'b') => void }) {
+  const col = { rgb: '#fff', r: '#ff5a5a', g: '#4dd67a', b: '#5a8bff' }
+  return (
+    <div className="flex gap-1 mb-2.5" role="tablist">
+      {(['rgb', 'r', 'g', 'b'] as const).map(c => <button key={c} role="tab" aria-selected={value === c} onClick={() => onChange(c)} className={`h-7 flex-1 rounded-md text-[12px] ${value === c ? 'bg-void-700 text-white' : 'bg-surface-sunken text-void-400 hover:text-white'}`} style={value === c ? { boxShadow: `inset 0 -2px 0 ${col[c]}` } : undefined}>{c === 'rgb' ? 'RGB' : c.toUpperCase()}</button>)}
+    </div>
+  )
+}
+
+function pick(label: string, cb: (rgb: [number, number, number]) => void) {
+  useEditor.setState({ pickRequest: { label, cb: (_h, rgb) => cb(rgb) } })
+  useEditor.getState().notify(`Click the image to ${label.toLowerCase()}.`)
+}
+
+function SpecialAdjustment({ layer }: { layer: AdjustmentLayer }) {
+  const s = useEditor.getState()
+  const v = layer.values
+  const setV = (patch: Record<string, number>) => s.updateLayer(layer.id, { values: { ...v, ...patch } } as Partial<AdjustmentLayer>)
+  const commit = () => s.commit(layer.name)
+  const reset = <button aria-label="Reset" title="Reset" onClick={() => s.updateLayer(layer.id, { values: { ...ADJUSTMENT_DEFAULTS[layer.kind] }, channelLevels: undefined, bands: undefined } as Partial<AdjustmentLayer>, 'Reset adjustment')} className={`text-void-400 hover:text-white rounded ${focusRing}`}><RotateCcw size={14} /></button>
+  const [range, setRange] = useState<'s' | 'm' | 'h'>('m')
+  const [out, setOut] = useState<'r' | 'g' | 'b'>('r')
+  const [ch, setCh] = useState<'rgb' | 'r' | 'g' | 'b'>('rgb')
+  const [band, setBand] = useState<'master' | HueBand>('master')
+
+  if (layer.kind === 'levels') {
+    const cur = ch === 'rgb' ? [v.black, v.white, v.gamma] : (layer.channelLevels?.[ch] ?? [0, 255, 100])
+    const setL = (i: number, val: number) => {
+      if (ch === 'rgb') setV({ [['black', 'white', 'gamma'][i]]: val })
+      else { const n = [...cur] as [number, number, number]; n[i] = val; s.updateLayer(layer.id, { channelLevels: { ...(layer.channelLevels ?? {}), [ch]: n } } as Partial<AdjustmentLayer>) }
+    }
+    const setAll = (fn: (c: number, i: number) => [number, number, number]) => {
+      const cl = { ...(layer.channelLevels ?? {}) } as any
+      ;(['r', 'g', 'b'] as const).forEach((c, i) => { cl[c] = fn(i, i) })
+      s.updateLayer(layer.id, { channelLevels: cl } as Partial<AdjustmentLayer>, 'Levels picker')
+    }
+    const lv = (c: 'r' | 'g' | 'b') => layer.channelLevels?.[c] ?? [0, 255, 100]
+    return (
+      <Section title="Levels" action={reset}>
+        <ChannelTabs value={ch} onChange={setCh} />
+        <div className="space-y-3">
+          <Slider label="Darkest point" value={cur[0]} min={0} max={254} onChange={x => setL(0, x)} onCommit={commit} />
+          <Slider label="Midtones" value={cur[2]} min={10} max={300} onChange={x => setL(2, x)} onCommit={commit} />
+          <Slider label="Brightest point" value={cur[1]} min={1} max={255} onChange={x => setL(1, x)} onCommit={commit} />
+          <div className="grid grid-cols-3 gap-1.5">
+            <Button onClick={() => pick('Set the black point', rgb => setAll((_c, i) => { const o = lv((['r', 'g', 'b'] as const)[i]); return [Math.min(rgb[i], o[1] - 1), o[1], o[2]] }))} className="!h-8 !px-1 !text-[11.5px]"><span className="w-3 h-3 rounded-full bg-black border border-white/40" />Black</Button>
+            <Button onClick={() => pick('Set the grey point', rgb => { const t = (rgb[0] + rgb[1] + rgb[2]) / 3; setAll((_c, i) => { const o = lv((['r', 'g', 'b'] as const)[i]); const xc = Math.min(0.99, Math.max(0.01, (rgb[i] - o[0]) / (o[1] - o[0]))), xt = Math.min(0.99, Math.max(0.01, (t - o[0]) / (o[1] - o[0]))); return [o[0], o[1], Math.max(10, Math.min(300, Math.round((100 * Math.log(xc)) / Math.log(xt))))] }) })} className="!h-8 !px-1 !text-[11.5px]"><span className="w-3 h-3 rounded-full bg-[#808080] border border-white/40" />Grey</Button>
+            <Button onClick={() => pick('Set the white point', rgb => setAll((_c, i) => { const o = lv((['r', 'g', 'b'] as const)[i]); return [o[0], Math.max(rgb[i], o[0] + 1), o[2]] }))} className="!h-8 !px-1 !text-[11.5px]"><span className="w-3 h-3 rounded-full bg-white" />White</Button>
+          </div>
+          <p className="text-[12px] text-void-500 leading-relaxed">Pickers: click something that should be pure black, neutral grey or pure white. The grey picker removes colour casts.</p>
+        </div>
+      </Section>
+    )
+  }
+
+  if (layer.kind === 'hueSaturation') {
+    const cur = band === 'master' ? { hue: v.hue, saturation: v.saturation, lightness: v.lightness } : (layer.bands?.[band] ?? { hue: 0, saturation: 0, lightness: 0 })
+    const setH = (patch: Partial<typeof cur>) => band === 'master' ? setV(patch as any) : s.updateLayer(layer.id, { bands: { ...(layer.bands ?? {}), [band]: { ...cur, ...patch } } } as Partial<AdjustmentLayer>)
+    return (
+      <Section title="Hue and saturation" action={reset}>
+        <div className="flex flex-wrap gap-1 mb-3">
+          <button onClick={() => setBand('master')} className={`h-7 px-2.5 rounded-md text-[12px] ${band === 'master' ? 'bg-void-700 text-white' : 'bg-surface-sunken text-void-400'}`}>All colours</button>
+          {HUE_BANDS.map(b => <button key={b.id} onClick={() => setBand(b.id)} aria-pressed={band === b.id} title={b.label} className={`h-7 px-2 rounded-md text-[12px] inline-flex items-center gap-1 ${band === b.id ? 'bg-void-700 text-white' : 'bg-surface-sunken text-void-400'}`}><span className="w-2.5 h-2.5 rounded-full" style={{ background: b.swatch }} />{b.label}</button>)}
+        </div>
+        <div className="space-y-3">
+          <Slider label="Hue" value={cur.hue} min={-180} max={180} onChange={x => setH({ hue: x })} onCommit={commit} />
+          <Slider label="Saturation" value={cur.saturation} min={-100} max={100} onChange={x => setH({ saturation: x })} onCommit={commit} />
+          <Slider label="Lightness" value={cur.lightness} min={-100} max={100} onChange={x => setH({ lightness: x })} onCommit={commit} />
+          <Button onClick={() => pick('Pick the colour to change', rgb => { const mx = Math.max(...rgb), mn = Math.min(...rgb); if (mx - mn < 8) { useEditor.getState().notify('That colour is grey. Pick something with colour in it.'); return } const [r, g, b] = rgb; const d = mx - mn; let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; const best = HUE_BANDS.reduce((a, x) => { const da = Math.min(Math.abs(h - a.center), 360 - Math.abs(h - a.center)), dx = Math.min(Math.abs(h - x.center), 360 - Math.abs(h - x.center)); return dx < da ? x : a }); setBand(best.id) })} className="w-full">Pick a colour on the image</Button>
+          <p className="text-[12px] text-void-500 leading-relaxed">Pick a colour range to change just those hues, like making only the sky bluer.</p>
+        </div>
+      </Section>
+    )
+  }
+
+  if (layer.kind === 'colorBalance') {
+    const p = range === 's' ? 's' : range === 'm' ? 'm' : 'h'
+    return (
+      <Section title="Colour balance" action={reset}>
+        <div className="flex gap-1 mb-3">{(['s', 'm', 'h'] as const).map(r => <button key={r} onClick={() => setRange(r)} className={`h-7 flex-1 rounded-md text-[12px] ${range === r ? 'bg-void-700 text-white' : 'bg-surface-sunken text-void-400'}`}>{{ s: 'Shadows', m: 'Midtones', h: 'Highlights' }[r]}</button>)}</div>
+        <div className="space-y-3">
+          <Slider label="Cyan to red" value={v[p + 'CR']} min={-100} max={100} onChange={x => setV({ [p + 'CR']: x })} onCommit={commit} />
+          <Slider label="Magenta to green" value={v[p + 'MG']} min={-100} max={100} onChange={x => setV({ [p + 'MG']: x })} onCommit={commit} />
+          <Slider label="Yellow to blue" value={v[p + 'YB']} min={-100} max={100} onChange={x => setV({ [p + 'YB']: x })} onCommit={commit} />
+          <label className="flex items-center gap-2 text-[12.5px] text-void-300"><input type="checkbox" checked={!!v.preserve} onChange={e => { setV({ preserve: e.target.checked ? 1 : 0 }); commit() }} />Keep brightness</label>
+        </div>
+      </Section>
+    )
+  }
+
+  if (layer.kind === 'channelMixer') {
+    const o = out
+    return (
+      <Section title="Channel mixer" action={reset}>
+        <div className="flex gap-1 mb-3">{(['r', 'g', 'b'] as const).map(c => <button key={c} onClick={() => setOut(c)} disabled={!!v.mono && c !== 'r'} className={`h-7 flex-1 rounded-md text-[12px] disabled:opacity-30 ${out === c ? 'bg-void-700 text-white' : 'bg-surface-sunken text-void-400'}`}>{v.mono ? 'Grey' : { r: 'Red out', g: 'Green out', b: 'Blue out' }[c]}</button>)}</div>
+        <div className="space-y-3">
+          {(['r', 'g', 'b'] as const).map(c => <Slider key={c} label={{ r: 'Red', g: 'Green', b: 'Blue' }[c]} value={v[o + c]} min={-200} max={200} unit="%" onChange={x => setV({ [o + c]: x })} onCommit={commit} />)}
+          <label className="flex items-center gap-2 text-[12.5px] text-void-300"><input type="checkbox" checked={!!v.mono} onChange={e => { setV({ mono: e.target.checked ? 1 : 0, ...(e.target.checked ? { rr: 40, rg: 40, rb: 20 } : {}) }); setOut('r'); commit() }} />Black and white mix</label>
+        </div>
+      </Section>
+    )
+  }
+
+  if (layer.kind === 'photoFilter') {
+    const color = layer.colors?.[0] ?? '#ec8a00'
+    return (
+      <Section title="Photo filter" action={reset}>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between"><span className="text-[12px] text-void-400">Filter colour</span><ColorButton label="Filter colour" value={color} onChange={c => s.updateLayer(layer.id, { colors: [c] } as Partial<AdjustmentLayer>)} onCommit={commit} /></div>
+          <div className="flex flex-wrap gap-1.5">{[['Warm', '#ec8a00'], ['Cool', '#006dff'], ['Sepia', '#ac7a33'], ['Green', '#19c919'], ['Deep red', '#ff0000']].map(([n, c]) => <button key={n} onClick={() => s.updateLayer(layer.id, { colors: [c] } as Partial<AdjustmentLayer>, 'Photo filter')} className="h-7 px-2 rounded-md text-[12px] bg-surface-sunken text-void-300 inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />{n}</button>)}</div>
+          <Slider label="Density" value={v.density} min={1} max={100} unit="%" onChange={x => setV({ density: x })} onCommit={commit} />
+          <label className="flex items-center gap-2 text-[12.5px] text-void-300"><input type="checkbox" checked={!!v.preserve} onChange={e => { setV({ preserve: e.target.checked ? 1 : 0 }); commit() }} />Keep brightness</label>
+        </div>
+      </Section>
+    )
+  }
+
+  // gradient map
+  const cols = layer.colors?.length ? layer.colors : ['#000000', '#ffffff']
+  const setCols = (c: string[], label?: string) => s.updateLayer(layer.id, { colors: c } as Partial<AdjustmentLayer>, label)
+  const PRESETS: [string, string[]][] = [['Black to white', ['#000000', '#ffffff']], ['Duotone violet', ['#1b0f3b', '#8b7cff', '#f3efff']], ['Sunset', ['#1a0633', '#c2185b', '#ffb74d']], ['Teal and orange', ['#06222b', '#1d8a8a', '#f6a04d']], ['Newsprint', ['#1c1c1c', '#e9e4d8']]]
+  return (
+    <Section title="Gradient map" action={reset}>
+      <div className="space-y-3">
+        <div className="h-5 rounded-md" style={{ background: `linear-gradient(to right, ${(v.reverse ? [...cols].reverse() : cols).join(',')})` }} />
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {cols.map((c, i) => <ColorButton key={i} label={`Stop ${i + 1}`} value={c} onChange={x => setCols(cols.map((y, j) => (j === i ? x : y)))} onCommit={commit} />)}
+          {cols.length < 5 && <button onClick={() => setCols([...cols.slice(0, -1), '#808080', cols[cols.length - 1]], 'Add stop')} className="h-7 px-2 rounded-md text-[12px] bg-surface-sunken text-void-300">Add stop</button>}
+          {cols.length > 2 && <button onClick={() => setCols([...cols.slice(0, -2), cols[cols.length - 1]], 'Remove stop')} className="h-7 px-2 rounded-md text-[12px] bg-surface-sunken text-void-300">Remove</button>}
+        </div>
+        <div className="flex flex-wrap gap-1.5">{PRESETS.map(([n, c]) => <button key={n} onClick={() => setCols(c, 'Gradient map')} className="h-7 px-2 rounded-md text-[12px] bg-surface-sunken text-void-300 inline-flex items-center gap-1.5"><span className="w-6 h-2.5 rounded" style={{ background: `linear-gradient(to right, ${c.join(',')})` }} />{n}</button>)}</div>
+        <label className="flex items-center gap-2 text-[12.5px] text-void-300"><input type="checkbox" checked={!!v.reverse} onChange={e => { setV({ reverse: e.target.checked ? 1 : 0 }); commit() }} />Reverse</label>
+      </div>
+    </Section>
+  )
+}
+export { hexToRgb }

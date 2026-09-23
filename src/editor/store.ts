@@ -2,12 +2,17 @@ import { create } from 'zustand'
 import { defaultParams, type EffectType } from '@/store/useStore'
 import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, layerBounds, layerMatrix, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
 import type { AdjustmentKind, AdjustmentLayer, Doc, Frame, Group, Layer, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
+import { useUi } from './ui-store'
 
 // Revisions are globally unique so a given (id, rev) always means the same pixels, even across undo branches.
 let REV = 1
 export const nextRev = () => ++REV
 
-interface Snapshot { doc: Doc; layers: Layer[]; groups: Group[]; activeId: string | null; selection: HTMLCanvasElement | null; label: string }
+export interface Snapshot { doc: Doc; layers: Layer[]; groups: Group[]; activeId: string | null; selection: HTMLCanvasElement | null; label: string; at?: number }
+
+type Pt = { x: number; y: number }
+/** An in-progress free transform (skew, distort, perspective, warp) on one layer. */
+export interface TransformSession { layerId: string; mode: 'free' | 'skew' | 'distort' | 'perspective' | 'warp'; quad: Pt[]; grid: Pt[] | null; origin: Pt[] }
 
 export const base = (name: string) => ({
   id: uid(), name, visible: true, locked: false, opacity: 1, blend: 'source-over' as const,
@@ -24,6 +29,15 @@ export const ADJUSTMENT_LABELS: Record<AdjustmentKind, string> = {
   blur: 'Blur',
   curves: 'Curves',
   voidEffect: 'Filter',
+  vibrance: 'Vibrance',
+  exposure: 'Exposure',
+  colorBalance: 'Colour balance',
+  channelMixer: 'Channel mixer',
+  photoFilter: 'Photo filter',
+  gradientMap: 'Gradient map',
+  posterize: 'Posterize',
+  threshold: 'Threshold',
+  lut: 'Colour lookup (LUT)',
 }
 
 interface EditorState {
@@ -55,6 +69,19 @@ interface EditorState {
 
   history: Snapshot[]
   historyIndex: number
+  /** Named states pinned above the history list. Never trimmed. */
+  snapshots: Snapshot[]
+  /** Quick mask: paint the selection with Brush and Eraser. */
+  quickMask: boolean
+  transform: TransformSession | null
+  /** Show one channel of the image, or a saved alpha channel, instead of the composite. */
+  viewChannel: 'rgb' | 'r' | 'g' | 'b' | string
+  /** When set, the next click on the canvas samples a colour for this callback instead of using the tool. */
+  pickRequest: { label: string; cb: (hex: string, rgb: [number, number, number]) => void } | null
+  /** Selected path in the Paths panel, and the node being edited. */
+  activePathId: string | null
+  /** Cursor position in document pixels, for the status bar and Info panel. */
+  pointer: { x: number; y: number; rgb: [number, number, number, number] | null } | null
   dirty: boolean
   toast: { id: number; msg: string } | null
   busy: string | null
@@ -90,8 +117,8 @@ interface EditorState {
   addLayer: (l: Layer, label?: string) => void
   addBlank: () => void
   addImage: (src: CanvasImageSource, w: number, h: number, name: string) => void
-  addText: (x?: number, y?: number) => void
-  addShape: (shape: ShapeLayer['shape'], x: number, y: number, w: number, h: number) => string
+  addText: (x?: number, y?: number, boxWidth?: number | null) => void
+  addShape: (shape: ShapeLayer['shape'], x: number, y: number, w: number, h: number, extra?: Partial<ShapeLayer>) => string
   addAdjustment: (kind: AdjustmentKind, effect?: EffectType) => void
   updateLayer: (id: string, patch: Partial<Layer>, commitLabel?: string) => void
   updateLayers: (updates: { id: string; patch: Partial<Layer> }[]) => void
@@ -135,15 +162,43 @@ interface EditorState {
   undo: () => void
   redo: () => void
   jumpTo: (index: number) => void
+  deleteHistoryStep: (index: number) => void
+  takeSnapshot: (name?: string) => void
+  restoreSnapshot: (index: number) => void
+  deleteSnapshot: (index: number) => void
+  /** Replace the whole document state in one step (used by image-wide operations). */
+  replaceAll: (patch: { doc?: Doc; layers?: Layer[]; groups?: Group[]; selection?: HTMLCanvasElement | null }, label: string) => void
 
   notify: (msg: string) => void
   setBusy: (msg: string | null) => void
   markSaved: () => void
 }
 
-const prune = (groups: Group[], layers: Layer[]) => groups.filter(g => layers.some(l => l.groupId === g.id))
+/** Innermost first: the group a layer sits in, then its parent, and so on. */
+export function groupChain(groupId: string | null | undefined, groups: Group[]): string[] {
+  const out: string[] = []
+  let id = groupId ?? null, guard = 0
+  while (id && guard++ < 64) { out.push(id); id = groups.find(g => g.id === id)?.parentId ?? null }
+  return out
+}
+export const inGroup = (l: Layer, gid: string, groups: Group[]) => groupChain(l.groupId, groups).includes(gid)
+export const groupDepth = (gid: string | null | undefined, groups: Group[]) => groupChain(gid, groups).length
 
-const HISTORY_LIMIT = 40
+/** Keep only groups that still hold a layer, directly or through a nested group. */
+const prune = (groups: Group[], layers: Layer[]) => {
+  const used = new Set<string>()
+  for (const l of layers) for (const g of groupChain(l.groupId, groups)) used.add(g)
+  return groups.filter(g => used.has(g.id))
+}
+
+/** Rough bytes held by history: every distinct canvas counted once. */
+function historyBytes(snaps: Snapshot[]) {
+  const seen = new Set<HTMLCanvasElement>(); let n = 0
+  const add = (c: HTMLCanvasElement | null | undefined) => { if (c && !seen.has(c)) { seen.add(c); n += c.width * c.height * 4 } }
+  for (const s of snaps) { add(s.selection); for (const l of s.layers) { add(l.mask); if (l.type === 'raster') add(l.canvas) } }
+  return n
+}
+export const historyMemoryMB = (snaps: Snapshot[]) => Math.round(historyBytes(snaps) / 1048576)
 
 /** The document canvas must contain every board, or boards past its edge would not render. */
 function coverFrames(doc: Doc): Doc {
@@ -167,7 +222,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   docRev: 0,
 
   tool: 'move',
-  options: { size: 40, hardness: 0.8, opacity: 1, tolerance: 32, contiguous: true, shape: 'rect', cropAspect: null, feather: 0 },
+  options: { size: 40, hardness: 0.8, opacity: 1, tolerance: 32, contiguous: true, shape: 'rect', cropAspect: null, feather: 0, flow: 1, smoothing: 0.25, sides: 5, star: 1, selMode: 'new', toneRange: 'midtones', exposure: 0.5, sampleAll: true, pressureSize: true, pressureOpacity: false, autoSelect: true, autoSelectGroup: false, showTransform: true, showDistances: true, spongeMode: 'desaturate' },
   fg: '#111111',
   bg: '#ffffff',
   swatches: ['#111111', '#ffffff', '#8b7cff', '#ff5a5f', '#ffb020', '#1fb47a', '#2d7ff9'],
@@ -179,31 +234,38 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   history: [],
   historyIndex: -1,
+  snapshots: [],
+  quickMask: false,
+  transform: null,
+  viewChannel: 'rgb',
+  pickRequest: null,
+  activePathId: null,
+  pointer: null,
   dirty: false,
   toast: null,
   busy: null,
 
   newDoc: ({ name, width, height, background }) => {
     const doc: Doc = { id: uid(), name: name || 'Untitled design', width, height, background }
-    set({ doc, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, editingMask: false, history: [], historyIndex: -1, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move' })
+    set({ doc, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move' })
     get().commit('New design')
     set({ dirty: false })
   },
 
   loadProject: (doc, layers, swatches, groups) => {
     const top = layers[layers.length - 1]?.id ?? null
-    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, selection: null, editingMask: false, history: [], historyIndex: -1, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
+    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, selection: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
     get().commit('Open')
     set({ dirty: false })
   },
 
   loadFramed: (doc, layers, swatches, groups) => {
     const top = layers[layers.length - 1]?.id ?? null
-    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, activeFrameId: doc.frames?.[0]?.id ?? null, selection: null, editingMask: false, history: [], historyIndex: -1, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
+    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, activeFrameId: doc.frames?.[0]?.id ?? null, selection: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
     get().commit('Open'); set({ dirty: false })
   },
 
-  closeDoc: () => set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, history: [], historyIndex: -1 }),
+  closeDoc: () => set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null }),
 
   setDoc: (patch, commit) => {
     const { doc } = get(); if (!doc) return
@@ -304,26 +366,46 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   selectGroup: (groupId) => {
-    const ids = get().layers.filter(l => l.groupId === groupId).map(l => l.id)
+    const ids = get().layers.filter(l => inGroup(l, groupId, get().groups)).map(l => l.id)
     set({ selectedIds: ids, activeId: ids[ids.length - 1] ?? null, editingMask: false })
   },
 
   groupSelected: () => {
     const { layers, selectedIds, groups } = get()
-    if (selectedIds.length < 2) { get().notify('Select two or more layers to group them. Shift-click adds to the selection.'); return }
-    const g: Group = { id: uid(), name: `Group ${groups.length + 1}`, visible: true, opacity: 1, collapsed: false }
-    const picked = layers.filter(l => selectedIds.includes(l.id)).map(l => ({ ...l, groupId: g.id, rev: nextRev() } as Layer))
+    if (selectedIds.length < 1) { get().notify('Select one or more layers to group them. Shift-click adds to the selection.'); return }
+    const sel = layers.filter(l => selectedIds.includes(l.id))
+    // The new group sits inside the innermost group that holds every selected layer.
+    const chains = sel.map(l => groupChain(l.groupId, groups))
+    const parent = chains[0].find(g => chains.every(c => c.includes(g))) ?? null
+    const g: Group = { id: uid(), name: `Group ${groups.length + 1}`, visible: true, opacity: 1, collapsed: false, parentId: parent }
+    // A group whose layers are all selected moves into the new group whole, so nesting is kept.
+    const wholly = (gid: string) => layers.filter(l => inGroup(l, gid, groups)).every(l => selectedIds.includes(l.id))
+    const reparent = new Set<string>()
+    const picked = sel.map(l => {
+      const chain = groupChain(l.groupId, groups)
+      const below = parent ? chain.slice(0, chain.indexOf(parent)) : chain
+      let top: string | null = null
+      for (const gid of below) if (wholly(gid)) top = gid
+      if (top) { reparent.add(top); return { ...l, rev: nextRev() } as Layer }
+      return { ...l, groupId: g.id, rev: nextRev() } as Layer
+    })
     const topIndex = Math.max(...selectedIds.map(id => layers.findIndex(l => l.id === id)))
     const anchor = layers[topIndex].id
     const rest = layers.filter(l => !selectedIds.includes(l.id) || l.id === anchor)
     const at = rest.findIndex(l => l.id === anchor)
     rest.splice(at, 1, ...picked)
-    set({ layers: rest.map(l => ({ ...l, rev: nextRev() } as Layer)), groups: prune([...groups, g], rest), docRev: get().docRev + 1 })
+    const nextGroups = [...groups.map(x => reparent.has(x.id) ? { ...x, parentId: g.id } : x), g]
+    set({ layers: rest.map(l => ({ ...l, rev: nextRev() } as Layer)), groups: prune(nextGroups, rest), docRev: get().docRev + 1 })
     get().commit('Group layers')
   },
 
   ungroup: (groupId) => {
-    set({ layers: get().layers.map(l => (l.groupId === groupId ? ({ ...l, groupId: null, rev: nextRev() } as Layer) : l)), groups: get().groups.filter(g => g.id !== groupId), docRev: get().docRev + 1 })
+    const groups = get().groups, g = groups.find(x => x.id === groupId), up = g?.parentId ?? null
+    set({
+      layers: get().layers.map(l => (l.groupId === groupId ? ({ ...l, groupId: up, rev: nextRev() } as Layer) : l)),
+      groups: groups.filter(x => x.id !== groupId).map(x => x.parentId === groupId ? { ...x, parentId: up } : x),
+      docRev: get().docRev + 1,
+    })
     get().commit('Ungroup')
   },
 
@@ -430,12 +512,13 @@ export const useEditor = create<EditorState>((set, get) => ({
     set({ tool: 'move' })
   },
 
-  addText: (x, y) => {
+  addText: (x, y, boxWidth) => {
     const { doc, fg, brandFont } = get(); if (!doc) return
-    const size = Math.round(Math.max(24, doc.width / 14))
+    const size = boxWidth ? Math.round(Math.max(16, Math.min(doc.width / 40, boxWidth / 12))) : Math.round(Math.max(24, doc.width / 14))
     const l: TextLayer = {
-      ...base('Text'), type: 'text', text: 'Your text', fontFamily: brandFont ?? 'Inter', fontSize: size, fontWeight: 700, italic: false,
-      color: fg, align: 'left', lineHeight: 1.15, letterSpacing: 0,
+      ...base(boxWidth ? 'Paragraph' : 'Text'), type: 'text', text: boxWidth ? 'Type your paragraph here. Text wraps inside the box, and you can drag the side handles to change its width.' : 'Your text',
+      fontFamily: brandFont ?? 'Inter', fontSize: size, fontWeight: boxWidth ? 400 : 700, italic: false,
+      color: fg, align: 'left', lineHeight: boxWidth ? 1.4 : 1.15, letterSpacing: 0, boxWidth: boxWidth ?? null,
     }
     const s = layerSize(l)
     l.x = x ?? (doc.width - s.w) / 2; l.y = y ?? (doc.height - s.h) / 2
@@ -443,11 +526,14 @@ export const useEditor = create<EditorState>((set, get) => ({
     set({ tool: 'move', editingTextId: l.id })
   },
 
-  addShape: (shape, x, y, w, h) => {
-    const { fg } = get()
+  addShape: (shape, x, y, w, h, extra) => {
+    const { fg, options } = get()
+    const names: Record<string, string> = { rect: 'Rectangle', ellipse: 'Ellipse', line: 'Line', polygon: (options.star ?? 1) < 1 ? 'Star' : 'Polygon', path: 'Shape' }
     const l: ShapeLayer = {
-      ...base(shape === 'rect' ? 'Rectangle' : shape === 'ellipse' ? 'Ellipse' : 'Line'), type: 'shape', shape, w, h,
+      ...base(names[shape]), type: 'shape', shape, w, h,
       fill: shape === 'line' ? null : fg, stroke: shape === 'line' ? fg : null, strokeWidth: shape === 'line' ? 6 : 0, radius: 0, x, y,
+      ...(shape === 'polygon' ? { sides: options.sides ?? 5, star: options.star ?? 1 } : {}),
+      ...extra,
     }
     get().addLayer(l, 'Add shape')
     return l.id
@@ -555,7 +641,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     }
     if (!l || l.type !== 'raster') { get().addBlank(); l = get().active() }
     if (!l || l.type !== 'raster') return null
-    if (l.locked) { get().notify('This layer is locked. Unlock it to paint.'); return null }
+    if (l.locked || l.lockPixels) { get().notify('This layer is locked. Unlock it to paint.'); return null }
     const aligned = l.x === 0 && l.y === 0 && l.scaleX === 1 && l.scaleY === 1 && l.rotation === 0 && l.canvas.width === s.doc.width && l.canvas.height === s.doc.height
     if (!aligned) return get().rasterize(l.id)
     return l
@@ -688,26 +774,58 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   commit: (label) => {
     const { doc, layers, activeId, selection, history, historyIndex } = get(); if (!doc) return
-    const snap: Snapshot = { doc: { ...doc }, layers: [...layers], groups: get().groups.map(g => ({ ...g })), activeId, selection, label }
-    const next = [...history.slice(0, historyIndex + 1), snap].slice(-HISTORY_LIMIT)
+    const snap: Snapshot = { doc: { ...doc }, layers: [...layers], groups: get().groups.map(g => ({ ...g })), activeId, selection, label, at: Date.now() }
+    const ui = useUi.getState()
+    let next = [...history.slice(0, historyIndex + 1), snap].slice(-Math.max(5, ui.historyLimit))
+    // Keep history inside its memory budget: drop the oldest steps first, always keeping the last five.
+    const budget = ui.historyMemoryMB * 1048576
+    if (next.length > 5 && historyBytes(next) > budget) {
+      while (next.length > 5 && historyBytes(next) > budget) next = next.slice(Math.max(1, Math.floor(next.length / 10)))
+    }
     set({ history: next, historyIndex: next.length - 1, dirty: true })
   },
 
   undo: () => {
     const { history, historyIndex } = get(); if (historyIndex <= 0) return
-    const s = history[historyIndex - 1]
-    set({ doc: { ...s.doc }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), selectedIds: s.activeId ? [s.activeId] : [], editingTextId: null, activeId: s.activeId, selection: s.selection, historyIndex: historyIndex - 1, editingMask: false, docRev: get().docRev + 1, selRev: get().selRev + 1, dirty: true })
+    get().jumpTo(historyIndex - 1)
   },
 
   redo: () => {
     const { history, historyIndex } = get(); if (historyIndex >= history.length - 1) return
-    const s = history[historyIndex + 1]
-    set({ doc: { ...s.doc }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), selectedIds: s.activeId ? [s.activeId] : [], editingTextId: null, activeId: s.activeId, selection: s.selection, historyIndex: historyIndex + 1, editingMask: false, docRev: get().docRev + 1, selRev: get().selRev + 1, dirty: true })
+    get().jumpTo(historyIndex + 1)
   },
 
   jumpTo: (index) => {
     const { history } = get(); const s = history[index]; if (!s) return
-    set({ doc: { ...s.doc }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), selectedIds: s.activeId ? [s.activeId] : [], editingTextId: null, activeId: s.activeId, selection: s.selection, historyIndex: index, editingMask: false, docRev: get().docRev + 1, selRev: get().selRev + 1, dirty: true })
+    set({ doc: { ...s.doc }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), selectedIds: s.activeId ? [s.activeId] : [], editingTextId: null, activeId: s.activeId, selection: s.selection, historyIndex: index, editingMask: false, transform: null, docRev: get().docRev + 1, selRev: get().selRev + 1, dirty: true })
+  },
+
+  deleteHistoryStep: (index) => {
+    const { history, historyIndex } = get()
+    if (index <= 0 || index >= history.length || history.length < 2) return
+    const next = history.filter((_, i) => i !== index)
+    const cur = index < historyIndex ? historyIndex - 1 : Math.min(historyIndex, next.length - 1)
+    set({ history: next })
+    get().jumpTo(cur)
+  },
+
+  takeSnapshot: (name) => {
+    const { doc, layers, activeId, selection, snapshots } = get(); if (!doc) return
+    const snap: Snapshot = { doc: { ...doc }, layers: [...layers], groups: get().groups.map(g => ({ ...g })), activeId, selection, label: name || `Snapshot ${snapshots.length + 1}`, at: Date.now() }
+    set({ snapshots: [...snapshots, snap] })
+  },
+
+  restoreSnapshot: (index) => {
+    const s = get().snapshots[index]; if (!s) return
+    set({ doc: { ...s.doc }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), activeId: s.activeId, selectedIds: s.activeId ? [s.activeId] : [], selection: s.selection, editingMask: false, docRev: get().docRev + 1, selRev: get().selRev + 1 })
+    get().commit('Restore ' + s.label)
+  },
+
+  deleteSnapshot: (index) => set({ snapshots: get().snapshots.filter((_, i) => i !== index) }),
+
+  replaceAll: (patch, label) => {
+    set({ ...patch, ...(patch.layers ? { layers: patch.layers.map(l => ({ ...l, rev: nextRev() } as Layer)) } : {}), docRev: get().docRev + 1, selRev: get().selRev + 1, transform: null } as any)
+    get().commit(label)
   },
 
   notify: (msg) => set({ toast: { id: Date.now(), msg } }),

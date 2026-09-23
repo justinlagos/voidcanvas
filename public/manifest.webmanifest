@@ -1,0 +1,18 @@
+{
+  "name": "Voidcanvas",
+  "short_name": "Voidcanvas",
+  "description": "Layered image editor, brand builder and effects that run entirely in your browser. Works offline.",
+  "start_url": "/editor",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0c0c0e",
+  "theme_color": "#141416",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "file_handlers": [
+    { "action": "/editor", "accept": { "image/*": [".png", ".jpg", ".jpeg", ".webp"], "image/vnd.adobe.photoshop": [".psd"], "application/octet-stream": [".void"] } }
+  ]
+}

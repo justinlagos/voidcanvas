@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { PanelRight, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { PanelRight } from 'lucide-react'
 import { blobToCanvas, getBrand, importFiles, openProject, saveProject, takeHandoff } from '../io'
 import { useEditor } from '../store'
-import type { ToolId } from '../types'
 import { AddMenu } from './AddMenu'
 import { CommandPalette } from './CommandPalette'
 import { BrandKitDialog, ResizeDialog, ShortcutSheet, applyBrand } from './Dialogs'
@@ -12,17 +11,24 @@ import { BoardsPanel } from './BoardsPanel'
 import { PrivacyPanel } from './PrivacyPanel'
 import { initPrivateFromSession, isPrivate } from '../io'
 import { ExportDialog } from './ExportDialog'
-import { LayersPanel } from './LayersPanel'
 import { OptionsBar } from './OptionsBar'
-import { PropertiesPanel } from './PropertiesPanel'
 import { Stage, isTyping, stageApi } from './Stage'
 import { StartScreen } from './StartScreen'
 import { TabBar } from './TabBar'
 import { useTabs } from '../tabs'
-import { ToolRail } from './ToolRail'
-import { TopBar } from './TopBar'
+import { TOOL_KEYS, ToolRail, cycleFamily, toggleQuickMask } from './ToolRail'
+import { MenuBar } from './MenuBar'
+import { StatusBar } from './StatusBar'
+import { Dock, MobilePanels } from './Dock'
+import { AiInfoDialog, CanvasSizeDialog, ColorRangeDialog, FillDialog, GuideLayoutDialog, ImageSizeDialog, ImportReportDialog, MissingFontsDialog, ModifySelectionDialog, NewGuideDialog, PreferencesDialog, StrokeDialog, VersionsDialog, fontAvailable } from './MoreDialogs'
+import { LayerStyleDialog } from './LayerStyleDialog'
+import { SelectMask } from './SelectMask'
+import { buildActions, eventCombo, internalClip, normCombo, pasteInPlace } from '../actions'
+import { useUi } from '../ui-store'
+import * as ops from '../ops'
+import { markSessionClean, noteEdit, readCrashedSession, startAutoVersions, writeSession } from '../versions'
 
-const KEYS: Record<string, ToolId> = { v: 'move', b: 'brush', e: 'eraser', s: 'clone', j: 'heal', m: 'marquee', l: 'lasso', w: 'wand', g: 'fill', t: 'text', u: 'shape', i: 'eyedropper', c: 'crop', h: 'hand', z: 'zoom' }
+type ModalState = { name: string; props?: any } | null
 
 export function EditorShell() {
   const hasDoc = useEditor(s => !!s.doc)
@@ -30,18 +36,56 @@ export function EditorShell() {
   const busy = useEditor(s => s.busy)
   const dirty = useEditor(s => s.dirty)
   const historyIndex = useEditor(s => s.historyIndex)
-  const [modal, setModal] = useState<null | 'add' | 'filters' | 'export' | 'palette' | 'resize' | 'brand' | 'keys' | 'boards' | 'privacy'>(null)
+  const [modal, setModalState] = useState<ModalState>(null)
+  const [queue, setQueue] = useState<NonNullable<ModalState>[]>([])
+  // Automatic dialogs (import report, missing fonts) wait their turn instead of replacing each other.
+  const setModal = (m: string | ModalState) => {
+    const next = typeof m === 'string' ? { name: m } : m
+    if (next && ['importReport', 'missingFonts'].includes(next.name)) setModalState(cur => { if (cur) { setQueue(q => [...q, next]); return cur } return next })
+    else setModalState(next)
+  }
   const [panel, setPanel] = useState(false)
   const [shownToast, setShownToast] = useState<string | null>(null)
+  const ui = useUi()
 
-  useEffect(() => { (window as any).__voidEditor = useEditor }, [])
+  useEffect(() => { useUi.getState().hydrate() }, [])
+  useEffect(() => { (window as any).__voidEditor = useEditor; (window as any).__voidUi = useUi }, [])
 
-  // Brand kit applies to every design. Other parts of the editor open dialogs through a window event.
   const docId = useEditor(s => s.doc?.id)
   useEffect(() => { getBrand().then(applyBrand).catch(() => {}) }, [docId])
   useEffect(() => { useTabs.getState().sync() }, [docId])
-  useEffect(() => { if (docId) import('../io').then(m => m.ensureDocFonts()).catch(() => {}) }, [docId])
   useEffect(() => { initPrivateFromSession() }, [])
+  useEffect(() => startAutoVersions(), [])
+  // Opened from the installed app (file handler): bring the files straight in.
+  useEffect(() => {
+    const lq = (window as any).launchQueue
+    if (!lq?.setConsumer) return
+    lq.setConsumer(async (p: any) => { const files = await Promise.all((p.files ?? []).map((h: any) => h.getFile())); if (files.length) importFiles(files as File[]) })
+  }, [])
+
+  // Fonts: load what the design uses, then warn about any that are nowhere to be found.
+  useEffect(() => {
+    if (!docId) return
+    let live = true
+    import('../io').then(m => m.ensureDocFonts()).then(() => {
+      if (!live) return
+      const fams = Array.from(new Set(useEditor.getState().layers.filter(l => l.type === 'text').map(l => (l as any).fontFamily as string)))
+      const missing = fams.filter(f => !fontAvailable(f))
+      if (missing.length) setModal({ name: 'missingFonts', props: { fonts: missing } })
+    }).catch(() => {})
+    return () => { live = false }
+  }, [docId])
+
+  // Crash recovery marker: records open designs; marked clean when the tab closes normally.
+  const tabs = useTabs(s => s.tabs)
+  useEffect(() => { if (!isPrivate()) writeSession(tabs.map(t => ({ id: t.id, name: t.name })), docId ?? null) }, [tabs, docId])
+  useEffect(() => {
+    const hide = () => { if (document.visibilityState === 'hidden' && useEditor.getState().dirty && !isPrivate()) saveProject().catch(() => {}) }
+    const leave = () => markSessionClean()
+    document.addEventListener('visibilitychange', hide); window.addEventListener('pagehide', leave)
+    return () => { document.removeEventListener('visibilitychange', hide); window.removeEventListener('pagehide', leave); markSessionClean() }
+  }, [])
+
   useEffect(() => {
     const open = (e: Event) => setModal((e as CustomEvent).detail as any)
     window.addEventListener('vc:open', open)
@@ -72,7 +116,6 @@ export function EditorShell() {
       }
       const canvases = await Promise.all(h.images.map(i => blobToCanvas(i.blob)))
       if (h.boards && h.size && canvases.length > 1) {
-        // Each image becomes its own board, each holding one image layer.
         const { buildFramedFromImages } = await import('../io')
         buildFramedFromImages(h.name, canvases, h.images.map(i => i.name), h.size, h.palette)
         ed.notify('Opened as boards. Each page is its own board; drag elements between them.')
@@ -82,7 +125,6 @@ export function EditorShell() {
       ed.newDoc({ name: h.name, ...size, background: h.from === 'studio' ? '#ffffff' : null })
       canvases.forEach((c, i) => useEditor.getState().addImage(c, c.width, c.height, h.images[i].name))
       if (h.liveEffect) {
-        // Add the effect as a live, re-editable filter layer over the image.
         const st = useEditor.getState()
         st.addAdjustment('voidEffect', h.liveEffect.effect as any)
         const fl = st.active()
@@ -94,9 +136,11 @@ export function EditorShell() {
     })
   }, [])
 
-  // Autosave
+  // Autosave, and count edits for automatic versions.
   useEffect(() => {
-    if (!dirty || !hasDoc || isPrivate()) return
+    if (!dirty || !hasDoc) return
+    noteEdit()
+    if (isPrivate()) return
     const t = setTimeout(() => { saveProject().catch(() => useEditor.getState().notify('Could not save. Your browser storage may be full.')) }, 1800)
     return () => clearTimeout(t)
   }, [dirty, historyIndex, hasDoc])
@@ -108,17 +152,49 @@ export function EditorShell() {
     return () => clearTimeout(t)
   }, [toast])
 
+  const actions = useMemo(() => buildActions(), [])
+  const hotkeys = useMemo(() => {
+    const m = new Map<string, () => void>()
+    for (const a of Object.values(actions)) if (a.hotkey) m.set(normCombo(a.hotkey), () => { if (!a.enabled || a.enabled()) a.run() })
+    return m
+  }, [actions])
+
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       if (isTyping(e as unknown as KeyboardEvent)) return
       const files = Array.from(e.clipboardData?.files ?? []).filter(f => f.type.startsWith('image/'))
-      if (files.length) { e.preventDefault(); importFiles(files) }
+      if (!files.length) return
+      e.preventDefault()
+      // Copied from this design: paste it back in place instead of in the middle.
+      const clip = internalClip()
+      if (clip && useEditor.getState().doc) {
+        createImageBitmap(files[0]).then(b => { if (b.width === clip.canvas.width && b.height === clip.canvas.height) pasteInPlace(); else importFiles(files) }).catch(() => importFiles(files))
+        return
+      }
+      importFiles(files)
     }
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e) || modal) return
       const s = useEditor.getState(); if (!s.doc) return
       const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase()
       const stop = () => e.preventDefault()
+
+      // A transform session owns Enter and Escape.
+      if (s.transform) {
+        if (k === 'enter') { stop(); ops.applyTransform(); return }
+        if (k === 'escape') { stop(); ops.cancelTransform(); return }
+      }
+      if (k === 'enter' && !mod && stageApi.enter()) { stop(); return }
+      if (k === 'escape' && stageApi.escape()) { stop(); return }
+      if ((k === 'delete' || k === 'backspace') && s.tool === 'pathselect' && stageApi.deleteNode()) { stop(); return }
+
+      // Channel shortcuts: Ctrl+2 composite, Ctrl+3/4/5 red, green, blue.
+      if (mod && !e.shiftKey && !e.altKey && ['2', '3', '4', '5'].includes(e.key)) { stop(); useEditor.setState({ viewChannel: ({ '2': 'rgb', '3': 'r', '4': 'g', '5': 'b' } as Record<string, string>)[e.key], docRev: s.docRev + 1 }); return }
+
+      const combo = eventCombo(e)
+      const hk = hotkeys.get(combo)
+      if (hk) { stop(); hk(); return }
+
       if (k === '\\') { if (!s.compare) useEditor.setState({ compare: true }); return }
       if (e.key === '?') { setModal('keys'); return }
       if (mod && k === 'k') { stop(); setModal('palette'); return }
@@ -137,73 +213,100 @@ export function EditorShell() {
       if (mod && (k === '=' || k === '+')) { stop(); stageApi.zoomBy(1.25); return }
       if (mod && k === '-') { stop(); stageApi.zoomBy(0.8); return }
       if (mod) return
-      if (k === 'escape') { if (s.crop) useEditor.setState({ crop: null }); else if (s.selection) s.setSelection(null, 'Deselect'); else if (s.editingMask) s.setEditingMask(false); return }
+      if (k === 'escape') { if (s.crop) useEditor.setState({ crop: null }); else if (s.quickMask) toggleQuickMask(); else if (s.selection) s.setSelection(null, 'Deselect'); else if (s.editingMask) s.setEditingMask(false); else if (s.viewChannel !== 'rgb') useEditor.setState({ viewChannel: 'rgb', docRev: s.docRev + 1 }); return }
       if (k === 'enter' && s.crop && s.crop.w > 1) { s.cropTo(s.crop.x, s.crop.y, s.crop.w, s.crop.h); useEditor.setState({ crop: null }); return }
       if (k === 'delete' || k === 'backspace') { stop(); if (s.selection) s.clearSelectionPixels(); else s.removeSelected(); return }
       if (k === 'x') { s.swapColors(); return }
-      if (k === 'd') { useEditor.setState({ fg: '#111111', bg: '#ffffff' }); return }
+      if (k === 'd' && !e.shiftKey) { useEditor.setState({ fg: '#111111', bg: '#ffffff' }); return }
+      if (k === 'q') { toggleQuickMask(); return }
       if (k === '[' || k === ']') {
-        if (['brush', 'eraser', 'clone', 'heal'].includes(s.tool)) s.setOption('size', Math.max(1, Math.min(400, Math.round(s.options.size * (k === ']' ? 1.2 : 1 / 1.2)) + (k === ']' ? 1 : -1))))
+        if (['brush', 'eraser', 'clone', 'heal', 'remove', 'dodge', 'burn', 'sponge'].includes(s.tool)) s.setOption('size', Math.max(1, Math.min(1000, Math.round(s.options.size * (k === ']' ? 1.2 : 1 / 1.2)) + (k === ']' ? 1 : -1))))
         else if (s.activeId) s.nudgeOrder(s.activeId, k === ']' ? 1 : -1)
+        return
+      }
+      // Number keys set brush or layer opacity, like Photoshop: 1 = 10%, 0 = 100%.
+      if (/^[0-9]$/.test(e.key) && !e.shiftKey && !e.altKey) {
+        const v = e.key === '0' ? 1 : Number(e.key) / 10
+        if (['brush', 'eraser', 'clone', 'fill', 'gradient'].includes(s.tool)) s.setOption('opacity', v)
+        else if (s.activeId) { s.updateLayers(s.selectedIds.map(id => ({ id, patch: { opacity: v } }))); s.commit('Opacity') }
         return
       }
       if (k.startsWith('arrow') && s.selectedIds.length) {
         stop()
         const d = e.shiftKey ? 10 : 1
         const dx = k === 'arrowleft' ? -d : k === 'arrowright' ? d : 0, dy = k === 'arrowup' ? -d : k === 'arrowdown' ? d : 0
-        for (const l of s.layers) if (s.selectedIds.includes(l.id) && !l.locked && l.type !== 'adjustment') s.updateLayer(l.id, { x: l.x + dx, y: l.y + dy })
+        for (const l of s.layers) if (s.selectedIds.includes(l.id) && !l.locked && !l.lockPosition && l.type !== 'adjustment') s.updateLayer(l.id, { x: l.x + dx, y: l.y + dy })
         s.commit('Nudge')
         return
       }
       if (k === 'enter') { const l = s.active(); if (l?.type === 'text') { stop(); useEditor.setState({ editingTextId: l.id, tool: 'move' }) } return }
-      if (e.shiftKey && k === 'm') { s.setTool('ellipse'); return }
-      if (e.shiftKey && k === 'g') { s.setTool('gradient'); return }
-      if (!mod && e.shiftKey && e.code === 'Digit2') { stop(); stageApi.fitSelection(); return }
-      if (!mod && e.shiftKey && e.code === 'Digit1') { stop(); stageApi.fitFrame(); return }
-      if (KEYS[k] && !e.altKey) s.setTool(KEYS[k])
+      if (!e.shiftKey && e.code === 'Digit2') return
+      if (e.shiftKey && e.code === 'Digit2') { stop(); stageApi.fitSelection(); return }
+      if (e.shiftKey && e.code === 'Digit1') { stop(); stageApi.fitFrame(); return }
+      if (e.altKey) return
+      const letter = e.code.startsWith('Key') ? e.code.slice(3).toLowerCase() : k
+      if (TOOL_KEYS[letter]) { const t = e.shiftKey ? cycleFamily(letter) : TOOL_KEYS[letter]; if (t) s.setTool(t) }
     }
     window.addEventListener('keydown', onKey); window.addEventListener('paste', onPaste)
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('paste', onPaste) }
-  }, [modal])
+  }, [modal, hotkeys])
 
+  const openFilters = () => setModal('filters')
+  const close = () => { setModalState(queue[0] ?? null); setQueue(q => q.slice(1)) }
+  const m = modal?.name
   return (
-    <main className="h-[100dvh] flex flex-col bg-void-950 text-void-100 overflow-hidden">
-      <TopBar onExport={() => setModal('export')} onAdd={() => setModal('add')} onSearch={() => setModal('palette')} />
-      {hasDoc && <TabBar onNew={() => useEditor.getState().closeDoc()} />}
+    <main className={`h-[100dvh] flex flex-col bg-void-950 text-void-100 overflow-hidden ${ui.density === 'compact' ? 'vc-compact' : ''} ${ui.touchMode ? 'vc-touch' : ''}`} style={{ ['--vc-ui-scale' as any]: ui.uiScale }}>
+      <MenuBar onExport={() => setModal('export')} onAdd={() => setModal('add')} onSearch={() => setModal('palette')} />
+      {hasDoc && <div className="vc-chrome"><TabBar onNew={() => useEditor.getState().closeDoc()} /></div>}
       {!hasDoc ? <StartScreen /> : (
         <>
           <OptionsBar />
           <div className="flex-1 min-h-0 flex flex-col md:flex-row relative">
             <ToolRail />
             <Stage />
-            <button onClick={() => setPanel(true)} aria-label="Open layers and settings" className="md:hidden absolute right-3 top-3 z-10 h-10 px-3 rounded-full bg-void-900/95 border border-void-700 text-[13px] flex items-center gap-2 shadow-lg"><PanelRight size={16} />Layers</button>
-            <aside aria-label="Layer settings" className={`${panel ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[288px] shrink-0 absolute md:static inset-x-0 bottom-0 z-20 max-h-[70%] md:max-h-none rounded-t-2xl md:rounded-none border-t md:border-t-0 md:border-l border-white/[0.06] bg-surface-overlay shadow-2xl md:shadow-none`}>
-              <div className="md:hidden flex items-center justify-between px-4 pt-3"><span className="text-[13px] font-semibold">Layers and settings</span><button aria-label="Close panel" onClick={() => setPanel(false)} className="w-9 h-9 flex items-center justify-center text-void-300"><X size={18} /></button></div>
-              <div className="overflow-y-auto md:max-h-[58%] shrink md:shrink-0 border-b border-void-800/60"><PropertiesPanel onOpenFilters={() => setModal('filters')} /></div>
-              <LayersPanel />
-            </aside>
+            <button onClick={() => setPanel(true)} aria-label="Open panels" className="md:hidden absolute right-3 top-3 z-10 h-10 px-3 rounded-full bg-void-900/95 border border-void-700 text-[13px] flex items-center gap-2 shadow-lg"><PanelRight size={16} />Layers</button>
+            <Dock onOpenFilters={openFilters} />
+            <MobilePanels open={panel} onClose={() => setPanel(false)} onOpenFilters={openFilters} />
           </div>
+          <StatusBar />
         </>
       )}
 
-      {modal === 'add' && hasDoc && <AddMenu onClose={() => setModal(null)} />}
-      {modal === 'filters' && hasDoc && <AddMenu filtersOnly onClose={() => setModal(null)} />}
-      {modal === 'palette' && hasDoc && <CommandPalette onClose={() => setModal(null)} open={m => setModal(m)} />}
-      {modal === 'resize' && hasDoc && <ResizeDialog onClose={() => setModal(null)} />}
-      {modal === 'brand' && <BrandKitDialog onClose={() => setModal(null)} />}
-      {modal === 'keys' && <ShortcutSheet onClose={() => setModal(null)} />}
-      {modal === 'boards' && hasDoc && <BoardsPanel onClose={() => setModal(null)} />}
-      {modal === 'privacy' && <PrivacyPanel onClose={() => setModal(null)} />}
-      {modal === 'export' && hasDoc && <ExportDialog onClose={() => setModal(null)} />}
+      {m === 'add' && hasDoc && <AddMenu onClose={close} />}
+      {m === 'filters' && hasDoc && <AddMenu filtersOnly onClose={close} />}
+      {m === 'palette' && hasDoc && <CommandPalette onClose={close} open={x => setModal(x)} />}
+      {m === 'resize' && hasDoc && <ResizeDialog onClose={close} />}
+      {m === 'brand' && <BrandKitDialog onClose={close} />}
+      {m === 'keys' && <ShortcutSheet onClose={close} />}
+      {m === 'boards' && hasDoc && <BoardsPanel onClose={close} />}
+      {m === 'privacy' && <PrivacyPanel onClose={close} />}
+      {m === 'export' && hasDoc && <ExportDialog onClose={close} />}
+      {m === 'imageSize' && hasDoc && <ImageSizeDialog onClose={close} />}
+      {m === 'canvasSize' && hasDoc && <CanvasSizeDialog onClose={close} aiFill={modal?.props?.aiFill} />}
+      {m === 'guideLayout' && hasDoc && <GuideLayoutDialog onClose={close} />}
+      {m === 'newGuide' && hasDoc && <NewGuideDialog onClose={close} />}
+      {m === 'fill' && hasDoc && <FillDialog onClose={close} />}
+      {m === 'stroke' && hasDoc && <StrokeDialog onClose={close} />}
+      {m === 'modify' && hasDoc && <ModifySelectionDialog onClose={close} kind={modal?.props?.kind ?? 'feather'} />}
+      {m === 'colorRange' && hasDoc && <ColorRangeDialog onClose={close} />}
+      {m === 'prefs' && <PreferencesDialog onClose={close} tab={modal?.props?.tab} />}
+      {m === 'aiInfo' && <AiInfoDialog onClose={close} />}
+      {m === 'versions' && hasDoc && <VersionsDialog onClose={close} />}
+      {m === 'layerStyle' && hasDoc && <LayerStyleDialog onClose={close} focus={modal?.props?.focus} />}
+      {m === 'selectMask' && hasDoc && <SelectMask onClose={close} />}
+      {m === 'missingFonts' && hasDoc && <MissingFontsDialog onClose={close} fonts={modal?.props?.fonts ?? []} />}
+      {m === 'importReport' && <ImportReportDialog onClose={close} report={modal?.props} />}
 
       {busy && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55" role="status" aria-live="polite">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55" role="status" aria-live="polite">
           <div className="flex items-center gap-3 px-5 py-3.5 rounded-xl bg-[#17171c] border border-void-700 text-[13.5px]"><span className="w-4 h-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />{busy}</div>
         </div>
       )}
       {shownToast && (
-        <div role="status" aria-live="polite" className="fixed z-[70] left-1/2 -translate-x-1/2 bottom-16 md:bottom-6 max-w-[92vw] px-4 py-2.5 rounded-xl bg-white text-void-950 text-[13px] font-medium shadow-2xl">{shownToast}</div>
+        <div role="status" aria-live="polite" className="fixed z-[95] left-1/2 -translate-x-1/2 bottom-16 md:bottom-10 max-w-[92vw] px-4 py-2.5 rounded-xl bg-white text-void-950 text-[13px] font-medium shadow-2xl">{shownToast}</div>
       )}
     </main>
   )
 }
+
+export { readCrashedSession }

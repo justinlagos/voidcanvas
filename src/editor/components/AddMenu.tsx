@@ -21,6 +21,14 @@ const ADJUSTMENTS: { kind: AdjustmentKind; hint: string }[] = [
   { kind: 'blackWhite', hint: 'Remove colour' },
   { kind: 'blur', hint: 'Soften everything below' },
   { kind: 'invert', hint: 'Negative' },
+  { kind: 'exposure', hint: 'Fix over or under exposed shots' },
+  { kind: 'vibrance', hint: 'Richer colour without overdoing skin' },
+  { kind: 'colorBalance', hint: 'Warm shadows, cool highlights' },
+  { kind: 'gradientMap', hint: 'Duotones and colour grades' },
+  { kind: 'photoFilter', hint: 'Classic warming or cooling filter' },
+  { kind: 'channelMixer', hint: 'Custom black and white or colour swaps' },
+  { kind: 'posterize', hint: 'Flat, poster-like colour' },
+  { kind: 'threshold', hint: 'Pure black and white' },
 ]
 
 // Previews run one at a time between frames so the menu opens instantly and never locks up.
