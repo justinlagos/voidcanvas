@@ -2,29 +2,34 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 
 export const focusRing = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
-/** A small styled tooltip that appears after a short hover delay. Shows a label and, optionally, a shortcut keycap. */
+/** A small styled tooltip that appears after a short hover delay. Shows a label and, optionally, a shortcut keycap.
+ *  Rendered in a portal with fixed positioning so scrolling bars and panels never clip it. */
 export function Tooltip({ label, shortcut, side = 'right', children }: { label: string; shortcut?: string; side?: 'right' | 'top' | 'bottom' | 'left'; children: ReactNode }) {
-  const [show, setShow] = useState(false)
+  const [at, setAt] = useState<DOMRect | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const open = () => { timer.current = setTimeout(() => setShow(true), 450) }
-  const close = () => { if (timer.current) clearTimeout(timer.current); setShow(false) }
+  const host = useRef<HTMLSpanElement>(null)
+  const open = () => { timer.current = setTimeout(() => { if (host.current) setAt(host.current.getBoundingClientRect()) }, 450) }
+  const close = () => { if (timer.current) clearTimeout(timer.current); setAt(null) }
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
-  const pos = side === 'right' ? 'left-full top-1/2 -translate-y-1/2 ml-2'
-    : side === 'left' ? 'right-full top-1/2 -translate-y-1/2 mr-2'
-    : side === 'top' ? 'bottom-full left-1/2 -translate-x-1/2 mb-2'
-    : 'top-full left-1/2 -translate-x-1/2 mt-2'
+  let style: React.CSSProperties = {}
+  if (at) {
+    if (side === 'right') style = { left: at.right + 8, top: at.top + at.height / 2, transform: 'translateY(-50%)' }
+    else if (side === 'left') style = { left: at.left - 8, top: at.top + at.height / 2, transform: 'translate(-100%, -50%)' }
+    else if (side === 'top') style = { left: at.left + at.width / 2, top: at.top - 8, transform: 'translate(-50%, -100%)' }
+    else style = { left: at.left + at.width / 2, top: at.bottom + 8, transform: 'translateX(-50%)' }
+  }
   return (
-    <span className="relative inline-flex" onPointerEnter={open} onPointerLeave={close} onPointerDown={close}>
+    <span ref={host} className="relative inline-flex" onPointerEnter={open} onPointerLeave={close} onPointerDown={close}>
       {children}
-      {show && (
-        <span role="tooltip" className={`pointer-events-none absolute z-50 whitespace-nowrap flex items-center gap-1.5 px-2 h-7 rounded-lg bg-[#26262e] border border-void-700 shadow-xl text-[12px] text-void-100 ${pos}`}>
+      {at && typeof document !== 'undefined' && createPortal(
+        <span role="tooltip" style={style} className="pointer-events-none fixed z-[100] whitespace-nowrap flex items-center gap-1.5 px-2 h-7 rounded-lg bg-[#26262e] border border-void-700 shadow-xl text-[12px] text-void-100">
           {label}
           {shortcut && <KeyCap>{shortcut}</KeyCap>}
-        </span>
-      )}
+        </span>, document.body)}
     </span>
   )
 }
@@ -34,7 +39,7 @@ export function KeyCap({ children }: { children: ReactNode }) {
 }
 
 export function IconButton({ label, shortcut, active, disabled, onClick, children, className = '', tipSide = 'top' }: {
-  label: string; shortcut?: string; active?: boolean; disabled?: boolean; onClick?: () => void; children: ReactNode; className?: string; tipSide?: 'right' | 'top' | 'bottom' | 'left'
+  label: string; shortcut?: string; active?: boolean; disabled?: boolean; onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; children: ReactNode; className?: string; tipSide?: 'right' | 'top' | 'bottom' | 'left'
 }) {
   return (
     <Tooltip label={label} shortcut={shortcut} side={tipSide}>
@@ -135,7 +140,7 @@ export function Select<T extends string | number>({ label, value, options, onCha
   )
 }
 
-export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+export function Modal({ title, onClose, children, wide, preview }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean; preview?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }
@@ -144,7 +149,7 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
     return () => window.removeEventListener('keydown', k, true)
   }, [onClose])
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-[2px] p-0 sm:p-6" onPointerDown={e => { if (e.target === e.currentTarget) onClose() }}>
+    <div className={`fixed inset-0 z-50 flex items-end sm:items-center p-0 sm:p-6 ${preview ? 'justify-center sm:justify-end bg-black/15' : 'justify-center bg-black/60 backdrop-blur-[2px]'}`} onPointerDown={e => { if (e.target === e.currentTarget) onClose() }}>
       <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title}
         className={`w-full ${wide ? 'sm:max-w-3xl' : 'sm:max-w-md'} max-h-[88vh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-[#17171c] border border-void-800 shadow-2xl outline-none`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-void-800/70">

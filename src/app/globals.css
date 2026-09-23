@@ -143,3 +143,12 @@ input[type="range"].vc-range::-moz-range-track { background: transparent; }
 }
 input[type="range"].vc-bar::-webkit-slider-runnable-track { background: #3a3a44; }
 input[type="range"].vc-bar::-moz-range-track { background: #3a3a44; }
+
+/* Editor chrome: interface size and density (Window, Interface size). The canvas itself is never zoomed. */
+.vc-chrome { zoom: var(--vc-ui-scale, 1); }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+.vc-compact .vc-row { padding-top: 0; padding-bottom: 0; }
+.vc-compact .vc-tool { height: 32px; width: 32px; }
+.vc-touch .vc-tool { height: 44px; width: 44px; }
+.vc-touch .vc-row { padding-top: 6px; padding-bottom: 6px; }

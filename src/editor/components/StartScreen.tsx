@@ -5,6 +5,8 @@ import { ImagePlus, Trash2, MoreHorizontal, Download, Copy } from 'lucide-react'
 import { deleteProject, duplicateProject, exportProjectPng, importFiles, importVoidFile, listProjects, openProject, type ProjectSummary } from '../io'
 import { SIZE_PRESETS } from '../presets'
 import { useEditor } from '../store'
+import { useTabs } from '../tabs'
+import { clearSession, crashedAtStart } from '../versions'
 import { Button, focusRing } from './ui'
 
 function RecentMenu({ p, onChanged }: { p: ProjectSummary; onChanged: (fn: (r: ProjectSummary[]) => ProjectSummary[]) => void }) {
@@ -25,6 +27,24 @@ function RecentMenu({ p, onChanged }: { p: ProjectSummary; onChanged: (fn: (r: P
   )
 }
 
+function RestoreBanner() {
+  const [hidden, setHidden] = useState(false)
+  const m = crashedAtStart
+  if (!m || hidden) return null
+  const reopen = async () => {
+    setHidden(true)
+    for (const t of m.open) { if (await openProject(t.id)) useTabs.getState().sync() }
+    if (m.active && m.open.some(t => t.id === m.active)) await useTabs.getState().switchTo(m.active)
+    clearSession()
+  }
+  return (
+    <div role="alert" className="mt-5 flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/[0.07] px-4 py-3">
+      <p className="flex-1 text-[13px] text-amber-100">Voidcanvas closed unexpectedly last time. Your work was saved on this device: {m.open.map(t => t.name).join(', ')}.</p>
+      <div className="flex gap-2 shrink-0"><Button primary onClick={reopen}>Reopen {m.open.length > 1 ? `all ${m.open.length}` : 'it'}</Button><Button onClick={() => { setHidden(true); clearSession() }}>Dismiss</Button></div>
+    </div>
+  )
+}
+
 export function StartScreen() {
   const file = useRef<HTMLInputElement>(null)
   const [recent, setRecent] = useState<ProjectSummary[]>([])
@@ -40,6 +60,7 @@ export function StartScreen() {
       <div className="max-w-5xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
         <h1 className="text-[26px] sm:text-[32px] font-semibold tracking-tight">What are you making?</h1>
         <p className="mt-1.5 text-[14px] text-void-400">Start from a photo or pick a size. Everything stays on your device until you export.</p>
+        <RestoreBanner />
 
         <input ref={file} type="file" accept="image/*,.psd,.pdf,.void" multiple hidden onChange={e => handleFiles(Array.from(e.target.files ?? []))} />
         <button

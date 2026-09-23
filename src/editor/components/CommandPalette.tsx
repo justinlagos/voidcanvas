@@ -10,11 +10,12 @@ import type { AdjustmentKind } from '../types'
 import { removeBackground } from './PropertiesPanel'
 import { stageApi } from './Stage'
 import { TOOLS } from './ToolRail'
+import { buildActions, prettyKey } from '../actions'
 
 interface Cmd { label: string; hint?: string; group: string; run: () => void }
 
 /** Ctrl+K. Every action in the editor, searchable, so nobody has to hunt through panels. */
-export function CommandPalette({ onClose, open }: { onClose: () => void; open: (m: 'add' | 'export') => void }) {
+export function CommandPalette({ onClose, open }: { onClose: () => void; open: (m: any) => void }) {
   const [q, setQ] = useState('')
   const docRev = useEditor(st => st.docRev)
   const [i, setI] = useState(0)
@@ -22,48 +23,24 @@ export function CommandPalette({ onClose, open }: { onClose: () => void; open: (
 
   const all = useMemo<Cmd[]>(() => {
     const s = () => useEditor.getState()
-    const onActive = (fn: (id: string) => void) => () => { const id = s().activeId; if (id) fn(id); else s().notify('Select a layer first.') }
+    const acts = buildActions()
+    const groupOf = (id: string) => ({ file: 'File', edit: 'Edit', image: 'Image', adj: 'Adjustment', layer: 'Layer', style: 'Layer style', mask: 'Mask', align: 'Align', dist: 'Align', sel: 'Select', filter: 'Filter', fx: 'Filter', view: 'View', panel: 'Panel', ws: 'Workspace', scale: 'Interface', density: 'Interface', help: 'Help' } as Record<string, string>)[id.split('.')[0]] ?? 'Action'
     return [
       ...TOOLS.map(t => ({ label: t.label.split(':')[0], hint: t.key, group: 'Tool', run: () => s().setTool(t.id) })),
       { label: 'Add text', group: 'Add', run: () => s().addText() },
       { label: 'Add photo, shape or blank layer', group: 'Add', run: () => open('add') },
-      ...(Object.keys(ADJUSTMENT_LABELS) as AdjustmentKind[]).filter(k => k !== 'voidEffect').map(k => ({ label: ADJUSTMENT_LABELS[k], group: 'Adjustment', run: () => s().addAdjustment(k) })),
-      ...effects.filter(e => e.id !== 'none').map(e => ({ label: e.name, hint: e.description, group: 'Filter', run: () => s().addAdjustment('voidEffect', e.id) })),
-      // Layer traversal: jump straight to any layer by name.
-      ...s().layers.slice().reverse().filter(l => l.type !== 'adjustment' || true).map(l => ({
+      ...Object.values(acts).filter(a => !a.enabled || a.enabled()).map(a => ({ label: a.label.replace(/…$/, ''), hint: [prettyKey(a.hotkey ?? a.shortcut), a.keywords].filter(Boolean).join('  ·  ') || undefined, group: groupOf(a.id), run: a.run })),
+      ...s().layers.slice().reverse().map(l => ({
         label: l.type === 'text' ? (l.text.split('\n')[0] || 'Text') : l.name,
         hint: l.type, group: 'Go to layer',
         run: () => { s().setActive(l.id); stageApi.fitSelection() },
       })),
-      { label: 'Remove background', group: 'Layer', run: onActive(id => removeBackground(id)) },
-      { label: 'Duplicate layer', hint: 'Ctrl+J', group: 'Layer', run: onActive(id => s().duplicateLayer(id)) },
-      { label: 'Delete selected layers', hint: 'Delete', group: 'Layer', run: () => s().removeSelected() },
-      { label: 'Group selected layers', hint: 'Ctrl+G', group: 'Layer', run: () => s().groupSelected() },
-      { label: 'Add mask', group: 'Layer', run: onActive(id => s().addMask(id, !!s().selection)) },
-      { label: 'Merge with layer below', group: 'Layer', run: onActive(id => s().mergeDown(id)) },
-      { label: 'Mirror layer', group: 'Layer', run: onActive(id => s().flip(id, 'h')) },
-      { label: 'Flip layer upside down', group: 'Layer', run: onActive(id => s().flip(id, 'v')) },
-      { label: 'Centre on page', group: 'Layer', run: () => { s().align('hcenter'); s().align('vcenter') } },
-      { label: 'Select all', hint: 'Ctrl+A', group: 'Selection', run: () => s().selectAll() },
-      { label: 'Deselect', hint: 'Ctrl+D', group: 'Selection', run: () => s().setSelection(null, 'Deselect') },
-      { label: 'Invert selection', hint: 'Ctrl+Shift+I', group: 'Selection', run: () => s().invertSelection() },
-      { label: 'Export', hint: 'Ctrl+E', group: 'File', run: () => open('export') },
-      { label: 'Resize for other formats', hint: 'Instagram, Story, YouTube and more', group: 'File', run: () => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'resize' })) },
-      { label: 'Save as template', hint: 'Reuse this layout', group: 'File', run: async () => { const st = s(); if (!st.doc) return; await saveDesign({ ...st.doc, id: uid(), name: st.doc.name + ' template' }, st.layers, st.groups, st.swatches, true); st.notify('Saved as a template. Find it on the start screen under Your templates.') } },
-      { label: 'Brand kit', hint: 'Colours, fonts, logos', group: 'File', run: () => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'brand' })) },
-      { label: 'Keyboard shortcuts', hint: '?', group: 'Help', run: () => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'keys' })) },
-      { label: 'See before (hold \\)', group: 'View', run: () => { useEditor.setState({ compare: true }); setTimeout(() => useEditor.setState({ compare: false }), 1500) } },
-      { label: 'Save now', hint: 'Ctrl+S', group: 'File', run: () => saveProject().then(() => s().notify('Saved to this device.')) },
-      { label: 'Fit to screen', hint: 'Ctrl+0', group: 'View', run: () => stageApi.fit() },
-      { label: 'Zoom to 100%', hint: 'Ctrl+1', group: 'View', run: () => stageApi.zoomTo(1) },
-      { label: 'Undo', hint: 'Ctrl+Z', group: 'Edit', run: () => s().undo() },
-      { label: 'Redo', hint: 'Ctrl+Shift+Z', group: 'Edit', run: () => s().redo() },
     ]
   }, [open, docRev])
 
   const shown = useMemo(() => {
     const words = q.toLowerCase().split(/\s+/).filter(Boolean)
-    return all.filter(c => words.every(w => (c.label + ' ' + c.group + ' ' + (c.hint ?? '')).toLowerCase().includes(w))).slice(0, 40)
+    return all.filter(c => words.every(w => (c.label + ' ' + c.group + ' ' + (c.hint ?? '')).toLowerCase().includes(w))).slice(0, 60)
   }, [q, all])
   useEffect(() => setI(0), [q])
   useEffect(() => { list.current?.children[i]?.scrollIntoView({ block: 'nearest' }) }, [i])
