@@ -61,7 +61,8 @@ function LayerRows({ list, ctx }: { list: Layer[]; ctx: RowCtx }) {
         const i = layers.indexOf(l)
         const on = selectedIds.includes(l.id)
         const g = l.groupId ? groups.find(x => x.id === l.groupId) : undefined
-        const header = g && list[list.indexOf(l) - 1]?.groupId !== g.id
+        // Rows are shown top first, so the header goes above the topmost layer of the group: the one with no group-mate above it.
+        const header = g && list[list.indexOf(l) + 1]?.groupId !== g.id
         const allOn = !!g && layers.filter(x => x.groupId === g.id).every(x => selectedIds.includes(x.id))
         return (
           <Fragment key={l.id}>

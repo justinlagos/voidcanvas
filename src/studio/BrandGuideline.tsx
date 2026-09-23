@@ -4,14 +4,14 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowDown, ArrowLeft, ArrowUp, Check, AlertCircle, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe, GripVertical, ImagePlus, Layers, Lock, Unlock, Monitor, Printer, RefreshCw, RotateCcw, Upload } from 'lucide-react'
 import { Button, focusRing } from '@/editor/components/ui'
-import { canvasToBlob, downloadBlob, sendHandoff } from '@/editor/io'
+import { canvasToBlob, downloadBlob, sendHandoff, type LayeredItem, type LayeredPage } from '@/editor/io'
 import { extractPalette } from '@/editor/engine'
 import { useBrand } from './brand/store'
 import { FONT_SUGGESTIONS, HARMONIES, PERSONALITIES, SCALES, buildBrand, resolve, type ArtDirection, type Brand, type FontRef, type TokKey } from './brand/tokens'
 import { RAMP_STEPS, isHex } from './brand/color'
 import { loadFont, registerLocalFont } from './brand/fonts'
 import { fileSlug, toAse, toCss, toJson, toTailwind } from './brand/export'
-import { PAGE_DEFS, SIZES, renderAll, renderPage, type Orientation, type PageSpec } from './brand-pages'
+import { PAGE_DEFS, SIZES, eachPage, recordPages, renderPage, type Orientation, type PageSpec } from './brand-pages'
 import { analyseLogo, logoChecks, logoPlacements, type LogoInfo } from './brand/logo'
 import { PRINT_TRIM } from './brand-pdf'
 
@@ -308,6 +308,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
   const [o, setO] = useState<Orientation>('landscape')
   const [busy, setBusy] = useState<string | null>(null)
   const [active, setActive] = useState(0)
+  const [err, setErr] = useState<string | null>(null)
   const brand = useMemo(() => buildBrand(tokens), [tokens])
   const checks = useMemo(() => [...brand.checks, ...logoChecks(brand, logo)], [brand, logo])
   const visible = pages.filter(p => p.on)
@@ -328,22 +329,37 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
     } catch { setLogoErr('That file could not be read as an image. Try SVG, PNG or JPG.') }
   }
   const base = fileSlug(brand.name)
-  const run = async (label: string, fn: () => Promise<void>) => { setBusy(label); try { await fn() } catch (e) { console.error(e); alert(`${label} failed. Try again.`) } finally { setBusy(null) } }
+  const run = async (label: string, fn: () => Promise<void>) => { setBusy(label); setErr(null); try { await fn() } catch (e) { console.error(e); setErr(`${label.replace(/^Building /, 'The ')} could not be built. ${(e as Error)?.message || 'Try again.'}`) } finally { setBusy(null) } }
   const exportPdf = () => run('Building screen PDF', async () => { const { exportBrandPdf } = await import('./brand-pdf'); await exportBrandPdf(brand, logo, pages, o, `${base}-guidelines-${o}.pdf`) })
   const exportPrint = () => run('Building print PDF', async () => { const { exportPrintPdf } = await import('./brand-pdf'); await exportPrintPdf(brand, logo, pages, o, `${base}-guidelines-print-${o}.pdf`) })
   const exportHtml = () => run('Building HTML handoff', async () => {
     const { buildHandoffHtml } = await import('./brand/handoff')
-    const slides = (await renderAll(pages, brand, logo, o, 1)).map(r => r.canvas.toDataURL('image/jpeg', 0.85))
+    const slides: string[] = []
+    await eachPage(pages, brand, logo, o, 1, async c => { slides.push(c.toDataURL('image/jpeg', 0.85)) })
     downloadBlob(new Blob([buildHandoffHtml(brand, logo, slides)], { type: 'text/html' }), `${base}-brand.html`)
   })
   const openInEditor = async () => {
-    setBusy('Opening in Editor')
+    setBusy('Opening in Editor'); setErr(null)
     try {
-      const imgs: { name: string; blob: Blob }[] = []
-      for (const r of await renderAll(pages, brand, logo, o, 1.5)) imgs.push({ name: r.title, blob: await canvasToBlob(r.canvas) })
-      const id = await sendHandoff({ from: 'studio', boards: true, name: `${brand.name} guidelines`, size: { width: SIZES[o].w, height: SIZES[o].h }, palette: [...brand.roles.map(r => r.hex), brand.surfaces.light, brand.surfaces.dark], images: imgs })
+      // Pages go over as real layers: text stays text, shapes stay shapes, the logo stays an image.
+      const recorded = await recordPages(pages, brand, logo, o, (i, n) => setBusy(`Building page ${i + 1} of ${n}`))
+      if (!recorded.length) throw new Error('Every page is hidden. Include at least one page in the page list.')
+      setBusy('Opening in Editor')
+      const layered: LayeredPage[] = []
+      for (const p of recorded) {
+        const items: LayeredItem[] = []
+        for (const it of p.items) {
+          if (it.kind === 'image') { const { canvas, ...rest } = it; items.push({ ...rest, blob: await canvasToBlob(canvas) }); canvas.width = 0 }
+          else items.push(it)
+        }
+        layered.push({ name: p.title, background: p.background, items })
+      }
+      const id = await sendHandoff({ from: 'studio', boards: true, name: `${brand.name} guidelines`, size: { width: SIZES[o].w, height: SIZES[o].h }, palette: [...brand.roles.map(r => r.hex), brand.surfaces.light, brand.surfaces.dark], images: [], layered })
       router.push(`/editor?inbox=${id}`)
-    } catch (e) { console.error(e); setBusy(null) }
+    } catch (e) {
+      console.error(e); setBusy(null)
+      setErr(`The guideline could not open in the Editor. ${(e as Error)?.message || 'Try again.'}`)
+    }
   }
 
   return (
@@ -385,6 +401,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
         </section>
       </div>
 
+      {err && <div role="alert" className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 max-w-[560px] flex items-start gap-3 px-4 py-3 rounded-xl bg-[#2a1618] border border-rose-400/30 text-[13px] text-rose-100 shadow-2xl"><AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-300" /><span className="flex-1">{err}</span><button onClick={() => setErr(null)} className={`text-rose-200/70 hover:text-white text-[12px] ${focusRing}`}>Dismiss</button></div>}
       {busy && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55"><div className="flex items-center gap-3 px-5 py-3.5 rounded-xl bg-[#17171c] border border-void-700 text-[13.5px]"><span className="w-4 h-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />{busy}</div></div>}
     </div>
   )

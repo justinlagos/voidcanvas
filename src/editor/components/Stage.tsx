@@ -91,28 +91,53 @@ export function Stage() {
       if (!comp.current) comp.current = makeCanvas(1, 1)
       const vs = Math.min(1, 2000 / Math.max(doc.width, doc.height))
       const shown = s.layers.filter(l => l.id !== s.editingTextId && !(s.compare && l.type === 'adjustment'))
-      renderDoc(comp.current, doc, shown, { groups: s.groups, scale: vs, live: live.current })
+      renderDoc(comp.current, doc, shown, { groups: s.groups, scale: vs, live: live.current, noShadow: !!doc.frames?.length })
       needComposite.current = false
     }
 
     const dw = doc.width * zoom, dh = doc.height * zoom
-    vctx.save()
-    vctx.shadowColor = 'rgba(0,0,0,0.55)'; vctx.shadowBlur = 40; vctx.shadowOffsetY = 12
-    vctx.fillStyle = '#fff'; vctx.fillRect(panX, panY, dw, dh)
-    vctx.restore()
-    // Transparency checkerboard
-    vctx.save()
-    vctx.beginPath(); vctx.rect(panX, panY, dw, dh); vctx.clip()
     const cs = 10
-    vctx.fillStyle = '#e4e4e8'
-    const x0 = Math.max(panX, 0), y0 = Math.max(panY, 0), x1 = Math.min(panX + dw, w), y1 = Math.min(panY + dh, h)
-    for (let y = Math.floor((y0 - panY) / cs); y * cs + panY < y1; y++)
-      for (let x = Math.floor((x0 - panX) / cs); x * cs + panX < x1; x++)
-        if ((x + y) % 2) vctx.fillRect(panX + x * cs, panY + y * cs, cs, cs)
-    vctx.imageSmoothingEnabled = zoom < 3
-    vctx.imageSmoothingQuality = 'high'
-    if (comp.current) vctx.drawImage(comp.current, panX, panY, dw, dh)
-    vctx.restore()
+    // Transparency checkerboard inside a screen-space rectangle.
+    const checker = (rx: number, ry: number, rw: number, rh: number) => {
+      vctx.save(); vctx.beginPath(); vctx.rect(rx, ry, rw, rh); vctx.clip()
+      vctx.fillStyle = '#ffffff'; vctx.fillRect(rx, ry, rw, rh)
+      vctx.fillStyle = '#e4e4e8'
+      const x0 = Math.max(rx, 0), y0 = Math.max(ry, 0), x1 = Math.min(rx + rw, w), y1 = Math.min(ry + rh, h)
+      for (let y = Math.floor((y0 - ry) / cs); y * cs + ry < y1; y++)
+        for (let x = Math.floor((x0 - rx) / cs); x * cs + rx < x1; x++)
+          if ((x + y) % 2) vctx.fillRect(rx + x * cs, ry + y * cs, cs, cs)
+      vctx.restore()
+    }
+    if (doc.frames && doc.frames.length) {
+      // Boards float on the pasteboard, each with its own shadow. There is no canvas behind them,
+      // so the gaps between boards are pasteboard, and layers placed off a board show there too.
+      for (const f of doc.frames) {
+        const fx = panX + f.x * zoom, fy = panY + f.y * zoom, fw = f.width * zoom, fh = f.height * zoom
+        if (fx > w || fy > h || fx + fw < 0 || fy + fh < 0) continue
+        vctx.save()
+        vctx.shadowColor = 'rgba(0,0,0,0.55)'; vctx.shadowBlur = 32; vctx.shadowOffsetY = 10
+        vctx.fillStyle = f.background ?? '#ffffff'; vctx.fillRect(fx, fy, fw, fh)
+        vctx.restore()
+        if (!f.background) checker(fx, fy, fw, fh)
+      }
+      vctx.save()
+      vctx.imageSmoothingEnabled = zoom < 3
+      vctx.imageSmoothingQuality = 'high'
+      if (comp.current) vctx.drawImage(comp.current, panX, panY, dw, dh)
+      vctx.restore()
+    } else {
+      vctx.save()
+      vctx.shadowColor = 'rgba(0,0,0,0.55)'; vctx.shadowBlur = 40; vctx.shadowOffsetY = 12
+      vctx.fillStyle = '#fff'; vctx.fillRect(panX, panY, dw, dh)
+      vctx.restore()
+      checker(panX, panY, dw, dh)
+      vctx.save()
+      vctx.beginPath(); vctx.rect(panX, panY, dw, dh); vctx.clip()
+      vctx.imageSmoothingEnabled = zoom < 3
+      vctx.imageSmoothingQuality = 'high'
+      if (comp.current) vctx.drawImage(comp.current, panX, panY, dw, dh)
+      vctx.restore()
+    }
 
     // ── Overlay ──
     const toScreen = (p: Pt): Pt => ({ x: p.x * zoom + panX, y: p.y * zoom + panY })

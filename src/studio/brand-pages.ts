@@ -1,4 +1,5 @@
 import type { Brand } from './brand/tokens'
+import { recordPage, type RecordedPage } from './brand/record'
 import { logoPlacements, markContrast, monoMark, type LogoInfo, type MarkMode } from './brand/logo'
 import { loadFont } from './brand/fonts'
 import { RAMP_STEPS, contrast, fmtOklch, luminance } from './brand/color'
@@ -710,9 +711,28 @@ export async function renderPage(spec: PageSpec, pageNo: number, pageCount: numb
   return c
 }
 
-/** Render every visible page in order. */
-export async function renderAll(pages: PageSpec[], brand: Brand, logo: LogoInfo | null, o: Orientation, scale: number) {
-  const on = pages.filter(p => p.on), out: { title: string; canvas: HTMLCanvasElement }[] = []
-  for (let i = 0; i < on.length; i++) out.push({ title: PAGE_DEFS[on[i].kind].title, canvas: await renderPage(on[i], i + 1, on.length, brand, logo, o, scale) })
+/**
+ * Render visible pages one at a time, hand each to `fn`, then release its pixels.
+ * Holding every page at print resolution at once can exceed Safari's canvas memory limit.
+ */
+export async function eachPage(pages: PageSpec[], brand: Brand, logo: LogoInfo | null, o: Orientation, scale: number, fn: (canvas: HTMLCanvasElement, title: string, index: number, count: number) => Promise<void>) {
+  const on = pages.filter(p => p.on)
+  for (let i = 0; i < on.length; i++) {
+    const c = await renderPage(on[i], i + 1, on.length, brand, logo, o, scale)
+    try { await fn(c, PAGE_DEFS[on[i].kind].title, i, on.length) } finally { c.width = 0; c.height = 0 }
+  }
+}
+
+/** Record visible pages as editable items (text, shapes, images) for the Editor. */
+export async function recordPages(pages: PageSpec[], brand: Brand, logo: LogoInfo | null, o: Orientation, onPage?: (i: number, n: number) => void): Promise<(RecordedPage & { title: string })[]> {
+  await Promise.all([loadFont(brand.fonts.heading, [400, 600, 700]), loadFont(brand.fonts.body, [400, 500, 600]), loadFont(brand.fonts.mono, [400, 500, 600])])
+  const size = SIZES[o], on = pages.filter(p => p.on), out: (RecordedPage & { title: string })[] = []
+  for (let i = 0; i < on.length; i++) {
+    onPage?.(i, on.length)
+    const def = PAGE_DEFS[on[i].kind], v = def.variants[Math.min(on[i].variant, def.variants.length - 1)]
+    const rec = recordPage(size.w, size.h, x => { x.textBaseline = 'alphabetic'; x.textAlign = 'left'; v.draw({ x, w: size.w, h: size.h, b: brand, logo, o, pageNo: i + 1, pageCount: on.length }) })
+    out.push({ ...rec, title: def.title })
+    await new Promise(r => setTimeout(r, 0)) // let the progress label paint
+  }
   return out
 }

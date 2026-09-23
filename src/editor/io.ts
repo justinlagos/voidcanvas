@@ -1,7 +1,7 @@
 import { ctx2d, makeCanvas, renderDoc, uid } from './engine'
 import { layoutFrames } from './frames'
 import { nextRev, useEditor } from './store'
-import type { Doc, Group, Layer } from './types'
+import type { Doc, Group, Layer, TextLayer } from './types'
 
 // ─── IndexedDB ─────────────────────────────────────────────────────
 // One local database shared by every module: Editor projects, Studio boards,
@@ -23,11 +23,51 @@ function open(): Promise<IDBDatabase> {
 async function tx<T>(store: StoreName, mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   const db = await open()
   return new Promise((res, rej) => {
-    const t = db.transaction(store, mode)
-    const r = fn(t.objectStore(store))
-    t.oncomplete = () => { res(r.result); db.close() }
-    t.onerror = () => { rej(t.error); db.close() }
+    let done = false
+    const fail = (e: DOMException | null) => {
+      if (done) return; done = true; db.close()
+      // Safari can abort with a null error. Always reject with something readable.
+      const quota = e?.name === 'QuotaExceededError'
+      rej(new Error(quota ? 'Browser storage is full. Clear old designs from the home screen and try again.' : `Could not save to browser storage${e?.message ? `: ${e.message}` : '.'}`))
+    }
+    let t: IDBTransaction
+    try { t = db.transaction(store, mode) } catch (e) { fail(e as DOMException); return }
+    let r: IDBRequest<T>
+    try { r = fn(t.objectStore(store)) } catch (e) { fail(e as DOMException); return }
+    t.oncomplete = () => { if (done) return; done = true; res(r.result); db.close() }
+    t.onerror = () => fail(t.error ?? r.error)
+    t.onabort = () => fail(t.error ?? r.error)
   })
+}
+
+// Safari cannot always store Blob objects in IndexedDB. Every Blob is written as an
+// ArrayBuffer with its type (and file name) and turned back into a Blob when read.
+// Records written by older versions, with real Blobs inside, still read as before.
+interface PackedBlob { __vcBlob: ArrayBuffer; type: string; name?: string }
+async function pack(v: any): Promise<any> {
+  if (typeof Blob !== 'undefined' && v instanceof Blob) {
+    const out: PackedBlob = { __vcBlob: await v.arrayBuffer(), type: v.type }
+    if (typeof File !== 'undefined' && v instanceof File) out.name = v.name
+    return out
+  }
+  if (Array.isArray(v)) return Promise.all(v.map(pack))
+  if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+    const o: Record<string, any> = {}
+    for (const k of Object.keys(v)) o[k] = await pack(v[k])
+    return o
+  }
+  return v
+}
+function unpack(v: any): any {
+  if (v && typeof v === 'object') {
+    if (v.__vcBlob instanceof ArrayBuffer) {
+      const p = v as PackedBlob
+      return p.name && typeof File !== 'undefined' ? new File([p.__vcBlob], p.name, { type: p.type }) : new Blob([p.__vcBlob], { type: p.type })
+    }
+    if (Array.isArray(v)) return v.map(unpack)
+    if (Object.getPrototypeOf(v) === Object.prototype) { for (const k of Object.keys(v)) v[k] = unpack(v[k]); return v }
+  }
+  return v
 }
 
 // Private session: everything lives in memory only and is dropped when the tab closes.
@@ -41,9 +81,9 @@ export function isPrivate() { return PRIVATE }
 export function initPrivateFromSession() { if (typeof sessionStorage !== 'undefined') { try { PRIVATE = sessionStorage.getItem('vc-private') === '1' } catch { /* ignore */ } } return PRIVATE }
 
 export const idb = {
-  get: <T>(store: StoreName, id: string): Promise<T | undefined> => PRIVATE ? Promise.resolve(clone(mem.get(store)!.get(id))) : tx<T | undefined>(store, 'readonly', s => s.get(id)),
-  all: <T>(store: StoreName): Promise<T[]> => PRIVATE ? Promise.resolve(Array.from(mem.get(store)!.values()).map(clone)) : tx<T[]>(store, 'readonly', s => s.getAll()),
-  put: (store: StoreName, v: any) => { if (PRIVATE) { mem.get(store)!.set(v.id, clone(v)); return Promise.resolve(undefined as any) } return tx(store, 'readwrite', s => s.put(v)) },
+  get: <T>(store: StoreName, id: string): Promise<T | undefined> => PRIVATE ? Promise.resolve(clone(mem.get(store)!.get(id))) : tx<T | undefined>(store, 'readonly', s => s.get(id)).then(unpack),
+  all: <T>(store: StoreName): Promise<T[]> => PRIVATE ? Promise.resolve(Array.from(mem.get(store)!.values()).map(clone)) : tx<T[]>(store, 'readonly', s => s.getAll()).then(unpack),
+  put: async (store: StoreName, v: any) => { if (PRIVATE) { mem.get(store)!.set(v.id, clone(v)); return undefined as any } const packed = await pack(v); return tx(store, 'readwrite', s => s.put(packed)) },
   del: (store: StoreName, id: string) => { if (PRIVATE) { mem.get(store)!.delete(id); return Promise.resolve(undefined as any) } return tx(store, 'readwrite', s => s.delete(id)) },
 }
 
@@ -68,6 +108,8 @@ export interface Handoff {
   note?: string
   /** True when each image should become its own artboard. */
   boards?: boolean
+  /** Editable pages: each becomes a board of real text, shape and image layers. */
+  layered?: LayeredPage[]
   /** When set, add the image plus a live, re-editable filter layer on top (from a tool page). */
   liveEffect?: { effect: string; params: Record<string, number> }
 }
@@ -398,17 +440,77 @@ const FONT_SPECS: Record<string, string> = {
 export const FONTS = Object.keys(FONT_SPECS)
 const loaded = new Set<string>(['Inter'])
 
+const cssLink = (href: string) => new Promise<boolean>(r => {
+  const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = href
+  link.onload = () => r(true); link.onerror = () => { link.remove(); r(false) }; setTimeout(() => r(true), 2500)
+  document.head.appendChild(link)
+})
+/** A font added from a file on this device. It must never be requested from Google. */
+const isLocalFace = (family: string) => { try { for (const f of Array.from(document.fonts)) if (f.family.replace(/["']/g, '') === family && f.status !== 'error') return true } catch { /* older browsers */ } return false }
+const pending = new Map<string, Promise<void>>()
+
 export async function ensureFont(family: string, weight = 400, italic = false): Promise<void> {
   if (typeof document === 'undefined') return
-  if (!loaded.has(family)) {
-    loaded.add(family)
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, '+')}${FONT_SPECS[family] ?? ''}&display=swap`
-    document.head.appendChild(link)
-    await new Promise(r => { link.onload = r; link.onerror = r; setTimeout(r, 2500) })
+  if (!loaded.has(family) && !isLocalFace(family)) {
+    if (!pending.has(family)) pending.set(family, (async () => {
+      const fam = family.replace(/ /g, '+')
+      // Families outside the built-in list: ask for the usual weights, and fall back if the family has fewer.
+      if (family in FONT_SPECS) await cssLink(`https://fonts.googleapis.com/css2?family=${fam}${FONT_SPECS[family]}&display=swap`)
+      else if (!(await cssLink(`https://fonts.googleapis.com/css2?family=${fam}:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap`)) && !(await cssLink(`https://fonts.googleapis.com/css2?family=${fam}:wght@400;500;600;700&display=swap`)))
+        await cssLink(`https://fonts.googleapis.com/css2?family=${fam}&display=swap`)
+      loaded.add(family)
+    })())
+    await pending.get(family)
   }
   try { await document.fonts.load(`${italic ? 'italic ' : ''}${weight} 32px "${family}"`) } catch { /* render with fallback */ }
+}
+
+/** Load every font the document's text layers use, then redraw once they are ready. */
+export async function ensureDocFonts() {
+  const { layers } = useEditor.getState()
+  const want = new Map<string, TextLayer>()
+  for (const l of layers) if (l.type === 'text') want.set(`${l.fontFamily}|${l.fontWeight}|${l.italic}`, l)
+  if (!want.size) return
+  await Promise.all(Array.from(want.values()).map(l => ensureFont(l.fontFamily, l.fontWeight, l.italic)))
+  useEditor.setState(s => ({ docRev: s.docRev + 1, layers: s.layers.map(l => (l.type === 'text' ? { ...l, rev: nextRev() } : l)) }))
+}
+
+// ─── Editable pages from Studio ────────────────────────────────────
+// A page arrives as a list of items in page coordinates. Each becomes a real layer on its own board.
+
+export type LayeredItem =
+  | { kind: 'text'; name: string; text: string; fontFamily: string; fontSize: number; fontWeight: number; italic: boolean; color: string; align: 'left' | 'center' | 'right'; lineHeight: number; letterSpacing: number; x: number; y: number; opacity: number }
+  | { kind: 'shape'; name: string; shape: 'rect' | 'ellipse' | 'line'; x: number; y: number; w: number; h: number; fill: string | null; stroke: string | null; strokeWidth: number; radius: number; rotation: number; opacity: number }
+  | { kind: 'image'; name: string; blob: Blob; x: number; y: number; scaleX: number; scaleY: number; opacity: number }
+export interface LayeredPage { name: string; background: string | null; items: LayeredItem[] }
+
+export async function buildFramedFromLayered(name: string, pages: LayeredPage[], size: { width: number; height: number }, palette?: string[]) {
+  const { frames, width, height } = layoutFrames(pages.map(p => ({ name: p.name, width: size.width, height: size.height, background: p.background ?? '#ffffff' })))
+  // Fonts first, so text measures and draws correctly on the first frame.
+  const fontKeys = new Map<string, [string, number, boolean]>()
+  for (const p of pages) for (const it of p.items) if (it.kind === 'text') fontKeys.set(`${it.fontFamily}|${it.fontWeight}|${it.italic}`, [it.fontFamily, it.fontWeight, it.italic])
+  await Promise.all(Array.from(fontKeys.values()).map(([f, w, i]) => ensureFont(f, w, i)))
+
+  const base = (nm: string, frameId: string, x: number, y: number, opacity: number) => ({ id: uid(), name: nm, visible: true, locked: false, opacity: Math.max(0, Math.min(1, opacity)), blend: 'source-over' as const, x, y, scaleX: 1, scaleY: 1, rotation: 0, mask: null, maskEnabled: true, groupId: null as string | null, frameId, rev: nextRev() })
+  const layers: Layer[] = []
+  for (let i = 0; i < pages.length; i++) {
+    const f = frames[i]
+    for (const it of pages[i].items) {
+      const x = f.x + it.x, y = f.y + it.y
+      if (it.kind === 'text') {
+        layers.push({ ...base(it.name, f.id, x, y, it.opacity), type: 'text', text: it.text, fontFamily: it.fontFamily, fontSize: it.fontSize, fontWeight: it.fontWeight, italic: it.italic, color: it.color, align: it.align, lineHeight: it.lineHeight, letterSpacing: it.letterSpacing, outline: null, shadow: null } as TextLayer)
+      } else if (it.kind === 'shape') {
+        layers.push({ ...base(it.name, f.id, x, y, it.opacity), type: 'shape', shape: it.shape, w: it.w, h: it.h, fill: it.fill, stroke: it.stroke, strokeWidth: it.strokeWidth, radius: it.radius, rotation: it.rotation } as Layer)
+      } else {
+        const c = await blobToCanvas(it.blob, 8192)
+        layers.push({ ...base(it.name, f.id, x, y, it.opacity), type: 'raster', canvas: c, scaleX: it.scaleX, scaleY: it.scaleY } as Layer)
+      }
+    }
+  }
+  const doc: Doc = { id: uid(), name, width, height, background: null, frames }
+  useEditor.getState().loadFramed(doc, layers, undefined, [])
+  useEditor.setState({ dirty: true })
+  if (palette?.length) useEditor.setState({ swatches: Array.from(new Set([...palette, ...useEditor.getState().swatches])).slice(0, 21), fg: palette[0] })
 }
 
 // ─── PDF and ZIP, written by hand to avoid shipping a library ───────

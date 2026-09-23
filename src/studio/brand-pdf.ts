@@ -1,5 +1,5 @@
 import { canvasToBlob, downloadBlob } from '@/editor/io'
-import { renderAll, SIZES, type Orientation, type PageSpec } from './brand-pages'
+import { eachPage, SIZES, type Orientation, type PageSpec } from './brand-pages'
 import type { Brand } from './brand/tokens'
 import type { LogoInfo } from './brand/logo'
 
@@ -45,7 +45,7 @@ const jpegOf = async (c: HTMLCanvasElement, q: number) => new Uint8Array(await (
 export async function exportBrandPdf(brand: Brand, logo: LogoInfo | null, pages: PageSpec[], o: Orientation, filename: string) {
   const size = SIZES[o], w = (size.w / 96) * 72, h = (size.h / 96) * 72
   const out: Page[] = []
-  for (const r of await renderAll(pages, brand, logo, o, 2)) out.push({ jpeg: await jpegOf(r.canvas, 0.92), pxW: r.canvas.width, pxH: r.canvas.height, mediaW: w, mediaH: h, imgX: 0, imgY: 0, imgW: w, imgH: h })
+  await eachPage(pages, brand, logo, o, 2, async c => { out.push({ jpeg: await jpegOf(c, 0.92), pxW: c.width, pxH: c.height, mediaW: w, mediaH: h, imgX: 0, imgY: 0, imgW: w, imgH: h }) })
   downloadBlob(await assemble(out, false), filename)
 }
 
@@ -93,13 +93,13 @@ export async function exportPrintPdf(brand: Brand, logo: LogoInfo | null, pages:
   }
   marks.push('Q')
 
-  const rendered = await renderAll(pages, brand, logo, o, scale)
   const out: Page[] = []
-  for (let i = 0; i < rendered.length; i++) {
-    const c = withBleed(rendered[i].canvas, bleedPx)
-    const slug = ascii(`${brand.name} brand guidelines   Page ${i + 1} of ${rendered.length}: ${rendered[i].title}   Trim ${trim.w} x ${Math.round(trim.h * 10) / 10} mm   Bleed 3 mm   RGB images at 300 dpi. Convert with your printer's profile.`)
+  await eachPage(pages, brand, logo, o, scale, async (page, title, i, count) => {
+    const c = withBleed(page, bleedPx)
+    const slug = ascii(`${brand.name} brand guidelines   Page ${i + 1} of ${count}: ${title}   Trim ${trim.w} x ${Math.round(trim.h * 10) / 10} mm   Bleed 3 mm   RGB images at 300 dpi. Convert with your printer's profile.`)
     const text = `BT /F1 6 Tf 0 0 0 1 k ${f(tx0)} ${f(SLUG * PT * 0.45)} Td (${slug}) Tj ET`
     out.push({ jpeg: await jpegOf(c, 0.95), pxW: c.width, pxH: c.height, mediaW, mediaH, imgX: bx0, imgY: by0, imgW: bx1 - bx0, imgH: by1 - by0, boxes, extra: marks.join('\n') + '\n' + text })
-  }
+    c.width = 0; c.height = 0
+  })
   downloadBlob(await assemble(out, true), filename)
 }

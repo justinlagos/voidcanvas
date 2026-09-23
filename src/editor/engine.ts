@@ -336,6 +336,8 @@ export interface RenderOptions {
   groups?: Group[]
   /** Override which frames to draw; omit to use doc.frames, pass [] to force flat. */
   frameRects?: Frame[]
+  /** Board backgrounds without their drop shadow. The Stage draws its own shadows on the pasteboard. */
+  noShadow?: boolean
 }
 
 export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], opts: RenderOptions = {}) {
@@ -352,6 +354,7 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
     // Artboard mode: each frame is an opaque board floating above the canvas with a soft shadow.
     for (const f of frames) {
       if (opts.transparent) continue
+      if (opts.noShadow) { if (f.background) { acc.fillStyle = f.background; acc.fillRect(f.x * s, f.y * s, f.width * s, f.height * s) } continue }
       acc.save()
       acc.shadowColor = 'rgba(0,0,0,0.45)'; acc.shadowBlur = 24 * s; acc.shadowOffsetY = 4 * s
       acc.fillStyle = f.background ?? '#ffffff'

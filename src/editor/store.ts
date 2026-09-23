@@ -145,6 +145,13 @@ const prune = (groups: Group[], layers: Layer[]) => groups.filter(g => layers.so
 
 const HISTORY_LIMIT = 40
 
+/** The document canvas must contain every board, or boards past its edge would not render. */
+function coverFrames(doc: Doc): Doc {
+  if (!doc.frames?.length) return doc
+  const r = Math.max(doc.width, ...doc.frames.map(f => f.x + f.width)), b = Math.max(doc.height, ...doc.frames.map(f => f.y + f.height))
+  return r === doc.width && b === doc.height ? doc : { ...doc, width: Math.ceil(r), height: Math.ceil(b) }
+}
+
 export const useEditor = create<EditorState>((set, get) => ({
   doc: null,
   layers: [],
@@ -227,7 +234,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     // place the new board to the right of the widest existing one
     const maxX = frames.length ? Math.max(...frames.map(f => f.x + f.width)) + 120 : 0
     const f: Frame = { id: uid(), name: preset.name, x: maxX, y: 0, width: preset.width, height: preset.height, background: '#ffffff' }
-    set({ doc: { ...doc, frames: [...frames, f] }, activeFrameId: f.id, docRev: get().docRev + 1 })
+    set({ doc: coverFrames({ ...doc, frames: [...frames, f] }), activeFrameId: f.id, docRev: get().docRev + 1 })
     get().commit('Add board')
   },
 
@@ -245,7 +252,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   setFrameSize: (id, width, height) => {
     const { doc } = get(); if (!doc?.frames) return
     const w = Math.min(8000, Math.max(16, Math.round(width))), h = Math.min(8000, Math.max(16, Math.round(height)))
-    set({ doc: { ...doc, frames: doc.frames.map(f => f.id === id ? { ...f, width: w, height: h } : f) }, docRev: get().docRev + 1 })
+    set({ doc: coverFrames({ ...doc, frames: doc.frames.map(f => f.id === id ? { ...f, width: w, height: h } : f) }), docRev: get().docRev + 1 })
     get().commit('Resize board')
   },
 
@@ -263,7 +270,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     const copies = srcLayers.map(l => ({ ...l, id: uid(), frameId: nf.id, groupId: l.groupId ? groupMap.get(l.groupId)! : null, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer))
     const newGroups = groups.filter(g => groupMap.has(g.id)).map(g => ({ ...g, id: groupMap.get(g.id)! }))
     // insert copies right after the source board's layers so stacking stays sane
-    set({ doc: { ...doc, frames: [...doc.frames, nf] }, layers: [...layers, ...copies], groups: [...groups, ...newGroups], activeFrameId: nf.id, docRev: get().docRev + 1 })
+    set({ doc: coverFrames({ ...doc, frames: [...doc.frames, nf] }), layers: [...layers, ...copies], groups: [...groups, ...newGroups], activeFrameId: nf.id, docRev: get().docRev + 1 })
     get().commit('Duplicate board')
   },
 

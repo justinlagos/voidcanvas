@@ -194,13 +194,17 @@ function TextProps({ layer }: { layer: TextLayer }) {
     await ensureFont(fontFamily, fontWeight, italic)
     s.updateLayer(layer.id, { fontFamily, fontWeight, italic }, 'Font')
   }
+  // Fonts already used in this design (a brand's own families, say) come first, then the built-in list.
+  const docFontKey = useEditor(st => Array.from(new Set(st.layers.filter(l => l.type === 'text').map(l => (l as TextLayer).fontFamily))).sort().join('|'))
+  const docFonts = docFontKey ? docFontKey.split('|') : []
+  const fontOptions = [...docFonts.filter(f => !FONTS.includes(f)).map(f => ({ id: f, label: `${f} (in this design)` })), ...FONTS.map(f => ({ id: f, label: f }))]
   const tog = (on: boolean) => `h-8 w-9 inline-flex items-center justify-center rounded-md ${focusRing} ${on ? 'bg-void-700 text-white' : 'bg-void-900 text-void-400 hover:text-white'}`
   return (
     <Section title="Type">
       <div className="space-y-3">
         <textarea ref={ta} aria-label="Text content" value={layer.text} rows={3} onChange={e => up({ text: e.target.value })} onBlur={() => s.commit('Edit text')}
           className={`w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-white/[0.06] text-[13px] leading-snug resize-y ${focusRing}`} />
-        <Select label="Font" value={layer.fontFamily} options={FONTS.map(f => ({ id: f, label: f }))} onChange={f => setFont(f)} />
+        <Select label="Font" value={layer.fontFamily} options={fontOptions} onChange={f => setFont(f)} />
         <div className="flex items-center gap-1.5">
           <button aria-label="Bold" aria-pressed={layer.fontWeight >= 700} className={tog(layer.fontWeight >= 700) + ' font-bold text-[13px]'} onClick={() => setFont(layer.fontFamily, layer.fontWeight >= 700 ? 400 : 700)}>B</button>
           <button aria-label="Italic" aria-pressed={layer.italic} className={tog(layer.italic)} onClick={() => setFont(layer.fontFamily, layer.fontWeight, !layer.italic)}><Italic size={15} /></button>

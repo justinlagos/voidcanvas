@@ -40,6 +40,7 @@ export function EditorShell() {
   const docId = useEditor(s => s.doc?.id)
   useEffect(() => { getBrand().then(applyBrand).catch(() => {}) }, [docId])
   useEffect(() => { useTabs.getState().sync() }, [docId])
+  useEffect(() => { if (docId) import('../io').then(m => m.ensureDocFonts()).catch(() => {}) }, [docId])
   useEffect(() => { initPrivateFromSession() }, [])
   useEffect(() => {
     const open = (e: Event) => setModal((e as CustomEvent).detail as any)
@@ -63,6 +64,12 @@ export function EditorShell() {
     takeHandoff(inbox).then(async h => {
       if (!h) return
       const ed = useEditor.getState()
+      if (h.layered?.length && h.size) {
+        const { buildFramedFromLayered } = await import('../io')
+        await buildFramedFromLayered(h.name, h.layered, h.size, h.palette)
+        ed.notify('Opened as editable boards. Double-click any text to edit it; shapes and colours are real layers.')
+        return
+      }
       const canvases = await Promise.all(h.images.map(i => blobToCanvas(i.blob)))
       if (h.boards && h.size && canvases.length > 1) {
         // Each image becomes its own board, each holding one image layer.
