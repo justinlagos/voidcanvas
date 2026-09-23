@@ -108,7 +108,7 @@ export function Stage() {
     const r = wrap.current!.getBoundingClientRect()
     return { x: e.clientX - r.left, y: e.clientY - r.top }
   }
-  const rulerSize = () => (useUi.getState().showRulers ? RULER : 0)
+  const rulerSize = () => (useUi.getState().showRulers && size.current.w >= 600 ? RULER : 0)
 
   // ── Drawing ──────────────────────────────────────────────────────
 
@@ -458,7 +458,7 @@ export function Stage() {
     }
 
     // Rulers, drawn last so they sit over everything.
-    if (ui.showRulers) drawRulers(octx, w, h, zoom, panX, panY, cursor.current)
+    if (ui.showRulers && w >= 600) drawRulers(octx, w, h, zoom, panX, panY, cursor.current)
   }, [])
 
   /** Show one colour channel, a saved alpha channel or a layer mask as greyscale. */
@@ -610,10 +610,11 @@ export function Stage() {
     const ro = new ResizeObserver(() => {
       const r = el.getBoundingClientRect()
       const dpr = Math.min(2, window.devicePixelRatio || 1)
-      const first = !size.current.w
+      const prev = size.current.w
       size.current = { w: r.width, h: r.height, dpr }
       for (const c of [viewC.current!, overC.current!]) { c.width = r.width * dpr; c.height = r.height * dpr }
-      if (first) fit()
+      // Refit on first show, and when the space changes a lot (phone rotation, window snapped to half).
+      if (!prev || Math.abs(r.width - prev) / prev > 0.25) fit()
       invalidate()
     })
     ro.observe(el)

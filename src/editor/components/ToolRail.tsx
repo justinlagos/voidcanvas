@@ -40,6 +40,8 @@ export function cycleFamily(key: string) {
   const fam = FAMILIES.find(f => f.some(t => t.id === first)); if (!fam) return null
   const cur = useEditor.getState().tool
   const i = fam.findIndex(t => t.id === cur)
+  // Shift+key from another tool goes to the second tool in the family; inside the family it cycles.
+  if (i < 0) return (fam[1] ?? fam[0]).id
   return fam[(i + 1) % fam.length].id
 }
 

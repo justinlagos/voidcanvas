@@ -19,6 +19,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     setWorking(true)
     try {
       const blob = await exportImage(copy ? { ...o, format: 'png' } : o)
+      if (!copy) import('../versions').then(m => m.saveVersion('Exported', true)).catch(() => {})
       if (copy) { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); useEditor.getState().notify('Copied. Paste it anywhere.') }
       else downloadBlob(blob, `${doc.name.replace(/[^\w\- ]+/g, '').trim() || 'design'}.${o.format === 'jpeg' ? 'jpg' : o.format}`)
       onClose()

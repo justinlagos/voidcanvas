@@ -37,7 +37,13 @@ export function EditorShell() {
   const dirty = useEditor(s => s.dirty)
   const historyIndex = useEditor(s => s.historyIndex)
   const [modal, setModalState] = useState<ModalState>(null)
-  const setModal = (m: string | ModalState) => setModalState(typeof m === 'string' ? { name: m } : m)
+  const [queue, setQueue] = useState<NonNullable<ModalState>[]>([])
+  // Automatic dialogs (import report, missing fonts) wait their turn instead of replacing each other.
+  const setModal = (m: string | ModalState) => {
+    const next = typeof m === 'string' ? { name: m } : m
+    if (next && ['importReport', 'missingFonts'].includes(next.name)) setModalState(cur => { if (cur) { setQueue(q => [...q, next]); return cur } return next })
+    else setModalState(next)
+  }
   const [panel, setPanel] = useState(false)
   const [shownToast, setShownToast] = useState<string | null>(null)
   const ui = useUi()
@@ -50,6 +56,12 @@ export function EditorShell() {
   useEffect(() => { useTabs.getState().sync() }, [docId])
   useEffect(() => { initPrivateFromSession() }, [])
   useEffect(() => startAutoVersions(), [])
+  // Opened from the installed app (file handler): bring the files straight in.
+  useEffect(() => {
+    const lq = (window as any).launchQueue
+    if (!lq?.setConsumer) return
+    lq.setConsumer(async (p: any) => { const files = await Promise.all((p.files ?? []).map((h: any) => h.getFile())); if (files.length) importFiles(files as File[]) })
+  }, [])
 
   // Fonts: load what the design uses, then warn about any that are nowhere to be found.
   useEffect(() => {
@@ -240,7 +252,7 @@ export function EditorShell() {
   }, [modal, hotkeys])
 
   const openFilters = () => setModal('filters')
-  const close = () => setModalState(null)
+  const close = () => { setModalState(queue[0] ?? null); setQueue(q => q.slice(1)) }
   const m = modal?.name
   return (
     <main className={`h-[100dvh] flex flex-col bg-void-950 text-void-100 overflow-hidden ${ui.density === 'compact' ? 'vc-compact' : ''} ${ui.touchMode ? 'vc-touch' : ''}`} style={{ ['--vc-ui-scale' as any]: ui.uiScale }}>

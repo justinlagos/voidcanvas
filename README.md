@@ -68,6 +68,55 @@ src/components/AppNav   shared logo and module switch
 
 Handoff between modules: `sendHandoff()` writes images, palette and size to the `inbox` store, then routes to `/editor?inbox=<id>`.
 
+## Editor layout (Photopea-style, September 2026)
+
+The editor now follows the layout designers know from Photoshop and Photopea, without losing anything that was here before.
+
+- **Menu bar**: File, Edit, Image, Layer, Select, Filter, View, Window, Help. Menus, the command palette (Ctrl+K), the shortcut sheet (?) and keyboard shortcuts all read from one action list in `src/editor/actions.ts`, so a command is written once and shows the same name and shortcut everywhere. Alt on its own focuses the menu bar.
+- **Tool rail** with tool families (right-click or long-press a tool; Shift plus its key cycles the family), main and second colour chips with swap and reset, and a quick mask toggle (Q).
+- **Options bar** changes with the tool: auto-select, transform controls and distances for Move; size, hardness, opacity, flow, smoothing and pen pressure for brushes; new, add, subtract and intersect for selections; points and star depth for polygons; apply and cancel for transforms.
+- **Dock**: an icon strip plus tab groups you can reorder, resize, collapse, merge by dragging tabs, or pull out as floating windows. Workspaces: Essentials, Photo, Design, Minimal, plus your own (Window, Workspace).
+- **Panels**: Properties, Layers, Channels, Paths, History, Colour and swatches, Adjustments, Character, Paragraph, Layer styles, Info (with histogram), Navigator, Brand kit.
+- **Layers panel**: blend, opacity, four locks (transparent pixels, pixels, position, all) and fill at the top; link, fx, mask, adjustment, group, new and delete at the bottom; right-click menu; colour labels; find by name or kind; nested groups; Ctrl-click a thumbnail to select its pixels; Alt-click an eye to show only that layer.
+- **Rulers and guides** (Ctrl+R, Ctrl+;): drag from a ruler, drag back to delete, guide layouts, snapping to guides. Pixel grid past 800%.
+- **Status bar**: editable zoom, size, pointer position, memory in use, save state.
+- **Interface size and density** (Window, Interface size, or Preferences): 80 to 160 percent, compact or comfortable. The canvas is never scaled. **Touch mode**: bigger controls; with a pen, fingers pan instead of painting; two-finger tap undoes, three-finger tap redoes.
+
+## Never lose work
+
+- Autosave as before, plus a save whenever the tab is hidden.
+- **Crash recovery**: if the browser or tab closes unexpectedly, the start screen offers to reopen every design that was open.
+- **Version history** (File, Version history; Ctrl+Alt+S saves one): automatic versions every few minutes while you work and on every export, kept on this device, restorable in place or as a copy.
+- **History**: 100 steps by default, adjustable, and bounded by a memory budget so the browser never runs out. Delete a single step, or pin named snapshots.
+- **Missing fonts**: opening a design or PSD with fonts that are not available shows which ones and on how many layers, with a replacement picker or a font file you add. Fonts added from files are saved inside the design.
+- **Installable and offline**: a service worker caches the app after the first visit, and the manifest makes it installable, with file handling for images, PSD and .void.
+
+## Editing depth
+
+- **Layer styles**: drop shadow, inner shadow, outer glow, inner glow, stroke (outside, centre, inside), colour overlay, gradient overlay, bevel and emboss. Every effect has its own blend mode and opacity, they can be reordered by dragging, and fill opacity fades the layer while keeping its effects. Copy, paste and clear. Presets in the Layer styles panel. Rendering is canvas-only (shadow blur plus an alpha pass), so it works in Safari too (`src/editor/styles.ts`).
+- **Pen tool and paths**: corners and curves, close by clicking the first point, direct selection to move points and handles, Alt-click to switch corner and smooth. Paths panel: make selection, fill, stroke, shape layer, layer mask, and trace a path from a selection.
+- **Transform**: free transform (Ctrl+T), skew, distort, perspective and warp, with a live preview.
+- **Image**: image size, canvas size with anchor, rotate and flip the whole canvas, crop to selection, trim, flatten, merge visible, stamp visible.
+- **Adjustments**: new exposure, vibrance, colour balance, channel mixer, photo filter, gradient map, posterize, threshold and .cube LUT. Levels and curves work per channel; levels has black, grey and white pickers; hue and saturation can target one colour range, picked on the image.
+- **Channels panel**: view red, green or blue alone (Ctrl+3 to 5), save selections as channels, and Ctrl-click to load any channel as a selection.
+- **Type**: paragraph text boxes that wrap (drag with the Type tool), justify, first-line indent, paragraph spacing, underline, strikethrough, all caps, small caps, kerning, word spacing, baseline shift and width. Character and Paragraph panels.
+- **Brushes**: flow, smoothing, pen pressure for size and opacity, lock transparent pixels. Dodge, burn and sponge. Number keys set opacity.
+- **Selections**: polygonal lasso, colour range, expand, contract, feather, smooth, border, reselect, intersect mode, and edit the selection as a quick mask.
+- **Clipboard**: copy, cut, copy merged, and paste in place.
+
+## AI on your device
+
+All AI runs in the browser. Nothing is uploaded and nothing is charged. The first use of each model shows its download size (Help, AI on this device lists every model, its size and licence, and can remove them).
+
+- **Select subject** and **Object select** (draw a box) use MODNet, or BiRefNet lite when WebGPU is available.
+- **Select and mask** (Ctrl+Alt+R): refine edge brush, add and subtract brushes, radius, smooth, feather, contrast, shift edge, colour fringe clean-up, with output to a selection, a layer mask or a new layer.
+- **Remove object** (Shift+J): paint over something and it is filled in by LaMa (Apache-2.0, 208 MB once) through ONNX Runtime Web, using WebGPU where possible. If the model cannot load, it falls back to patch healing.
+- **Expand with AI fill** (Image menu): enlarge the canvas and fill the new edges.
+
+## PSD import
+
+PSDs now keep much more: nested groups with their blend modes, layer masks, clipping, editable text (point and paragraph, when the text uses one style), adjustment layers (brightness and contrast, levels, curves, exposure, vibrance, hue and saturation per range, colour balance, black and white, photo filter, channel mixer, invert, posterize, threshold, gradient map), layer styles, locks and colour labels. Anything that cannot be rebuilt is kept as pixels, and a report lists exactly what was kept, changed or left out.
+
 ## Navigation and zoom
 
 Fit to screen (Ctrl+0), fit selection (Shift+2), and fit board (Shift+1, when the doc uses boards) join the existing zoom in/out, 100%, wheel/trackpad zoom (Ctrl/Cmd+wheel), two-finger pan, spacebar-drag and middle-mouse pan. Fit to screen always brings all work back into view, so artwork is never lost off-screen.
@@ -102,12 +151,12 @@ Studio can now read a pasted brief and pull out audience, tonal keywords and mus
 
 ## Known limits
 
-- Groups are one level deep. No smart objects, though image layers keep full resolution through any resize until you paint on them.
+- No smart objects yet: PSD smart objects open as pixels. Image layers keep full resolution through any resize until you paint on them.
 - Heal and clone are patch based, not generative.
 - Background removal: fast people model everywhere, plus an any-subject model (BiRefNet lite, MIT, 115 MB) that needs WebGPU. The any-subject path has not been tested on a real GPU browser yet.
 - Canvas 2D engine. Fine to around 4000px; a WebGL compositor is the next step for very large documents.
 - Templates are local. Accounts, cloud sync, the community gallery and Artie's live brief analysis come with the Art Director Studio port (Supabase). ADS is a Vite/React/Supabase app; its edge functions (process-brief, artie-chat, community) are the pieces to bring over.
-- No PSD import or SVG export yet.
+- No PSD or SVG export yet.
 - Resize scales backgrounds to cover and keeps other layers in place; very different aspect ratios may still need a nudge by hand.
 
 ## License
