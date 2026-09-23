@@ -1,6 +1,6 @@
 # VoidCanvas Editor: Photopea-grade UX plan
 
-Date: 23 Sept 2026. Status: plan agreed, build not started.
+Date: 23 Sept 2026. Status: Phases 1 to 4 built on branch `editor-ux-phase1-4` (23 Sept 2026). Not yet pushed or deployed.
 Rule: nothing already built is removed. Every change below either moves, restyles or extends what exists.
 
 ## 1. Where we are today (from the repo)
@@ -132,3 +132,13 @@ Layered PSD export, smart objects, SVG/AVIF/ICO, DPI and ICC, Save for Web with 
 2. Right side: dockable and floating panels, icon strip, saved workspaces.
 3. Scope for the first build run: Phases 1 to 4 (layout, trust, editing depth, selection and AI).
 4. Engine: WebGL tiled compositor in Phase 5, after the UI settles.
+
+## 9. Build status (23 Sept 2026)
+
+Built and browser-tested on branch `editor-ux-phase1-4` (3 commits, 42 files, about 6,100 lines added). `next build` passes. Playwright checks: menus, dock workspaces, UI scale, shapes, paragraph text, layer styles, warp, pen paths, guides, quick mask, dodge, channel view, versions, canvas rotation, PSD import with report and missing-font dialog, mobile layout, and the on-device models (LaMa remove object, MODNet select subject and object select) all ran with no page errors.
+
+Done beyond the plan: modal queue for automatic dialogs, shortcut sheet generated from the action list, file handling for the installed app, number keys set opacity, two and three finger taps for undo and redo.
+
+Not done in this run (next): text on a path, liquify, Phase 5 WebGL engine, Phase 6 export work (PSD and SVG export, smart objects, Save for Web, CMYK).
+
+Push was blocked: this session had no GitHub credential for justinlagos/voidcanvas. The work was handed over as a git bundle and a patch.
