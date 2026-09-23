@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowLeft, ArrowUp, Check, AlertCircle, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe, GripVertical, ImagePlus, Layers, Lock, Unlock, Monitor, Printer, RefreshCw, RotateCcw, Upload } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, AlertCircle, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe, ImagePlus, Layers, Lock, Unlock, Monitor, Printer, RefreshCw, RotateCcw, Upload } from 'lucide-react'
 import { Button, focusRing } from '@/editor/components/ui'
 import { canvasToBlob, downloadBlob, sendHandoff, type LayeredItem, type LayeredPage } from '@/editor/io'
 import { extractPalette } from '@/editor/engine'
@@ -20,8 +20,10 @@ function Page({ spec, pageNo, pageCount, brand, logo, o, cssWidth }: { spec: Pag
   useEffect(() => {
     let live = true
     const big = cssWidth > 400
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+    const scale = Math.min(2, Math.max(0.25, (cssWidth * dpr) / SIZES[o].w))
     const t = setTimeout(() => {
-      renderPage(spec, pageNo, pageCount, brand, logo, o, big ? 1.5 : 0.5).then(c => { if (!live || !ref.current) return; const x = ref.current.getContext('2d')!; ref.current.width = c.width; ref.current.height = c.height; x.drawImage(c, 0, 0) })
+      renderPage(spec, pageNo, pageCount, brand, logo, o, scale).then(c => { if (!live || !ref.current) return; const x = ref.current.getContext('2d')!; ref.current.width = c.width; ref.current.height = c.height; x.drawImage(c, 0, 0) })
     }, big ? 0 : 80)
     return () => { live = false; clearTimeout(t) }
   }, [spec, pageNo, pageCount, brand, logo, o, cssWidth])
@@ -238,7 +240,7 @@ function Diagnostics({ checks }: { checks: Brand['checks'] }) {
     <div className="relative">
       <button onClick={() => setOpen(v => !v)} aria-expanded={open} className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12px] border ${focusRing} ${bad.length ? 'border-amber-400/40 text-amber-200 bg-amber-400/10' : 'border-emerald-400/30 text-emerald-200 bg-emerald-400/10'}`}>
         {bad.length ? <AlertCircle size={13} /> : <Check size={13} />}
-        {bad.length ? `${bad.length} ${bad.length === 1 ? 'issue' : 'issues'}` : `All ${checks.length} checks pass`}
+        {bad.length ? `${bad.length} ${bad.length === 1 ? 'issue' : 'issues'}` : <><span className="sm:hidden">{checks.length} pass</span><span className="hidden sm:inline">All {checks.length} checks pass</span></>}
       </button>
       {open && (
         <div className="absolute right-0 top-10 z-40 w-[340px] rounded-xl bg-[#17171c] border border-void-700 shadow-2xl p-2">
@@ -257,43 +259,97 @@ function Outliner({ brand, logo, o, active, setActive }: { brand: Brand; logo: L
   const visible = pages.filter(p => p.on).length
   let n = 0
   const nums = pages.map(p => (p.on ? ++n : 0))
-  const tw = o === 'landscape' ? 150 : 104
+  const tw = o === 'landscape' ? 158 : 112
+  const rowW = 158 // the name row always uses the full list width, even under narrow portrait thumbnails
+  const listRef = useRef<HTMLElement>(null)
+  // Keep the page being previewed in view when it changes from the preview bar or the keyboard.
+  useEffect(() => { listRef.current?.querySelector<HTMLElement>(`[data-page="${active}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }, [active])
+  const iconBtn = `h-6 w-6 shrink-0 inline-flex items-center justify-center rounded ${focusRing}`
   return (
-    <nav className="flex lg:flex-col gap-1 p-2 lg:w-[190px] shrink-0 overflow-x-auto lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-void-800/50 bg-void-950/40" aria-label="Pages">
-      <div className="hidden lg:flex items-center justify-between px-1.5 pb-1">
+    <nav ref={listRef} className="flex lg:flex-col gap-1 p-2 lg:w-[186px] shrink-0 min-h-0 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto overscroll-contain border-b lg:border-b-0 lg:border-r border-void-800/50 bg-void-950/40" aria-label="Pages">
+      <div className="hidden lg:flex items-center justify-between px-1.5 pb-1 shrink-0">
         <span className="text-[11.5px] text-void-500">{visible} of {pages.length} in export</span>
-        <button onClick={reset} title="Restore default order and layouts" aria-label="Reset pages" className={`h-6 w-6 inline-flex items-center justify-center rounded text-void-500 hover:text-white ${focusRing}`}><RotateCcw size={12} /></button>
+        <button onClick={reset} title="Restore default order and layouts" aria-label="Reset pages" className={`${iconBtn} text-void-500 hover:text-white`}><RotateCcw size={12} /></button>
       </div>
       {pages.map((p, i) => {
         const def = PAGE_DEFS[p.kind], multi = def.variants.length > 1
         return (
-          <div key={p.kind} draggable
+          <div key={p.kind} data-page={i} draggable
             onDragStart={e => { setDrag(i); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)) }}
             onDragOver={e => { e.preventDefault(); setOver(i) }} onDragLeave={() => setOver(v => (v === i ? null : v))}
             onDrop={e => { e.preventDefault(); if (drag != null) { move(drag, i); setActive(i) } setDrag(null); setOver(null) }}
             onDragEnd={() => { setDrag(null); setOver(null) }}
-            className={`group shrink-0 rounded-lg p-1.5 ${active === i ? 'bg-void-800/70' : 'hover:bg-void-900'} ${over === i && drag !== i ? 'ring-2 ring-accent' : ''} ${drag === i ? 'opacity-40' : ''}`}>
+            className={`group relative shrink-0 rounded-lg p-1 ${active === i ? 'bg-void-800/70' : 'hover:bg-void-900'} ${over === i && drag !== i ? 'ring-2 ring-accent' : ''} ${drag === i ? 'opacity-40' : ''}`}>
             <button onClick={e => (e.altKey && multi ? cycle(i, e.shiftKey ? -1 : 1) : setActive(i))} aria-current={active === i}
+              aria-label={`${p.on ? `Page ${nums[i]}, ` : ''}${def.title}${p.on ? '' : ', left out of exports'}`}
               title={multi ? 'Alt-click to try the next layout' : undefined}
-              className={`block rounded-md overflow-hidden border-2 ${active === i ? 'border-accent' : 'border-transparent'} ${focusRing} ${p.on ? '' : 'opacity-35'}`}>
+              className={`block mx-auto rounded-md overflow-hidden border-2 ${active === i ? 'border-accent' : 'border-transparent'} ${focusRing} ${p.on ? '' : 'opacity-35'}`}>
               <Page spec={p} pageNo={nums[i] || 1} pageCount={visible || 1} brand={brand} logo={logo} o={o} cssWidth={tw} />
             </button>
-            <div className="mt-1 flex items-center gap-0.5" style={{ width: tw }}>
-              <GripVertical size={12} className="text-void-600 shrink-0 cursor-grab" aria-hidden />
-              <span className={`flex-1 min-w-0 truncate text-[11.5px] ${p.on ? 'text-void-200' : 'text-void-500 line-through'}`}>{p.on ? `${nums[i]}. ` : ''}{def.title}</span>
-              <button onClick={() => toggle(i)} aria-label={p.on ? `Leave ${def.title} out of exports` : `Include ${def.title}`} title={p.on ? 'Leave out' : 'Include'} className={`h-6 w-6 shrink-0 inline-flex items-center justify-center rounded text-void-500 hover:text-white ${focusRing}`}>{p.on ? <Eye size={12} /> : <EyeOff size={12} />}</button>
+            {/* Reorder controls sit over the thumbnail and only show on hover or keyboard focus, so they cost no height. */}
+            <div className="absolute top-2 right-2 flex gap-0.5 rounded-md bg-black/70 backdrop-blur-sm p-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+              <button onClick={() => { move(i, i - 1); setActive(i - 1) }} disabled={i === 0} aria-label={`Move ${def.title} up`} className={`${iconBtn} text-white/80 hover:text-white disabled:opacity-30`}><ArrowUp size={12} /></button>
+              <button onClick={() => { move(i, i + 1); setActive(i + 1) }} disabled={i === pages.length - 1} aria-label={`Move ${def.title} down`} className={`${iconBtn} text-white/80 hover:text-white disabled:opacity-30`}><ArrowDown size={12} /></button>
             </div>
-            <div className="flex items-center gap-0.5" style={{ width: tw }}>
-              {multi
-                ? <button onClick={() => cycle(i)} aria-label={`${def.title} layout: ${def.variants[p.variant].label}. Next layout`} className={`flex-1 min-w-0 h-6 px-1.5 inline-flex items-center justify-between rounded bg-void-900 border border-void-800 text-[11px] text-void-300 hover:text-white ${focusRing}`}><span className="truncate">{def.variants[p.variant].label}</span><span className="flex items-center shrink-0 text-void-500">{p.variant + 1}/{def.variants.length}<ChevronRight size={11} /></span></button>
-                : <span className="flex-1 text-[11px] text-void-600 px-1.5">{def.variants[0].label}</span>}
-              <button onClick={() => { move(i, i - 1); setActive(i - 1) }} disabled={i === 0} aria-label={`Move ${def.title} up`} className={`h-6 w-6 shrink-0 inline-flex items-center justify-center rounded text-void-500 hover:text-white disabled:opacity-25 ${focusRing}`}><ArrowUp size={12} /></button>
-              <button onClick={() => { move(i, i + 1); setActive(i + 1) }} disabled={i === pages.length - 1} aria-label={`Move ${def.title} down`} className={`h-6 w-6 shrink-0 inline-flex items-center justify-center rounded text-void-500 hover:text-white disabled:opacity-25 ${focusRing}`}><ArrowDown size={12} /></button>
+            <div className="mt-1 flex items-center gap-1" style={{ width: rowW }}>
+              <span className={`min-w-0 flex-1 truncate text-[11.5px] ${p.on ? 'text-void-200' : 'text-void-500 line-through'}`}>{p.on ? <span className="text-void-500 tabular-nums">{nums[i]}  </span> : null}{def.title}</span>
+              {multi && <button onClick={() => cycle(i)} aria-label={`${def.title} layout: ${def.variants[p.variant].label}. Next layout`} title={`Layout: ${def.variants[p.variant].label}. Click for the next one.`}
+                className={`h-6 px-1.5 shrink-0 inline-flex items-center gap-0.5 rounded bg-void-900 border border-void-800 text-[10.5px] text-void-400 hover:text-white tabular-nums ${focusRing}`}>{p.variant + 1}/{def.variants.length}<ChevronRight size={10} /></button>}
+              <button onClick={() => toggle(i)} aria-label={p.on ? `Leave ${def.title} out of exports` : `Include ${def.title}`} title={p.on ? 'Leave out of exports' : 'Include in exports'} className={`${iconBtn} text-void-500 hover:text-white`}>{p.on ? <Eye size={12} /> : <EyeOff size={12} />}</button>
             </div>
           </div>
         )
       })}
     </nav>
+  )
+}
+
+/** The page preview. It fits the space it is given, in both directions, and never scrolls away. */
+function Preview({ brand, logo, o, active, setActive }: { brand: Brand; logo: LogoInfo | null; o: Orientation; active: number; setActive: (i: number) => void }) {
+  const pages = useBrand(s => s.pages), toggle = useBrand(s => s.togglePage), cycle = useBrand(s => s.cycleVariant)
+  const box = useRef<HTMLDivElement>(null)
+  const [avail, setAvail] = useState({ w: 0, h: 0 })
+  useEffect(() => {
+    const el = box.current; if (!el) return
+    const ro = new ResizeObserver(([e]) => setAvail({ w: Math.floor(e.contentRect.width / 8) * 8, h: Math.floor(e.contentRect.height / 8) * 8 }))
+    ro.observe(el); return () => ro.disconnect()
+  }, [])
+  const i = Math.min(active, pages.length - 1), spec = pages[i]
+  const visible = pages.filter(p => p.on), no = visible.indexOf(spec) + 1
+  const ar = SIZES[o].h / SIZES[o].w
+  // On a phone the column has no fixed height, so fit to width alone.
+  const BAR = 60
+  const fitW = avail.h > 120 ? Math.min(avail.w, (avail.h - BAR) / ar) : avail.w
+  const cssWidth = Math.max(160, Math.floor(fitW))
+  const go = (d: number) => setActive(Math.max(0, Math.min(pages.length - 1, i + d)))
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement
+      if (t.closest('input, textarea, select, [contenteditable="true"], [role="tablist"]') || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') { e.preventDefault(); go(1) }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); go(-1) }
+    }
+    window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey)
+  })
+  if (!spec) return null
+  const def = PAGE_DEFS[spec.kind], multi = def.variants.length > 1
+  const bar = `h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12px] ${focusRing}`
+  return (
+    <div className="order-first lg:order-none flex-1 min-w-0 min-h-0 flex flex-col bg-void-900/40">
+      <div ref={box} className="flex-1 min-h-[260px] lg:min-h-0 m-4 sm:m-6 flex flex-col items-center justify-center">
+        {avail.w > 0 && <Page spec={spec} pageNo={no || 1} pageCount={visible.length || 1} brand={brand} logo={logo} o={o} cssWidth={cssWidth} />}
+        <div className="shrink-0 flex flex-wrap items-center justify-center gap-2 pt-3" style={{ minHeight: BAR - 12 }}>
+          <button onClick={() => go(-1)} disabled={i === 0} aria-label="Previous page" className={`${bar} bg-void-800/80 text-void-200 hover:bg-void-700 disabled:opacity-30`}><ArrowLeft size={14} /></button>
+          <span className="min-w-[140px] text-center text-[12.5px] text-void-300 tabular-nums" aria-live="polite">
+            {spec.on ? <>{no} of {visible.length}</> : <span className="text-void-500">Left out</span>}<span className="text-void-600">  ·  </span><span className="text-void-100">{def.title}</span>
+          </span>
+          <button onClick={() => go(1)} disabled={i === pages.length - 1} aria-label="Next page" className={`${bar} bg-void-800/80 text-void-200 hover:bg-void-700 disabled:opacity-30`}><ArrowRight size={14} /></button>
+          <span className="w-px h-5 bg-void-800 mx-1 hidden sm:block" />
+          {multi && <button onClick={() => cycle(i)} className={`${bar} border border-void-800 text-void-300 hover:text-white`}>Layout: <span className="text-void-100">{def.variants[spec.variant].label}</span><ChevronRight size={13} /></button>}
+          <button onClick={() => toggle(i)} className={`${bar} border border-void-800 text-void-300 hover:text-white`}>{spec.on ? <><Eye size={13} />In export</> : <><EyeOff size={13} />Left out</>}</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -312,8 +368,6 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
   const brand = useMemo(() => buildBrand(tokens), [tokens])
   const checks = useMemo(() => [...brand.checks, ...logoChecks(brand, logo)], [brand, logo])
   const visible = pages.filter(p => p.on)
-  const activeSpec = pages[Math.min(active, pages.length - 1)]
-  const activeNo = visible.indexOf(activeSpec) + 1
 
   useEffect(() => { loadFont(brand.fonts.heading); loadFont(brand.fonts.body); loadFont(brand.fonts.mono, [400]) }, [brand.fonts.heading, brand.fonts.body, brand.fonts.mono])
 
@@ -371,19 +425,19 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
         <div className="ml-auto flex items-center gap-2">
           <Diagnostics checks={checks} />
           <div className="flex rounded-lg border border-void-800 p-0.5">
-            <button onClick={() => setO('landscape')} aria-pressed={o === 'landscape'} className={`h-7 px-2 rounded-md text-[12px] inline-flex items-center gap-1.5 ${focusRing} ${o === 'landscape' ? 'bg-void-800 text-white' : 'text-void-400 hover:text-white'}`}><Monitor size={13} />Deck</button>
-            <button onClick={() => setO('portrait')} aria-pressed={o === 'portrait'} className={`h-7 px-2 rounded-md text-[12px] inline-flex items-center gap-1.5 ${focusRing} ${o === 'portrait' ? 'bg-void-800 text-white' : 'text-void-400 hover:text-white'}`}><FileText size={13} />Document</button>
+            <button onClick={() => setO('landscape')} aria-label="Deck" aria-pressed={o === 'landscape'} className={`h-7 px-2 rounded-md text-[12px] inline-flex items-center gap-1.5 ${focusRing} ${o === 'landscape' ? 'bg-void-800 text-white' : 'text-void-400 hover:text-white'}`}><Monitor size={13} /><span className="hidden sm:inline">Deck</span></button>
+            <button onClick={() => setO('portrait')} aria-label="Document" aria-pressed={o === 'portrait'} className={`h-7 px-2 rounded-md text-[12px] inline-flex items-center gap-1.5 ${focusRing} ${o === 'portrait' ? 'bg-void-800 text-white' : 'text-void-400 hover:text-white'}`}><FileText size={13} /><span className="hidden sm:inline">Document</span></button>
           </div>
-          <Button onClick={newTake}><RefreshCw size={14} />New take</Button>
+          <Button onClick={newTake} className="px-2.5 sm:px-3.5"><RefreshCw size={14} /><span className="sr-only sm:not-sr-only">New take</span></Button>
         </div>
       </header>
 
       <div className="flex-1 flex flex-col lg:flex-row min-h-0">
-        <aside className="lg:w-[330px] shrink-0 border-b lg:border-b-0 lg:border-r border-void-800/60 flex flex-col min-h-0">
+        <aside className="order-last lg:order-none lg:w-[330px] shrink-0 border-t lg:border-t-0 lg:border-r border-void-800/60 flex flex-col min-h-0">
           <div role="tablist" className="grid grid-cols-4 gap-1 p-2 border-b border-void-800/60">
             {TABS.map(t => <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`h-8 rounded-md text-[12.5px] ${focusRing} ${tab === t ? 'bg-void-800 text-white' : 'text-void-400 hover:text-white'}`}>{t}</button>)}
           </div>
-          <div className="p-4 overflow-y-auto flex-1">
+          <div className="p-4 lg:overflow-y-auto overscroll-contain flex-1 min-h-0">
             {tab === 'Identity' && <IdentityTab logo={logo} onLogo={onLogo} brand={brand} logoErr={logoErr} />}
             {tab === 'Colour' && <ColourTab brand={brand} />}
             {tab === 'Type' && <TypeTab brand={brand} />}
@@ -394,10 +448,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
 
         <section className="flex-1 min-w-0 flex flex-col lg:flex-row min-h-0">
           <Outliner brand={brand} logo={logo} o={o} active={active} setActive={setActive} />
-          <div className="flex-1 min-w-0 overflow-auto bg-void-900/40 p-4 sm:p-8 flex flex-col items-center gap-3">
-            {activeSpec && <Page spec={activeSpec} pageNo={activeNo || 1} pageCount={visible.length || 1} brand={brand} logo={logo} o={o} cssWidth={o === 'landscape' ? 1000 : 620} />}
-            {activeSpec && !activeSpec.on && <p className="text-[12.5px] text-void-400">This page is left out of exports. Use the eye in the page list to include it.</p>}
-          </div>
+          <Preview brand={brand} logo={logo} o={o} active={active} setActive={setActive} />
         </section>
       </div>
 

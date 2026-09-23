@@ -33,7 +33,7 @@ export function StudioShell() {
   }
 
   return (
-    <main className="min-h-[100dvh] flex flex-col bg-void-950 text-void-100">
+    <main className={`flex flex-col bg-void-950 text-void-100 ${mode === 'brand' ? 'min-h-[100dvh] lg:h-[100dvh] lg:overflow-hidden' : 'min-h-[100dvh]'}`}>
       <header className="h-12 shrink-0 flex items-center gap-3 px-3 border-b border-void-800/60"><Logo /><AppNav /></header>
       {mode === 'brand' ? <BrandGuideline onBack={() => setMode('boards')} /> : board ? <BoardView key={board.id} board={board} onBack={() => { setOpenId(null); reload() }} /> : (
         <div className="max-w-5xl w-full mx-auto px-5 sm:px-8 py-8 sm:py-12">
