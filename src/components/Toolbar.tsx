@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Download, RotateCcw, Undo2, Trash2, Layers } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { sendHandoff } from '@/editor/io'
+import { noteExportForPrompt, track } from '@/lib/analytics'
 
 export function Toolbar() {
   const { originalImage, setOriginalImage, resetParams, undo, history, activeEffect, setActiveEffect } = useStore()
@@ -24,6 +25,7 @@ export function Toolbar() {
     }
     link.href = canvas.toDataURL(mimeTypes[format], 0.95)
     link.click()
+    track('export', { format, effect: activeEffect }); noteExportForPrompt()
   }, [activeEffect])
 
   const router = useRouter()

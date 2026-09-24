@@ -9,6 +9,7 @@ import { effectParams } from '@/components/ParamControls'
 import { defaultParams, type EffectType, type EffectParams } from '@/store/useStore'
 import { Logo } from '@/components/AppNav'
 import { canvasToBlob, downloadBlob, sendHandoff } from '@/editor/io'
+import { track } from '@/lib/analytics'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const MAX = 2400
@@ -66,6 +67,7 @@ export function ToolPage({ def }: { def: ToolDef }) {
       const c = document.createElement('canvas'); c.width = bmp.width * k; c.height = bmp.height * k
       c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height)
       loadCanvas(c, false)
+      track('effect.load', { tool: def.slug }); track('effect.apply', { id: String(def.effect), tool: def.slug })
     } finally { setBusy(false) }
   }
 

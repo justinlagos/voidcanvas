@@ -5,6 +5,7 @@ import { Copy, Download } from 'lucide-react'
 import { downloadBlob, exportAllFrames, exportImage, exportVoidFile, exportVoidPng, type ExportOptions } from '../io'
 import { useEditor } from '../store'
 import { Button, Modal, Slider, focusRing } from './ui'
+import { noteExportForPrompt, track } from '@/lib/analytics'
 
 export function ExportDialog({ onClose }: { onClose: () => void }) {
   const doc = useEditor(s => s.doc)!
@@ -20,10 +21,10 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     try {
       const blob = await exportImage(copy ? { ...o, format: 'png' } : o)
       if (!copy) import('../versions').then(m => m.saveVersion('Exported', true)).catch(() => {})
-      if (copy) { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); useEditor.getState().notify('Copied. Paste it anywhere.') }
+      if (copy) { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); useEditor.getState().notify('Copied. Paste it anywhere.'); track('export', { format: 'clipboard', scale: o.scale }); noteExportForPrompt() }
       else downloadBlob(blob, `${doc.name.replace(/[^\w\- ]+/g, '').trim() || 'design'}.${o.format === 'jpeg' ? 'jpg' : o.format}`)
       onClose()
-    } catch { useEditor.getState().notify('Export failed. Try a smaller size.') } finally { setWorking(false) }
+    } catch (e) { track('export.failed', { format: o.format, scale: o.scale, w: doc.width, h: doc.height }); useEditor.getState().notify('Export failed. Try a smaller size.') } finally { setWorking(false) }
   }
 
   return (
