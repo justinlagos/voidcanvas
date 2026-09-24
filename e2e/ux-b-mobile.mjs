@@ -62,7 +62,7 @@ await p.screenshot({ path: OUT('ux_b_phone.png') })
 // Desktop unchanged: options bar still there at 1440
 const d = await b.newContext({ viewport: { width: 1440, height: 900 } }); const dp = await d.newPage()
 await dp.goto(`${BASE}/editor`); await dp.waitForTimeout(600); await (await dp.$('input[type=file]')).setInputFiles(FIX.land); await dp.waitForTimeout(2000)
-ok('B desktop: desktop shell still in place', !!(await dp.$('text=Auto-select')) && !(await dp.$('nav[aria-label="Modes"]')))
+ok('B desktop: desktop shell still in place', !!(await dp.$('button:has-text("Move settings")')) && !(await dp.$('nav[aria-label="Modes"]')))
 await d.close()
 
 await b.close(); console.log(out.join('\n')); if (errors.length) { console.log('ERRORS', errors.slice(0, 3)); process.exitCode = 1 } else console.log('no page errors')

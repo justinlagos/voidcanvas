@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Copy, Eclipse, ImageOff, Move, PenLine, Scissors, Trash2 } from 'lucide-react'
+import { Copy, Eclipse, ImageOff, MoreHorizontal, Move, PenLine, Scissors, Trash2 } from 'lucide-react'
 import { layerBounds } from '../engine'
 import { useEditor } from '../store'
 import type { Layer } from '../types'
@@ -18,6 +18,7 @@ export function FloatingBar() {
   const phone = useIsPhone()
   // Measured after render so the bar can be kept inside the stage whatever its width.
   const [box, setBox] = useState({ w: 0, stageW: 0, stageH: 0 })
+  const [more, setMore] = useState(false)
   useLayoutEffect(() => {
     const el = ref.current, stage = el?.parentElement
     if (!el || !stage) return
@@ -47,18 +48,27 @@ export function FloatingBar() {
     ? { left: '50%', bottom: PAD, maxWidth: `calc(100% - ${PAD * 2}px)` }
     : { left, top }
   const btn = 'h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12.5px] text-void-100 hover:bg-void-700 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent'
+  const item = 'w-full h-8 px-3 inline-flex items-center gap-2 text-[12.5px] text-void-100 hover:bg-accent hover:text-white whitespace-nowrap'
   return (
     <div ref={ref} data-floating className={`absolute z-10 flex items-center gap-0.5 p-1 rounded-xl bg-[#1c1c22] border border-void-700 shadow-xl -translate-x-1/2 ${dock ? 'overflow-x-auto' : ''}`} style={style}>
       {layer.type === 'raster' && <button className={btn} onClick={() => removeBackground(layer.id)}><ImageOff size={14} />Remove background</button>}
       {layer.type === 'raster' && <button className={btn} onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'filters' }))}><Eclipse size={14} />Filters</button>}
       {layer.type === 'text' && <button className={btn} onClick={() => useEditor.setState({ editingTextId: layer.id })}><PenLine size={14} />Edit text</button>}
       {layer.type === 'text' && <TextQuick layer={layer} />}
-      {layer.type !== 'text' && (layer.clipId
-        ? <button className={btn} onClick={() => useEditor.getState().releaseClippingMask(layer.id)}><Scissors size={14} />Release clip</button>
-        : (useEditor.getState().canClip(layer.id) && <button className={btn} onClick={() => useEditor.getState().createClippingMask(layer.id)}><Scissors size={14} />Clip to below</button>))}
-      <button className={btn} aria-label="Centre on page" title="Centre on page" onClick={() => { s.align('hcenter'); s.align('vcenter') }}><Move size={14} /></button>
-      <button className={btn} aria-label="Duplicate" title="Duplicate (Ctrl+J)" onClick={() => s.duplicateLayer(layer.id)}><Copy size={14} /></button>
-      <button className={btn} aria-label="Delete" title="Delete" onClick={() => s.removeSelected()}><Trash2 size={14} /></button>
+      {/* The rest sits behind one button, so the bar stays short. */}
+      <div className="relative">
+        <button className={btn} aria-label="More" aria-haspopup="menu" aria-expanded={more} onClick={() => setMore(v => !v)}><MoreHorizontal size={14} /></button>
+        {more && (
+          <div role="menu" className="absolute left-0 top-full mt-1 z-20 min-w-[180px] py-1 rounded-xl bg-[#1c1c22] border border-void-700 shadow-xl" onPointerLeave={() => setMore(false)}>
+            <button role="menuitem" className={`${item}`} onClick={() => { s.align('hcenter'); s.align('vcenter'); setMore(false) }}><Move size={14} />Centre on page</button>
+            <button role="menuitem" className={`${item}`} onClick={() => { s.duplicateLayer(layer.id); setMore(false) }}><Copy size={14} />Duplicate</button>
+            {layer.type !== 'text' && (layer.clipId
+              ? <button role="menuitem" className={item} onClick={() => { useEditor.getState().releaseClippingMask(layer.id); setMore(false) }}><Scissors size={14} />Release clip</button>
+              : (useEditor.getState().canClip(layer.id) && <button role="menuitem" className={item} onClick={() => { useEditor.getState().createClippingMask(layer.id); setMore(false) }}><Scissors size={14} />Clip to below</button>))}
+            <button role="menuitem" className={`${item} text-red-300`} onClick={() => { s.removeSelected(); setMore(false) }}><Trash2 size={14} />Delete</button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

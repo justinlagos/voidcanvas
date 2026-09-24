@@ -4,7 +4,7 @@ import * as ops from '../ops'
 import { ROLE_LABEL } from '../adapt'
 const ROLE_OPTIONS = Object.entries(ROLE_LABEL).map(([id, label]) => ({ id, label }))
 import { useEffect, useRef, useState } from 'react'
-import { AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, Eclipse, FolderPlus, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
+import { ChevronDown, AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, Eclipse, FolderPlus, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
 import { effectParams } from '@/components/ParamControls'
 import { defaultParams, type EffectParams } from '@/store/useStore'
 import { ADJUSTMENT_DEFAULTS, HUE_BANDS, layerBounds, layerSize } from '../engine'
@@ -93,7 +93,7 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
   }
 
   const arrange = (
-    <Section title={count > 1 ? `${count} layers selected` : 'Position'}>
+    <Section title={count > 1 ? `${count} layers selected` : 'Position'} collapsible={count === 1} defaultOpen={count > 1}>
       <div className="flex items-center justify-between">
         {([['left', AlignStartVertical, 'Align left'], ['hcenter', AlignCenterVertical, 'Centre horizontally'], ['right', AlignEndVertical, 'Align right'], ['top', AlignStartHorizontal, 'Align top'], ['vcenter', AlignCenterHorizontal, 'Centre vertically'], ['bottom', AlignEndHorizontal, 'Align bottom']] as const).map(([how, Icon, label]) => (
           <IconButton key={how} label={count > 1 ? label : `${label} on the page`} onClick={() => s.align(how)}><Icon size={16} /></IconButton>
@@ -127,17 +127,6 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
 
   return (
     <div>
-      <Section title={layer.type === 'adjustment' ? layer.name : layer.type === 'text' ? 'Text' : layer.type === 'shape' ? 'Shape' : 'Image layer'}>
-        <div className="space-y-3">
-          <Slider label="Opacity" value={Math.round(layer.opacity * 100)} min={0} max={100} unit="%" onChange={v => up({ opacity: v / 100 })} onCommit={commit('Opacity')} />
-          <Select label="Blend" value={layer.blend} options={BLEND_MODES} onChange={v => s.updateLayer(layer.id, { blend: v }, 'Blend mode')} />
-          {layer.type !== 'adjustment' && hasBoards && (
-            <Select label="Role in formats" value={(layer.role ?? '') as string} options={[{ id: '', label: 'Automatic' }, ...ROLE_OPTIONS]} onChange={v => s.updateLayer(layer.id, { role: (v || null) as any }, 'Layer role')} />
-          )}
-        </div>
-      </Section>
-
-      {layer.type !== 'adjustment' && arrange}
 
       {layer.type === 'raster' && (
         <Section title="Quick actions">
@@ -153,9 +142,21 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
 
       {layer.type === 'text' && <TextProps layer={layer} />}
       {layer.type === 'shape' && <ShapeProps layer={layer} />}
+      {layer.type === 'adjustment' && <AdjustmentProps layer={layer} />}
       {layer.type === 'text' && layer.onPath && <PathTextProps layer={layer} />}
       {layer.vmask && <VectorMaskProps layer={layer} />}
-      {layer.type === 'adjustment' && <AdjustmentProps layer={layer} />}
+
+      {/* Layer-level settings open only when something is off its default, so a fresh layer shows just what matters. */}
+      <Section title="Layer" collapsible defaultOpen={layer.opacity < 1 || layer.blend !== 'source-over' || !!layer.role}>
+        <div className="space-y-3">
+          <Slider label="Opacity" value={Math.round(layer.opacity * 100)} min={0} max={100} unit="%" onChange={v => up({ opacity: v / 100 })} onCommit={commit('Opacity')} />
+          <Select label="Blend" value={layer.blend} options={BLEND_MODES} onChange={v => s.updateLayer(layer.id, { blend: v }, 'Blend mode')} />
+          {layer.type !== 'adjustment' && hasBoards && (
+            <Select label="Role in formats" value={(layer.role ?? '') as string} options={[{ id: '', label: 'Automatic' }, ...ROLE_OPTIONS]} onChange={v => s.updateLayer(layer.id, { role: (v || null) as any }, 'Layer role')} />
+          )}
+        </div>
+      </Section>
+      {layer.type !== 'adjustment' && arrange}
 
       {group && (
         <Section title={group.name}>
@@ -192,6 +193,8 @@ function TextProps({ layer }: { layer: TextLayer }) {
   // Typing happens on the canvas. This field mirrors the text for people who prefer a form, and never takes focus on its own.
   const ta = useRef<HTMLTextAreaElement>(null)
   const up = (patch: Partial<TextLayer>) => s.updateLayer(layer.id, patch)
+  // Spacing, paragraph box, outline and shadow are one click away unless already in use.
+  const [moreType, setMoreType] = useState(!!layer.boxWidth || !!layer.outline || !!layer.shadow || layer.letterSpacing !== 0 || Math.abs(layer.lineHeight - 1.15) > 0.01)
   const setFont = async (fontFamily: string, fontWeight = layer.fontWeight, italic = layer.italic) => {
     await ensureFont(fontFamily, fontWeight, italic)
     s.updateLayer(layer.id, { fontFamily, fontWeight, italic }, 'Font')
@@ -215,11 +218,13 @@ function TextProps({ layer }: { layer: TextLayer }) {
             <button key={a} aria-label={`Align ${a}`} aria-pressed={layer.align === a} className={tog(layer.align === a)} onClick={() => s.updateLayer(layer.id, { align: a }, 'Align')}><Icon size={15} /></button>
           ))}
         </div>
+        <ColorField label="Colour" value={layer.color} onChange={v => v && up({ color: v })} onCommit={() => s.commit('Text colour')} />
+        <button onClick={() => setMoreType(v => !v)} aria-expanded={moreType} className={`text-[12px] text-void-400 hover:text-white inline-flex items-center gap-1 rounded ${focusRing}`}><ChevronDown size={12} className={moreType ? '' : '-rotate-90'} />{moreType ? 'Fewer options' : 'More type options'}</button>
+        {moreType && <>
         <label className="flex items-center gap-2 text-[12.5px] text-void-300"><input type="checkbox" checked={!!layer.boxWidth} onChange={e => s.updateLayer(layer.id, { boxWidth: e.target.checked ? Math.max(120, Math.round(layerSizeOf(layer))) : null }, e.target.checked ? 'Text box' : 'Point text')} />Wrap text in a box</label>
         <Slider label="Size" value={layer.fontSize} min={8} max={600} unit="px" onChange={v => up({ fontSize: v })} onCommit={() => s.commit('Text size')} />
         <Slider label="Line spacing" value={layer.lineHeight} min={0.7} max={2.5} step={0.05} onChange={v => up({ lineHeight: v })} onCommit={() => s.commit('Line spacing')} />
         <Slider label="Letter spacing" value={layer.letterSpacing} min={-10} max={60} step={0.5} unit="px" onChange={v => up({ letterSpacing: v })} onCommit={() => s.commit('Letter spacing')} />
-        <ColorField label="Colour" value={layer.color} onChange={v => v && up({ color: v })} onCommit={() => s.commit('Text colour')} />
         <ColorField label="Outline" allowNone value={layer.outline?.color ?? null} onChange={v => up({ outline: v ? { color: v, width: layer.outline?.width ?? Math.max(2, Math.round(layer.fontSize / 24)) } : null })} onCommit={() => s.commit('Text outline')} />
         {layer.outline && <Slider label="Outline width" value={layer.outline.width} min={1} max={Math.max(12, Math.round(layer.fontSize / 4))} unit="px" onChange={v => up({ outline: { ...layer.outline!, width: v } })} onCommit={() => s.commit('Text outline')} />}
         <ColorField label="Shadow" allowNone value={layer.shadow?.color ?? null} onChange={v => up({ shadow: v ? { color: v, blur: layer.shadow?.blur ?? Math.round(layer.fontSize / 8), x: layer.shadow?.x ?? 0, y: layer.shadow?.y ?? Math.round(layer.fontSize / 16) } : null })} onCommit={() => s.commit('Text shadow')} />
@@ -227,6 +232,7 @@ function TextProps({ layer }: { layer: TextLayer }) {
           <Slider label="Shadow blur" value={layer.shadow.blur} min={0} max={120} unit="px" onChange={v => up({ shadow: { ...layer.shadow!, blur: v } })} onCommit={() => s.commit('Text shadow')} />
           <Slider label="Shadow across" value={layer.shadow.x} min={-100} max={100} unit="px" onChange={v => up({ shadow: { ...layer.shadow!, x: v } })} onCommit={() => s.commit('Text shadow')} />
           <Slider label="Shadow down" value={layer.shadow.y} min={-100} max={100} unit="px" onChange={v => up({ shadow: { ...layer.shadow!, y: v } })} onCommit={() => s.commit('Text shadow')} />
+        </>}
         </>}
       </div>
     </Section>

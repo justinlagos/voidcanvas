@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 
 export const focusRing = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
@@ -85,14 +85,24 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
   )
 }
 
-export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+/**
+ * A panel section. `collapsible` sections open on click and remember nothing: `defaultOpen` decides the first
+ * state, so a section whose values are still at their defaults can start closed and stay out of the way.
+ */
+export function Section({ title, action, children, collapsible, defaultOpen = true }: { title: string; action?: ReactNode; children: ReactNode; collapsible?: boolean; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const shown = !collapsible || open
   return (
-    <section className="px-4 py-3 border-b border-white/[0.05]">
-      <div className="flex items-center justify-between h-6 mb-2">
-        <h3 className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-void-500">{title}</h3>
-        {action}
+    <section className={`px-4 ${shown ? 'py-3' : 'py-1.5'} border-b border-white/[0.05]`} data-section={title}>
+      <div className="flex items-center justify-between h-6 mb-2" style={shown ? undefined : { marginBottom: 0 }}>
+        {collapsible ? (
+          <button onClick={() => setOpen(v => !v)} aria-expanded={open} className={`inline-flex items-center gap-1 -ml-1 pl-1 pr-1.5 h-6 rounded text-[10.5px] font-semibold uppercase tracking-[0.06em] ${open ? 'text-void-400' : 'text-void-500'} hover:text-white ${focusRing}`}>
+            <ChevronDown size={12} className={`transition-transform ${open ? '' : '-rotate-90'}`} />{title}
+          </button>
+        ) : <h3 className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-void-500">{title}</h3>}
+        {shown && action}
       </div>
-      {children}
+      {shown && children}
     </section>
   )
 }

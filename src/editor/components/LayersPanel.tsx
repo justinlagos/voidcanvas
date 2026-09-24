@@ -234,13 +234,18 @@ export function LayersPanel() {
 
   const filter = (l: Layer) => (kind === 'all' || l.type === kind) && (!q || (l.type === 'text' ? l.text + ' ' + l.name : l.name).toLowerCase().includes(q.toLowerCase()))
   const ctx: Ctx = { layers, activeId, selectedIds, groups, editingMask, renaming, setRenaming, dragId, setDragId, over, setOver, filter, menu: (e, id) => { e.preventDefault(); if (!selectedIds.includes(id)) s.setActive(id); setMenu({ at: new DOMRect(e.clientX, e.clientY, 0, 0), id }) } }
+  const [head, setHead] = useState(!!active && (active.opacity < 1 || active.blend !== 'source-over' || (active.fillOpacity ?? 1) < 1 || !!(active as any).locked || !!(active as any).lockPixels || !!(active as any).lockPosition || !!(active as any).lockAlpha))
   const lockOn = (k: typeof LOCKS[number]['key']) => !!active && !!(active as any)[k]
   const lockDisabled = !active || active.type === 'adjustment'
 
   return (
     <div className="flex flex-col min-h-0 h-full">
-      {/* Header: blend mode, opacity, locks, fill. The same controls and order as Photoshop and Photopea. */}
-      <div className="px-2.5 pt-2 pb-1.5 space-y-1.5 border-b border-white/[0.05]">
+      {/* Header: blend mode, opacity, locks, fill. The same controls and order as Photoshop and Photopea.
+          Folded away until something is set, so a simple design shows the list and nothing else. */}
+      <button onClick={() => setHead(v => !v)} aria-expanded={head} className={`mx-2.5 mt-1.5 h-6 inline-flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-void-500 hover:text-white rounded ${focusRing}`}>
+        <ChevronDown size={12} className={head ? '' : '-rotate-90'} />Blend, opacity and locks
+      </button>
+      {head && <div className="px-2.5 pt-1 pb-1.5 space-y-1.5 border-b border-white/[0.05]">
         <div className="flex items-center gap-1.5">
           <select aria-label="Blend mode" disabled={!active && !grp} value={active?.blend ?? 'source-over'} onChange={e => { const ids = selectedIds.length ? selectedIds : active ? [active.id] : []; s.updateLayers(ids.map(id => ({ id, patch: { blend: e.target.value as any } }))); s.commit('Blend mode') }}
             className={`flex-1 min-w-0 h-7 px-1.5 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px] disabled:opacity-40 ${focusRing}`}>
@@ -281,7 +286,7 @@ export function LayersPanel() {
             <button aria-label="Close layer search" onClick={() => { setSearching(false); setQ(''); setKind('all') }} className="text-void-400 hover:text-white"><X size={14} /></button>
           </div>
         )}
-      </div>
+      </div>}
 
       <ul className="flex-1 min-h-[80px] overflow-y-auto px-1.5 py-1.5" role="listbox" aria-label="Layers" aria-multiselectable
         onDragOver={e => { if (dragId) e.preventDefault() }} onDrop={e => { e.preventDefault(); if (dragId && over === null) s.moveLayer(dragId, 0) }}>
