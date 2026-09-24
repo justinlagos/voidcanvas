@@ -90,8 +90,16 @@ export interface LayerStyles {
 // ─── Vector paths ──────────────────────────────────────────────────
 
 /** A bezier node. in/out are absolute handle positions; equal to x,y means no handle. */
-export interface PathNode { x: number; y: number; inX: number; inY: number; outX: number; outY: number; smooth?: boolean }
-export interface SubPath { closed: boolean; nodes: PathNode[] }
+export interface PathNode {
+  x: number; y: number; inX: number; inY: number; outX: number; outY: number
+  /** Handles stay in line when one is dragged. */
+  smooth?: boolean
+  /** Placed by the Curvature Pen: handles are worked out from the neighbours. */
+  auto?: boolean
+}
+/** How a subpath combines with the ones before it (Photoshop path operations). Unset = even-odd fill, as before. */
+export type PathOp = 'add' | 'sub' | 'intersect' | 'xor'
+export interface SubPath { closed: boolean; nodes: PathNode[]; op?: PathOp }
 export interface VectorPath { id: string; name: string; subpaths: SubPath[] }
 
 export interface RasterLayer extends LayerBase {
@@ -142,6 +150,12 @@ export interface ShapeLayer extends LayerBase {
   stroke: string | null
   strokeWidth: number
   radius: number
+  /** Stroke options (Photoshop shape stroke panel). */
+  strokeAlign?: 'center' | 'inside' | 'outside'
+  strokeCap?: 'butt' | 'round' | 'square'
+  strokeJoin?: 'miter' | 'round' | 'bevel'
+  /** Dash and gap lengths as multiples of the stroke width. Empty = solid. */
+  strokeDash?: number[]
 }
 
 export type AdjustmentKind =
@@ -213,13 +227,17 @@ export interface Doc {
   channels?: { id: string; name: string; mask: HTMLCanvasElement }[]
   /** Print resolution metadata. */
   dpi?: number
+  /** The client brief this design answers, carried over from Studio. */
+  brief?: DesignBrief
 }
+
+export interface DesignBrief { title: string; text: string; items: { label: string; value: string }[]; palette?: { label: string; hex: string }[] }
 
 export type ToolId =
   | 'move' | 'brush' | 'eraser' | 'clone' | 'heal' | 'marquee' | 'ellipse'
   | 'lasso' | 'wand' | 'fill' | 'gradient' | 'text' | 'shape' | 'eyedropper'
   | 'crop' | 'hand' | 'zoom'
-  | 'polylasso' | 'objectselect' | 'pen' | 'pathselect' | 'remove' | 'dodge' | 'burn' | 'sponge'
+  | 'polylasso' | 'objectselect' | 'pen' | 'curvature' | 'pathselect' | 'remove' | 'dodge' | 'burn' | 'sponge'
 
 export interface ToolOptions {
   size: number
@@ -250,6 +268,17 @@ export interface ToolOptions {
   showTransform?: boolean
   showDistances?: boolean
   spongeMode?: 'saturate' | 'desaturate'
+  /** Pen: draw a shape layer (fill and stroke) or a plain path. */
+  penMode?: 'shape' | 'path'
+  /** Pen: hovering a segment adds a point, hovering a point removes it. */
+  penAutoAdd?: boolean
+  /** Pen: preview the next segment before you click. */
+  penRubber?: boolean
+  /** Pen shape mode: fill with the main colour, stroke with the second colour. */
+  penFill?: boolean
+  penStrokeWidth?: number
+  /** Operation for the next new subpath. */
+  penOp?: PathOp
 }
 
 export interface View { zoom: number; panX: number; panY: number }

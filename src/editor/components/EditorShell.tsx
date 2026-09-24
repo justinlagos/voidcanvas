@@ -30,6 +30,16 @@ import { markSessionClean, noteEdit, readCrashedSession, startAutoVersions, writ
 
 type ModalState = { name: string; props?: any } | null
 
+/** Dock the Brief panel at the top of the first panel group and show it. */
+function showBriefPanel() {
+  const ui = useUi.getState(); const g = ui.workspace.groups[0]
+  if (g && !ui.workspace.groups.some(x => x.tabs.includes('brief'))) ui.movePanel('brief', { group: g.id, index: 0 })
+  useUi.getState().showPanel('brief')
+}
+
+// Test hook for browser checks in development only.
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') (window as any).__ve = useEditor
+
 export function EditorShell() {
   const hasDoc = useEditor(s => !!s.doc)
   const toast = useEditor(s => s.toast)
@@ -108,10 +118,13 @@ export function EditorShell() {
     takeHandoff(inbox).then(async h => {
       if (!h) return
       const ed = useEditor.getState()
+      // A brief from Studio travels with the design as a checklist.
+      const applyBrief = () => { if (h.brief) { useEditor.getState().setDoc({ brief: h.brief }); useEditor.setState({ dirty: true }); showBriefPanel() } }
       if (h.layered?.length && h.size) {
         const { buildFramedFromLayered } = await import('../io')
         await buildFramedFromLayered(h.name, h.layered, h.size, h.palette)
-        ed.notify('Opened as editable boards. Double-click any text to edit it; shapes and colours are real layers.')
+        applyBrief()
+        ed.notify(h.brief ? 'Your drafts are open as boards. Keep the one you like, delete the rest. The Brief panel ticks off what is on the design.' : 'Opened as editable boards. Double-click any text to edit it; shapes and colours are real layers.')
         return
       }
       const canvases = await Promise.all(h.images.map(i => blobToCanvas(i.blob)))
@@ -132,6 +145,7 @@ export function EditorShell() {
         ed.notify('Added as a live filter layer. Adjust it any time in the layers panel.')
       }
       if (h.palette?.length) { useEditor.setState({ swatches: Array.from(new Set([...h.palette, ...useEditor.getState().swatches])).slice(0, 21), fg: h.palette[0] }) }
+      applyBrief()
       if (h.from === 'studio') ed.notify('Your references are in as layers and the board palette is in your colours.')
     })
   }, [])
@@ -186,7 +200,9 @@ export function EditorShell() {
       }
       if (k === 'enter' && !mod && stageApi.enter()) { stop(); return }
       if (k === 'escape' && stageApi.escape()) { stop(); return }
-      if ((k === 'delete' || k === 'backspace') && s.tool === 'pathselect' && stageApi.deleteNode()) { stop(); return }
+      if ((k === 'delete' || k === 'backspace') && ['pathselect', 'pen', 'curvature'].includes(s.tool) && stageApi.deleteNode()) { stop(); return }
+      if (mod && k === 'a' && ['pathselect', 'pen', 'curvature'].includes(s.tool) && stageApi.selectAllNodes()) { stop(); return }
+      if (!mod && k.startsWith('arrow')) { const d = e.shiftKey ? 10 : 1; if (stageApi.nudgeNodes(k === 'arrowleft' ? -d : k === 'arrowright' ? d : 0, k === 'arrowup' ? -d : k === 'arrowdown' ? d : 0)) { stop(); return } }
 
       // Channel shortcuts: Ctrl+2 composite, Ctrl+3/4/5 red, green, blue.
       if (mod && !e.shiftKey && !e.altKey && ['2', '3', '4', '5'].includes(e.key)) { stop(); useEditor.setState({ viewChannel: ({ '2': 'rgb', '3': 'r', '4': 'g', '5': 'b' } as Record<string, string>)[e.key], docRev: s.docRev + 1 }); return }

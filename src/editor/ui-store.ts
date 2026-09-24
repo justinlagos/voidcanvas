@@ -4,7 +4,7 @@ import { create } from 'zustand'
 
 export type PanelId =
   | 'properties' | 'layers' | 'channels' | 'paths' | 'history' | 'swatches' | 'adjustments'
-  | 'character' | 'paragraph' | 'info' | 'brand' | 'navigator' | 'styles'
+  | 'character' | 'paragraph' | 'info' | 'brand' | 'navigator' | 'styles' | 'brief'
 
 export interface DockGroup { id: string; tabs: PanelId[]; active: PanelId; collapsed?: boolean; size?: number }
 export interface FloatingPanel { id: string; tabs: PanelId[]; active: PanelId; x: number; y: number; w: number; h: number }
@@ -25,7 +25,7 @@ const gid = () => 'g' + Date.now().toString(36) + (n++)
 export const WORKSPACES: Record<string, () => Workspace> = {
   Essentials: () => ({
     name: 'Essentials', dockWidth: 300, floating: [],
-    strip: ['info', 'adjustments', 'character', 'paragraph', 'styles', 'brand', 'navigator'],
+    strip: ['brief', 'info', 'adjustments', 'character', 'paragraph', 'styles', 'brand', 'navigator'],
     groups: [
       { id: gid(), tabs: ['properties', 'history', 'swatches'], active: 'properties', size: 1.1 },
       { id: gid(), tabs: ['layers', 'channels', 'paths'], active: 'layers', size: 1 },
@@ -42,7 +42,7 @@ export const WORKSPACES: Record<string, () => Workspace> = {
   }),
   Design: () => ({
     name: 'Design', dockWidth: 300, floating: [],
-    strip: ['info', 'adjustments', 'channels', 'paths', 'history', 'navigator'],
+    strip: ['brief', 'info', 'adjustments', 'channels', 'paths', 'history', 'navigator'],
     groups: [
       { id: gid(), tabs: ['properties', 'character', 'paragraph', 'styles'], active: 'properties', size: 1.2 },
       { id: gid(), tabs: ['layers', 'swatches', 'brand'], active: 'layers', size: 1 },
@@ -117,7 +117,7 @@ function persist(s: UiState) {
   } catch { /* storage blocked: preferences last for this visit only */ }
 }
 
-const ALL_PANELS: PanelId[] = ['properties', 'layers', 'channels', 'paths', 'history', 'swatches', 'adjustments', 'character', 'paragraph', 'info', 'brand', 'navigator', 'styles']
+const ALL_PANELS: PanelId[] = ['properties', 'layers', 'channels', 'paths', 'history', 'swatches', 'adjustments', 'character', 'paragraph', 'info', 'brand', 'navigator', 'styles', 'brief']
 
 /** Remove a panel from wherever it currently lives. Empty groups and floating windows are dropped. */
 function without(w: Workspace, p: PanelId): Workspace {

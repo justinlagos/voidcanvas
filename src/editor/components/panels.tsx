@@ -444,9 +444,100 @@ export function PathsPanel() {
         <Button onClick={() => ops.strokePath(fg, Math.max(1, Math.round(size / 4)))} disabled={!active} className="!h-8 !text-[12px]">Stroke</Button>
         <Button onClick={() => ops.maskFromPath()} disabled={!active} className="!h-8 !text-[12px]">Layer mask</Button>
         <Button onClick={() => ops.selectionToPath()} className="!h-8 !text-[12px]">From selection</Button>
+        <Button onClick={() => ops.duplicatePath()} disabled={!active} className="!h-8 !text-[12px]">Duplicate</Button>
+        <Button onClick={() => ops.exportPathSvg()} disabled={!active} className="!h-8 !text-[12px]">Export SVG</Button>
       </div>
     </div>
   )
 }
 
 export type { Layer }
+
+// ─── Brief ─────────────────────────────────────────────────────────
+
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9\u00c0-\u024f₦£$€@.]+/g, ' ').replace(/\s+/g, ' ').trim()
+/** Is this brief item on the design? Long items count when their opening words are there. */
+function onDesign(value: string, texts: string[]) {
+  const v = norm(value); if (!v) return true
+  const probe = v.length > 28 ? v.slice(0, 28).replace(/\s\S*$/, '') : v
+  return texts.some(t => t.includes(probe))
+}
+
+export function BriefPanel() {
+  const brief = useEditor(s => s.doc?.brief)
+  const layers = useEditor(s => s.layers)
+  const doc = useEditor(s => s.doc)
+  const active = useEditor(s => s.layers.find(l => l.id === s.activeId))
+  const [draft, setDraft] = useState('')
+  const [showText, setShowText] = useState(false)
+  if (!doc) return null
+  const texts = layers.filter(l => l.type === 'text').map(l => norm((l as TextLayer).text))
+  const s = useEditor.getState()
+
+  if (!brief) {
+    return (
+      <div className="p-3 space-y-2.5">
+        <p className="text-[12.5px] text-void-400 leading-relaxed">Paste the client&apos;s brief and VoidCanvas keeps a checklist of what must be on the design, ticking items off as you add them.</p>
+        <textarea value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => e.stopPropagation()} rows={6} placeholder="Headline, date, venue, price, contact, what they want people to do…"
+          className={`w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-white/[0.06] text-[12.5px] leading-relaxed text-void-100 placeholder:text-void-600 resize-y ${focusRing}`} />
+        <Button primary disabled={draft.trim().length < 10} onClick={async () => { const { readBrief, briefItems } = await import('@/studio/drafts'); const f = readBrief(draft, doc.name); s.setDoc({ brief: { title: doc.name, text: draft.trim(), items: briefItems(f) } }, true) }} className="w-full !h-8 !text-[12.5px]">Make checklist</Button>
+      </div>
+    )
+  }
+
+  const done = brief.items.filter(i => onDesign(i.value, texts)).length
+  const place = (value: string, label: string) => {
+    s.addText(undefined, undefined, Math.round(doc.width * 0.6))
+    const l = s.active(); if (l?.type === 'text') s.updateLayer(l.id, { text: value, name: label }, `Add ${label.toLowerCase()}`)
+  }
+  const find = (value: string) => {
+    const v = norm(value), probe = v.length > 28 ? v.slice(0, 28).replace(/\s\S*$/, '') : v
+    const l = layers.find(x => x.type === 'text' && norm(x.text).includes(probe)); if (l) s.setActive(l.id)
+  }
+  // Contrast of the selected text against the board or page behind it.
+  const frame = active && doc.frames?.find(f => f.id === active.frameId)
+  const ground = frame?.background ?? doc.background ?? '#ffffff'
+  const ratio = active?.type === 'text' && /^#[0-9a-f]{6}$/i.test(active.color) && /^#[0-9a-f]{6}$/i.test(ground) ? contrastRatio(active.color, ground) : null
+
+  return (
+    <div className="p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[12.5px] font-semibold text-void-100">{done} of {brief.items.length} on the design</span>
+        <button onClick={() => setShowText(v => !v)} className={`text-[12px] text-void-400 hover:text-white rounded ${focusRing}`}>{showText ? 'Hide brief' : 'Read brief'}</button>
+      </div>
+      <div className="h-1.5 rounded-full bg-void-800 overflow-hidden"><div className="h-full bg-emerald-400 transition-all" style={{ width: `${brief.items.length ? (done / brief.items.length) * 100 : 100}%` }} /></div>
+      {showText && <p className="text-[12px] text-void-300 leading-relaxed whitespace-pre-wrap bg-surface-sunken rounded-lg p-2.5 max-h-48 overflow-y-auto">{brief.text}</p>}
+      <ul className="space-y-1">
+        {brief.items.map((it, i) => {
+          const ok = onDesign(it.value, texts)
+          return (
+            <li key={i} className="flex items-start gap-2 rounded-lg px-1.5 py-1.5 hover:bg-void-900">
+              <span className={`mt-0.5 w-4 h-4 rounded-full shrink-0 flex items-center justify-center text-[10px] ${ok ? 'bg-emerald-400 text-black' : 'border border-void-600'}`}>{ok ? '✓' : ''}</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-[11px] uppercase tracking-wide text-void-500">{it.label}</span>
+                <span className={`block text-[12.5px] leading-snug ${ok ? 'text-void-400' : 'text-void-100'}`}>{it.value}</span>
+              </span>
+              {ok
+                ? <button onClick={() => find(it.value)} className={`text-[11.5px] text-void-400 hover:text-white rounded px-1 ${focusRing}`}>Select</button>
+                : <button onClick={() => place(it.value, it.label)} className={`text-[11.5px] text-accent-light hover:text-white rounded px-1 ${focusRing}`}>Add</button>}
+            </li>
+          )
+        })}
+      </ul>
+      {brief.palette?.length ? (
+        <div>
+          <span className="block text-[11px] uppercase tracking-wide text-void-500 mb-1.5">Colours (click to use)</span>
+          <div className="flex gap-1.5">{brief.palette.map(c => <button key={c.label + c.hex} onClick={() => s.setFg(c.hex)} title={`${c.label} ${c.hex}`} className={`flex-1 h-8 rounded-md border border-white/10 ${focusRing}`} style={{ background: c.hex }} />)}</div>
+        </div>
+      ) : null}
+      {ratio !== null && (
+        <p className="text-[12px] text-void-300">Selected text contrast: <span className={ratio >= 4.5 ? 'text-emerald-400' : ratio >= 3 ? 'text-amber-300' : 'text-red-400'}>{ratio.toFixed(1)}:1 {ratio >= 7 ? 'AAA' : ratio >= 4.5 ? 'AA' : ratio >= 3 ? 'large text only' : 'too low'}</span></p>
+      )}
+      <button onClick={() => { if (confirm('Remove the brief from this design?')) s.setDoc({ brief: undefined }, true) }} className={`text-[11.5px] text-void-500 hover:text-white rounded ${focusRing}`}>Remove brief</button>
+    </div>
+  )
+}
+function contrastRatio(a: string, b: string) {
+  const L = (h: string) => { const [r, g, bb] = [1, 3, 5].map(i => { const c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) }); return 0.2126 * r + 0.7152 * g + 0.0722 * bb }
+  const x = L(a), y = L(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
+}

@@ -6,7 +6,11 @@ import * as ops from '../ops'
 import * as ai from '../ai-tools'
 import { openModal } from '../actions'
 import { useEditor } from '../store'
-import type { ToolOptions } from '../types'
+import type { PathOp, SubPath, ToolOptions } from '../types'
+import * as pen from '../pen'
+import { getSubs, setSubs, stageApi } from './Stage'
+import { Floating } from './ColorPicker'
+import { useRef, useState } from 'react'
 import { Button, IconButton, focusRing } from './ui'
 
 // The tool options bar, like Photoshop and Photopea: it changes with the tool, and holds the settings
@@ -172,15 +176,7 @@ export function OptionsBar() {
         <span className="text-[12px] text-void-400 shrink-0">Click for a line of text, or drag a box for a paragraph that wraps. Character and Paragraph panels hold the details.</span>
       )}
 
-      {(tool === 'pen' || tool === 'pathselect') && (
-        <>
-          <span className="text-[12px] text-void-400 shrink-0">{tool === 'pen' ? 'Click for corners, drag for curves, click the first point to close. Enter or Esc finishes.' : 'Drag points and handles. Alt-click a point to switch corner and curve. Delete removes a point.'}</span>
-          <Sep />
-          <button className={chip(false)} onClick={() => ops.pathToSelection()}>Selection</button>
-          <button className={chip(false)} onClick={() => ops.maskFromPath()}>Mask</button>
-          <button className={chip(false)} onClick={() => ops.shapeFromPath()}>Shape</button>
-        </>
-      )}
+      {(tool === 'pen' || tool === 'curvature' || tool === 'pathselect') && <PenOptions tool={tool} />}
 
       {tool === 'crop' && (
         <>
@@ -213,3 +209,111 @@ export function OptionsBar() {
     </div>
   )
 }
+
+// ─── Pen, Curvature Pen and Direct Selection ───────────────────────
+
+const OPS: { id: PathOp | undefined; label: string; title: string }[] = [
+  { id: undefined, label: 'Normal', title: 'Overlapping parts make holes (even-odd)' },
+  { id: 'add', label: 'Combine', title: 'New part adds to the shape' },
+  { id: 'sub', label: 'Subtract', title: 'New part cuts out of the shape' },
+  { id: 'intersect', label: 'Intersect', title: 'Keep only where the new part overlaps' },
+  { id: 'xor', label: 'Exclude', title: 'Keep everything except the overlap' },
+]
+
+/** Apply an edit to the picked anchor points of the path being edited. */
+function editPicks(fn: (subs: SubPath[], picks: { sub: number; idx: number }[]) => SubPath[] | null, label: string, need = 1) {
+  const s = useEditor.getState()
+  const pp = stageApi.pathPicks()
+  if (!pp || pp.picks.length < need) { s.notify(need > 1 ? `Pick ${need} or more points with Direct Select (A) first. Shift-click or drag a box to pick several.` : 'Pick a point with Direct Select (A) first.'); return }
+  const next = fn(getSubs(pp.target), pp.picks)
+  if (!next) return
+  setSubs(pp.target, next); s.commit(label)
+}
+
+function PenOptions({ tool }: { tool: string }) {
+  const o = useEditor(s => s.options)
+  const fg = useEditor(s => s.fg), bg = useEditor(s => s.bg)
+  const set = useEditor.getState().setOption
+  const mode = o.penMode ?? 'shape'
+  const [more, setMore] = useState(false)
+  const moreBtn = useRef<HTMLButtonElement>(null)
+  const hint = tool === 'pen'
+    ? 'Click for corners, drag for curves. Shift keeps 45°, Alt breaks a handle, Space moves the point, Ctrl edits. Click the first point to close.'
+    : tool === 'curvature'
+      ? 'Click points and the curve flows through them. Double-click or Alt-click for a corner. Drag a point to reshape.'
+      : 'Drag points, handles or the line itself. Shift-click or drag a box to pick several. Alt-click the line to pick the whole path. Arrows nudge.'
+  const run = (f: () => void) => () => { f(); setMore(false) }
+  return (
+    <>
+      {tool !== 'pathselect' && (
+        <>
+          <span className="flex items-center gap-0.5 shrink-0" role="radiogroup" aria-label="Pen mode">
+            <button className={chip(mode === 'shape')} aria-pressed={mode === 'shape'} onClick={() => set('penMode', 'shape')} title="Draw a shape layer with fill and stroke that stays editable">Shape</button>
+            <button className={chip(mode === 'path')} aria-pressed={mode === 'path'} onClick={() => set('penMode', 'path')} title="Draw a path in the Paths panel, for selections, masks and strokes">Path</button>
+          </span>
+          {mode === 'shape' && <>
+            <label className="flex items-center gap-1.5 text-[12px] text-void-300 shrink-0 cursor-pointer" title="Fill new shapes with the main colour">
+              <input type="checkbox" checked={o.penFill !== false} onChange={e => set('penFill', e.target.checked)} className="accent-[#8b7cff]" />Fill<span className="w-3.5 h-3.5 rounded-sm border border-white/20" style={{ background: fg }} />
+            </label>
+            <label className="flex items-center gap-1.5 text-[12px] text-void-300 shrink-0" title="Stroke width for new shapes, in the second colour. 0 = no stroke">
+              Stroke<span className="w-3.5 h-3.5 rounded-sm border border-white/20" style={{ background: bg }} />
+              <input type="number" min={0} max={200} value={o.penStrokeWidth ?? 0} onChange={e => set('penStrokeWidth', Math.max(0, Math.min(200, Number(e.target.value) || 0)))} onKeyDown={e => e.stopPropagation()}
+                className={`w-12 h-6 px-1 rounded bg-surface-sunken border border-white/[0.06] text-[12px] tabular-nums text-void-100 ${focusRing}`} /><span className="-ml-1 text-[11.5px] text-void-500">px</span>
+            </label>
+          </>}
+          <label className="flex items-center gap-1.5 text-[12px] text-void-300 shrink-0" title="How the next part combines with the shape. Hold Shift when you start a part to add it to the selected shape.">
+            <select value={o.penOp ?? ''} onChange={e => set('penOp', (e.target.value || undefined) as PathOp | undefined)} className={`h-7 px-1.5 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px] text-void-100 ${focusRing}`}>
+              {OPS.map(x => <option key={x.label} value={x.id ?? ''} title={x.title}>{x.label}</option>)}
+            </select>
+          </label>
+          {tool === 'pen' && <Check2 on={o.penAutoAdd !== false} label="Auto add/delete" onChange={v => set('penAutoAdd', v)} title="Hover a segment to add a point, hover a point to remove it" />}
+          <Check2 on={o.penRubber !== false} label="Preview" onChange={v => set('penRubber', v)} title="Show the next segment before you click (rubber band)" />
+          <Sep />
+        </>
+      )}
+      {tool === 'pathselect' && <>
+        <button className={chip(false)} onClick={() => editPicks((subs, picks) => { let x = subs; for (const q of picks) x = x.map((sp, i) => (i === q.sub ? { ...sp, nodes: sp.nodes.map((n, j) => (j === q.idx ? convertNodeTo(sp, j, false) : n)) } : sp)); return x }, 'Corner points')} title="Remove the handles of the picked points">Corner</button>
+        <button className={chip(false)} onClick={() => editPicks((subs, picks) => { let x = subs; for (const q of picks) x = x.map((sp, i) => (i === q.sub ? { ...sp, nodes: sp.nodes.map((n, j) => (j === q.idx ? convertNodeTo(sp, j, true) : n)) } : sp)); return x }, 'Smooth points')} title="Give the picked points smooth handles">Smooth</button>
+        <Sep />
+      </>}
+      <span className="text-[12px] text-void-400 shrink-0 max-w-[420px] truncate" title={hint}>{hint}</span>
+      <Sep />
+      <button className={chip(false)} onClick={() => ops.pathToSelection()} title="Load the path as a selection (Ctrl+Enter)">Selection</button>
+      <button className={chip(false)} onClick={() => ops.maskFromPath()} title="Mask the selected layer with the path">Mask</button>
+      <button ref={moreBtn} className={chip(more)} aria-expanded={more} onClick={() => setMore(v => !v)}>Path…</button>
+      {more && moreBtn.current && (
+        <Floating anchor={moreBtn.current.getBoundingClientRect()} side="bottom" onClose={() => setMore(false)} label="Path commands">
+          <div className="w-60 p-1.5 text-[12.5px]" role="menu">
+            {([
+              ['Make shape layer from path', ops.shapeFromPath],
+              ['Copy shape outline to Paths panel', ops.pathFromLayer],
+              ['Fill path with main colour', () => ops.fillPath(useEditor.getState().fg)],
+              ['Stroke path', () => ops.strokePath(useEditor.getState().fg, Math.max(1, Math.round(useEditor.getState().options.size / 4)))],
+              ['Stroke path, tapered ends', () => ops.strokePath(useEditor.getState().fg, Math.max(2, Math.round(useEditor.getState().options.size / 3)), true)],
+              null,
+              ['Join picked end points', () => editPicks((subs, picks) => { const ends = picks.filter(q => !subs[q.sub].closed && (q.idx === 0 || q.idx === subs[q.sub].nodes.length - 1)); if (ends.length !== 2 && !(ends.length === 1 && picks.length === 1)) { useEditor.getState().notify('Pick two end points to join, or one open path to close.'); return null } const [a, b] = ends.length === 2 ? ends : [ends[0], { sub: ends[0].sub, idx: ends[0].idx === 0 ? subs[ends[0].sub].nodes.length - 1 : 0 }]; return pen.joinSubs(subs, a.sub, a.idx === 0 ? 'start' : 'end', b.sub, b.idx === 0 ? 'start' : 'end').subs }, 'Join paths')],
+              ['Cut path at picked point', () => editPicks((subs, picks) => pen.cutAt(subs, picks[0].sub, picks[0].idx), 'Cut path')],
+              ['Average points horizontally', () => editPicks((subs, picks) => pen.averageNodes(subs, picks, 'h'), 'Average points', 2)],
+              ['Average points vertically', () => editPicks((subs, picks) => pen.averageNodes(subs, picks, 'v'), 'Average points', 2)],
+              ['Average points (both)', () => editPicks((subs, picks) => pen.averageNodes(subs, picks, 'both'), 'Average points', 2)],
+              null,
+              ['Close open paths', ops.closeOpenPaths],
+              ['Reverse path direction', ops.reversePath],
+              ['Simplify (remove extra points)', ops.simplifyPath],
+              ['Set last part to Combine', () => ops.setPathOps('add')],
+              ['Set last part to Subtract', () => ops.setPathOps('sub')],
+              ['Set last part to Intersect', () => ops.setPathOps('intersect')],
+              ['Set last part to Exclude', () => ops.setPathOps('xor')],
+              null,
+              ['Copy as SVG', ops.copyPathSvg],
+              ['Export path as SVG file', ops.exportPathSvg],
+            ] as ([string, () => void] | null)[]).map((it, i) => it
+              ? <button key={it[0]} role="menuitem" onClick={run(it[1])} className={`w-full text-left px-2.5 h-8 rounded-md text-void-200 hover:bg-void-800 hover:text-white ${focusRing}`}>{it[0]}</button>
+              : <div key={'sep' + i} className="my-1 h-px bg-white/[0.06]" />)}
+          </div>
+        </Floating>
+      )}
+    </>
+  )
+}
+function convertNodeTo(sp: SubPath, i: number, smooth: boolean) { return pen.convertNode(sp, i, smooth) }

@@ -110,8 +110,10 @@ export interface Handoff {
   boards?: boolean
   /** Editable pages: each becomes a board of real text, shape and image layers. */
   layered?: LayeredPage[]
+  /** The brief and its must-haves, shown as a checklist in the Editor. */
+  brief?: import('./types').DesignBrief
   /** When set, add the image plus a live, re-editable filter layer on top (from a tool page). */
-  liveEffect?: { effect: string; params: Record<string, number> }
+  liveEffect?: { effect: string; params: Record<string, number | string> }
 }
 
 export async function sendHandoff(h: Omit<Handoff, 'id'>): Promise<string> {
@@ -528,7 +530,7 @@ export async function ensureDocFonts() {
 // A page arrives as a list of items in page coordinates. Each becomes a real layer on its own board.
 
 export type LayeredItem =
-  | { kind: 'text'; name: string; text: string; fontFamily: string; fontSize: number; fontWeight: number; italic: boolean; color: string; align: 'left' | 'center' | 'right'; lineHeight: number; letterSpacing: number; x: number; y: number; opacity: number }
+  | { kind: 'text'; name: string; text: string; fontFamily: string; fontSize: number; fontWeight: number; italic: boolean; color: string; align: 'left' | 'center' | 'right'; lineHeight: number; letterSpacing: number; x: number; y: number; opacity: number; boxWidth?: number }
   | { kind: 'shape'; name: string; shape: 'rect' | 'ellipse' | 'line'; x: number; y: number; w: number; h: number; fill: string | null; stroke: string | null; strokeWidth: number; radius: number; rotation: number; opacity: number }
   | { kind: 'image'; name: string; blob: Blob; x: number; y: number; scaleX: number; scaleY: number; opacity: number }
 export interface LayeredPage { name: string; background: string | null; items: LayeredItem[] }
@@ -547,7 +549,7 @@ export async function buildFramedFromLayered(name: string, pages: LayeredPage[],
     for (const it of pages[i].items) {
       const x = f.x + it.x, y = f.y + it.y
       if (it.kind === 'text') {
-        layers.push({ ...base(it.name, f.id, x, y, it.opacity), type: 'text', text: it.text, fontFamily: it.fontFamily, fontSize: it.fontSize, fontWeight: it.fontWeight, italic: it.italic, color: it.color, align: it.align, lineHeight: it.lineHeight, letterSpacing: it.letterSpacing, outline: null, shadow: null } as TextLayer)
+        layers.push({ ...base(it.name, f.id, x, y, it.opacity), type: 'text', text: it.text, fontFamily: it.fontFamily, fontSize: it.fontSize, fontWeight: it.fontWeight, italic: it.italic, color: it.color, align: it.align, lineHeight: it.lineHeight, letterSpacing: it.letterSpacing, outline: null, shadow: null, ...(it.boxWidth ? { boxWidth: it.boxWidth } : {}) } as TextLayer)
       } else if (it.kind === 'shape') {
         layers.push({ ...base(it.name, f.id, x, y, it.opacity), type: 'shape', shape: it.shape, w: it.w, h: it.h, fill: it.fill, stroke: it.stroke, strokeWidth: it.strokeWidth, radius: it.radius, rotation: it.rotation } as Layer)
       } else {

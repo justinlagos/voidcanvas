@@ -118,7 +118,7 @@ function arrange(where: 'front' | 'back' | 'up' | 'down') {
   st.moveLayer(id, where === 'front' ? st.layers.length : 0)
 }
 
-const PANEL_LABELS: Record<PanelId, string> = { properties: 'Properties', layers: 'Layers', channels: 'Channels', paths: 'Paths', history: 'History', swatches: 'Colour and swatches', adjustments: 'Adjustments', character: 'Character', paragraph: 'Paragraph', info: 'Info', brand: 'Brand kit', navigator: 'Navigator', styles: 'Layer styles' }
+const PANEL_LABELS: Record<PanelId, string> = { properties: 'Properties', layers: 'Layers', channels: 'Channels', paths: 'Paths', history: 'History', swatches: 'Colour and swatches', adjustments: 'Adjustments', character: 'Character', paragraph: 'Paragraph', info: 'Info', brand: 'Brand kit', navigator: 'Navigator', styles: 'Layer styles', brief: 'Brief' }
 export { PANEL_LABELS }
 
 // ─── The registry ──────────────────────────────────────────────────
@@ -225,6 +225,21 @@ export function buildActions(): Record<string, Action> {
     { id: 'sel.border', label: 'Border…', run: () => openModal('modify', { kind: 'border' }), enabled: hasSel },
     { id: 'sel.save', label: 'Save selection', run: () => ops.saveSelectionAsChannel(), enabled: hasSel },
     { id: 'sel.path', label: 'Make work path from selection', run: () => ops.selectionToPath(), enabled: hasSel },
+    { id: 'path.toSel', label: 'Load path as selection', hotkey: 'Ctrl+Enter', run: () => ops.pathToSelection(), enabled: () => !!ops.currentPath(), keywords: 'pen path selection' },
+    { id: 'path.shape', label: 'Make shape layer from path', run: ops.shapeFromPath, enabled: () => !!ops.activePath(), keywords: 'pen vector' },
+    { id: 'path.fromLayer', label: 'Copy shape outline to Paths', run: ops.pathFromLayer, enabled: () => s().active()?.type === 'shape', keywords: 'pen vector' },
+    { id: 'path.fill', label: 'Fill path', run: () => ops.fillPath(s().fg), enabled: () => !!ops.currentPath() },
+    { id: 'path.stroke', label: 'Stroke path', run: () => ops.strokePath(s().fg, Math.max(1, Math.round(s().options.size / 4))), enabled: () => !!ops.currentPath() },
+    { id: 'path.strokeTaper', label: 'Stroke path with tapered ends', run: () => ops.strokePath(s().fg, Math.max(2, Math.round(s().options.size / 3)), true), enabled: () => !!ops.currentPath(), keywords: 'simulate pressure' },
+    { id: 'path.close', label: 'Close open paths', run: ops.closeOpenPaths, enabled: () => !!ops.currentPath() },
+    { id: 'path.reverse', label: 'Reverse path direction', run: ops.reversePath, enabled: () => !!ops.currentPath() },
+    { id: 'path.simplify', label: 'Simplify path', run: ops.simplifyPath, enabled: () => !!ops.currentPath(), keywords: 'remove points smooth' },
+    { id: 'path.opAdd', label: 'Last part: Combine', run: () => ops.setPathOps('add'), enabled: () => !!ops.currentPath(), keywords: 'unite union pathfinder' },
+    { id: 'path.opSub', label: 'Last part: Subtract', run: () => ops.setPathOps('sub'), enabled: () => !!ops.currentPath(), keywords: 'minus front pathfinder' },
+    { id: 'path.opInt', label: 'Last part: Intersect', run: () => ops.setPathOps('intersect'), enabled: () => !!ops.currentPath(), keywords: 'pathfinder' },
+    { id: 'path.opXor', label: 'Last part: Exclude', run: () => ops.setPathOps('xor'), enabled: () => !!ops.currentPath(), keywords: 'pathfinder' },
+    { id: 'path.copySvg', label: 'Copy path as SVG', run: ops.copyPathSvg, enabled: () => !!ops.currentPath(), keywords: 'vector export figma' },
+    { id: 'path.exportSvg', label: 'Export path as SVG…', run: ops.exportPathSvg, enabled: () => !!ops.currentPath(), keywords: 'vector download' },
     { id: 'sel.quickMask', label: 'Quick mask mode', hotkey: 'Q', run: toggleQuickMask, enabled: hasDoc, checked: () => s().quickMask },
 
     // Filter
@@ -275,7 +290,7 @@ export const MENUS: { label: string; items: MenuItem[] }[] = [
   { label: 'File', items: ['file.new', 'file.open', 'file.place', '-', 'file.save', 'file.version', 'file.versions', 'file.template', '-', 'file.export', 'file.void', 'file.resize', 'file.boards', '-', 'file.close'] },
   { label: 'Edit', items: ['edit.undo', 'edit.redo', '-', 'edit.cut', 'edit.copy', 'edit.copyMerged', 'edit.paste', 'edit.pasteInPlace', '-', 'edit.fill', 'edit.stroke', '-', 'edit.freeTransform', { label: 'Transform', items: ['edit.skew', 'edit.distort', 'edit.perspective', 'edit.warp', '-', 'edit.rotate90', 'edit.rotate180', '-', 'edit.flipH', 'edit.flipV'] }, '-', 'edit.brand', 'edit.prefs'] },
   { label: 'Image', items: [{ label: 'Adjustments', items: [...ADJ_ORDER.map(k => 'adj.' + k), '-', 'adj.lut'] }, '-', 'image.size', 'image.canvas', 'image.expand', { label: 'Image rotation', items: ['image.rot90', 'image.rot-90', 'image.rot180', '-', 'image.flipH', 'image.flipV'] }, 'image.crop', 'image.trim', '-', 'image.flatten'] },
-  { label: 'Layer', items: ['layer.new', 'layer.duplicate', 'layer.delete', '-', { label: 'Layer style', items: ['layer.style', '-', ...STYLE_KINDS.map(k => 'style.' + k), '-', 'style.copy', 'style.paste', 'style.clear'] }, { label: 'Layer mask', items: ['mask.add', 'mask.hide', 'mask.fromPath', '-', 'mask.invert', 'mask.toggle', 'mask.delete'] }, 'layer.clip', '-', 'layer.group', 'layer.ungroup', 'layer.link', { label: 'Arrange', items: ['layer.front', 'layer.up', 'layer.down', 'layer.back'] }, { label: 'Align', items: ['align.left', 'align.hcenter', 'align.right', '-', 'align.top', 'align.vcenter', 'align.bottom', '-', 'dist.h', 'dist.v'] }, '-', 'layer.removeBg', 'layer.rasterize', 'layer.mergeDown', 'layer.mergeVisible', 'layer.stamp', 'image.flatten'] },
+  { label: 'Layer', items: ['layer.new', 'layer.duplicate', 'layer.delete', '-', { label: 'Layer style', items: ['layer.style', '-', ...STYLE_KINDS.map(k => 'style.' + k), '-', 'style.copy', 'style.paste', 'style.clear'] }, { label: 'Layer mask', items: ['mask.add', 'mask.hide', 'mask.fromPath', '-', 'mask.invert', 'mask.toggle', 'mask.delete'] }, 'layer.clip', { label: 'Path', items: ['path.toSel', 'path.shape', 'path.fromLayer', '-', 'path.fill', 'path.stroke', 'path.strokeTaper', '-', 'path.close', 'path.reverse', 'path.simplify', '-', 'path.opAdd', 'path.opSub', 'path.opInt', 'path.opXor', '-', 'path.copySvg', 'path.exportSvg'] }, '-', 'layer.group', 'layer.ungroup', 'layer.link', { label: 'Arrange', items: ['layer.front', 'layer.up', 'layer.down', 'layer.back'] }, { label: 'Align', items: ['align.left', 'align.hcenter', 'align.right', '-', 'align.top', 'align.vcenter', 'align.bottom', '-', 'dist.h', 'dist.v'] }, '-', 'layer.removeBg', 'layer.rasterize', 'layer.mergeDown', 'layer.mergeVisible', 'layer.stamp', 'image.flatten'] },
   { label: 'Select', items: ['sel.all', 'sel.none', 'sel.reselect', 'sel.inverse', '-', 'sel.subject', 'sel.object', 'sel.colorRange', 'sel.layer', '-', 'sel.mask', { label: 'Modify', items: ['sel.expand', 'sel.contract', 'sel.feather', 'sel.smooth', 'sel.border'] }, '-', 'sel.save', 'sel.path', 'sel.quickMask'] },
   { label: 'Filter', items: ['filter.gallery', 'filter.remove', '-', ...(['artistic', 'stylize', 'color', 'distortion', 'enhance'] as const).map(cat => ({ label: { artistic: 'Artistic', stylize: 'Stylize', color: 'Colour', distortion: 'Distort', enhance: 'Enhance' }[cat], items: effects.filter(e => e.category === cat).map(e => 'fx.' + e.id) }))] },
   { label: 'View', items: ['view.zoomIn', 'view.zoomOut', 'view.fit', 'view.100', 'view.fitSel', 'view.fitBoard', '-', 'view.rulers', 'view.guides', 'view.lockGuides', 'view.snap', 'view.pixelGrid', { label: 'Guides', items: ['view.newGuide', 'view.guideLayout', 'view.clearGuides'] }, '-', 'view.before', 'view.contextBar', 'view.status', 'view.touch'] },
