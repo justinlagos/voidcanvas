@@ -3,7 +3,8 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useStore } from '@/store/useStore'
-import { applyEffect } from '@/lib/effects'
+import { makeChannel, runEffect } from '@/lib/effect-runner'
+import { FX_WORK, scaleParams, workSize } from '@/lib/effect-scale'
 import { ZoomIn, ZoomOut, Maximize2, SplitSquareHorizontal } from 'lucide-react'
 
 export function Canvas() {
@@ -21,26 +22,66 @@ export function Canvas() {
 
   const [isDraggingSlider, setIsDraggingSlider] = useState(false)
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
+  const [sourceSize, setSourceSize] = useState({ width: 0, height: 0 })
+
+  // Rendering runs in a Worker (see effect-runner). Two channels: a quick low-res preview that keeps up with
+  // slider drags, and the full working-size render that follows once the sliders settle. For effects that
+  // render fast the preview step is skipped.
+  const fullChan = useRef(makeChannel()), previewChan = useRef(makeChannel())
+  const lastFullMs = useRef(0)
+  const fullTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const PREVIEW_MAX = 420
+  const SLOW_MS = 120
+
+  const drawSource = (ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number) => { ctx.imageSmoothingQuality = 'high'; ctx.drawImage(img, 0, 0, w, h) }
+
+  const renderFull = useCallback(() => {
+    const canvas = canvasRef.current, img = originalImageRef.current
+    if (!canvas || !img) return
+    const effect = activeEffect, p = params
+    fullChan.current.request(async () => {
+      const ctx = canvas.getContext('2d', { willReadFrequently: true }); if (!ctx) return
+      setIsProcessing(true)
+      try {
+        if (effect === 'none') { drawSource(ctx, img, canvas.width, canvas.height); lastFullMs.current = 0; return }
+        const work = document.createElement('canvas'); work.width = canvas.width; work.height = canvas.height
+        const wctx = work.getContext('2d', { willReadFrequently: true })!
+        drawSource(wctx, img, work.width, work.height)
+        const { img: done, ms } = await runEffect(wctx.getImageData(0, 0, work.width, work.height), effect, p)
+        lastFullMs.current = ms
+        // Drop the result if the user has moved on.
+        const cur = useStore.getState(); if (cur.activeEffect !== effect || cur.params !== p) return
+        ctx.putImageData(done, 0, 0)
+      } finally { setIsProcessing(false) }
+    })
+  }, [activeEffect, params, setIsProcessing])
+
+  const renderPreview = useCallback(() => {
+    const canvas = canvasRef.current, img = originalImageRef.current
+    if (!canvas || !img || activeEffect === 'none') return
+    const effect = activeEffect, p = params
+    previewChan.current.request(async () => {
+      const ctx = canvas.getContext('2d', { willReadFrequently: true }); if (!ctx) return
+      const small = workSize(canvas.width, canvas.height, PREVIEW_MAX)
+      const k = Math.max(small.width, small.height) / Math.max(canvas.width, canvas.height)
+      const work = document.createElement('canvas'); work.width = small.width; work.height = small.height
+      const wctx = work.getContext('2d', { willReadFrequently: true })!
+      drawSource(wctx, img, work.width, work.height)
+      const { img: done } = await runEffect(wctx.getImageData(0, 0, work.width, work.height), effect, scaleParams(effect, p, k))
+      const cur = useStore.getState(); if (cur.activeEffect !== effect || cur.params !== p) return
+      wctx.putImageData(done, 0, 0)
+      ctx.imageSmoothingQuality = 'high'; ctx.drawImage(work, 0, 0, canvas.width, canvas.height)
+    })
+  }, [activeEffect, params])
 
   const render = useCallback(() => {
-    const canvas = canvasRef.current
-    const img = originalImageRef.current
-    if (!canvas || !img) return
-
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })
-    if (!ctx) return
-
-    setIsProcessing(true)
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-
-    if (activeEffect !== 'none') {
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const processed = applyEffect(ctx, imageData, activeEffect, params)
-      ctx.putImageData(processed, 0, 0)
-    }
-
-    setIsProcessing(false)
-  }, [activeEffect, params, setIsProcessing])
+    if (fullTimer.current) clearTimeout(fullTimer.current)
+    if (lastFullMs.current > SLOW_MS) {
+      // Slow effect: show a quick low-res version now, the real one once the sliders settle.
+      renderPreview()
+      fullTimer.current = setTimeout(renderFull, 280)
+    } else renderFull()
+  }, [renderFull, renderPreview])
 
   // Render original for comparison
   const renderOriginal = useCallback(() => {
@@ -72,16 +113,10 @@ export function Canvas() {
       const origCanvas = originalCanvasRef.current
       if (!canvas) return
 
-      const maxSize = 1200
-      let width = img.width, height = img.height
-      if (width > maxSize || height > maxSize) {
-        if (width > height) {
-          height = (height / width) * maxSize; width = maxSize
-        } else {
-          width = (width / height) * maxSize; height = maxSize
-        }
-      }
+      const { width, height } = workSize(img.width, img.height, FX_WORK)
       canvas.width = width; canvas.height = height
+      setSourceSize({ width: img.width, height: img.height })
+      lastFullMs.current = 0
       if (origCanvas) { origCanvas.width = width; origCanvas.height = height }
       setCanvasSize({ width, height })
       originalImageRef.current = img
@@ -150,8 +185,8 @@ export function Canvas() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-void-500 font-mono tabular-nums">
-            {canvasSize.width} × {canvasSize.height}
+          <span className="text-[11px] text-void-500 font-mono tabular-nums" title={sourceSize.width > canvasSize.width ? `Preview at ${canvasSize.width} × ${canvasSize.height}. Downloads are ${sourceSize.width} × ${sourceSize.height}.` : undefined}>
+            {sourceSize.width || canvasSize.width} × {sourceSize.height || canvasSize.height}
           </span>
           <div className="w-px h-4 bg-void-800" />
           <div className="flex items-center gap-1 bg-void-900 rounded-md p-0.5">

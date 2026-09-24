@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, Download, ImageIcon, Layers, Lock, RotateCcw, Shuffle, Sparkles, Upload } from 'lucide-react'
 import { applyEffect } from '@/lib/effects'
+import { renderEffectAt } from '@/lib/effect-runner'
+import { EXPORT_MAX, FX_WORK } from '@/lib/effect-scale'
 import { effectParams } from '@/components/ParamControls'
 import { defaultParams, type EffectType, type EffectParams } from '@/store/useStore'
 import { Logo } from '@/components/AppNav'
@@ -13,7 +15,8 @@ import { track } from '@/lib/analytics'
 import { EFFECT_COUNT } from '@/components/effect-list'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
-const MAX = 2400
+// Preview at the shared working size, so the tool, the Effects page and the download all look the same.
+const MAX = FX_WORK
 
 export interface ToolDef {
   slug: string
@@ -64,6 +67,7 @@ export function ToolPage({ def }: { def: ToolDef }) {
     setBusy(true)
     try {
       const bmp = await createImageBitmap(file)
+      fullRef.current = bmp
       const k = Math.min(1, MAX / Math.max(bmp.width, bmp.height))
       const c = document.createElement('canvas'); c.width = bmp.width * k; c.height = bmp.height * k
       c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height)
@@ -80,13 +84,25 @@ export function ToolPage({ def }: { def: ToolDef }) {
       if (!live) return
       const c = document.createElement('canvas'); c.width = img.width; c.height = img.height
       c.getContext('2d')!.drawImage(img, 0, 0)
+      fullRef.current = null
       loadCanvas(c, true)
     }
     img.src = '/tool-sample.jpg'
     return () => { live = false }
   }, [])
 
-  const download = async () => { if (outRef.current) downloadBlob(await canvasToBlob(outRef.current), `${def.slug}.png`) }
+  const fullRef = useRef<ImageBitmap | null>(null)
+  // Full size: the original file rendered again with pixel settings scaled from the preview size, so it looks the same, only sharper.
+  const download = async () => {
+    const src = fullRef.current ?? srcRef.current
+    if (!src) return
+    setBusy(true)
+    try {
+      const c = await renderEffectAt(src, def.effect, params, EXPORT_MAX)
+      downloadBlob(await canvasToBlob(c), `${def.slug}-${c.width}x${c.height}.png`)
+    } catch { if (outRef.current) downloadBlob(await canvasToBlob(outRef.current), `${def.slug}.png`) }
+    finally { setBusy(false) }
+  }
   // Send the ORIGINAL image plus a live, re-editable filter layer (matches the reference's "Send to Layer Stack").
   const sendToLayerStack = async () => {
     const src = srcRef.current; if (!src) return

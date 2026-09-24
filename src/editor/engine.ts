@@ -1,4 +1,5 @@
 import { applyEffect } from '@/lib/effects'
+import { FX_WORK, scaleParams } from '@/lib/effect-scale'
 import type { AdjustmentLayer, Doc, Frame, Group, HueBand, Layer, RasterLayer, Rect, ShapeLayer, SubPath, TextLayer } from './types'
 import { drawStyled, hasActiveStyles } from './styles'
 import { transferStats } from '@/studio/analyze'
@@ -654,16 +655,26 @@ function applyBuiltIn(img: ImageData, l: AdjustmentLayer, scale: number) {
   }
 }
 
-/** Void effects always run at this working size so preview, export and the Effects tool all match. */
-const FX_MAX = 1200
+/** Void effects preview at this working size so the Editor and the Effects tool match. Exports (fullRes) run at the output size with pixel settings scaled up, so they look the same, only sharper. */
+const FX_MAX = FX_WORK
 
 const adjCacheById = new Map<string, { key: string; canvas: HTMLCanvasElement }>()
 
-function processAdjustment(acc: HTMLCanvasElement, l: AdjustmentLayer, scale: number): HTMLCanvasElement {
+function processAdjustment(acc: HTMLCanvasElement, l: AdjustmentLayer, scale: number, fullRes = false, docLong = 0): HTMLCanvasElement {
   const out = makeCanvas(acc.width, acc.height)
   const octx = ctx2d(out, true)
   if (l.kind === 'voidEffect' && l.effect && l.effectParams) {
-    const k = Math.min(1, FX_MAX / Math.max(acc.width, acc.height))
+    const accLong = Math.max(acc.width, acc.height)
+    if (fullRes) {
+      // The preview computed at min(FX_MAX, document size); scale pixel settings by how much bigger this output is.
+      const ref = Math.min(FX_MAX, docLong || accLong)
+      const k = accLong / ref
+      octx.drawImage(acc, 0, 0)
+      const img = octx.getImageData(0, 0, out.width, out.height)
+      octx.putImageData(applyEffect(octx, img, l.effect, scaleParams(l.effect, l.effectParams, k)), 0, 0)
+      return out
+    }
+    const k = Math.min(1, FX_MAX / accLong)
     const work = makeCanvas(acc.width * k, acc.height * k)
     const wctx = ctx2d(work, true)
     wctx.drawImage(acc, 0, 0, work.width, work.height)
@@ -694,6 +705,8 @@ export interface RenderOptions {
   live?: LiveStroke | null
   /** Skip the adjustment cache, e.g. for export at a different scale. */
   noCache?: boolean
+  /** Export: run Void effect layers at the output size instead of the preview working size. */
+  fullRes?: boolean
   transparent?: boolean
   groups?: Group[]
   /** Override which frames to draw; omit to use doc.frames, pass [] to force flat. */
@@ -788,7 +801,7 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
       const cached = opts.noCache ? undefined : adjCacheById.get(l.id)
       if (cached && cached.key === key && !liveBelow) processed = cached.canvas
       else {
-        processed = processAdjustment(target, l, s)
+        processed = processAdjustment(target, l, s, !!opts.fullRes, Math.max(doc.width, doc.height))
         if (!opts.noCache && !liveBelow) adjCacheById.set(l.id, { key, canvas: processed })
       }
       let draw = processed

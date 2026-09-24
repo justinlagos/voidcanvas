@@ -197,7 +197,7 @@ export function renderFrame(frameId: string, scale = 1): HTMLCanvasElement | nul
   const { doc, layers, groups } = useEditor.getState()
   const f = doc?.frames?.find(x => x.id === frameId); if (!doc || !f) return null
   const full = makeCanvas(doc.width * scale, doc.height * scale)
-  renderDoc(full, doc, layers, { groups, scale, noCache: true })
+  renderDoc(full, doc, layers, { groups, scale, noCache: true, fullRes: true })
   const out = makeCanvas(f.width * scale, f.height * scale)
   ctx2d(out).drawImage(full, f.x * scale, f.y * scale, f.width * scale, f.height * scale, 0, 0, f.width * scale, f.height * scale)
   return out
@@ -215,7 +215,7 @@ export async function exportImage(o: ExportOptions): Promise<Blob> {
   const { doc, layers, groups } = useEditor.getState()
   if (!doc) throw new Error('Nothing to export')
   const c = makeCanvas(doc.width * o.scale, doc.height * o.scale)
-  renderDoc(c, doc, layers, { groups, scale: o.scale, noCache: true, transparent: o.transparent && o.format !== 'jpeg' })
+  renderDoc(c, doc, layers, { groups, scale: o.scale, noCache: true, fullRes: true, transparent: o.transparent && o.format !== 'jpeg' })
   if (o.format === 'pdf') {
     const flat = makeCanvas(c.width, c.height); const x = ctx2d(flat)
     x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(c, 0, 0)

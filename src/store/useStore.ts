@@ -90,6 +90,8 @@ export interface EffectParams {
   segments: number
   posX: number
   posY: number
+  /** How many output pixels one working-size pixel is (1 in previews). Lets 1-px marks stay in proportion on full-size exports. */
+  renderScale: number
 }
 
 interface Store {
@@ -155,6 +157,7 @@ export const defaultParams: EffectParams = {
   segments: 6,
   posX: 50,
   posY: 50,
+  renderScale: 1,
 }
 
 export const useStore = create<Store>((set, get) => ({
