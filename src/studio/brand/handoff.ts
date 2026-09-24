@@ -10,10 +10,14 @@ import type { Brand, FontRef } from './tokens'
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 const fam = (f: FontRef, fb: string) => `"${f.family.replace(/"/g, '')}", ${fb}`
 
-export function buildHandoffHtml(b: Brand, logo: LogoInfo | null, slides: string[]): string {
+/**
+ * @param inlineFonts Google font files embedded as @font-face data URLs (from inlineGoogleFontFaces), so the file
+ * works offline. Families listed in `linkFonts` could not be fetched and are linked from Google instead.
+ */
+export function buildHandoffHtml(b: Brand, logo: LogoInfo | null, slides: string[], inlineFonts = '', linkFonts?: string[]): string {
   const fonts = [b.fonts.heading, b.fonts.body, b.fonts.mono]
-  const google = Array.from(new Set(fonts.filter(f => f.source === 'google').map(f => f.family)))
-  const localCss = Array.from(new Set(fonts.filter(f => f.source === 'local').map(f => f.family))).map(localFontFace).filter(Boolean).join('\n')
+  const google = linkFonts ?? Array.from(new Set(fonts.filter(f => f.source === 'google').map(f => f.family)))
+  const localCss = [inlineFonts, ...Array.from(new Set(fonts.filter(f => f.source === 'local').map(f => f.family))).map(localFontFace)].filter(Boolean).join('\n')
   const gLink = google.length ? `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?${google.map(g => `family=${encodeURIComponent(g).replace(/%20/g, '+')}:wght@400;600;700`).join('&')}&display=swap">` : ''
   const slug = fileSlug(b.name)
 
