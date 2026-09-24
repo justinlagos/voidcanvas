@@ -150,3 +150,6 @@ input[type="range"].vc-bar::-moz-range-track { background: #3a3a44; }
 .vc-compact .vc-tool { height: 32px; width: 32px; }
 .vc-touch .vc-tool { height: 44px; width: 44px; }
 .vc-touch .vc-row { padding-top: 6px; padding-bottom: 6px; }
+
+/* Hint inside an empty text layer while typing on the canvas. */
+[data-canvas-text-editor]::placeholder { color: rgba(139, 124, 255, 0.55); }

@@ -189,14 +189,8 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
 
 function TextProps({ layer }: { layer: TextLayer }) {
   const s = useEditor.getState()
-  const focus = useEditor(st => st.focusText)
+  // Typing happens on the canvas. This field mirrors the text for people who prefer a form, and never takes focus on its own.
   const ta = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => {
-    // Wait for the click that created the layer to finish, or the browser moves focus back to the page.
-    if (!focus || Date.now() - focus > 1500) return
-    const t = setTimeout(() => { ta.current?.focus(); ta.current?.select() }, 80)
-    return () => clearTimeout(t)
-  }, [focus, layer.id])
   const up = (patch: Partial<TextLayer>) => s.updateLayer(layer.id, patch)
   const setFont = async (fontFamily: string, fontWeight = layer.fontWeight, italic = layer.italic) => {
     await ensureFont(fontFamily, fontWeight, italic)

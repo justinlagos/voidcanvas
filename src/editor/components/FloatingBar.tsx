@@ -1,9 +1,10 @@
 'use client'
 
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Copy, Eclipse, ImageOff, Move, PenLine, Scissors, Trash2 } from 'lucide-react'
 import { layerBounds } from '../engine'
 import { useEditor } from '../store'
+import type { Layer } from '../types'
 import { removeBackground } from './PropertiesPanel'
 
 /** The few most likely next actions, right above the selected layer. Saves a trip to the side panel. */
@@ -47,13 +48,35 @@ export function FloatingBar() {
     <div ref={ref} data-floating className={`absolute z-10 flex items-center gap-0.5 p-1 rounded-xl bg-[#1c1c22] border border-void-700 shadow-xl -translate-x-1/2 ${dock ? 'overflow-x-auto' : ''}`} style={style}>
       {layer.type === 'raster' && <button className={btn} onClick={() => removeBackground(layer.id)}><ImageOff size={14} />Remove background</button>}
       {layer.type === 'raster' && <button className={btn} onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'filters' }))}><Eclipse size={14} />Filters</button>}
-      {layer.clipId
-        ? <button className={btn} onClick={() => useEditor.getState().releaseClippingMask(layer.id)}><Scissors size={14} />Release clip</button>
-        : (useEditor.getState().canClip(layer.id) && <button className={btn} onClick={() => useEditor.getState().createClippingMask(layer.id)}><Scissors size={14} />Clip to below</button>)}
       {layer.type === 'text' && <button className={btn} onClick={() => useEditor.setState({ editingTextId: layer.id })}><PenLine size={14} />Edit text</button>}
+      {layer.type === 'text' && <TextQuick layer={layer} />}
+      {layer.type !== 'text' && (layer.clipId
+        ? <button className={btn} onClick={() => useEditor.getState().releaseClippingMask(layer.id)}><Scissors size={14} />Release clip</button>
+        : (useEditor.getState().canClip(layer.id) && <button className={btn} onClick={() => useEditor.getState().createClippingMask(layer.id)}><Scissors size={14} />Clip to below</button>))}
       <button className={btn} aria-label="Centre on page" title="Centre on page" onClick={() => { s.align('hcenter'); s.align('vcenter') }}><Move size={14} /></button>
       <button className={btn} aria-label="Duplicate" title="Duplicate (Ctrl+J)" onClick={() => s.duplicateLayer(layer.id)}><Copy size={14} /></button>
       <button className={btn} aria-label="Delete" title="Delete" onClick={() => s.removeSelected()}><Trash2 size={14} /></button>
     </div>
+  )
+}
+
+/** Font and colour for a selected text layer, so the two most common changes never need the panel. */
+function TextQuick({ layer }: { layer: Extract<Layer, { type: 'text' }> }) {
+  const [fonts, setFonts] = useState<string[]>([])
+  useEffect(() => { import('../io').then(m => { const used = Array.from(new Set(useEditor.getState().layers.filter(l => l.type === 'text').map(l => (l as Extract<Layer, { type: 'text' }>).fontFamily))); setFonts(Array.from(new Set([...used, ...m.FONTS]))) }) }, [])
+  const up = (patch: Partial<Extract<Layer, { type: 'text' }>>, label?: string) => useEditor.getState().updateLayer(layer.id, patch, label)
+  const setFont = async (fontFamily: string) => { const { ensureFont } = await import('../io'); await ensureFont(fontFamily, layer.fontWeight, layer.italic); up({ fontFamily }, 'Font') }
+  return (
+    <>
+      <select aria-label="Font" value={layer.fontFamily} onChange={e => setFont(e.target.value)} className="h-8 max-w-[130px] px-2 rounded-lg bg-transparent text-[12.5px] text-void-100 hover:bg-void-700 outline-none" style={{ fontFamily: `"${layer.fontFamily}"` }}>
+        {(fonts.length ? fonts : [layer.fontFamily]).map(f => <option key={f} value={f}>{f}</option>)}
+      </select>
+      <button className="h-8 px-2 inline-flex items-center rounded-lg hover:bg-void-700" aria-label="Text colour" title="Colour" onClick={() => {
+        const i = document.createElement('input'); i.type = 'color'; i.value = layer.color
+        i.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'
+        i.oninput = () => up({ color: i.value }); i.onchange = () => { up({ color: i.value }, 'Colour'); i.remove() }
+        document.body.appendChild(i); i.click()
+      }}><span className="w-4 h-4 rounded-full border border-white/30" style={{ background: layer.color }} /></button>
+    </>
   )
 }

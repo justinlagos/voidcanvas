@@ -28,6 +28,8 @@ async function settle() {
   await page.waitForFunction(() => !document.body.innerText.includes('Processing'), null, { timeout: 30000 })
 }
 const canvasHash = () => page.$eval('canvas[data-result-canvas]', el => { const x = el.getContext('2d'); const d = x.getImageData(0, 0, el.width, el.height).data; let h = 0; for (let i = 0; i < d.length; i += 4 * 211) h = (h * 31 + d[i] + d[i + 1] * 7 + d[i + 2] * 13) >>> 0; return h })
+// Warm the worker first so the first timed effect does not pay its start-up cost.
+await (await listBtn('Sepia')).click(); await settle()
 const effectNames = ['Bloom', 'Oil Paint', 'Watercolor', 'Blur', 'Halftone', 'Glitch', 'Pixelate', 'Motion Blur']
 for (const n of effectNames) {
   const t0 = Date.now()

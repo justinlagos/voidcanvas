@@ -1,5 +1,6 @@
 'use client'
 import { uiFont } from '@/lib/ui-font'
+import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -118,6 +119,7 @@ export function Stage() {
 
   const docRev = useEditor(s => s.docRev)
   const editingTextId = useEditor(s => s.editingTextId)
+  const lastDown = useRef<{ t: number; x: number; y: number; id: string | null } | null>(null)
   const selRev = useEditor(s => s.selRev)
   const view = useEditor(s => s.view)
   const tool = useEditor(s => s.tool)
@@ -1003,7 +1005,11 @@ export function Stage() {
       let hit = auto || e.ctrlKey || e.metaKey ? hitLayer(s.layers, p.x, p.y, s.doc, s.groups) : null
       // Auto-select off: drag moves whatever is selected, wherever you press.
       if (!auto && !hit && s.selectedIds.length) hit = s.active()
-      if (hit && e.detail === 2 && hit.type === 'text') { s.setActive(hit.id); useEditor.setState({ editingTextId: hit.id }); return }
+      // Double click or double tap: pointerdown never carries a click count, so it is timed here. Works for mouse, touch and pen.
+      const now = performance.now(), last = lastDown.current
+      const dbl = !!last && now - last.t < 420 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 12 && last.id === (hit?.id ?? null)
+      lastDown.current = { t: now, x: e.clientX, y: e.clientY, id: hit?.id ?? null }
+      if (hit && dbl && hit.type === 'text') { lastDown.current = null; s.setActive(hit.id); useEditor.setState({ editingTextId: hit.id }); return }
       if (hit && e.shiftKey) { s.toggleSelect(hit.id); invalidate(); return }
       if (hit) {
         if (!s.selectedIds.includes(hit.id)) {
@@ -1813,7 +1819,6 @@ export function Stage() {
       else if (d.tool === 'text') {
         if (tiny || r.w < 24) s.addText(d.start.x, d.start.y)
         else s.addText(r.x, r.y, r.w)
-        useEditor.setState({ focusText: Date.now() })
       } else if (d.tool === 'objectselect') {
         if (!tiny) import('../ai-tools').then(m => m.objectSelect(r, d.mode))
       } else if (d.tool === 'shape') {
@@ -1953,22 +1958,101 @@ function TextEditor() {
   }
   const { w, h } = layerSize(layer)
   const k = view.zoom
-  const close = () => { if (!ready) return; useEditor.setState({ editingTextId: null }); useEditor.getState().commit('Edit text') }
+  // An empty layer has no size yet; give the editor room for a few words so the caret and hint are visible.
+  const minW = layer.text ? 0 : Math.max(layer.boxWidth ?? 0, layer.fontSize * 6)
+  const minH = layer.text ? 0 : layer.fontSize * layer.lineHeight
+  const ew = Math.max(w, minW) * layer.scaleX * k + 4, eh = Math.max(h, minH) * layer.scaleY * k + 4
+  const close = () => {
+    if (!ready) return
+    const st = useEditor.getState()
+    const cur = st.layers.find(l => l.id === layer.id)
+    useEditor.setState({ editingTextId: null })
+    // Nothing typed: the layer goes away again, so a stray click never leaves an empty text layer behind.
+    if (cur && cur.type === 'text' && !cur.text.trim()) { st.removeLayer(layer.id); st.commit('Remove empty text'); return }
+    st.commit('Edit text')
+  }
   return (
-    <textarea
-      ref={ref} value={layer.text} spellCheck={false} aria-label="Edit text"
-      onChange={e => useEditor.getState().updateLayer(layer.id, { text: e.target.value })}
-      onBlur={close}
-      onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) (e.target as HTMLTextAreaElement).blur() }}
-      style={{
-        position: 'absolute', left: view.panX + layer.x * k, top: view.panY + layer.y * k,
-        width: w * layer.scaleX * k + 4, height: h * layer.scaleY * k + 4,
-        transform: `rotate(${layer.rotation}rad)`, transformOrigin: `${(w * layer.scaleX * k) / 2}px ${(h * layer.scaleY * k) / 2}px`,
-        font: fontString({ ...layer, fontSize: layer.fontSize * layer.scaleX * k }), lineHeight: layer.lineHeight, letterSpacing: layer.letterSpacing * k,
-        color: layer.color, textAlign: layer.align, padding: 2 * k, margin: 0, border: 0, background: 'transparent', resize: 'none',
-        overflow: 'hidden', whiteSpace: layer.boxWidth ? 'pre-wrap' : 'pre', textTransform: layer.caps === 'all' ? 'uppercase' : undefined,
-        textIndent: (layer.indent ?? 0) * k, outline: '1.5px solid #8b7cff', outlineOffset: 2, caretColor: '#8b7cff', cursor: 'text',
-      }}
-    />
+    <>
+      <TextEditBar layer={layer} left={view.panX + layer.x * k} top={view.panY + layer.y * k} width={ew} onDone={() => ref.current?.blur()} />
+      <textarea
+        ref={ref} value={layer.text} spellCheck={false} aria-label="Edit text" placeholder="Type" data-canvas-text-editor
+        onChange={e => useEditor.getState().updateLayer(layer.id, { text: e.target.value })}
+        onBlur={close}
+        onPointerDown={e => e.stopPropagation()}
+        onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) (e.target as HTMLTextAreaElement).blur() }}
+        style={{
+          position: 'absolute', left: view.panX + layer.x * k, top: view.panY + layer.y * k,
+          width: ew, height: eh,
+          transform: `rotate(${layer.rotation}rad)`, transformOrigin: `${(w * layer.scaleX * k) / 2}px ${(h * layer.scaleY * k) / 2}px`,
+          font: fontString({ ...layer, fontSize: layer.fontSize * layer.scaleX * k }), lineHeight: layer.lineHeight, letterSpacing: layer.letterSpacing * k,
+          color: layer.color, textAlign: layer.align, padding: 2 * k, margin: 0, border: 0, background: 'transparent', resize: 'none',
+          overflow: 'hidden', whiteSpace: layer.boxWidth ? 'pre-wrap' : 'pre', textTransform: layer.caps === 'all' ? 'uppercase' : undefined,
+          textIndent: (layer.indent ?? 0) * k, outline: '1.5px solid #8b7cff', outlineOffset: 2, caretColor: '#8b7cff', cursor: 'text',
+        }}
+      />
+    </>
+  )
+}
+
+/**
+ * The few type controls you want while typing, right above the text: font, size, colour, alignment, Done.
+ * Everything else stays in the Properties panel. On phones it also keeps the text above the keyboard.
+ */
+function TextEditBar({ layer, left, top, width, onDone }: { layer: Extract<Layer, { type: 'text' }>; left: number; top: number; width: number; onDone: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [box, setBox] = useState({ w: 0, stageW: 0 })
+  useEffect(() => {
+    const el = ref.current, stage = el?.parentElement
+    if (!el || !stage) return
+    const w = el.offsetWidth, stageW = stage.clientWidth
+    if (w !== box.w || stageW !== box.stageW) setBox({ w, stageW })
+  })
+  // Phone keyboard: when it opens, the visual viewport shrinks. Pan the canvas so the text stays in view.
+  useEffect(() => {
+    const vv = window.visualViewport; if (!vv) return
+    const onResize = () => {
+      const stage = ref.current?.parentElement; if (!stage) return
+      const r = stage.getBoundingClientRect()
+      const visibleBottom = vv.height + vv.offsetTop
+      const textBottom = r.top + top + Math.max(40, layer.fontSize * layer.lineHeight * useEditor.getState().view.zoom) + 24
+      if (textBottom > visibleBottom) useEditor.getState().setView({ panY: useEditor.getState().view.panY - (textBottom - visibleBottom) })
+    }
+    vv.addEventListener('resize', onResize)
+    return () => vv.removeEventListener('resize', onResize)
+  }, [top, layer.fontSize, layer.lineHeight])
+  const up = (patch: Partial<Extract<Layer, { type: 'text' }>>) => useEditor.getState().updateLayer(layer.id, patch)
+  const setFont = async (fontFamily: string) => { const { ensureFont } = await import('../io'); await ensureFont(fontFamily, layer.fontWeight, layer.italic); up({ fontFamily }) }
+  const [fonts, setFonts] = useState<string[]>([])
+  useEffect(() => { import('../io').then(m => { const used = Array.from(new Set(useEditor.getState().layers.filter(l => l.type === 'text').map(l => (l as Extract<Layer, { type: 'text' }>).fontFamily))); setFonts(Array.from(new Set([...used, ...m.FONTS]))) }) }, [])
+  const PAD = 8, BAR_H = 40
+  const half = box.w / 2
+  const cx = left + width / 2
+  const x = box.stageW ? Math.min(Math.max(cx, half + PAD), box.stageW - half - PAD) : cx
+  const y = Math.max(PAD, top - BAR_H - 12)
+  const keep = (e: React.SyntheticEvent) => e.stopPropagation()
+  const btn = 'h-8 min-w-[32px] px-2 inline-flex items-center justify-center gap-1 rounded-lg text-[12.5px] text-void-100 hover:bg-void-700'
+  return (
+    <div ref={ref} data-text-edit-bar role="toolbar" aria-label="Text" onPointerDown={keep} onMouseDown={e => e.preventDefault()}
+      className="absolute z-20 flex items-center gap-0.5 p-1 rounded-xl bg-[#1c1c22] border border-void-700 shadow-xl -translate-x-1/2 max-w-[calc(100%-16px)]"
+      style={{ left: x, top: y }}>
+      <select aria-label="Font" value={layer.fontFamily} onChange={e => setFont(e.target.value)} onMouseDown={e => e.stopPropagation()} className="h-8 max-w-[140px] px-2 rounded-lg bg-transparent text-[12.5px] text-void-100 hover:bg-void-700 outline-none" style={{ fontFamily: `"${layer.fontFamily}"` }}>
+        {(fonts.length ? fonts : [layer.fontFamily]).map(f => <option key={f} value={f} style={{ fontFamily: 'inherit' }}>{f}</option>)}
+      </select>
+      <span className="inline-flex items-center rounded-lg">
+        <button className={btn} aria-label="Smaller" onClick={() => up({ fontSize: Math.max(4, Math.round(layer.fontSize / 1.12)) })}>−</button>
+        <input aria-label="Size" type="number" value={Math.round(layer.fontSize)} onChange={e => up({ fontSize: Math.max(4, Number(e.target.value) || 4) })} onMouseDown={e => e.stopPropagation()} className="w-12 h-8 text-center rounded-md bg-transparent text-[12.5px] tabular-nums outline-none focus:bg-void-800" />
+        <button className={btn} aria-label="Larger" onClick={() => up({ fontSize: Math.round(layer.fontSize * 1.12) })}>+</button>
+      </span>
+      <button className={btn} aria-label="Text colour" title="Colour" onClick={() => {
+        const i = document.createElement('input'); i.type = 'color'; i.value = layer.color
+        i.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'
+        i.oninput = () => up({ color: i.value }); i.onchange = () => { up({ color: i.value }); i.remove() }
+        document.body.appendChild(i); i.click()
+      }}>
+        <span className="w-4 h-4 rounded-full border border-white/30" style={{ background: layer.color }} />
+      </button>
+      <button className={btn} aria-label={`Alignment: ${layer.align}`} title="Alignment" onClick={() => up({ align: layer.align === 'left' ? 'center' : layer.align === 'center' ? 'right' : 'left' })}>{layer.align === 'left' ? <AlignLeft size={15} /> : layer.align === 'center' ? <AlignCenter size={15} /> : <AlignRight size={15} />}</button>
+      <button className={`${btn} !bg-accent !text-white ml-0.5`} onClick={onDone}>Done</button>
+    </div>
   )
 }
