@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Pwa } from '@/components/Pwa'
+import { Analytics } from '@/components/Feedback'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -19,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">{children}<Pwa /></body>
+      <body className="font-sans antialiased">{children}<Pwa /><Analytics /></body>
     </html>
   )
 }

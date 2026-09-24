@@ -1,4 +1,5 @@
 'use client'
+import { track } from '@/lib/analytics'
 
 import { useEffect, useMemo, useState } from 'react'
 import { BookOpen, Briefcase, Plus, Search, SwatchBook, Trash2 } from 'lucide-react'
@@ -25,7 +26,7 @@ export function StudioShell() {
     })
   }, [load])
 
-  const open = (v: View) => { setView(v); window.scrollTo(0, 0) }
+  const open = (v: View) => { if (v.name !== view.name) track('studio.mode', { mode: v.name }); setView(v); window.scrollTo(0, 0) }
   const create = () => { const j = newJob(); save(j); open({ name: 'job', id: j.id }) }
   const job = view.name === 'job' ? jobs?.find(j => j.id === view.id) : null
 

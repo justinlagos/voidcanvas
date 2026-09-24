@@ -4,19 +4,24 @@ import { useEffect, useState } from 'react'
 import { Check, Lock, Trash2, X } from 'lucide-react'
 import { initPrivateFromSession, isPrivate, listProjects, setPrivateMode, wipeEverything } from '../io'
 import { Button, Modal, focusRing } from './ui'
+import { setUsageOff, usageTurnedOff } from '@/lib/analytics'
 
 const POINTS = [
   'Your designs never leave your device. Editing, effects, boards and exports all run in this browser.',
   'Projects are saved only in this browser, on this computer. There is no cloud copy and no account.',
   'No sign-up, no login. Open the site and start creating.',
-  'No tracking or analytics on your work.',
+  'No tracking of your work. We only count which tools get used, anonymously, so we know what to improve. You can turn that off below.',
 ]
+const USAGE_NOTE = 'What is counted: page visits, which tools and menu commands are used, export file types, errors, device type, browser and time zone, with a random id for this browser. Never your images, file names, text or anything you type. Off automatically in a private session.'
 const NOTE = 'Two things load from the internet so the app can work: web fonts (from Google Fonts) and, if you use Remove background, a one-time AI model download. Neither one sends your images or designs anywhere.'
 
 export function PrivacyPanel({ onClose }: { onClose: () => void }) {
   const [priv, setPriv] = useState(false)
   const [count, setCount] = useState<number | null>(null)
   const [wiped, setWiped] = useState(false)
+  const [usage, setUsage] = useState(true)
+  useEffect(() => { setUsage(!usageTurnedOff()) }, [])
+  const toggleUsage = () => { const next = !usage; setUsageOff(!next); setUsage(next) }
   useEffect(() => { initPrivateFromSession(); setPriv(isPrivate()); listProjects().then(p => setCount(p.length)).catch(() => setCount(null)) }, [])
 
   const togglePrivate = () => {
@@ -49,6 +54,15 @@ export function PrivacyPanel({ onClose }: { onClose: () => void }) {
             </button>
           </div>
           {priv && <p className="mt-2.5 text-[12px] text-accent-light">Private session is on. Save and recents are turned off.</p>}
+        </div>
+
+        <div className="rounded-xl border border-void-800 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div><p className="text-[13px] font-medium">Share anonymous usage counts</p><p className="text-[12px] text-void-400 mt-0.5">{USAGE_NOTE}</p></div>
+            <button role="switch" aria-checked={usage} aria-label="Share anonymous usage counts" onClick={toggleUsage} className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${focusRing} ${usage ? 'bg-accent' : 'bg-void-700'}`}>
+              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${usage ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
         </div>
 
         <div className="rounded-xl border border-void-800 p-4">

@@ -11,6 +11,7 @@ import { toggleQuickMask } from './components/ToolRail'
 import { STYLE_KINDS, STYLE_LABELS, defaultStyle, emptyStyles } from './styles'
 import { saveVersion } from './versions'
 import * as ai from './ai-tools'
+import { openFeedback, track } from '@/lib/analytics'
 
 // One list of every action. The menu bar, the command palette and keyboard shortcuts all read from it,
 // so a command only has to be written once and always shows the same name and shortcut everywhere.
@@ -297,9 +298,11 @@ export function buildActions(): Record<string, Action> {
     { id: 'help.search', label: 'Search every action', shortcut: 'Ctrl+K', run: () => openModal('palette') },
     { id: 'help.ai', label: 'AI on this device', run: () => openModal('aiInfo'), keywords: 'models download cost privacy' },
     { id: 'help.privacy', label: 'Your privacy', run: () => openModal('privacy') },
+    { id: 'help.feedback', label: 'Send feedback…', run: () => openFeedback('menu'), keywords: 'idea suggestion bug problem contact' },
     { id: 'help.bug', label: 'Report a problem', run: () => window.open('https://github.com/justinlagos/voidcanvas/issues/new', '_blank', 'noopener') },
   ]
-  return Object.fromEntries(list.map(a => [a.id, a]))
+  // Count which commands people use (the command id only), so unused features and friction show up in the dashboard.
+  return Object.fromEntries(list.map(a => [a.id, { ...a, run: () => { track('action', { id: a.id }); return a.run() } }]))
 }
 
 export const MENUS: { label: string; items: MenuItem[] }[] = [
@@ -311,7 +314,7 @@ export const MENUS: { label: string; items: MenuItem[] }[] = [
   { label: 'Filter', items: ['filter.gallery', 'filter.remove', '-', ...(['artistic', 'stylize', 'color', 'distortion', 'enhance'] as const).map(cat => ({ label: { artistic: 'Artistic', stylize: 'Stylize', color: 'Colour', distortion: 'Distort', enhance: 'Enhance' }[cat], items: effects.filter(e => e.category === cat).map(e => 'fx.' + e.id) }))] },
   { label: 'View', items: ['view.zoomIn', 'view.zoomOut', 'view.fit', 'view.100', 'view.fitSel', 'view.fitBoard', '-', 'view.rulers', 'view.guides', 'view.lockGuides', 'view.snap', 'view.pixelGrid', { label: 'Guides', items: ['view.newGuide', 'view.guideLayout', 'view.clearGuides'] }, '-', 'view.before', 'view.contextBar', 'view.status', 'view.touch'] },
   { label: 'Window', items: [...(Object.keys(PANEL_LABELS) as PanelId[]).map(p => 'panel.' + p), '-', { label: 'Workspace', items: () => [...Object.keys(WORKSPACES).map(n => 'ws.' + n), ...Object.keys(useUi.getState().saved).filter(n => !WORKSPACES[n]).map(n => 'ws.saved.' + n), '-', 'ws.save', 'ws.reset'] }, { label: 'Interface size', items: ['scale.0.9', 'scale.1', 'scale.1.1', 'scale.1.25', 'scale.1.4', 'scale.1.5', '-', 'density.compact', 'density.comfortable'] }] },
-  { label: 'Help', items: ['help.search', 'help.keys', '-', 'help.ai', 'help.privacy', 'help.bug'] },
+  { label: 'Help', items: ['help.search', 'help.keys', '-', 'help.ai', 'help.privacy', '-', 'help.feedback', 'help.bug'] },
 ]
 
 /** Saved workspaces are dynamic, so their actions are made on the fly. */

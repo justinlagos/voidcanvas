@@ -131,6 +131,7 @@ export interface Handoff {
 }
 
 export async function sendHandoff(h: Omit<Handoff, 'id'>): Promise<string> {
+  import('@/lib/analytics').then(m => m.track('handoff', { from: h.from, images: h.images?.length ?? 0, live: !!(h as any).liveEffect })).catch(() => {})
   const id = 'h' + Date.now().toString(36)
   await idb.put('inbox', { ...h, id })
   return id
@@ -169,6 +170,7 @@ export async function blobToCanvas(blob: Blob, max = MAX_IMPORT): Promise<HTMLCa
 
 /** Add image files to the open design, or start a design sized to the first image. */
 export async function importFiles(files: File[] | Blob[], names?: string[]) {
+  import('@/lib/analytics').then(m => { const kinds = new Set((files as File[]).map(f => (/\.psd$/i.test(f.name || '') ? 'psd' : /\.pdf$/i.test(f.name || '') ? 'pdf' : f.type.startsWith('image/') ? 'image' : 'other'))); kinds.forEach(k => m.track('doc.import', { kind: k, count: files.length })) }).catch(() => {})
   const ed = useEditor.getState()
   const special = (files as File[]).filter(f => /\.(psd|pdf)$/i.test((f as File).name || ''))
   if (special.length) { const { importAny } = await import('./import-formats'); importAny(special as File[]) }
@@ -228,6 +230,7 @@ export async function exportImage(o: ExportOptions): Promise<Blob> {
 }
 
 export function downloadBlob(blob: Blob, filename: string) {
+  import('@/lib/analytics').then(m => { m.track('export', { format: /\.void(\.png)?$/i.test(filename) ? 'void' : (filename.match(/\.([a-z0-9]+)$/i)?.[1] || blob.type.split('/')[1] || '?').toLowerCase(), kb: Math.round(blob.size / 1024) }); m.noteExportForPrompt() }).catch(() => {})
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob); a.download = filename
   document.body.appendChild(a); a.click(); a.remove()
@@ -315,6 +318,7 @@ export async function restoreStored(p: StoredProject): Promise<{ doc: Doc; layer
 }
 
 export async function openProject(id: string, asCopy = false): Promise<boolean> {
+  import('@/lib/analytics').then(m => m.track('doc.open', { copy: asCopy })).catch(() => {})
   const p = await idb.get<StoredProject>('projects', id)
   if (!p) return false
   const r = await restoreStored(p)
@@ -447,6 +451,7 @@ export async function exportVoidFile(): Promise<void> {
 /** Load a .void file into the editor. */
 /** Open a Voidcanvas file: either a .void JSON or a .void.png with the project embedded in a PNG chunk. */
 export async function importVoidFile(file: File): Promise<boolean> {
+  import('@/lib/analytics').then(m => m.track('doc.import', { kind: 'void', count: 1 })).catch(() => {})
   try {
     let bundle: any = null
     const buf = new Uint8Array(await file.arrayBuffer())

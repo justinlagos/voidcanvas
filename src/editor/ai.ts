@@ -1,4 +1,5 @@
 import { ctx2d, makeCanvas } from './engine'
+import { track } from '@/lib/analytics'
 
 // Background removal runs fully in the browser: no upload, no API key, no per-image cost.
 // transformers.js (Apache-2.0) is loaded from a CDN at first use so it never weighs on the main bundle.
@@ -34,7 +35,14 @@ function load(mode: Mode, onStatus: (s: string) => void) {
 }
 
 /** Returns an alpha mask (opaque = subject) the same size as the input. */
+/** Timed wrapper so the dashboard can show how long on-device models take on real devices, and how often they fail. */
 export async function subjectMask(src: HTMLCanvasElement, onStatus: (s: string) => void, mode: Mode = 'person'): Promise<HTMLCanvasElement> {
+  const t0 = performance.now()
+  try { const r = await subjectMaskRaw(src, onStatus, mode); track('ai.run', { tool: 'subject-' + mode, ok: true, ms: Math.round(performance.now() - t0), gpu: !!(navigator as any).gpu }); return r }
+  catch (e) { track('ai.run', { tool: 'subject-' + mode, ok: false, ms: Math.round(performance.now() - t0), gpu: !!(navigator as any).gpu, msg: String((e as Error)?.message || e).slice(0, 120) }); throw e }
+}
+
+async function subjectMaskRaw(src: HTMLCanvasElement, onStatus: (s: string) => void, mode: Mode = 'person'): Promise<HTMLCanvasElement> {
   if (mode === 'any' && !(navigator as any).gpu) {
     onStatus('This browser cannot run the any-subject model. Using the standard one.')
     mode = 'person'

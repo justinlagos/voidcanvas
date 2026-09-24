@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { HardDrive, ShieldCheck } from 'lucide-react'
+import { HardDrive, MessageSquare, ShieldCheck } from 'lucide-react'
+import { openFeedback } from '@/lib/analytics'
 import { historyMemoryMB, useEditor } from '../store'
 import { useUi } from '../ui-store'
 import { TOOLS } from './ToolRail'
@@ -50,6 +51,7 @@ export function StatusBar() {
       <span className="flex items-center gap-1" title={`Layers ${mem.doc} MB, undo history ${mem.hist} MB${mem.quota ? '. ' + mem.quota : ''}`}><HardDrive size={11} />{mem.doc + mem.hist} MB in use</span>
       {hint && <span className="truncate text-void-500">{hint}</span>}
       <span className="ml-auto flex items-center gap-1.5"><ShieldCheck size={12} className="text-emerald-500" />{dirty ? 'Saving on this device' : 'Saved on this device'}</span>
+      <button onClick={() => openFeedback('status-bar')} className={`flex items-center gap-1 h-5 px-1.5 -mr-1 rounded text-void-400 hover:text-white hover:bg-void-900 ${focusRing}`}><MessageSquare size={11} />Feedback</button>
     </footer>
   )
 }
