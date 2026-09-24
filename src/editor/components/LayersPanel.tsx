@@ -197,12 +197,13 @@ function ContextMenu({ at, id, onClose }: { at: DOMRect; id: string; onClose: ()
 }
 
 function AddAdjustmentMenu({ at, onClose }: { at: DOMRect; onClose: () => void }) {
-  const kinds = Object.keys(ADJUSTMENT_LABELS).filter(k => k !== 'voidEffect' && k !== 'lut') as AdjustmentKind[]
+  const kinds = Object.keys(ADJUSTMENT_LABELS).filter(k => k !== 'voidEffect' && k !== 'lut' && k !== 'colorMatch') as AdjustmentKind[]
   return (
     <Floating anchor={at} side="left" onClose={onClose} label="New adjustment layer">
       <div className="w-56 py-1.5 max-h-[70vh] overflow-y-auto">
         {kinds.map(k => <button key={k} onClick={() => { onClose(); useEditor.getState().addAdjustment(k) }} className="w-full text-left px-3 h-8 text-[12.5px] text-void-100 hover:bg-accent hover:text-white">{ADJUSTMENT_LABELS[k]}</button>)}
         <div className="my-1 mx-2 h-px bg-white/[0.07]" />
+        <button onClick={() => { onClose(); openModal('looks') }} className="w-full text-left px-3 h-8 text-[12.5px] text-void-100 hover:bg-accent hover:text-white">Colour match from a saved look…</button>
         <button onClick={() => { onClose(); openModal('filters') }} className="w-full text-left px-3 h-8 text-[12.5px] text-void-100 hover:bg-accent hover:text-white">Filter gallery…</button>
       </div>
     </Floating>

@@ -38,6 +38,7 @@ export const ADJUSTMENT_LABELS: Record<AdjustmentKind, string> = {
   posterize: 'Posterize',
   threshold: 'Threshold',
   lut: 'Colour lookup (LUT)',
+  colorMatch: 'Colour match (look)',
 }
 
 interface EditorState {

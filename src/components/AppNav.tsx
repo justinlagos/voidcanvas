@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const MODULES = [
-  { href: '/studio', label: 'Studio', hint: 'Briefs and reference boards' },
+  { href: '/studio', label: 'Studio', hint: 'Jobs: direction, formats, sign-off, delivery' },
   { href: '/editor', label: 'Editor', hint: 'Layers, retouching, type' },
   { href: '/effects', label: 'Effects', hint: 'One-click image effects' },
 ]

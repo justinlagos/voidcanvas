@@ -356,3 +356,36 @@ export function ImportReportDialog({ onClose, report }: { onClose: () => void; r
     </Modal>
   )
 }
+
+// ─── Looks (Colour match from Studio references) ───────────────────
+
+export function LooksDialog({ onClose }: { onClose: () => void }) {
+  const [looks, setLooks] = useState<import('@/studio/jobs').Look[] | null>(null)
+  useEffect(() => { import('@/studio/jobs').then(m => m.getLooks()).then(setLooks).catch(() => setLooks([])) }, [])
+  const apply = (lk: import('@/studio/jobs').Look) => {
+    const s = useEditor.getState()
+    s.addAdjustment('colorMatch')
+    const l = s.active(); if (l?.type === 'adjustment') s.updateLayer(l.id, { look: { name: lk.name, mean: lk.mean, std: lk.std }, name: `Look: ${lk.name}` } as any, 'Colour match')
+    if (lk.grain > 1.4) s.notify('That reference has visible grain. Add Filter > Grain on top to match it.')
+    onClose()
+  }
+  return (
+    <Modal title="Colour match from a saved look" onClose={onClose}>
+      <div className="p-5">
+        {looks === null ? <p className="text-[13px] text-void-400">Loading…</p> : !looks.length ? (
+          <p className="text-[13px] text-void-400 leading-relaxed">No looks yet. In Studio, open a reference in a job and choose Take the look. It is saved here for every design.</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-2.5 max-h-[60vh] overflow-y-auto">
+            {looks.map(lk => (
+              <button key={lk.id} onClick={() => apply(lk)} className={`text-left rounded-lg overflow-hidden bg-void-900 border border-void-800 hover:border-accent ${focusRing}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={lk.thumb} alt="" className="w-full aspect-[4/3] object-cover" />
+                <span className="block px-2 py-1.5 text-[12px] truncate">{lk.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}
