@@ -269,16 +269,24 @@ export function Stage() {
         octx.font = `500 11px ${uiFont()}`
         const dimW = octx.measureText(dim).width
         const padX = 8, gap = 8, badgeH = 20, badgeW = padX * 2 + nameW + gap + dimW
-        const by = a.y - badgeH - 7
+        // The badge is drawn at screen size, so at low zoom it can land on the board above or be wider than its own board.
+        // Then it moves inside the board's top-left corner; if the board is too small even for that, only the active board keeps a label.
+        const above = a.y - badgeH - 7
+        const clash = doc.frames.some(o => o !== f && o.y + o.height <= f.y && o.x < f.x + f.width && o.x + o.width > f.x && (f.y - (o.y + o.height)) * zoom < badgeH + 12)
+        const inside = clash || badgeW > fw
+        const fits = fw >= badgeW + 12 && fh >= badgeH + 12
+        if (inside && !fits && !on) continue
+        const bx = inside ? a.x + 6 : a.x
+        const by = inside ? a.y + 6 : above
         octx.fillStyle = on ? ACCENT : 'rgba(30,30,36,0.92)'
-        octx.beginPath(); octx.roundRect(a.x, by, badgeW, badgeH, 6); octx.fill()
+        octx.beginPath(); octx.roundRect(bx, by, badgeW, badgeH, 6); octx.fill()
         octx.textBaseline = 'middle'
         octx.font = `600 12px ${uiFont()}`
         octx.fillStyle = on ? '#fff' : 'rgba(255,255,255,0.9)'
-        octx.fillText(label, a.x + padX, by + badgeH / 2 + 0.5)
+        octx.fillText(label, bx + padX, by + badgeH / 2 + 0.5)
         octx.font = `500 11px ${uiFont()}`
         octx.fillStyle = on ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.45)'
-        octx.fillText(dim, a.x + padX + nameW + gap, by + badgeH / 2 + 0.5)
+        octx.fillText(dim, bx + padX + nameW + gap, by + badgeH / 2 + 0.5)
         octx.textBaseline = 'alphabetic'
       }
     }

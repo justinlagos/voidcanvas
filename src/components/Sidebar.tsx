@@ -63,9 +63,11 @@ export function Sidebar() {
 
   return (
     <motion.aside
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="w-80 border-l border-void-800/60 bg-void-950 overflow-y-auto flex flex-col"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      data-effects-sidebar
+      // Phone and portrait tablet: a panel under the canvas with its own scroll. lg and up: the 320 px column beside it.
+      className="w-full h-[42%] min-h-[220px] border-t lg:w-80 lg:h-auto lg:min-h-0 lg:border-t-0 lg:border-l border-void-800/60 bg-void-950 overflow-y-auto flex flex-col shrink-0"
     >
       <CollapsibleSection title="Effects" icon={Layers} defaultOpen={true}>
         <EffectSelector />
