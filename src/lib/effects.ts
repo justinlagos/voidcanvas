@@ -36,15 +36,40 @@ function sampleBilinear(data: Uint8ClampedArray, w: number, h: number, fx: numbe
 
 // ─── Main effect dispatcher ────────────────────────────────────────
 
+/** Mean over a (2r+1)^2 box for every pixel, via a summed-area table. Interleaved channels, edge-clamped like a bounded box blur. */
+function boxBlurSAT(src: Float32Array, w: number, h: number, ch: number, r: number): Float32Array {
+  const W = w + 1
+  const sat = new Float64Array(W * (h + 1) * ch)
+  for (let y = 1; y <= h; y++) {
+    const row = new Float64Array(ch)
+    for (let x = 1; x <= w; x++) {
+      const si = ((y - 1) * w + (x - 1)) * ch, di = (y * W + x) * ch, up = ((y - 1) * W + x) * ch
+      for (let c = 0; c < ch; c++) { row[c] += src[si + c]; sat[di + c] = sat[up + c] + row[c] }
+    }
+  }
+  const out = new Float32Array(src.length)
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - r), y1 = Math.min(h - 1, y + r) + 1
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.max(0, x - r), x1 = Math.min(w - 1, x + r) + 1
+      const n = (y1 - y0) * (x1 - x0)
+      const a = (y0 * W + x0) * ch, b = (y0 * W + x1) * ch, c0 = (y1 * W + x0) * ch, d = (y1 * W + x1) * ch, o = (y * w + x) * ch
+      for (let c = 0; c < ch; c++) out[o + c] = (sat[d + c] - sat[b + c] - sat[c0 + c] + sat[a + c]) / n
+    }
+  }
+  return out
+}
+
 export function applyEffect(
-  ctx: CanvasRenderingContext2D,
+  ctx: CanvasRenderingContext2D | null,
   imageData: ImageDataType,
   effect: EffectType,
   params: EffectParams
 ): ImageDataType {
   const { width: w, height: h } = imageData
   const data = new Uint8ClampedArray(imageData.data)
-  const output = ctx.createImageData(w, h)
+  // A context is optional so this can run in a Worker.
+  const output = ctx ? ctx.createImageData(w, h) : new ImageData(w, h)
   const out = output.data
 
   // Copy original as base
@@ -63,17 +88,23 @@ export function applyEffect(
       for (let i = 0; i < out.length; i += 4) { out[i] = 255; out[i + 1] = 255; out[i + 2] = 255; out[i + 3] = 255 }
       for (let y = 0; y < h; y += dotSize) {
         for (let x = 0; x < w; x += dotSize) {
-          const idx = (y * w + x) * 4
-          const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3
+          // Cell mean, not one sampled pixel: steadier dots, and the same tone at any output size.
+          let sum = 0, n = 0
+          for (let cy = y; cy < Math.min(h, y + dotSize); cy++) for (let cx = x; cx < Math.min(w, x + dotSize); cx++) { const i = (cy * w + cx) * 4; sum += data[i] + data[i + 1] + data[i + 2]; n++ }
+          const gray = sum / (n * 3)
           const radius = ((255 - gray) / 255) * (dotSize / 2) * contrast
-          for (let dy = -dotSize; dy <= dotSize; dy++) {
-            for (let dx = -dotSize; dx <= dotSize; dx++) {
-              if (dx * dx + dy * dy <= radius * radius) {
-                const px = x + dx, py = y + dy
-                if (px >= 0 && px < w && py >= 0 && py < h) {
-                  const pidx = (py * w + px) * 4
-                  out[pidx] = 0; out[pidx + 1] = 0; out[pidx + 2] = 0
-                }
+          if (radius <= 0) continue
+          const reach = Math.ceil(radius) + 1
+          for (let dy = -reach; dy <= reach; dy++) {
+            for (let dx = -reach; dx <= reach; dx++) {
+              // Edge coverage instead of an in/out test, so small dots keep their tone at any output size.
+              const cov = Math.min(1, Math.max(0, radius + 0.5 - Math.sqrt(dx * dx + dy * dy)))
+              if (cov <= 0) continue
+              const px = x + dx, py = y + dy
+              if (px >= 0 && px < w && py >= 0 && py < h) {
+                const pidx = (py * w + px) * 4
+                const v = Math.min(out[pidx], 255 * (1 - cov))
+                out[pidx] = v; out[pidx + 1] = v; out[pidx + 2] = v
               }
             }
           }
@@ -149,15 +180,22 @@ export function applyEffect(
     case 'oilPaint': {
       const rad = Math.max(1, Math.floor(params.radius / 15))
       const levels = Math.max(4, Math.floor(params.intensity / 5))
+      // Intensity bin per pixel, computed once.
+      const bin = new Uint8Array(w * h)
+      for (let i = 0; i < w * h; i++) { const idx = i * 4; bin[i] = Math.floor(((data[idx] + data[idx + 1] + data[idx + 2]) / 3) / 255 * (levels - 1)) }
+      // Sliding window along each row: add the entering column, drop the leaving one. Cost per pixel is the window height, not its area.
+      const bins = new Int32Array(levels), bR = new Float64Array(levels), bG = new Float64Array(levels), bB = new Float64Array(levels)
+      const addCol = (x: number, y: number, sign: number) => {
+        for (let dy = -rad; dy <= rad; dy++) {
+          const i = (y + dy) * w + x, idx = i * 4, g = bin[i]
+          bins[g] += sign; bR[g] += sign * data[idx]; bG[g] += sign * data[idx + 1]; bB[g] += sign * data[idx + 2]
+        }
+      }
       for (let y = rad; y < h - rad; y++) {
+        bins.fill(0); bR.fill(0); bG.fill(0); bB.fill(0)
+        for (let x = 0; x <= 2 * rad; x++) addCol(x, y, 1)
         for (let x = rad; x < w - rad; x++) {
-          const bins = new Array(levels).fill(0)
-          const bR = new Array(levels).fill(0), bG = new Array(levels).fill(0), bB = new Array(levels).fill(0)
-          for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
-            const idx = ((y + dy) * w + (x + dx)) * 4
-            const gr = Math.floor(((data[idx] + data[idx + 1] + data[idx + 2]) / 3) / 255 * (levels - 1))
-            bins[gr]++; bR[gr] += data[idx]; bG[gr] += data[idx + 1]; bB[gr] += data[idx + 2]
-          }
+          if (x > rad) { addCol(x - rad - 1, y, -1); addCol(x + rad, y, 1) }
           let maxB = 0, maxC = 0
           for (let i = 0; i < levels; i++) if (bins[i] > maxC) { maxC = bins[i]; maxB = i }
           const idx = (y * w + x) * 4
@@ -170,6 +208,8 @@ export function applyEffect(
     case 'crosshatch': {
       const cellSize = Math.max(3, Math.floor(params.scale / 8))
       const levels = 4
+      // Lines are renderScale px thick (fractional edge), so hatching keeps its weight on full-size exports.
+      const thick = Math.max(1, params.renderScale || 1)
       // White background
       for (let i = 0; i < out.length; i += 4) { out[i] = 245; out[i + 1] = 240; out[i + 2] = 230; out[i + 3] = 255 }
       for (let y = 0; y < h; y++) {
@@ -178,17 +218,19 @@ export function applyEffect(
           const gray = getGray(data, idx) / 255
           const dark = 1 - gray
           const level = Math.floor(dark * levels)
-          let draw = false
+          // Coverage of this pixel by each line family: 1 inside the line, a fraction on its edge.
+          const cov = (m: number) => Math.min(1, Math.max(0, thick - m))
+          let c = 0
           // Level 1: diagonal lines /
-          if (level >= 1 && (x + y) % cellSize === 0) draw = true
+          if (level >= 1) c = Math.max(c, cov((x + y) % cellSize))
           // Level 2: diagonal lines \
-          if (level >= 2 && (x - y + 1000) % cellSize === 0) draw = true
+          if (level >= 2) c = Math.max(c, cov((x - y + 1000) % cellSize))
           // Level 3: horizontal
-          if (level >= 3 && y % cellSize === 0) draw = true
+          if (level >= 3) c = Math.max(c, cov(y % cellSize))
           // Level 4: vertical
-          if (level >= 4 && x % cellSize === 0) draw = true
-          if (draw) {
-            out[idx] = 30; out[idx + 1] = 25; out[idx + 2] = 20
+          if (level >= 4) c = Math.max(c, cov(x % cellSize))
+          if (c > 0) {
+            out[idx] = out[idx] + (30 - out[idx]) * c; out[idx + 1] = out[idx + 1] + (25 - out[idx + 1]) * c; out[idx + 2] = out[idx + 2] + (20 - out[idx + 2]) * c
           }
         }
       }
@@ -201,6 +243,8 @@ export function applyEffect(
       // Light background
       for (let i = 0; i < out.length; i += 4) { out[i] = 245; out[i + 1] = 240; out[i + 2] = 232; out[i + 3] = 255 }
       const cellSize = Math.max(2, Math.floor(params.scale / 15))
+      // Dots stay one pixel; their count grows with the output scale so coverage (and tone) is the same at any size.
+      const rs = params.renderScale || 1
       for (let cy = 0; cy < h; cy += cellSize) {
         for (let cx = 0; cx < w; cx += cellSize) {
           let br = 0, cnt = 0
@@ -209,7 +253,7 @@ export function applyEffect(
           }
           br /= cnt
           const darkness = 1 - br / 255
-          const numDots = Math.floor(darkness * dotDensity * cellSize)
+          const numDots = Math.floor(darkness * dotDensity * cellSize * rs)
           for (let d = 0; d < numDots; d++) {
             const px = cx + Math.floor(seededRandom(seed + cy * w + cx + d * 7) * cellSize)
             const py = cy + Math.floor(seededRandom(seed + cy * w + cx + d * 13 + 1000) * cellSize)
@@ -230,17 +274,7 @@ export function applyEffect(
       const step = 255 / levels
       // First: box blur
       const blurred = new Uint8ClampedArray(data.length)
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        let r = 0, g = 0, b = 0, c = 0
-        for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
-          const ny = y + dy, nx = x + dx
-          if (ny >= 0 && ny < h && nx >= 0 && nx < w) {
-            const idx = (ny * w + nx) * 4; r += data[idx]; g += data[idx + 1]; b += data[idx + 2]; c++
-          }
-        }
-        const idx = (y * w + x) * 4
-        blurred[idx] = r / c; blurred[idx + 1] = g / c; blurred[idx + 2] = b / c; blurred[idx + 3] = 255
-      }
+      { const bl = boxBlurSAT(Float32Array.from(data), w, h, 4, rad); for (let i = 0; i < data.length; i += 4) { blurred[i] = bl[i]; blurred[i + 1] = bl[i + 1]; blurred[i + 2] = bl[i + 2]; blurred[i + 3] = 255 } }
       // Second pass: quantize + subtle edge darkening
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
         const idx = (y * w + x) * 4
@@ -966,16 +1000,7 @@ export function applyEffect(
 
     case 'blur': {
       const rad = Math.max(1, Math.floor(params.intensity / 20))
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        let r = 0, g = 0, b = 0, c = 0
-        for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
-          const ny = y + dy, nx = x + dx
-          if (ny >= 0 && ny < h && nx >= 0 && nx < w) {
-            const idx = (ny * w + nx) * 4; r += data[idx]; g += data[idx + 1]; b += data[idx + 2]; c++
-          }
-        }
-        const idx = (y * w + x) * 4; out[idx] = r / c; out[idx + 1] = g / c; out[idx + 2] = b / c
-      }
+      { const bl = boxBlurSAT(Float32Array.from(data), w, h, 4, rad); for (let i = 0; i < data.length; i += 4) { out[i] = bl[i]; out[i + 1] = bl[i + 1]; out[i + 2] = bl[i + 2] } }
       break
     }
 
@@ -1055,18 +1080,8 @@ export function applyEffect(
           bright[i * 3] = data[idx]; bright[i * 3 + 1] = data[idx + 1]; bright[i * 3 + 2] = data[idx + 2]
         }
       }
-      // Simple box blur of bright areas
-      const blurred = new Float32Array(bright.length)
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        let r = 0, g = 0, b = 0, c = 0
-        for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
-          const ny = y + dy, nx = x + dx
-          if (ny >= 0 && ny < h && nx >= 0 && nx < w) {
-            const bi = (ny * w + nx) * 3; r += bright[bi]; g += bright[bi + 1]; b += bright[bi + 2]; c++
-          }
-        }
-        const bi = (y * w + x) * 3; blurred[bi] = r / c; blurred[bi + 1] = g / c; blurred[bi + 2] = b / c
-      }
+      // Box blur through a summed-area table: one pass whatever the radius (was per-pixel, seconds at 1200 px).
+      const blurred = boxBlurSAT(bright, w, h, 3, rad)
       // Additive blend
       for (let i = 0; i < w * h; i++) {
         const idx = i * 4, bi = i * 3

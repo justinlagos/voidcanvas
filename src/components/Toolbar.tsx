@@ -1,12 +1,14 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Download, RotateCcw, Undo2, Trash2, Layers } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { sendHandoff } from '@/editor/io'
 import { noteExportForPrompt, track } from '@/lib/analytics'
+import { renderEffectAt } from '@/lib/effect-runner'
+import { EXPORT_MAX } from '@/lib/effect-scale'
 
 type Format = 'png' | 'jpg' | 'webp'
 const MIME: Record<Format, string> = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }
@@ -16,15 +18,31 @@ export function useEffectsActions() {
   const { originalImage, setOriginalImage, resetParams, undo, history, activeEffect, setActiveEffect } = useStore()
   const router = useRouter()
 
-  const download = useCallback((format: Format) => {
-    const canvas = (document.querySelector('canvas[data-result-canvas]') || document.querySelector('canvas')) as HTMLCanvasElement | null
-    if (!canvas) return
-    const link = document.createElement('a')
-    link.download = `voidcanvas-${activeEffect}-${Date.now()}.${format}`
-    link.href = canvas.toDataURL(MIME[format], 0.95)
-    link.click()
-    track('export', { format, effect: activeEffect }); noteExportForPrompt()
-  }, [activeEffect])
+  const [exporting, setExporting] = useState(false)
+  // Downloads are rendered again at the photo's own size (capped at EXPORT_MAX on the long edge), not the preview size.
+  const download = useCallback(async (format: Format) => {
+    if (!originalImage || exporting) return
+    setExporting(true)
+    try {
+      const img = new Image()
+      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error('image')); img.src = originalImage })
+      const { activeEffect: effect, params } = useStore.getState()
+      const c = await renderEffectAt(img, effect, params, EXPORT_MAX)
+      const blob = await new Promise<Blob | null>(r => c.toBlob(r, MIME[format], 0.95))
+      if (!blob) throw new Error('encode')
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.download = `voidcanvas-${effect}-${c.width}x${c.height}.${format}`
+      link.href = url
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+      track('export', { format, effect, w: c.width, h: c.height }); noteExportForPrompt()
+    } catch {
+      // Fall back to the preview canvas rather than fail outright.
+      const canvas = document.querySelector('canvas[data-result-canvas]') as HTMLCanvasElement | null
+      if (canvas) { const link = document.createElement('a'); link.download = `voidcanvas-${activeEffect}.${format}`; link.href = canvas.toDataURL(MIME[format], 0.95); link.click() }
+    } finally { setExporting(false) }
+  }, [activeEffect, originalImage, exporting])
 
   // Send the photo plus the effect as its own live filter layer, so the effect stays
   // editable (and can be hidden, masked or re-tuned) in the Editor.
@@ -58,7 +76,7 @@ export function useEffectsActions() {
     resetParams()
   }, [setOriginalImage, setActiveEffect, resetParams])
 
-  return { hasImage: !!originalImage, canUndo: history.length > 0, undo, reset: resetParams, clear, openInEditor, download }
+  return { hasImage: !!originalImage, canUndo: history.length > 0, undo, reset: resetParams, clear, openInEditor, download, exporting }
 }
 
 const ghost = 'flex items-center gap-1.5 px-2.5 py-1.5 bg-void-800/80 hover:bg-void-700 disabled:opacity-30 disabled:cursor-not-allowed rounded-md transition-colors border border-void-700/40'
@@ -91,9 +109,9 @@ export function Toolbar() {
         <Layers size={14} /><span className="text-xs font-medium whitespace-nowrap">Open in Editor</span>
       </motion.button>
 
-      <div className="flex items-center gap-0.5 bg-void-900 rounded-md p-0.5 border border-void-800/50">
+      <div className={`flex items-center gap-0.5 bg-void-900 rounded-md p-0.5 border border-void-800/50 ${a.exporting ? 'opacity-60 pointer-events-none' : ''}`} title="Downloads at the photo's full size">
         <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => a.download('png')} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white text-void-900 rounded-[5px] transition-colors">
-          <Download size={12} /><span className="text-[11px] font-semibold">PNG</span>
+          <Download size={12} /><span className="text-[11px] font-semibold">{a.exporting ? 'Saving' : 'PNG'}</span>
         </motion.button>
         <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => a.download('jpg')} className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-void-800 rounded-[5px] transition-colors">
           <span className="text-[11px] font-medium text-void-300">JPG</span>
@@ -118,8 +136,8 @@ export function MobileActionBar() {
       <button onClick={a.clear} aria-label="Clear image" className={icon}><Trash2 size={16} />Clear</button>
       <span className="flex-1" />
       <button onClick={() => a.openInEditor(false)} aria-label="Open in Editor" className="flex items-center gap-1.5 h-10 px-3 bg-accent text-white rounded-md text-[12px] font-medium whitespace-nowrap"><Layers size={14} />Editor</button>
-      <div className="flex items-center gap-0.5 bg-void-900 rounded-md p-0.5 border border-void-800/50">
-        <button onClick={() => a.download('png')} className="flex items-center gap-1 h-9 px-2 bg-white text-void-900 rounded-[5px] text-[11px] font-semibold"><Download size={12} />PNG</button>
+      <div className={`flex items-center gap-0.5 bg-void-900 rounded-md p-0.5 border border-void-800/50 ${a.exporting ? 'opacity-60 pointer-events-none' : ''}`}>
+        <button onClick={() => a.download('png')} className="flex items-center gap-1 h-9 px-2 bg-white text-void-900 rounded-[5px] text-[11px] font-semibold"><Download size={12} />{a.exporting ? 'Saving' : 'PNG'}</button>
         <button onClick={() => a.download('jpg')} className="h-9 px-2 text-[11px] font-medium text-void-300">JPG</button>
         <button onClick={() => a.download('webp')} className="h-9 px-2 text-[11px] font-medium text-void-300">WebP</button>
       </div>
