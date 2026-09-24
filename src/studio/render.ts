@@ -1,4 +1,4 @@
-import { idb, restoreStored, type StoredProject } from '@/editor/io'
+import { ensureFont, idb, restoreStored, type StoredProject } from '@/editor/io'
 import { makeCanvas, renderDoc } from '@/editor/engine'
 import type { Doc, Frame, Group, Layer } from '@/editor/types'
 
@@ -11,6 +11,11 @@ export async function loadDesign(id: string | null | undefined): Promise<LoadedD
   const p = await idb.get<StoredProject>('projects', id).catch(() => undefined)
   if (!p) return null
   const { doc, layers } = await restoreStored(p)
+  // Thumbnails, mockups and delivered files must use the real fonts, not a stand-in.
+  const want = new Map<string, [string, number, boolean]>()
+  for (const l of layers) if (l.type === 'text') want.set(`${l.fontFamily}|${l.fontWeight}|${!!l.italic}`, [l.fontFamily, l.fontWeight, !!l.italic])
+  await Promise.all(Array.from(want.values()).map(([f, w, i]) => ensureFont(f, w, i).catch(() => {})))
+  try { await document.fonts.ready } catch { /* older browsers */ }
   return { doc, layers, groups: p.groups ?? [] }
 }
 

@@ -722,8 +722,18 @@ function masterFrame(doc: Doc, id?: string | null) {
   return fs.find(f => f.id === id) ?? fs.find(f => fs.some(k => k.linkedFrom === f.id)) ?? fs.find(f => f.id === st().activeFrameId) ?? fs[0] ?? null
 }
 
+/** Wait for every font the text layers use, so layouts measure the real letters. */
+async function fontsReady(layers: Layer[]) {
+  const { ensureFont } = await import('./io')
+  const want = new Map<string, [string, number, boolean]>()
+  for (const l of layers) if (l.type === 'text') want.set(`${l.fontFamily}|${l.fontWeight}|${!!l.italic}`, [l.fontFamily, l.fontWeight, !!l.italic])
+  await Promise.all(Array.from(want.values()).map(([f, w, i]) => ensureFont(f, w, i).catch(() => {})))
+  try { await document.fonts.ready } catch { /* older browsers */ }
+}
+
 /** Build (or rebuild) a linked board for each format from the master, laid out by role. */
 export async function buildFormats(targets: FormatTarget[], masterId?: string | null, rebuild = false, masterDeliverableId?: string | null) {
+  await fontsReady(st().layers)
   const s = st(); let doc = s.doc; if (!doc) return
   const A = await import('./adapt')
   let layers = [...s.layers]
@@ -760,6 +770,7 @@ export async function syncFormats(masterId?: string | null) {
   const s = st(); const doc = s.doc; if (!doc?.frames?.length) return
   const m = masterFrame(doc, masterId); if (!m) return
   if (!doc.frames.some(f => f.linkedFrom === m.id)) { s.notify('This board has no linked formats yet. Build them from the job in Studio, or with Layer > Formats.'); return }
+  await fontsReady(s.layers)
   const A = await import('./adapt')
   const roles = A.inferRoles(s.layers, m, doc)
   const r = A.syncFormats(doc, s.layers, m.id, roles)
@@ -773,6 +784,7 @@ export async function relayFormat(frameId?: string | null) {
   const s = st(); const doc = s.doc; if (!doc?.frames) return
   const f = doc.frames.find(x => x.id === (frameId ?? s.activeFrameId)); if (!f?.linkedFrom) { s.notify('Select a linked format board first.'); return }
   const m = doc.frames.find(x => x.id === f.linkedFrom); if (!m) return
+  await fontsReady(s.layers)
   const A = await import('./adapt')
   const roles = A.inferRoles(s.layers, m, doc)
   const layers = s.layers.filter(l => l.frameId !== f.id).concat(A.layoutByRole(s.layers.filter(l => l.frameId === m.id), m, f, doc, roles))

@@ -49,6 +49,9 @@ function applyTextStyle(ctx: CanvasRenderingContext2D, l: TextLayer) {
 
 export interface TextLine { text: string; width: number; y: number; justify: boolean; first: boolean }
 const layoutCache = new Map<string, { lines: TextLine[]; w: number; h: number }>()
+// A measurement taken with a stand-in font is wrong once the real font arrives.
+if (typeof document !== 'undefined' && document.fonts?.addEventListener) document.fonts.addEventListener('loadingdone', () => layoutCache.clear())
+const fontIsReady = (l: TextLayer) => { try { return typeof document === 'undefined' || !document.fonts?.check || document.fonts.check(`${l.italic ? 'italic ' : ''}${l.fontWeight} 16px "${l.fontFamily}"`) } catch { return true } }
 
 /** Lines, positions and size of a text layer. Point text keeps its own line breaks; paragraph text wraps at boxWidth. */
 export function textLayout(l: TextLayer): { lines: TextLine[]; w: number; h: number } {
@@ -90,7 +93,7 @@ export function textLayout(l: TextLayer): { lines: TextLine[]; w: number; h: num
   const w = l.boxWidth ? l.boxWidth : Math.ceil(Math.max(1, ...lines.map(x => x.width)) + indent) + 4
   const out = { lines, w, h: Math.ceil(y) + 4 }
   if (layoutCache.size > 400) layoutCache.clear()
-  layoutCache.set(key, out)
+  if (fontIsReady(l)) layoutCache.set(key, out)
   return out
 }
 

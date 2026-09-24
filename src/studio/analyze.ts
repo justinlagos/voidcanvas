@@ -24,6 +24,8 @@ export interface RefAnalysis {
   saliency: number[]
   lab: { mean: [number, number, number]; std: [number, number, number] }
   recipe: string[]
+  /** The lettering in the reference, read when the reference is first opened. */
+  type?: import('./typeread').TypeRead
 }
 
 // ─── Colour maths ──────────────────────────────────────────────────

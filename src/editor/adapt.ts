@@ -1,5 +1,6 @@
 import { layerBounds, layerSize, uid } from './engine'
 import { nextRev } from './store'
+import { docToVmask } from './pen'
 import type { Doc, Frame, Layer, LayerRole, Rect, TextLayer } from './types'
 
 // Key visual to every format. Each layer has a role (headline, logo, image...). A format is
@@ -73,6 +74,14 @@ function cover(l: Layer, doc: Doc, box: Rect): Layer {
   const s = scaleLayer(l, k), sb = layerBounds(s, doc)
   return placeAt(s, doc, box.x + (box.w - sb.w) / 2, box.y + (box.h - sb.h) / 2)
 }
+/** Cover a box and crop to it with a vector mask, so a picture never spills into the text side. */
+function coverCropped(l: Layer, doc: Doc, box: Rect): Layer {
+  const s = cover(l, doc, box), b = layerBounds(s, doc)
+  if (b.x >= box.x - 1 && b.y >= box.y - 1 && b.x + b.w <= box.x + box.w + 1 && b.y + b.h <= box.y + box.h + 1) return s
+  const n = (x: number, y: number) => ({ x, y, inX: x, inY: y, outX: x, outY: y })
+  const rect = [{ closed: true, nodes: [n(box.x, box.y), n(box.x + box.w, box.y), n(box.x + box.w, box.y + box.h), n(box.x, box.y + box.h)] }]
+  return { ...s, vmask: { subpaths: docToVmask(s, rect, doc), enabled: true } } as Layer
+}
 function contain(l: Layer, doc: Doc, box: Rect): Layer {
   const b = layerBounds(l, doc)
   const k = Math.min(box.w / Math.max(1, b.w), box.h / Math.max(1, b.h))
@@ -140,7 +149,7 @@ export function layoutByRole(master: Layer[], m: Frame, t: Frame, doc: Doc, role
   if (media.length) {
     // The largest image fills the media area; any others sit inside it.
     const [main, ...rest] = media.slice().sort((a, b) => { const ab = layerBounds(a, doc), bb = layerBounds(b, doc); return bb.w * bb.h - ab.w * ab.h })
-    out.push(cover(fresh(main), doc, mediaBox))
+    out.push(coverCropped(fresh(main), doc, mediaBox))
     rest.forEach((l, i) => out.push(contain(fresh(l), doc, { x: mediaBox.x + mediaBox.w * 0.1 + i * 12, y: mediaBox.y + mediaBox.h * 0.1 + i * 12, w: mediaBox.w * 0.4, h: mediaBox.h * 0.4 })))
   }
 
@@ -198,10 +207,25 @@ export function syncFormats(doc: Doc, layers: Layer[], masterId: string, roles: 
       // Keep the format's displayed size when the master's picture changes resolution.
       const kx = l.canvas.width / src.canvas.width, ky = l.canvas.height / src.canvas.height
       Object.assign(patch, { canvas: src.canvas, mask: src.mask, scaleX: l.scaleX * kx, scaleY: l.scaleY * ky })
+      // A crop mask lives in the picture's own pixels, so it follows the new resolution.
+      if (l.vmask) patch.vmask = { ...l.vmask, subpaths: l.vmask.subpaths.map(sp => ({ ...sp, nodes: sp.nodes.map(q => ({ ...q, x: q.x / kx, y: q.y / ky, inX: q.inX / kx, inY: q.inY / ky, outX: q.outX / kx, outY: q.outY / ky })) })) }
     }
     if (!Object.keys(patch).length) return l
     changed++
-    return { ...l, ...patch, rev: nextRev() } as Layer
+    let next = { ...l, ...patch, rev: nextRev() } as Layer
+    // Longer copy must not run past the space this format gave the old copy: shrink it to fit,
+    // held at the same edge (or centre) as its alignment.
+    if (next.type === 'text' && l.type === 'text' && !next.boxWidth && ('text' in patch || 'fontFamily' in patch || 'fontWeight' in patch || 'caps' in patch || 'kerning' in patch)) {
+      const ob = layerBounds(l, doc), nb = layerBounds(next, doc)
+      if (nb.w > ob.w * 1.01 && ob.w > 0) {
+        next = scaleLayer(next, ob.w / nb.w)
+        const sb = layerBounds(next, doc)
+        const al = (l as any).align
+        const x = al === 'center' ? ob.x + (ob.w - sb.w) / 2 : al === 'right' ? ob.x + ob.w - sb.w : ob.x
+        next = placeAt(next, doc, x, ob.y + (ob.h - sb.h) / 2)
+      }
+    }
+    return next
   })
   // Master layers the formats have not seen yet.
   for (const k of kids) {
