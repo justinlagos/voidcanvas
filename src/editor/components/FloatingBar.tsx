@@ -5,6 +5,7 @@ import { Copy, Eclipse, ImageOff, Move, PenLine, Scissors, Trash2 } from 'lucide
 import { layerBounds } from '../engine'
 import { useEditor } from '../store'
 import type { Layer } from '../types'
+import { useIsPhone } from './MobileEditor'
 import { removeBackground } from './PropertiesPanel'
 
 /** The few most likely next actions, right above the selected layer. Saves a trip to the side panel. */
@@ -13,6 +14,8 @@ export function FloatingBar() {
   const doc = useEditor(s => s.doc)
   const view = useEditor(s => s.view)
   const ref = useRef<HTMLDivElement>(null)
+  // Phones have the Select sheet instead.
+  const phone = useIsPhone()
   // Measured after render so the bar can be kept inside the stage whatever its width.
   const [box, setBox] = useState({ w: 0, stageW: 0, stageH: 0 })
   useLayoutEffect(() => {
@@ -21,7 +24,7 @@ export function FloatingBar() {
     const w = el.offsetWidth, stageW = stage.clientWidth, stageH = stage.clientHeight
     if (w !== box.w || stageW !== box.stageW || stageH !== box.stageH) setBox({ w, stageW, stageH })
   })
-  if (!layer || !doc || layer.type === 'adjustment' || layer.locked || !layer.visible) return null
+  if (phone || !layer || !doc || layer.type === 'adjustment' || layer.locked || !layer.visible) return null
   const s = useEditor.getState()
   const b = layerBounds(layer, doc)
   const cx = view.panX + (b.x + b.w / 2) * view.zoom

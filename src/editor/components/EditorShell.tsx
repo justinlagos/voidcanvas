@@ -26,6 +26,7 @@ import { LayerStyleDialog } from './LayerStyleDialog'
 import { SelectMask } from './SelectMask'
 import { buildActions, eventCombo, internalClip, normCombo, pasteInPlace } from '../actions'
 import { useUi } from '../ui-store'
+import { MobileEditor, useIsPhone } from './MobileEditor'
 import * as ops from '../ops'
 import { markSessionClean, noteEdit, readCrashedSession, startAutoVersions, writeSession } from '../versions'
 
@@ -43,6 +44,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') { (w
 
 export function EditorShell() {
   const hasDoc = useEditor(s => !!s.doc)
+  const phone = useIsPhone()
   const toast = useEditor(s => s.toast)
   const busy = useEditor(s => s.busy)
   const dirty = useEditor(s => s.dirty)
@@ -309,9 +311,9 @@ export function EditorShell() {
   const m = modal?.name
   return (
     <main className={`h-[100dvh] flex flex-col bg-void-950 text-void-100 overflow-hidden ${ui.density === 'compact' ? 'vc-compact' : ''} ${ui.touchMode ? 'vc-touch' : ''}`} style={{ ['--vc-ui-scale' as any]: ui.uiScale }}>
-      <MenuBar onExport={() => setModal('export')} onAdd={() => setModal('add')} onSearch={() => setModal('palette')} />
-      {hasDoc && <div className="vc-chrome"><TabBar onNew={() => useEditor.getState().closeDoc()} /></div>}
-      {!hasDoc ? <StartScreen /> : (
+      {!(phone && hasDoc) && <MenuBar onExport={() => setModal('export')} onAdd={() => setModal('add')} onSearch={() => setModal('palette')} />}
+      {hasDoc && !phone && <div className="vc-chrome"><TabBar onNew={() => useEditor.getState().closeDoc()} /></div>}
+      {!hasDoc ? <StartScreen /> : phone ? <MobileEditor /> : (
         <>
           <OptionsBar />
           <div className="flex-1 min-h-0 flex flex-col md:flex-row relative">

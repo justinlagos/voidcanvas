@@ -63,16 +63,34 @@ export function StartScreen() {
         <p className="mt-1.5 text-[14px] text-void-400">Start from a photo or pick a size. Everything stays on your device until you export.</p>
         <RestoreBanner />
 
+        {recent.some(p => !p.template) && (
+          <section className="mt-7">
+            <h2 className="text-[13px] font-semibold text-void-200 mb-3">Pick up where you left off</h2>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-5 px-5 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-4 md:grid-cols-5">
+              {recent.filter(p => !p.template).slice(0, 10).map(p => (
+                <div key={p.id} className="group relative w-[150px] shrink-0 sm:w-auto">
+                  <button onClick={() => openProject(p.id)} className={`block w-full rounded-xl overflow-hidden bg-void-900 border border-void-800 hover:border-void-600 text-left ${focusRing}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <span className="block aspect-[4/3] bg-void-950"><img src={p.thumb} alt="" className="w-full h-full object-contain" /></span>
+                    <span className="block px-2.5 py-2"><span className="block text-[12.5px] font-medium truncate">{p.name}</span><span className="block text-[11.5px] text-void-500 tabular-nums">{p.width} × {p.height}</span></span>
+                  </button>
+                  <RecentMenu p={p} onChanged={setRecent} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <input ref={file} type="file" accept="image/*,.psd,.pdf,.void" multiple hidden onChange={e => handleFiles(Array.from(e.target.files ?? []))} />
         <button
           onClick={() => file.current?.click()}
           onDragOver={e => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)}
           onDrop={e => { e.preventDefault(); setOver(false); handleFiles(Array.from(e.dataTransfer.files)) }}
-          className={`mt-7 w-full flex flex-col sm:flex-row items-center gap-4 rounded-2xl border border-dashed px-6 py-7 text-left transition-colors ${focusRing} ${over ? 'border-accent bg-accent/10' : 'border-void-700 hover:border-void-500 bg-void-900/40'}`}>
+          className={`mt-6 w-full flex flex-row items-center gap-4 rounded-2xl border border-dashed px-5 py-5 sm:px-6 sm:py-7 text-left transition-colors ${focusRing} ${over ? 'border-accent bg-accent/10' : 'border-void-700 hover:border-void-500 bg-void-900/40'}`}>
           <span className="w-12 h-12 rounded-xl bg-accent text-white flex items-center justify-center shrink-0"><ImagePlus size={22} /></span>
           <span>
             <span className="block text-[15px] font-medium">Open a photo</span>
-            <span className="block text-[13px] text-void-400">Drop a photo, PSD, PDF or .void file, choose a file, or paste with Ctrl+V. PSDs and .void files keep their layers.</span>
+            <span className="block text-[13px] text-void-400"><span className="hidden sm:inline">Drop a photo, PSD, PDF or .void file, choose a file, or paste with Ctrl+V. PSDs and .void files keep their layers.</span><span className="sm:hidden">Photos, PSDs and PDFs. Layers are kept.</span></span>
           </span>
         </button>
 
@@ -95,34 +113,17 @@ export function StartScreen() {
           </section>
         )}
 
-        {recent.some(p => !p.template) && (
-          <section className="mt-10">
-            <h2 className="text-[13px] font-semibold text-void-200 mb-3">Pick up where you left off</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
-              {recent.filter(p => !p.template).slice(0, 10).map(p => (
-                <div key={p.id} className="group relative">
-                  <button onClick={() => openProject(p.id)} className={`block w-full rounded-xl overflow-hidden bg-void-900 border border-void-800 hover:border-void-600 text-left ${focusRing}`}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <span className="block aspect-[4/3] bg-void-950"><img src={p.thumb} alt="" className="w-full h-full object-contain" /></span>
-                    <span className="block px-2.5 py-2"><span className="block text-[12.5px] font-medium truncate">{p.name}</span><span className="block text-[11.5px] text-void-500 tabular-nums">{p.width} × {p.height}</span></span>
-                  </button>
-                  <RecentMenu p={p} onChanged={setRecent} />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
 
         <section className="mt-8">
           {groups.map((g, gi) => (
             <div key={g} className={gi > 0 ? 'mt-5' : ''}>
               <h2 className="text-[12px] font-semibold text-void-400 uppercase tracking-wide mb-2">{g}</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-3 md:grid-cols-4">
                 {SIZE_PRESETS.filter(p => p.group === g).map(p => {
                   const k = 20 / Math.max(p.width, p.height)
                   return (
                     <button key={p.id} onClick={() => start(p.width, p.height, p.label)}
-                      className={`flex items-center gap-2.5 rounded-lg bg-void-900/50 hover:bg-void-800 border border-void-800/70 px-2.5 h-12 text-left ${focusRing}`}>
+                      className={`flex items-center gap-2.5 rounded-lg bg-void-900/50 hover:bg-void-800 border border-void-800/70 px-2.5 h-12 text-left shrink-0 w-[170px] sm:w-auto ${focusRing}`}>
                       <span className="w-6 flex items-center justify-center shrink-0"><span className="block rounded-[2px] bg-white/70" style={{ width: Math.max(4, p.width * k), height: Math.max(4, p.height * k) }} /></span>
                       <span className="min-w-0"><span className="block text-[12.5px] font-medium truncate">{p.label}</span><span className="block text-[11px] text-void-500 tabular-nums">{p.width} × {p.height}</span></span>
                     </button>

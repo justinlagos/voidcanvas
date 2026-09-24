@@ -922,7 +922,7 @@ export function Stage() {
     // Transform session takes every click until it is applied or cancelled.
     if (s.transform) {
       const tf = s.transform
-      const tol = 11 / s.view.zoom
+      const tol = (e.pointerType === 'touch' ? 22 : 11) / s.view.zoom
       const pts = tf.grid ?? tf.quad
       const hi = pts.findIndex(q => Math.hypot(q.x - p.x, q.y - p.y) <= tol)
       if (hi >= 0) { drag.current = { kind: 'tcorner', index: hi, start: p, quad0: tf.quad.map(q => ({ ...q })), grid0: tf.grid?.map(q => ({ ...q })) ?? null, warp: !!tf.grid }; return }
@@ -989,7 +989,8 @@ export function Stage() {
       }
       if (s.options.showTransform !== false && s.selectedIds.length === 1 && act && act.type !== 'adjustment' && !act.locked && !act.lockPosition && act.visible) {
         const hp = handlePoints(act)
-        const tol = 11 / s.view.zoom
+        // Fingers need a bigger target than a mouse pointer.
+        const tol = (e.pointerType === 'touch' ? 22 : 11) / s.view.zoom
         const hi = hp.findIndex(h => Math.hypot(h.x - p.x, h.y - p.y) <= tol)
         if (hi === 8) {
           const cs = layerCorners(act, s.doc)

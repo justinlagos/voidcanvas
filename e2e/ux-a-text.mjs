@@ -50,8 +50,9 @@ const layerTexts = p => p.evaluate(() => (window.__vc_layers ? window.__vc_layer
   const bar = await p.$('[data-text-edit-bar]'); const r = bar ? await bar.boundingBox() : null
   ok('A phone: text bar inside viewport', !!r && r.x >= 0 && r.x + r.width <= 390, r ? `${Math.round(r.x)}..${Math.round(r.x + r.width)}` : 'no bar')
   await p.click('[data-text-edit-bar] button:has-text("Done")'); await p.waitForTimeout(300)
-  const hasSale = await p.evaluate(() => { const c = document.querySelector('canvas'); return !!c }) && !!(await p.$('[data-floating] button:has-text("Edit text")'))
-  ok('A phone: Done commits and text layer stays selected', !(await p.$('[data-canvas-text-editor]')) && hasSale)
+  // Phones show the Select sheet (or nothing) instead of the floating bar; the layer count pill confirms the text layer exists.
+  const count = await p.$eval('button[aria-label^="Layers"]', el => el.getAttribute('aria-label')).catch(() => '')
+  ok('A phone: Done commits and the text layer exists', !(await p.$('[data-canvas-text-editor]')) && /2/.test(count), count)
   await p.screenshot({ path: OUT('textA_phone.png') })
   await c.close()
 }
