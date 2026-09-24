@@ -18,6 +18,7 @@ import { TabBar } from './TabBar'
 import { useTabs } from '../tabs'
 import { TOOL_KEYS, ToolRail, cycleFamily, toggleQuickMask } from './ToolRail'
 import { MenuBar } from './MenuBar'
+import { track } from '@/lib/analytics'
 import { StatusBar } from './StatusBar'
 import { Dock, MobilePanels } from './Dock'
 import { AiInfoDialog, CanvasSizeDialog, ColorRangeDialog, FillDialog, GuideLayoutDialog, ImageSizeDialog, ImportReportDialog, MissingFontsDialog, ModifySelectionDialog, NewGuideDialog, PreferencesDialog, StrokeDialog, VersionsDialog, fontAvailable } from './MoreDialogs'
@@ -117,6 +118,7 @@ export function EditorShell() {
     if (!inbox) return
     takeHandoff(inbox).then(async h => {
       if (!h) return
+      track('doc.import', { kind: 'from-' + h.from, count: h.images?.length ?? 0 })
       const ed = useEditor.getState()
       // A brief from Studio travels with the design as a checklist.
       const applyBrief = () => { if (h.brief) { useEditor.getState().setDoc({ brief: h.brief }); useEditor.setState({ dirty: true }); showBriefPanel() } }
@@ -172,6 +174,14 @@ export function EditorShell() {
     for (const a of Object.values(actions)) if (a.hotkey) m.set(normCombo(a.hotkey), () => { if (!a.enabled || a.enabled()) a.run() })
     return m
   }, [actions])
+  // Shortcuts the older key handler runs directly still count as using that command.
+  const shortcutIds = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const a of Object.values(actions)) if (a.shortcut && !a.hotkey) m.set(normCombo(a.shortcut), a.id)
+    return m
+  }, [actions])
+  // Count tool picks (rail clicks and single-key shortcuts alike) as commands named tool.<id>.
+  useEffect(() => useEditor.subscribe((st, prev) => { if (st.tool !== prev.tool && st.doc) track('action', { id: 'tool.' + st.tool }) }), [])
 
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
@@ -210,6 +220,7 @@ export function EditorShell() {
       const combo = eventCombo(e)
       const hk = hotkeys.get(combo)
       if (hk) { stop(); hk(); return }
+      const sid = shortcutIds.get(combo); if (sid) track('action', { id: sid, via: 'key' })
 
       if (k === '\\') { if (!s.compare) useEditor.setState({ compare: true }); return }
       if (e.key === '?') { setModal('keys'); return }

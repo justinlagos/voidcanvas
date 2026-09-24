@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { track } from '@/lib/analytics'
 
 export type EffectType =
   | 'none'
@@ -152,11 +153,12 @@ export const defaultParams: EffectParams = {
 
 export const useStore = create<Store>((set, get) => ({
   originalImage: null,
-  setOriginalImage: (image) => set({ originalImage: image }),
+  setOriginalImage: (image) => { if (image) track('effect.load', { tool: 'effects' }); set({ originalImage: image }) },
 
   activeEffect: 'none',
   setActiveEffect: (effect) => {
     get().pushHistory()
+    if (effect !== 'none') track('effect.apply', { id: effect, tool: 'effects' })
     set({ activeEffect: effect })
   },
 

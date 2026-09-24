@@ -3,6 +3,7 @@ import { cloneCanvas, ctx2d, healRegion, makeCanvas, maskBounds } from './engine
 import { combineSelection, composite } from './ops'
 import { useEditor } from './store'
 import { useUi } from './ui-store'
+import { track } from '@/lib/analytics'
 
 // Every AI feature runs on this device. Nothing is uploaded, nothing is charged, and the first use of each
 // model says how big the download is before it starts. The models are cached so later uses work offline.
@@ -23,6 +24,7 @@ export function consent(model: string): boolean {
   const m = MODELS.find(x => x.id === model); if (!m) return true
   const ok = window.confirm(`${m.name} runs on your device. Nothing is uploaded and it is free.\n\nThe first use downloads the model once (about ${m.sizeMB} MB). After that it works offline.\n\nDownload now?`)
   if (ok) ui.setPref('aiConsent', { ...ui.aiConsent, [model]: true })
+  track(ok ? 'ai.download' : 'ai.declined', { model, mb: m.sizeMB })
   return ok
 }
 
@@ -119,6 +121,12 @@ async function loadLama() {
  * then pastes back only the hole with a soft edge so the rest of the image keeps full resolution.
  */
 export async function inpaint(src: HTMLCanvasElement, hole: HTMLCanvasElement): Promise<HTMLCanvasElement | null> {
+  const t0 = performance.now()
+  try { const r = await inpaintRaw(src, hole); track('ai.run', { tool: 'inpaint', ok: !!r, ms: Math.round(performance.now() - t0), gpu: !!(navigator as any).gpu }); return r }
+  catch (e) { track('ai.run', { tool: 'inpaint', ok: false, ms: Math.round(performance.now() - t0), gpu: !!(navigator as any).gpu, msg: String((e as Error)?.message || e).slice(0, 120) }); throw e }
+}
+
+async function inpaintRaw(src: HTMLCanvasElement, hole: HTMLCanvasElement): Promise<HTMLCanvasElement | null> {
   const b = maskBounds(hole); if (!b) return null
   const side = Math.min(Math.max(src.width, src.height), Math.max(128, Math.round(Math.max(b.w, b.h) * 2.2)))
   const cx = b.x + b.w / 2, cy = b.y + b.h / 2

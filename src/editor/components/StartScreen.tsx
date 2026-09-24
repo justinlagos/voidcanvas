@@ -8,6 +8,7 @@ import { useEditor } from '../store'
 import { useTabs } from '../tabs'
 import { clearSession, crashedAtStart } from '../versions'
 import { Button, focusRing } from './ui'
+import { track } from '@/lib/analytics'
 
 function RecentMenu({ p, onChanged }: { p: ProjectSummary; onChanged: (fn: (r: ProjectSummary[]) => ProjectSummary[]) => void }) {
   const [open, setOpen] = useState(false)
@@ -51,7 +52,7 @@ export function StartScreen() {
   const [over, setOver] = useState(false)
   const [w, setW] = useState(1600), [h, setH] = useState(1200)
   useEffect(() => { listProjects().then(setRecent).catch(() => {}) }, [])
-  const start = (width: number, height: number, name?: string) => useEditor.getState().newDoc({ width, height, background: '#ffffff', name })
+  const start = (width: number, height: number, name?: string) => (track('doc.new', { preset: (name || 'custom').slice(0, 40), w: width, h: height }), useEditor.getState().newDoc({ width, height, background: '#ffffff', name }))
   const handleFiles = (files: File[]) => { const v = files.find(f => f.name.endsWith('.void') || f.name.endsWith('.void.png')); if (v) { importVoidFile(v); return } importFiles(files) }
   const groups = Array.from(new Set(SIZE_PRESETS.map(p => p.group)))
 

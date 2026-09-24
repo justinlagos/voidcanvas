@@ -1,4 +1,5 @@
 'use client'
+import { track } from '@/lib/analytics'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -29,7 +30,8 @@ interface Board {
 export function StudioShell() {
   const [boards, setBoards] = useState<Board[] | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
-  const [mode, setMode] = useState<'boards' | 'brand'>('boards')
+  const [mode, setModeRaw] = useState<'boards' | 'brand'>('boards')
+  const setMode = (m: 'boards' | 'brand') => { if (m !== mode) track('studio.mode', { mode: m }); setModeRaw(m) }
   const reload = useCallback(() => idb.all<Board>('boards').then(b => setBoards(b.sort((a, c) => c.updatedAt - a.updatedAt))).catch(() => setBoards([])), [])
   useEffect(() => { reload() }, [reload])
   const board = boards?.find(b => b.id === openId) ?? null

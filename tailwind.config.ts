@@ -8,6 +8,7 @@ const config: Config = {
     './src/editor/**/*.{ts,tsx}',
     './src/studio/**/*.{ts,tsx}',
     './src/tools/**/*.{ts,tsx}',
+    './src/admin/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {
