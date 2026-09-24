@@ -48,7 +48,14 @@ function FeedbackWidget({ path }: { path: string }) {
   useEffect(() => { if (state === 'done') { const t = setTimeout(() => setOpen(null), 2200); return () => clearTimeout(t) } }, [state])
 
   if (path.startsWith('/admin')) return null
-  const showButton = !path.startsWith('/editor') && !open
+  // Pages with their own bottom action bar (Effects and the quick tools on phones) carry a Feedback entry there instead.
+  const [hasBar, setHasBar] = useState(false)
+  useEffect(() => {
+    const check = () => setHasBar(!!document.querySelector('[data-mobile-actions]') && getComputedStyle(document.querySelector('[data-mobile-actions]')!).display !== 'none')
+    check(); const mo = new MutationObserver(check); mo.observe(document.body, { childList: true, subtree: true }); addEventListener('resize', check)
+    return () => { mo.disconnect(); removeEventListener('resize', check) }
+  }, [path])
+  const showButton = !path.startsWith('/editor') && !open && !hasBar
 
   const submit = async () => {
     if (!mood && !msg.trim()) return

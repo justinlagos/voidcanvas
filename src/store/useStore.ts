@@ -201,7 +201,7 @@ export const useStore = create<Store>((set, get) => ({
   setComparisonPosition: (pos) => set({ comparisonPosition: pos }),
 
   zoom: 100,
-  setZoom: (zoom) => set({ zoom: Math.max(25, Math.min(400, zoom)) }),
+  setZoom: (zoom) => set({ zoom: Math.max(10, Math.min(400, Math.round(zoom))) }),
 
   effectCategory: 'all',
   setEffectCategory: (cat) => set({ effectCategory: cat }),
