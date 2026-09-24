@@ -38,7 +38,7 @@ function showBriefPanel() {
 }
 
 // Test hook for browser checks in development only.
-if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') (window as any).__ve = useEditor
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') { (window as any).__ve = useEditor; (window as any).__ops = ops }
 
 export function EditorShell() {
   const hasDoc = useEditor(s => !!s.doc)

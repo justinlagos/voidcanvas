@@ -60,7 +60,11 @@ interface LayerBase {
   linkId?: string | null
   /** Colour label shown in the Layers panel. */
   label?: string | null
+  /** Vector mask: a path in layer-local pixels. Shows the layer inside the path. Stays sharp at any size. */
+  vmask?: VectorMask | null
 }
+
+export interface VectorMask { subpaths: SubPath[]; enabled: boolean; invert?: boolean; feather?: number }
 
 // ─── Layer styles ──────────────────────────────────────────────────
 
@@ -134,7 +138,11 @@ export interface TextLayer extends LayerBase {
   baselineShift?: number
   outline?: { color: string; width: number } | null
   shadow?: { color: string; blur: number; x: number; y: number } | null
+  /** Type on a path: the path in layer-local pixels, where the text starts along it (px) and which side it sits on. */
+  onPath?: TextPath | null
 }
+
+export interface TextPath { subpaths: SubPath[]; start: number; flip?: boolean; w: number; h: number }
 
 export interface ShapeLayer extends LayerBase {
   type: 'shape'
@@ -237,7 +245,7 @@ export type ToolId =
   | 'move' | 'brush' | 'eraser' | 'clone' | 'heal' | 'marquee' | 'ellipse'
   | 'lasso' | 'wand' | 'fill' | 'gradient' | 'text' | 'shape' | 'eyedropper'
   | 'crop' | 'hand' | 'zoom'
-  | 'polylasso' | 'objectselect' | 'pen' | 'curvature' | 'pathselect' | 'remove' | 'dodge' | 'burn' | 'sponge'
+  | 'polylasso' | 'objectselect' | 'pen' | 'curvature' | 'freeform' | 'pathselect' | 'remove' | 'dodge' | 'burn' | 'sponge'
 
 export interface ToolOptions {
   size: number
@@ -279,6 +287,11 @@ export interface ToolOptions {
   penStrokeWidth?: number
   /** Operation for the next new subpath. */
   penOp?: PathOp
+  /** Freeform pen: how closely curves follow the hand (px), and snapping to edges in the image. */
+  freeFit?: number
+  magnetic?: boolean
+  magWidth?: number
+  magContrast?: number
 }
 
 export interface View { zoom: number; panX: number; panY: number }

@@ -1,5 +1,6 @@
 'use client'
 
+import * as ops from '../ops'
 import { useEffect, useRef, useState } from 'react'
 import { AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, Eclipse, FolderPlus, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
 import { effectParams } from '@/components/ParamControls'
@@ -145,6 +146,8 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
 
       {layer.type === 'text' && <TextProps layer={layer} />}
       {layer.type === 'shape' && <ShapeProps layer={layer} />}
+      {layer.type === 'text' && layer.onPath && <PathTextProps layer={layer} />}
+      {layer.vmask && <VectorMaskProps layer={layer} />}
       {layer.type === 'adjustment' && <AdjustmentProps layer={layer} />}
 
       {group && (
@@ -266,6 +269,18 @@ function ShapeProps({ layer }: { layer: ShapeLayer }) {
               </select></label>
           </div>
         )}
+        <div>
+          <span className="block text-[11.5px] text-void-400 mb-1">Pathfinder {useEditor.getState().selectedIds.length > 1 ? '(selected shapes)' : '(parts of this shape)'}</span>
+          <div className="grid grid-cols-3 gap-1">
+            {([['unite', 'Unite'], ['minusFront', 'Minus front'], ['intersect', 'Intersect'], ['exclude', 'Exclude'], ['divide', 'Divide'], ['minusBack', 'Minus back']] as const).map(([k, l]) => (
+              <button key={k} onClick={() => ops.pathfinderSelected(k)} className="h-7 rounded-md bg-void-800/80 hover:bg-void-700 text-[11.5px] text-void-200">{l}</button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-1 mt-1">
+            <button disabled={!layer.stroke} onClick={() => ops.outlineStroke()} className="h-7 rounded-md bg-void-800/80 hover:bg-void-700 text-[11.5px] text-void-200 disabled:opacity-40">Outline stroke</button>
+            <button disabled={!(layer.subpaths ?? []).some(sp => sp.op)} onClick={() => ops.expandPathOps()} className="h-7 rounded-md bg-void-800/80 hover:bg-void-700 text-[11.5px] text-void-200 disabled:opacity-40">Expand parts</button>
+          </div>
+        </div>
         {layer.shape === 'path' && <p className="text-[11.5px] text-void-500 leading-snug">Edit points with Direct Select (A), or add to this shape with the Pen (hold Shift to start a new part).</p>}
         {layer.shape === 'rect' && <Slider label="Rounded corners" value={layer.radius} min={0} max={Math.round(Math.min(layer.w, layer.h) / 2)} unit="px" onChange={v => up({ radius: v })} onCommit={() => s.commit('Corners')} />}
       </div>
@@ -477,3 +492,47 @@ function SpecialAdjustment({ layer }: { layer: AdjustmentLayer }) {
   )
 }
 export { hexToRgb }
+
+function PathTextProps({ layer }: { layer: TextLayer }) {
+  const s = useEditor.getState()
+  const tp = layer.onPath!
+  const up = (patch: Partial<NonNullable<TextLayer['onPath']>>, label?: string) => s.updateLayer(layer.id, { onPath: { ...tp, ...patch } }, label)
+  const len = Math.round(Math.max(1, (tp.w + tp.h) * 2))
+  return (
+    <Section title="Type on a path">
+      <div className="space-y-3">
+        <Slider label="Start along the path" value={Math.round(tp.start)} min={0} max={len} unit="px" onChange={v => up({ start: v })} onCommit={() => s.commit('Move text along path')} />
+        <div className="grid grid-cols-3 gap-1">
+          {(['left', 'center', 'right'] as const).map(a => <button key={a} onClick={() => s.updateLayer(layer.id, { align: a }, 'Align text on path')} className={`h-7 rounded-md text-[11.5px] ${layer.align === a ? 'bg-void-700 text-white' : 'bg-void-800/80 text-void-300 hover:bg-void-700'}`}>{a === 'left' ? 'From start' : a === 'center' ? 'Centred' : 'To end'}</button>)}
+        </div>
+        <Slider label="Lift off the path" value={layer.baselineShift ?? 0} min={-200} max={200} unit="px" onChange={v => s.updateLayer(layer.id, { baselineShift: v })} onCommit={() => s.commit('Baseline shift')} />
+        <div className="grid grid-cols-2 gap-1">
+          <button onClick={() => up({ flip: !tp.flip }, 'Flip text on path')} className="h-7 rounded-md bg-void-800/80 hover:bg-void-700 text-[11.5px] text-void-200">Flip side</button>
+          <button onClick={() => { useEditor.setState({ tool: 'pathselect', activePathId: null, vmaskEditId: null }) }} className="h-7 rounded-md bg-void-800/80 hover:bg-void-700 text-[11.5px] text-void-200">Edit the path</button>
+        </div>
+        <button onClick={() => ops.releaseTextFromPath()} className="text-[11.5px] text-void-400 hover:text-white">Release from path</button>
+      </div>
+    </Section>
+  )
+}
+
+function VectorMaskProps({ layer }: { layer: Layer }) {
+  const s = useEditor.getState()
+  const editing = useEditor(st => st.vmaskEditId === layer.id)
+  const vm = layer.vmask!
+  return (
+    <Section title="Vector mask">
+      <div className="space-y-3">
+        <p className="text-[11.5px] text-void-500 leading-snug">A path that shows the layer inside it. It stays sharp at any size and moves with the layer.</p>
+        <div className="grid grid-cols-2 gap-1">
+          <button onClick={() => ops.editVectorMask(editing ? null : layer.id)} className={`h-7 rounded-md text-[11.5px] ${editing ? 'bg-accent text-white' : 'bg-void-800/80 text-void-200 hover:bg-void-700'}`}>{editing ? 'Done editing' : 'Edit points'}</button>
+          <button onClick={() => ops.updateVectorMask({ enabled: !vm.enabled }, vm.enabled ? 'Disable vector mask' : 'Enable vector mask')} className="h-7 rounded-md bg-void-800/80 hover:bg-void-700 text-[11.5px] text-void-200">{vm.enabled ? 'Disable' : 'Enable'}</button>
+          <button onClick={() => ops.updateVectorMask({ invert: !vm.invert }, 'Invert vector mask')} className="h-7 rounded-md bg-void-800/80 hover:bg-void-700 text-[11.5px] text-void-200">{vm.invert ? 'Show inside' : 'Invert'}</button>
+          <button onClick={() => ops.rasterizeVectorMask()} className="h-7 rounded-md bg-void-800/80 hover:bg-void-700 text-[11.5px] text-void-200">Rasterize</button>
+        </div>
+        <Slider label="Feather" value={vm.feather ?? 0} min={0} max={100} unit="px" onChange={v => s.updateLayer(layer.id, { vmask: { ...vm, feather: v } })} onCommit={() => s.commit('Vector mask feather')} />
+        <button onClick={() => ops.deleteVectorMask()} className="text-[11.5px] text-void-400 hover:text-white">Delete vector mask</button>
+      </div>
+    </Section>
+  )
+}
