@@ -60,7 +60,17 @@ interface LayerBase {
   linkId?: string | null
   /** Colour label shown in the Layers panel. */
   label?: string | null
+  /** What this layer is in the design (headline, logo, image...). Drives how it moves into other formats. */
+  role?: LayerRole | null
+  /** In a format adapted from a master board: the master layer this one follows. */
+  srcId?: string | null
+  /** Vector mask: a path in layer-local pixels. Shows the layer inside the path. Stays sharp at any size. */
+  vmask?: VectorMask | null
 }
+
+export type LayerRole = 'background' | 'image' | 'headline' | 'subhead' | 'body' | 'detail' | 'cta' | 'logo' | 'decoration'
+
+export interface VectorMask { subpaths: SubPath[]; enabled: boolean; invert?: boolean; feather?: number }
 
 // ─── Layer styles ──────────────────────────────────────────────────
 
@@ -134,7 +144,11 @@ export interface TextLayer extends LayerBase {
   baselineShift?: number
   outline?: { color: string; width: number } | null
   shadow?: { color: string; blur: number; x: number; y: number } | null
+  /** Type on a path: the path in layer-local pixels, where the text starts along it (px) and which side it sits on. */
+  onPath?: TextPath | null
 }
+
+export interface TextPath { subpaths: SubPath[]; start: number; flip?: boolean; w: number; h: number }
 
 export interface ShapeLayer extends LayerBase {
   type: 'shape'
@@ -162,7 +176,7 @@ export type AdjustmentKind =
   | 'brightnessContrast' | 'hueSaturation' | 'levels' | 'temperature'
   | 'blackWhite' | 'invert' | 'blur' | 'curves' | 'voidEffect'
   | 'vibrance' | 'exposure' | 'colorBalance' | 'channelMixer' | 'photoFilter' | 'gradientMap'
-  | 'posterize' | 'threshold' | 'lut'
+  | 'posterize' | 'threshold' | 'lut' | 'colorMatch'
 
 export interface AdjustmentLayer extends LayerBase {
   type: 'adjustment'
@@ -179,6 +193,8 @@ export interface AdjustmentLayer extends LayerBase {
   bands?: Partial<Record<HueBand, { hue: number; saturation: number; lightness: number }>>
   /** Gradient map / photo filter colours. */
   colors?: string[]
+  /** Colour match: the look taken from a reference (Lab mean and spread). */
+  look?: { name: string; mean: [number, number, number]; std: [number, number, number] } | null
   /** Parsed .cube LUT. */
   lut?: { size: number; data: number[]; name: string } | null
   /** Only for kind === 'voidEffect'. */
@@ -209,6 +225,8 @@ export interface Frame {
   background: string | null
   /** When set, this board was cascaded from a master board and can be re-synced from it. */
   linkedFrom?: string | null
+  /** Studio deliverable this board answers. */
+  deliverableId?: string | null
 }
 
 export interface Doc {
@@ -229,6 +247,9 @@ export interface Doc {
   dpi?: number
   /** The client brief this design answers, carried over from Studio. */
   brief?: DesignBrief
+  /** Studio job and client brand this design belongs to. */
+  jobId?: string | null
+  brandId?: string | null
 }
 
 export interface DesignBrief { title: string; text: string; items: { label: string; value: string }[]; palette?: { label: string; hex: string }[] }
@@ -237,7 +258,7 @@ export type ToolId =
   | 'move' | 'brush' | 'eraser' | 'clone' | 'heal' | 'marquee' | 'ellipse'
   | 'lasso' | 'wand' | 'fill' | 'gradient' | 'text' | 'shape' | 'eyedropper'
   | 'crop' | 'hand' | 'zoom'
-  | 'polylasso' | 'objectselect' | 'pen' | 'curvature' | 'pathselect' | 'remove' | 'dodge' | 'burn' | 'sponge'
+  | 'polylasso' | 'objectselect' | 'pen' | 'curvature' | 'freeform' | 'pathselect' | 'remove' | 'dodge' | 'burn' | 'sponge'
 
 export interface ToolOptions {
   size: number
@@ -279,6 +300,11 @@ export interface ToolOptions {
   penStrokeWidth?: number
   /** Operation for the next new subpath. */
   penOp?: PathOp
+  /** Freeform pen: how closely curves follow the hand (px), and snapping to edges in the image. */
+  freeFit?: number
+  magnetic?: boolean
+  magWidth?: number
+  magContrast?: number
 }
 
 export interface View { zoom: number; panX: number; panY: number }

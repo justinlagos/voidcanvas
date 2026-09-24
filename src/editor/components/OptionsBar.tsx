@@ -176,7 +176,7 @@ export function OptionsBar() {
         <span className="text-[12px] text-void-400 shrink-0">Click for a line of text, or drag a box for a paragraph that wraps. Character and Paragraph panels hold the details.</span>
       )}
 
-      {(tool === 'pen' || tool === 'curvature' || tool === 'pathselect') && <PenOptions tool={tool} />}
+      {(tool === 'pen' || tool === 'curvature' || tool === 'freeform' || tool === 'pathselect') && <PenOptions tool={tool} />}
 
       {tool === 'crop' && (
         <>
@@ -241,6 +241,8 @@ function PenOptions({ tool }: { tool: string }) {
     ? 'Click for corners, drag for curves. Shift keeps 45°, Alt breaks a handle, Space moves the point, Ctrl edits. Click the first point to close.'
     : tool === 'curvature'
       ? 'Click points and the curve flows through them. Double-click or Alt-click for a corner. Drag a point to reshape.'
+      : tool === 'freeform'
+        ? (o.magnetic ? 'Trace along an edge in the image; the line snaps to it. End where you started to close.' : 'Draw freely. Curves are fitted when you let go. End where you started to close.')
       : 'Drag points, handles or the line itself. Shift-click or drag a box to pick several. Alt-click the line to pick the whole path. Arrows nudge.'
   const run = (f: () => void) => () => { f(); setMore(false) }
   return (
@@ -266,6 +268,14 @@ function PenOptions({ tool }: { tool: string }) {
               {OPS.map(x => <option key={x.label} value={x.id ?? ''} title={x.title}>{x.label}</option>)}
             </select>
           </label>
+          {tool === 'freeform' && <>
+            <Num label="Curve fit" value={o.freeFit ?? 3} min={0.5} max={10} step={0.5} unit="px" onChange={v => set('freeFit', v)} title="Lower follows your hand closely with more points. Higher gives smoother curves with fewer points." />
+            <Check2 on={!!o.magnetic} label="Magnetic" onChange={v => set('magnetic', v)} title="Snap to edges in the image as you trace" />
+            {o.magnetic && <>
+              <Num label="Width" value={o.magWidth ?? 10} min={2} max={60} unit="px" onChange={v => set('magWidth', v)} title="How far from the pointer to look for an edge" />
+              <Num label="Contrast" value={o.magContrast ?? 30} min={1} max={100} unit="%" onChange={v => set('magContrast', v)} title="How strong an edge must be to snap to it" />
+            </>}
+          </>}
           {tool === 'pen' && <Check2 on={o.penAutoAdd !== false} label="Auto add/delete" onChange={v => set('penAutoAdd', v)} title="Hover a segment to add a point, hover a point to remove it" />}
           <Check2 on={o.penRubber !== false} label="Preview" onChange={v => set('penRubber', v)} title="Show the next segment before you click (rubber band)" />
           <Sep />
@@ -300,6 +310,14 @@ function PenOptions({ tool }: { tool: string }) {
               ['Close open paths', ops.closeOpenPaths],
               ['Reverse path direction', ops.reversePath],
               ['Simplify (remove extra points)', ops.simplifyPath],
+              ['Pathfinder: Unite selected shapes', () => ops.pathfinderSelected('unite')],
+              ['Pathfinder: Minus front', () => ops.pathfinderSelected('minusFront')],
+              ['Pathfinder: Intersect', () => ops.pathfinderSelected('intersect')],
+              ['Pathfinder: Exclude', () => ops.pathfinderSelected('exclude')],
+              ['Pathfinder: Divide', () => ops.pathfinderSelected('divide')],
+              ['Expand path operations', ops.expandPathOps],
+              ['Outline stroke', ops.outlineStroke],
+              null,
               ['Set last part to Combine', () => ops.setPathOps('add')],
               ['Set last part to Subtract', () => ops.setPathOps('sub')],
               ['Set last part to Intersect', () => ops.setPathOps('intersect')],

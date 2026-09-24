@@ -1,5 +1,5 @@
 import { layerMatrix, polygonPoints } from './engine'
-import type { Layer, PathNode, ShapeLayer, SubPath } from './types'
+import type { Doc, Layer, PathNode, ShapeLayer, SubPath, TextLayer } from './types'
 
 // Path geometry for the Pen, Curvature Pen and Direct Selection tools.
 // Everything here is pure: it takes subpaths and returns new subpaths.
@@ -269,9 +269,33 @@ export function shapeToSubpaths(l: ShapeLayer): SubPath[] {
 
 /** A path shape layer's subpaths in document space. */
 export function layerSubsToDoc(l: Layer): SubPath[] {
-  if (l.type !== 'shape') return []
+  const local = l.type === 'shape' ? shapeToSubpaths(l) : l.type === 'text' && l.onPath ? l.onPath.subpaths : null
+  if (!local) return []
   const m = layerMatrix(l)
-  return mapSubs(shapeToSubpaths(l), p => { const q = m.transformPoint(p); return { x: q.x, y: q.y } })
+  return mapSubs(local, p => { const q = m.transformPoint(p); return { x: q.x, y: q.y } })
+}
+
+/** Write a document-space path back into a type-on-a-path layer, refitting its box around the path. */
+export function docSubsToTextPathPatch(l: TextLayer, subs: SubPath[]): Partial<TextLayer> {
+  if (!l.onPath) return {}
+  if (l.rotation === 0) {
+    const b = subsBounds(subs), pad = Math.ceil(l.fontSize * 1.6)
+    const ox = b.x - pad, oy = b.y - pad
+    return { x: ox, y: oy, scaleX: 1, scaleY: 1, onPath: { ...l.onPath, subpaths: mapSubs(subs, p => ({ x: p.x - ox, y: p.y - oy })), w: Math.max(1, b.w + pad * 2), h: Math.max(1, b.h + pad * 2) } }
+  }
+  const inv = layerMatrix(l).inverse()
+  return { onPath: { ...l.onPath, subpaths: mapSubs(subs, p => { const q = inv.transformPoint(p); return { x: q.x, y: q.y } }) } }
+}
+
+/** A layer's vector mask in document space, and back. The mask moves and scales with its layer. */
+export function vmaskToDoc(l: Layer, doc?: Doc): SubPath[] {
+  if (!l.vmask) return []
+  const m = layerMatrix(l, doc)
+  return mapSubs(l.vmask.subpaths, p => { const q = m.transformPoint(p); return { x: q.x, y: q.y } })
+}
+export function docToVmask(l: Layer, subs: SubPath[], doc?: Doc): SubPath[] {
+  const inv = layerMatrix(l, doc).inverse()
+  return mapSubs(subs, p => { const q = inv.transformPoint(p); return { x: q.x, y: q.y } })
 }
 
 /**

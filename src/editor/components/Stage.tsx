@@ -39,6 +39,7 @@ type Drag =
   | { kind: 'pseg'; target: Target; sub: number; seg: number; t: number; last: Pt; moved: boolean }
   | { kind: 'psub'; target: Target; subs: number[]; start: Pt; base: SubPath[]; moved: boolean }
   | { kind: 'pmarq'; target: Target; start: Pt; cur: Pt; add: boolean; base: Pick[] }
+  | { kind: 'free'; pts: Pt[]; shift: boolean; mag: { data: Float32Array; w: number; h: number; k: number } | null }
 
 export const stageApi: {
   fit: () => void; fitSelection: () => void; fitFrame: () => void; zoomBy: (f: number) => void; zoomTo: (z: number) => void
@@ -54,7 +55,7 @@ export const stageApi: {
 
 // A path being drawn or edited lives either in the Paths panel (a saved path, in document pixels)
 // or in a shape layer (converted to document pixels while editing, so tools never care which).
-export type Target = { kind: 'path'; id: string } | { kind: 'layer'; id: string }
+export type Target = { kind: 'path'; id: string } | { kind: 'layer'; id: string } | { kind: 'vmask'; id: string }
 export type Pick = { sub: number; idx: number }
 const sameTarget = (a: Target | null | undefined, b: Target | null | undefined) => !!a && !!b && a.kind === b.kind && a.id === b.id
 
@@ -62,12 +63,17 @@ export function getSubs(t: Target): SubPath[] {
   const s = useEditor.getState()
   if (t.kind === 'path') return s.doc?.paths?.find(p => p.id === t.id)?.subpaths ?? []
   const l = s.layers.find(x => x.id === t.id)
-  return l?.type === 'shape' ? pen.layerSubsToDoc(l) : []
+  if (!l) return []
+  if (t.kind === 'vmask') return pen.vmaskToDoc(l, s.doc ?? undefined)
+  return l.type === 'shape' || (l.type === 'text' && l.onPath) ? pen.layerSubsToDoc(l) : []
 }
 export function setSubs(t: Target, subs: SubPath[]) {
   const s = useEditor.getState(); if (!s.doc) return
   if (t.kind === 'path') { s.setDoc({ paths: (s.doc.paths ?? []).map(p => (p.id === t.id ? { ...p, subpaths: subs } : p)) }); return }
-  const l = s.layers.find(x => x.id === t.id); if (l?.type !== 'shape') return
+  const l = s.layers.find(x => x.id === t.id); if (!l) return
+  if (t.kind === 'vmask') { if (l.vmask) s.updateLayer(l.id, { vmask: { ...l.vmask, subpaths: pen.docToVmask(l, subs, s.doc) } }); return }
+  if (l.type === 'text' && l.onPath) { s.updateLayer(l.id, pen.docSubsToTextPathPatch(l, subs)); return }
+  if (l.type !== 'shape') return
   if (l.shape !== 'path') tipOnce('live-shape-path', 'This live shape is now a path, so every point can be edited. Undo to get the live shape back.')
   s.updateLayer(l.id, pen.docSubsToLayerPatch(l, subs))
 }
@@ -75,7 +81,7 @@ function setNode(sp: SubPath[], sub: number, idx: number, n: PathNode): SubPath[
   return sp.map((x, i) => (i === sub ? (() => { const y = { ...x, nodes: x.nodes.map((m, j) => (j === idx ? n : m)) }; return y.nodes.some(m => m.auto) ? pen.autoSmooth(y) : y })() : x))
 }
 function path2d(subs: SubPath[]) { const p2 = new Path2D(); tracePath(p2 as any, subs); return p2 }
-const isPathTool = (t: ToolId) => t === 'pen' || t === 'curvature' || t === 'pathselect'
+const isPathTool = (t: ToolId) => t === 'pen' || t === 'curvature' || t === 'freeform' || t === 'pathselect'
 
 export function Stage() {
   const wrap = useRef<HTMLDivElement>(null)
@@ -143,13 +149,15 @@ export function Stage() {
   const activeTarget = (): Target | null => {
     const s = useEditor.getState()
     if (penSub.current && getSubs(penSub.current.target).length) return penSub.current.target
+    // Editing a layer's vector mask: every path tool works on the mask.
+    if (s.vmaskEditId && isPathTool(s.tool) && s.layers.some(x => x.id === s.vmaskEditId && x.vmask)) return { kind: 'vmask', id: s.vmaskEditId }
     const l = s.active()
-    if (s.tool === 'pen' || s.tool === 'curvature') {
+    if (s.tool === 'pen' || s.tool === 'curvature' || s.tool === 'freeform') {
       if ((s.options.penMode ?? 'shape') === 'path') return s.activePathId ? { kind: 'path', id: s.activePathId } : null
       return l?.type === 'shape' && l.shape === 'path' && !l.locked ? { kind: 'layer', id: l.id } : null
     }
     if (s.activePathId && s.doc?.paths?.some(p => p.id === s.activePathId)) return { kind: 'path', id: s.activePathId }
-    if (l?.type === 'shape' && s.tool === 'pathselect') return { kind: 'layer', id: l.id }
+    if ((l?.type === 'shape' || (l?.type === 'text' && l.onPath)) && s.tool === 'pathselect') return { kind: 'layer', id: l.id }
     return null
   }
 
@@ -175,7 +183,7 @@ export function Stage() {
     if (needComposite.current || live.current) {
       if (!comp.current) comp.current = makeCanvas(1, 1)
       const vs = Math.min(1, 2000 / Math.max(doc.width, doc.height))
-      const shown = s.layers.filter(l => l.id !== s.editingTextId && !(s.compare && l.type === 'adjustment') && !(tf && l.id === tf.layerId))
+      const shown = s.layers.filter(l => (l.id !== s.editingTextId || (l.type === 'text' && !!l.onPath)) && !(s.compare && l.type === 'adjustment') && !(tf && l.id === tf.layerId))
       renderDoc(comp.current, doc, shown, { groups: s.groups, scale: vs, live: live.current && live.current.mode !== 'overlay' ? live.current : null, noShadow: !!doc.frames?.length })
       needComposite.current = false
     }
@@ -424,6 +432,13 @@ export function Stage() {
       octx.save(); octx.strokeStyle = PATH; octx.setLineDash([4, 3]); octx.fillStyle = 'rgba(41,211,255,0.08)'
       octx.fillRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y))
       octx.strokeRect(Math.min(a.x, b.x) + 0.5, Math.min(a.y, b.y) + 0.5, Math.abs(b.x - a.x), Math.abs(b.y - a.y)); octx.restore()
+    }
+    if (dm?.kind === 'free' && dm.pts.length > 1) {
+      octx.save(); octx.strokeStyle = PATH; octx.lineWidth = 1.5; octx.beginPath()
+      dm.pts.forEach((q, i) => { const sp2 = toScreen(q); i ? octx.lineTo(sp2.x, sp2.y) : octx.moveTo(sp2.x, sp2.y) })
+      octx.stroke()
+      if (dm.mag) { const c = cursor.current; if (c) { const r = (s.options.magWidth ?? 10) * zoom; octx.setLineDash([3, 3]); octx.beginPath(); octx.arc(c.x, c.y, r, 0, Math.PI * 2); octx.stroke() } }
+      octx.restore()
     }
     // Smart guides and readouts for the Pen.
     if (isPathTool(s.tool)) {
@@ -680,6 +695,7 @@ export function Stage() {
       if (poly.current) { poly.current = null; invalidate(); return true }
       if (penSub.current) { penSub.current = null; hover.current = null; invalidate(); return true }
       if (sel.current?.picks.length) { sel.current = null; invalidate(); return true }
+      if (useEditor.getState().vmaskEditId) { useEditor.setState({ vmaskEditId: null }); invalidate(); return true }
       return false
     }
     stageApi.deleteNode = () => {
@@ -723,7 +739,7 @@ export function Stage() {
   useEffect(() => { fit() }, [docId, fit])
   useEffect(() => { invalidate(true) }, [docRev, compare, editingTextId, transform?.layerId, viewChannel, invalidate])
   useEffect(() => { invalidate() }, [selRev, view, tool, activeId, crop, optSize, transform, quickMask, activePathId, showRulers, showGuides, pixelGrid, invalidate])
-  useEffect(() => { if (tool !== 'pen' && tool !== 'curvature') penSub.current = null; if (!isPathTool(tool)) { sel.current = null; hover.current = null; pathSnap.current = { v: null, h: null, info: null } } if (tool !== 'polylasso') poly.current = null }, [tool])
+  useEffect(() => { if (tool !== 'pen' && tool !== 'curvature') penSub.current = null; if (!isPathTool(tool)) { sel.current = null; hover.current = null; if (useEditor.getState().vmaskEditId) useEditor.setState({ vmaskEditId: null }); pathSnap.current = { v: null, h: null, info: null } } if (tool !== 'polylasso') poly.current = null }, [tool])
   // Undo or another panel can remove the path being drawn.
   useEffect(() => { if (penSub.current && !getSubs(penSub.current.target)[penSub.current.sub]) penSub.current = null; if (sel.current && !getSubs(sel.current.target).length) sel.current = null }, [docRev])
 
@@ -928,6 +944,11 @@ export function Stage() {
       if (t === 'pen') penDown(p, e); else curvatureDown(p, e)
       return
     }
+    if (t === 'freeform') {
+      if (e.ctrlKey || e.metaKey) { pathSelectDown(p, e); return }
+      drag.current = { kind: 'free', pts: [p], shift: e.shiftKey, mag: s.options.magnetic ? edgeMap() : null }
+      invalidate(); return
+    }
     if (t === 'pathselect') { pathSelectDown(p, e); return }
 
     if (t === 'polylasso') {
@@ -1058,6 +1079,16 @@ export function Stage() {
       return
     }
 
+    if (t === 'text' && !e.altKey) {
+      // Click on a path (the selected saved path or shape) to type along it.
+      const cands: SubPath[][] = []
+      const ap = s.doc.paths?.find(x => x.id === s.activePathId); if (ap) cands.push(ap.subpaths)
+      const al = s.active(); if (al?.type === 'shape') cands.push(pen.layerSubsToDoc(al))
+      for (const subs of cands) {
+        const near = pen.nearestSegment(subs.slice(0, 1), p)
+        if (near && near.d * s.view.zoom < 8) { ops.textOnPath(subs, p); return }
+      }
+    }
     if (['marquee', 'ellipse', 'lasso', 'shape', 'gradient', 'crop', 'text', 'objectselect'].includes(t)) {
       if (t === 'crop') useEditor.setState({ crop: null })
       drag.current = { kind: 'box', tool: t, start: p, cur: p, pts: [p], mode: selModeFor(e) as any }
@@ -1153,6 +1184,11 @@ export function Stage() {
     const nd = pen.node(p.x, p.y, auto ? { auto: true } : undefined)
     const op = s.options.penOp
     const al = s.active()
+    if (s.vmaskEditId && s.layers.some(x => x.id === s.vmaskEditId && x.vmask)) {
+      const t: Target = { kind: 'vmask', id: s.vmaskEditId }
+      const subs = getSubs(t); setSubs(t, [...subs, { closed: false, nodes: [nd], ...(op ? { op } : {}) }])
+      return { target: t, sub: subs.length }
+    }
     if (mode === 'shape') {
       if (e.shiftKey && al?.type === 'shape' && al.shape === 'path' && !al.locked) {
         const t: Target = { kind: 'layer', id: al.id }
@@ -1175,6 +1211,51 @@ export function Stage() {
     const t: Target = { kind: 'path', id: path.id }
     setSubs(t, [...path.subpaths, { closed: false, nodes: [nd], ...(op && path.subpaths.length ? { op } : {}) }])
     return { target: t, sub: path.subpaths.length }
+  }
+
+  /** Edge strength of what is on screen (Sobel on the composite), for the Magnetic pen. */
+  function edgeMap(): { data: Float32Array; w: number; h: number; k: number } | null {
+    const s = useEditor.getState(); const c = comp.current; if (!c || !s.doc || c.width < 4) return null
+    const w = c.width, h = c.height, d = ctx2d(c, true).getImageData(0, 0, w, h).data
+    const g = new Float32Array(w * h)
+    for (let i = 0, j = 0; i < d.length; i += 4, j++) g[j] = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) * (d[i + 3] / 255)
+    const m = new Float32Array(w * h)
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x
+      const gx = -g[i - w - 1] - 2 * g[i - 1] - g[i + w - 1] + g[i - w + 1] + 2 * g[i + 1] + g[i + w + 1]
+      const gy = -g[i - w - 1] - 2 * g[i - w] - g[i - w + 1] + g[i + w - 1] + 2 * g[i + w] + g[i + w + 1]
+      m[i] = Math.hypot(gx, gy)
+    }
+    return { data: m, w, h, k: w / s.doc.width }
+  }
+  /** Pull a point onto the strongest nearby edge, preferring edges close to the pointer. */
+  function snapToEdge(p: Pt, mag: { data: Float32Array; w: number; h: number; k: number }, radiusDoc: number, minContrast: number): Pt {
+    const cx = Math.round(p.x * mag.k), cy = Math.round(p.y * mag.k), r = Math.max(2, Math.round(radiusDoc * mag.k))
+    let best = -1, bx = cx, by = cy
+    for (let y = Math.max(1, cy - r); y <= Math.min(mag.h - 2, cy + r); y++) for (let x = Math.max(1, cx - r); x <= Math.min(mag.w - 2, cx + r); x++) {
+      const dd = Math.hypot(x - cx, y - cy); if (dd > r) continue
+      const v = mag.data[y * mag.w + x] * (1 - (dd / (r + 1)) * 0.6)
+      if (v > best) { best = v; bx = x; by = y }
+    }
+    return best >= minContrast ? { x: bx / mag.k, y: by / mag.k } : p
+  }
+
+  /** Freeform and Magnetic pen: fit curves to what was drawn and add it like any Pen subpath. */
+  async function finishFreeform(d: Extract<Drag, { kind: 'free' }>, e: React.PointerEvent) {
+    const s = useEditor.getState()
+    if (d.pts.length < 3) { invalidate(); return }
+    const first = d.pts[0], last = d.pts[d.pts.length - 1]
+    const closed = Math.hypot(first.x - last.x, first.y - last.y) * s.view.zoom < 14 && d.pts.length > 6
+    const v = await import('../vector')
+    const fitted = v.fitCurve(closed ? d.pts.slice(0, -1) : d.pts, (s.options.freeFit ?? 3) / Math.max(0.25, Math.min(4, s.view.zoom)), closed)
+    if (!fitted.nodes.length) return
+    const started = startSubpath({ x: fitted.nodes[0].x, y: fitted.nodes[0].y }, { ...e, shiftKey: d.shift } as React.PointerEvent, false)
+    if (!started) return
+    const subs = getSubs(started.target)
+    setSubs(started.target, subs.map((x, i) => (i === started.sub ? { ...fitted, op: x.op } : x)))
+    penSub.current = null
+    s.commit(s.options.magnetic ? 'Magnetic pen' : 'Freeform pen')
+    invalidate()
   }
 
   function penDown(p0: Pt, e: React.PointerEvent) {
@@ -1344,8 +1425,8 @@ export function Stage() {
     x.restore()
     // A shape layer under the pointer becomes the one being edited.
     const hit = hitLayer(s.layers, p.x, p.y, doc, s.groups)
-    if (hit?.type === 'shape' && !(t?.kind === 'layer' && t.id === hit.id)) {
-      useEditor.setState({ activePathId: null }); s.setActive(hit.id); sel.current = { target: { kind: 'layer', id: hit.id }, picks: [] }; invalidate(); return
+    if ((hit?.type === 'shape' || (hit?.type === 'text' && hit.onPath)) && !(t?.kind === 'layer' && t.id === hit.id)) {
+      useEditor.setState({ activePathId: null, vmaskEditId: null }); s.setActive(hit.id); sel.current = { target: { kind: 'layer', id: hit.id }, picks: [] }; invalidate(); return
     }
     // Empty space: drag a box to pick points.
     if (t) {
@@ -1426,6 +1507,12 @@ export function Stage() {
       invalidate(); return
     }
 
+    if (d.kind === 'free') {
+      const lastP = d.pts[d.pts.length - 1]
+      if (Math.hypot(p.x - lastP.x, p.y - lastP.y) * s.view.zoom < 2) return
+      const q = d.mag ? snapToEdge(p, d.mag, s.options.magWidth ?? 10, (s.options.magContrast ?? 30) * 4) : p
+      d.pts.push(q); invalidate(); return
+    }
     if (d.kind === 'pen') {
       const subs = getSubs(d.target), sp = subs[d.sub]; const n = sp?.nodes[d.idx]; if (!n) return
       // Space while dragging moves the point being placed (Photoshop and Illustrator).
@@ -1512,7 +1599,7 @@ export function Stage() {
         const nx = d.anchor.x + (b.x - d.anchor.x) * k
         const ny = d.anchor.y + (b.y - d.anchor.y) * k
         const patch: any = { x: it.l.x + (nx - b.x), y: it.l.y + (ny - b.y) }
-        if (it.l.type === 'text') { patch.fontSize = Math.max(1, it.l.fontSize * k); if (it.l.boxWidth) patch.boxWidth = it.l.boxWidth * k }
+        if (it.l.type === 'text' && !it.l.onPath) { patch.fontSize = Math.max(1, it.l.fontSize * k); if (it.l.boxWidth) patch.boxWidth = it.l.boxWidth * k }
         else if (it.l.type === 'shape') { patch.w = it.l.w * k; patch.h = it.l.h * k; patch.strokeWidth = it.l.strokeWidth * k; patch.radius = it.l.radius * k }
         else { patch.scaleX = it.l.scaleX * k; patch.scaleY = it.l.scaleY * k }
         return { id: it.id, patch }
@@ -1687,6 +1774,7 @@ export function Stage() {
       invalidate(); return
     }
     if (d.kind === 'pmarq') { invalidate(); return }
+    if (d.kind === 'free') { finishFreeform(d, e); return }
     if (d.kind === 'gresize') { s.commit('Resize selection'); invalidate(); return }
     if (d.kind === 'move' && d.moved) {
       if (s.doc?.frames?.length) {
@@ -1699,7 +1787,7 @@ export function Stage() {
     if (d.kind === 'resize') {
       const l = s.layers.find(x => x.id === d.id)
       if (l?.type === 'shape') s.updateLayer(l.id, { w: l.w * l.scaleX, h: l.h * l.scaleY, scaleX: 1, scaleY: 1, ...(l.subpaths ? { subpaths: l.subpaths.map(sp => ({ ...sp, nodes: sp.nodes.map(n => ({ ...n, x: n.x * l.scaleX, y: n.y * l.scaleY, inX: n.inX * l.scaleX, inY: n.inY * l.scaleY, outX: n.outX * l.scaleX, outY: n.outY * l.scaleY })) })) } : {}) })
-      if (l?.type === 'text' && (l.scaleX !== 1 || l.scaleY !== 1)) {
+      if (l?.type === 'text' && !l.onPath && (l.scaleX !== 1 || l.scaleY !== 1)) {
         const before = layerSize(l), cx = l.x + (before.w * l.scaleX) / 2, cy = l.y + (before.h * l.scaleY) / 2
         const next = { ...l, fontSize: Math.max(4, Math.round(l.fontSize * l.scaleX)), boxWidth: l.boxWidth ? l.boxWidth * l.scaleX : l.boxWidth, scaleX: 1, scaleY: 1 }
         const after = layerSize(next)
@@ -1842,6 +1930,18 @@ function TextEditor() {
     return () => clearTimeout(t)
   }, [id])
   if (!layer || layer.type !== 'text') return null
+  if (layer.onPath) {
+    // Type on a path: edit in a small field above the path; the text updates along the path as you type.
+    const close2 = () => { if (!ready) return; useEditor.setState({ editingTextId: null }); useEditor.getState().commit('Edit text') }
+    return (
+      <textarea ref={ref} value={layer.text} spellCheck={false} aria-label="Edit text on path" rows={1}
+        onChange={e => useEditor.getState().updateLayer(layer.id, { text: e.target.value.replace(/\n/g, ' ') })}
+        onBlur={close2}
+        onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); (e.target as HTMLTextAreaElement).blur() } }}
+        style={{ position: 'absolute', left: Math.max(8, view.panX + layer.x * view.zoom), top: Math.max(8, view.panY + layer.y * view.zoom - 44), width: 320, height: 34, padding: '6px 10px', borderRadius: 8, border: '1.5px solid #8b7cff', background: 'rgba(18,18,24,0.95)', color: '#fff', font: '13px Inter, system-ui, sans-serif', resize: 'none', outline: 'none' }}
+      />
+    )
+  }
   const { w, h } = layerSize(layer)
   const k = view.zoom
   const close = () => { if (!ready) return; useEditor.setState({ editingTextId: null }); useEditor.getState().commit('Edit text') }

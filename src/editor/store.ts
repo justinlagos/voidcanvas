@@ -38,6 +38,7 @@ export const ADJUSTMENT_LABELS: Record<AdjustmentKind, string> = {
   posterize: 'Posterize',
   threshold: 'Threshold',
   lut: 'Colour lookup (LUT)',
+  colorMatch: 'Colour match (look)',
 }
 
 interface EditorState {
@@ -80,6 +81,8 @@ interface EditorState {
   pickRequest: { label: string; cb: (hex: string, rgb: [number, number, number]) => void } | null
   /** Selected path in the Paths panel, and the node being edited. */
   activePathId: string | null
+  /** Layer whose vector mask the path tools are editing. */
+  vmaskEditId: string | null
   /** Cursor position in document pixels, for the status bar and Info panel. */
   pointer: { x: number; y: number; rgb: [number, number, number, number] | null } | null
   dirty: boolean
@@ -240,6 +243,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   viewChannel: 'rgb',
   pickRequest: null,
   activePathId: null,
+  vmaskEditId: null,
   pointer: null,
   dirty: false,
   toast: null,
@@ -247,25 +251,25 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   newDoc: ({ name, width, height, background }) => {
     const doc: Doc = { id: uid(), name: name || 'Untitled design', width, height, background }
-    set({ doc, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move' })
+    set({ doc, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move' })
     get().commit('New design')
     set({ dirty: false })
   },
 
   loadProject: (doc, layers, swatches, groups) => {
     const top = layers[layers.length - 1]?.id ?? null
-    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, selection: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
+    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, selection: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
     get().commit('Open')
     set({ dirty: false })
   },
 
   loadFramed: (doc, layers, swatches, groups) => {
     const top = layers[layers.length - 1]?.id ?? null
-    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, activeFrameId: doc.frames?.[0]?.id ?? null, selection: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
+    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, activeFrameId: doc.frames?.[0]?.id ?? null, selection: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
     get().commit('Open'); set({ dirty: false })
   },
 
-  closeDoc: () => set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null }),
+  closeDoc: () => set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null }),
 
   setDoc: (patch, commit) => {
     const { doc } = get(); if (!doc) return

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeftRight, BoxSelect, Blend, Brush, CircleDashed, Crop, Droplet, Eraser, Hand, Lasso, LassoSelect, Moon, MousePointer2, MousePointerClick, MousePointerSquareDashed, PaintBucket, PenTool, Pipette, Spline, Shapes, Sparkle, Sparkles, Stamp, Sun, Type, Wand2, ZoomIn } from 'lucide-react'
+import { ArrowLeftRight, BoxSelect, Blend, Brush, CircleDashed, Crop, Droplet, Eraser, Hand, Lasso, LassoSelect, Moon, MousePointer2, MousePointerClick, MousePointerSquareDashed, PaintBucket, PenTool, Pipette, Spline, PenLine, Shapes, Sparkle, Sparkles, Stamp, Sun, Type, Wand2, ZoomIn } from 'lucide-react'
 import { makeCanvas } from '../engine'
 import { useEditor } from '../store'
 import type { ToolId } from '../types'
@@ -24,7 +24,7 @@ export const FAMILIES: ToolDef[][] = [
   [{ id: 'eraser', label: 'Eraser', key: 'E', icon: Eraser }],
   [{ id: 'gradient', label: 'Gradient', key: 'G', icon: Blend }, { id: 'fill', label: 'Paint bucket', key: 'Shift+G', icon: PaintBucket }],
   [{ id: 'dodge', label: 'Dodge (lighten)', key: 'O', icon: Sun }, { id: 'burn', label: 'Burn (darken)', key: 'Shift+O', icon: Moon }, { id: 'sponge', label: 'Sponge (saturation)', key: 'Shift+O', icon: Droplet }],
-  [{ id: 'pen', label: 'Pen', key: 'P', icon: PenTool, hint: 'Click for corners, drag for curves. Hover a path to add or remove points.' }, { id: 'curvature', label: 'Curvature pen', key: 'Shift+P', icon: Spline, hint: 'Click points and the curve flows through them. Double-click for a corner.' }, { id: 'pathselect', label: 'Direct select (edit paths)', key: 'A', icon: MousePointerClick }],
+  [{ id: 'pen', label: 'Pen', key: 'P', icon: PenTool, hint: 'Click for corners, drag for curves. Hover a path to add or remove points.' }, { id: 'curvature', label: 'Curvature pen', key: 'Shift+P', icon: Spline, hint: 'Click points and the curve flows through them. Double-click for a corner.' }, { id: 'freeform', label: 'Freeform pen', key: 'Shift+P', icon: PenLine, hint: 'Draw freely; smooth curves are fitted when you let go. Turn on Magnetic to trace edges in a photo.' }, { id: 'pathselect', label: 'Direct select (edit paths)', key: 'A', icon: MousePointerClick }],
   [{ id: 'text', label: 'Type', key: 'T', icon: Type, hint: 'Click for a line of text. Drag a box for a paragraph.' }],
   [{ id: 'shape', label: 'Shape', key: 'U', icon: Shapes }],
   [{ id: 'hand', label: 'Hand', key: 'H', icon: Hand }],

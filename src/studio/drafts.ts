@@ -80,6 +80,8 @@ export function readBrief(text: string, title = ''): BriefFields {
     if (l.length < 6 || l.length > 120) continue
     if (!/\b(must|need|should|include|feature|logo|sponsor|partners?|hashtag|disclaimer|terms|dress code|hosted by|powered by|in partnership|speakers?|guest|performing|lineup|featuring)\b/i.test(l)) continue
     if (used.some(u => l.toLowerCase().includes(u) && u.length > 4)) continue
+    // A list of the formats wanted is a deliverables list, not something to print on the design.
+    if (/\b(need|want|require|deliver|send)\b/i.test(l) && /\b(instagram|story|stories|poster|billboard|flyer|banner|reel|thumbnail|deck|slides?|a[345]|post|status)\b/i.test(l)) continue
     must.push(cap(l.replace(/^(?:it\s+)?(?:must|should|needs? to)\s+(?:include|have|show|feature)\s*:?\s*/i, '').replace(/[.]$/, '')))
   }
   return { headline: cap(headline), subhead: cap(subhead), date: cap(date), time, venue: cap(venue), price: price.replace(/^n(?=\d)/i, '₦'), cta, contact, audience: cap(audience), feel, must: must.slice(0, 5) }
@@ -145,7 +147,7 @@ export function pickPair(feel: string[]): FontPair {
 
 let measureCtx: CanvasRenderingContext2D | null = null
 function ctx() { if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d')!; return measureCtx }
-function wrap(text: string, family: string, weight: number, size: number, width: number, spacing = 0): string[] {
+export function wrap(text: string, family: string, weight: number, size: number, width: number, spacing = 0): string[] {
   const c = ctx(); c.font = `${weight} ${size}px "${family}", sans-serif`
   const out: string[] = []
   for (const para of text.split('\n')) {
@@ -159,7 +161,7 @@ function wrap(text: string, family: string, weight: number, size: number, width:
   return out
 }
 /** Largest size (down to min) at which the text fits in the box within maxLines. */
-function fit(text: string, family: string, weight: number, width: number, maxSize: number, minSize: number, maxLines: number, spacing = 0) {
+export function fit(text: string, family: string, weight: number, width: number, maxSize: number, minSize: number, maxLines: number, spacing = 0) {
   for (let s = maxSize; s >= minSize; s -= Math.max(1, Math.round(s * 0.04))) {
     const lines = wrap(text, family, weight, s, width, spacing * s)
     const longest = Math.max(...lines.map(l => { const c = ctx(); c.font = `${weight} ${s}px "${family}", sans-serif`; return c.measureText(l).width }))
@@ -172,7 +174,7 @@ export interface Hero { blob: Blob; width: number; height: number }
 export interface DraftInput { fields: BriefFields; roles: Roles; pair: FontPair; size: { width: number; height: number }; hero?: Hero | null; refs?: Hero[]; palette: string[]; brief: string; title: string }
 
 /** Crop an image to fill a box (object-fit: cover) and return it as a blob sized for the box. */
-async function coverCrop(h: Hero, w: number, hgt: number): Promise<Blob> {
+export async function coverCrop(h: Hero, w: number, hgt: number): Promise<Blob> {
   const bmp = await createImageBitmap(h.blob)
   const k = Math.max(w / bmp.width, hgt / bmp.height)
   const sw = w / k, sh = hgt / k, sx = (bmp.width - sw) / 2, sy = (bmp.height - sh) / 2
@@ -185,175 +187,8 @@ async function coverCrop(h: Hero, w: number, hgt: number): Promise<Blob> {
 type Box = { x: number; y: number; w: number; h: number }
 const upper = (s: string, on: boolean) => (on ? s.toUpperCase() : s)
 
-function textItem(name: string, text: string, family: string, weight: number, size: number, color: string, x: number, y: number, width: number, align: 'left' | 'center' | 'right' = 'left', lineHeight = 1.15, letterSpacing = 0): LayeredItem {
+export function textItem(name: string, text: string, family: string, weight: number, size: number, color: string, x: number, y: number, width: number, align: 'left' | 'center' | 'right' = 'left', lineHeight = 1.15, letterSpacing = 0): LayeredItem {
   return { kind: 'text', name, text, fontFamily: family, fontSize: Math.round(size), fontWeight: weight, italic: false, color, align, lineHeight, letterSpacing, x: Math.round(x), y: Math.round(y), opacity: 1, boxWidth: Math.round(width) }
-}
-
-/** Stack the brief's pieces into a column. Returns the items and the height used. */
-function column(inp: DraftInput, box: Box, align: 'left' | 'center', scale: { head: number; minHead: number; body: number }, colors: { head: string; body: string; muted: string }): { items: LayeredItem[]; bottom: number } {
-  const { fields: f, pair } = inp
-  const items: LayeredItem[] = []
-  let y = box.y
-  const ax = box.x
-  const detail = [f.date, f.time, f.venue].filter(Boolean).join('  ·  ')
-  if (f.headline) {
-    const txt = upper(f.headline, pair.caps)
-    const r = fit(txt, pair.display, pair.displayWeight, box.w, scale.head, scale.minHead, 4, pair.caps ? 0.01 : -0.01)
-    items.push(textItem('Headline', txt, pair.display, pair.displayWeight, r.size, colors.head, ax, y, box.w, align, pair.caps ? 0.95 : 1.05, pair.caps ? 0.01 * r.size : -0.01 * r.size))
-    y += r.lines.length * r.size * (pair.caps ? 0.95 : 1.05) + scale.body * 1.2
-  }
-  if (f.subhead) {
-    const r = fit(f.subhead, pair.body, pair.bodyWeight, box.w, scale.body * 1.35, scale.body, 3)
-    items.push(textItem('Subheading', f.subhead, pair.body, pair.bodyWeight, r.size, colors.body, ax, y, box.w, align, 1.35))
-    y += r.lines.length * r.size * 1.35 + scale.body * 1.4
-  }
-  if (detail) {
-    const lines = wrap(detail, pair.body, 700, scale.body, box.w)
-    items.push(textItem('Date, time and place', detail, pair.body, 700, scale.body, colors.head, ax, y, box.w, align, 1.35))
-    y += lines.length * scale.body * 1.35 + scale.body * 0.8
-  }
-  f.must.forEach((m, i) => {
-    const lines = wrap(m, pair.body, pair.bodyWeight, scale.body * 0.85, box.w)
-    items.push(textItem(`Must include ${i + 1}`, m, pair.body, pair.bodyWeight, scale.body * 0.85, colors.muted, ax, y, box.w, align, 1.35))
-    y += lines.length * scale.body * 0.85 * 1.35 + scale.body * 0.4
-  })
-  return { items, bottom: y }
-}
-
-function ctaItems(inp: DraftInput, x: number, y: number, align: 'left' | 'center', maxW: number, body: number, fill: string, ink: string): { items: LayeredItem[]; h: number } {
-  const { fields: f, pair } = inp
-  const items: LayeredItem[] = []
-  let h = 0
-  if (f.cta) {
-    const label = upper(f.cta, true)
-    const c = ctx(); c.font = `700 ${body}px "${pair.body}", sans-serif`
-    const tw = Math.min(maxW - body * 2.4, c.measureText(label).width + label.length * body * 0.04)
-    const bw = tw + body * 2.4, bh = body * 2.6
-    const bx = align === 'center' ? x + (maxW - bw) / 2 : x
-    items.push({ kind: 'shape', name: 'Button', shape: 'rect', x: Math.round(bx), y: Math.round(y), w: Math.round(bw), h: Math.round(bh), fill, stroke: null, strokeWidth: 0, radius: Math.round(bh / 2), rotation: 0, opacity: 1 })
-    items.push({ ...textItem('Button label', label, pair.body, 700, body, ink, bx + body * 1.2, y + (bh - body * 1.2) / 2, tw + 2, 'left', 1.2, body * 0.04), boxWidth: undefined } as LayeredItem)
-    h = bh
-  }
-  if (f.price) {
-    const py = y + (h ? h + body * 0.9 : 0)
-    items.push(textItem('Price', f.price, pair.display, pair.displayWeight, body * 1.6, fill, x, py, maxW, align, 1.1))
-    h = py - y + body * 1.8
-  }
-  return { items, h }
-}
-
-/** Three layout directions for the same brief, as editable pages. */
-export async function buildDrafts(inp: DraftInput): Promise<LayeredPage[]> {
-  const { size, roles: r, fields: f, pair } = inp
-  const W = size.width, H = size.height, short = Math.min(W, H), wide = W / H > 1.4
-  const m = Math.round(short * 0.075)
-  const body = Math.max(14, Math.round(short * 0.028))
-  const pages: LayeredPage[] = []
-  const hasText = !!(f.headline || f.subhead || f.must.length)
-  const fields = hasText ? f : { ...f, headline: inp.title && !/^untitled/i.test(inp.title) ? inp.title : 'Your headline here', subhead: f.subhead || 'A short line that says what this is and why it matters.' }
-  const I = { ...inp, fields }
-
-  // 1. Centred: type-led, calm, everything on the middle axis.
-  {
-    const items: LayeredItem[] = []
-    const colW = W - m * 2
-    let k = 1
-    let col = column(I, { x: m, y: 0, w: colW, h: H }, 'center', { head: short * (wide ? 0.13 : 0.15), minHead: short * 0.06, body }, { head: r.text, body: r.text, muted: r.muted })
-    let cta = ctaItems(I, m, 0, 'center', colW, body, r.accent, r.onAccent)
-    for (let i = 0; i < 8 && col.bottom + body * 1.2 + cta.h > H - m * 2 - body * 3; i++) {
-      k *= 0.9; const b2 = Math.max(11, body * k)
-      col = column(I, { x: m, y: 0, w: colW, h: H }, 'center', { head: short * (wide ? 0.13 : 0.15) * k, minHead: short * 0.04, body: b2 }, { head: r.text, body: r.text, muted: r.muted })
-      cta = ctaItems(I, m, 0, 'center', colW, b2, r.accent, r.onAccent)
-    }
-    const total = col.bottom + (cta.h ? body * 1.2 + cta.h : 0)
-    const top = Math.max(m, (H - total) / 2 - body)
-    items.push({ kind: 'shape', name: 'Accent bar', shape: 'rect', x: Math.round(W / 2 - short * 0.05), y: Math.round(top - body * 2.2), w: Math.round(short * 0.1), h: Math.max(4, Math.round(short * 0.008)), fill: r.accent, stroke: null, strokeWidth: 0, radius: 2, rotation: 0, opacity: 1 })
-    for (const it of col.items) items.push({ ...it, y: it.y + top } as LayeredItem)
-    for (const it of cta.items) items.push({ ...it, y: it.y + top + col.bottom + body * 1.2 } as LayeredItem)
-    if (fields.contact) items.push(textItem('Contact', fields.contact, pair.body, pair.bodyWeight, body * 0.85, r.muted, m, H - m - body, colW, 'center', 1.2))
-    pages.push({ name: 'Draft A · Centred', background: r.bg, items })
-  }
-
-  // 2. Split: image on one side (or a colour field), type on the other.
-  {
-    const items: LayeredItem[] = []
-    const portrait = H >= W
-    const img: Box = portrait ? { x: 0, y: 0, w: W, h: Math.round(H * 0.5) } : { x: Math.round(W * 0.5), y: 0, w: Math.round(W * 0.5), h: H }
-    if (inp.hero) items.push({ kind: 'image', name: 'Hero image', blob: await coverCrop(inp.hero, img.w, img.h), x: img.x, y: img.y, scaleX: img.w / Math.max(1, Math.round(img.w * Math.min(1, 2400 / Math.max(img.w, img.h)))), scaleY: img.h / Math.max(1, Math.round(img.h * Math.min(1, 2400 / Math.max(img.w, img.h)))), opacity: 1 })
-    else items.push({ kind: 'shape', name: 'Image area (drop a photo here)', shape: 'rect', x: img.x, y: img.y, w: img.w, h: img.h, fill: r.accent, stroke: null, strokeWidth: 0, radius: 0, rotation: 0, opacity: 1 })
-    const tb: Box = portrait ? { x: m, y: img.h + m * 0.8, w: W - m * 2, h: H - img.h - m * 1.8 } : { x: m, y: m, w: W * 0.5 - m * 1.6, h: H - m * 2 }
-    // Shrink the type until the column, button and price fit above the contact line.
-    const limit = H - m * 0.7 - body * 2.2
-    let k = 1, col = column(I, tb, 'left', { head: short * (portrait ? 0.1 : 0.12), minHead: short * 0.05, body: (portrait ? body : body * 0.9) }, { head: r.text, body: r.text, muted: r.muted })
-    let cta = ctaItems(I, tb.x, col.bottom + body * 0.6, 'left', tb.w, portrait ? body : body * 0.9, r.accent, r.onAccent)
-    for (let i = 0; i < 8 && col.bottom + body * 0.6 + cta.h > limit; i++) {
-      k *= 0.9
-      const b2 = Math.max(11, (portrait ? body : body * 0.9) * k)
-      col = column(I, tb, 'left', { head: short * (portrait ? 0.1 : 0.12) * k, minHead: short * 0.04, body: b2 }, { head: r.text, body: r.text, muted: r.muted })
-      cta = ctaItems(I, tb.x, col.bottom + b2 * 0.6, 'left', tb.w, b2, r.accent, r.onAccent)
-    }
-    items.push(...col.items)
-    items.push(...cta.items)
-    if (fields.contact) items.push(textItem('Contact', fields.contact, pair.body, pair.bodyWeight, body * 0.8, r.muted, tb.x, H - m * 0.7 - body, tb.w, 'left', 1.2))
-    pages.push({ name: 'Draft B · Split', background: r.bg, items })
-  }
-
-  // 3. Poster: huge headline on a solid accent ground, details in a band.
-  {
-    const items: LayeredItem[] = []
-    const ground = r.accent, ink = r.onAccent
-    const inner = W - m * 2
-    const head = upper(fields.headline, true)
-    const hf = fit(head, pair.display, pair.displayWeight, inner, short * 0.24, short * 0.08, 4, 0)
-    const band = Math.round(Math.max(body * 6, H * 0.2))
-    let y = m
-    if (fields.subhead) { const lines = wrap(upper(fields.subhead, true), pair.body, 700, body * 0.8, inner, body * 0.1); items.push(textItem('Kicker', upper(fields.subhead, true), pair.body, 700, body * 0.8, ink, m, y, inner, 'left', 1.3, body * 0.1)); y += lines.length * body * 1.05 + body }
-    const headH = hf.lines.length * hf.size * 0.92
-    const hy = Math.max(y, (H - band - headH) / 2)
-    items.push(textItem('Headline', head, pair.display, pair.displayWeight, hf.size, ink, m, hy, inner, 'left', 0.92, 0))
-    items.push({ kind: 'shape', name: 'Details band', shape: 'rect', x: 0, y: H - band, w: W, h: band, fill: r.bg, stroke: null, strokeWidth: 0, radius: 0, rotation: 0, opacity: 1 })
-    const detail = [fields.date, fields.time, fields.venue].filter(Boolean).join('  ·  ') || fields.must[0] || ''
-    const bandTop = H - band + body * 1.2
-    if (detail) { items.push(textItem('Date, time and place', detail, pair.body, 700, body, r.text, m, bandTop, inner * 0.62, 'left', 1.35)) }
-    if (fields.contact) items.push(textItem('Contact', fields.contact, pair.body, pair.bodyWeight, body * 0.8, r.muted, m, H - body * 1.9, inner * 0.62, 'left', 1.2))
-    const cta = ctaItems({ ...I, fields: { ...fields, price: '' } }, W - m - inner * 0.34, bandTop, 'left', inner * 0.34, body * 0.9, r.accent, r.onAccent)
-    items.push(...cta.items)
-    if (fields.price) items.push(textItem('Price', fields.price, pair.display, pair.displayWeight, body * 1.5, r.text, W - m - inner * 0.34, bandTop + (cta.h ? cta.h + body * 0.6 : 0), inner * 0.34, 'left', 1.1))
-    pages.push({ name: 'Draft C · Poster', background: ground, items })
-  }
-  return pages
-}
-
-/** A one-page moodboard to send the client for sign-off before design starts. */
-export async function buildMoodboard(inp: DraftInput, roleNames = true): Promise<LayeredPage> {
-  const W = 1920, H = 1080, m = 64
-  const { roles: r, pair, fields: f } = inp
-  const items: LayeredItem[] = []
-  items.push(textItem('Title', inp.title || 'Moodboard', pair.display, pair.displayWeight, 64, r.text, m, m, 760, 'left', 1.05))
-  const briefShort = inp.brief.length > 420 ? inp.brief.slice(0, 417) + '…' : inp.brief
-  if (briefShort) items.push(textItem('Brief', briefShort, pair.body, 400, 20, r.muted, m, m + 100, 760, 'left', 1.45))
-  const facts = [f.audience && `For: ${f.audience}`, f.feel.length && `Feel: ${f.feel.join(', ')}`, `Type: ${pair.display} with ${pair.body}`].filter(Boolean).join('\n')
-  items.push(textItem('Direction', facts, pair.body, 700, 20, r.text, m, 560, 760, 'left', 1.6))
-  // Palette with jobs.
-  const chips: [string, string][] = roleNames ? [['Background', r.bg], ['Text', r.text], ['Accent', r.accent], ['Muted', r.muted]] : []
-  for (const c of inp.palette) if (!chips.some(x => x[1].toLowerCase() === c.toLowerCase())) chips.push(['', c])
-  chips.slice(0, 8).forEach(([name, hex], i) => {
-    const x = m + i * 96
-    items.push({ kind: 'shape', name: `Swatch ${hex}`, shape: 'rect', x, y: 700, w: 84, h: 84, fill: hex, stroke: contrast(hex, r.bg) < 1.3 ? r.muted : null, strokeWidth: 1, radius: 12, rotation: 0, opacity: 1 })
-    items.push(textItem(`Label ${hex}`, `${name ? name + '\n' : ''}${hex.toUpperCase()}`, pair.body, 400, 13, r.muted, x, 792, 90, 'left', 1.3))
-  })
-  items.push(textItem('Type specimen', 'Aa', pair.display, pair.displayWeight, 120, r.text, m, 860, 300, 'left', 1))
-  // References on the right, in a simple grid.
-  const refs = (inp.refs ?? []).slice(0, 6)
-  const gx = 900, gw = W - gx - m, cols = refs.length > 4 ? 3 : refs.length > 1 ? 2 : 1, gap = 16
-  const cw = Math.floor((gw - gap * (cols - 1)) / cols), rows = Math.ceil(refs.length / cols) || 1, ch = Math.floor((H - m * 2 - gap * (rows - 1)) / rows)
-  for (let i = 0; i < refs.length; i++) {
-    const x = gx + (i % cols) * (cw + gap), y = m + Math.floor(i / cols) * (ch + gap)
-    const blob = await coverCrop(refs[i], cw, ch)
-    const k = Math.min(1, 2400 / Math.max(cw, ch))
-    items.push({ kind: 'image', name: `Reference ${i + 1}`, blob, x, y, scaleX: cw / Math.max(1, Math.round(cw * k)), scaleY: ch / Math.max(1, Math.round(ch * k)), opacity: 1 })
-  }
-  return { name: 'Moodboard', background: r.bg, items }
 }
 
 /** Draw a page to a canvas, for previews in Studio and for the moodboard PNG. */
