@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, Camera, Contrast, Droplet, Eye, EyeOff, Palette, Pin, Plus, RotateCcw, Sparkles, Strikethrough, Sun, SunMoon, Trash2, Underline, Wand2, X } from 'lucide-react'
-import { ctx2d, layerSize, makeCanvas, maskBounds, renderDoc, textLayout } from '../engine'
+import { ctx2d, layerBounds as layerBoundsOf, layerSize, makeCanvas, maskBounds, renderDoc, textLayout } from '../engine'
 import { FONTS, ensureFont, getBrand, registerLocalFont, type BrandKit } from '../io'
 import * as ops from '../ops'
 import { ADJUSTMENT_LABELS, historyMemoryMB, useEditor } from '../store'
@@ -464,6 +464,23 @@ function onDesign(value: string, texts: string[]) {
 }
 
 export function BriefPanel() {
+  const jobId = useEditor(s => s.doc?.jobId)
+  const brandId = useEditor(s => s.doc?.brandId)
+  return (
+    <div>
+      {jobId && (
+        <div className="px-3 pt-3">
+          <button onClick={async () => { const { saveProject } = await import('../io'); await saveProject().catch(() => {}); window.location.href = `/studio?job=${jobId}` }}
+            className={`w-full h-8 rounded-lg bg-void-800/80 hover:bg-void-700 text-[12.5px] text-void-100 ${focusRing}`}>Back to the job in Studio</button>
+        </div>
+      )}
+      {brandId && <BrandChecks brandId={brandId} />}
+      <BriefBody />
+    </div>
+  )
+}
+
+function BriefBody() {
   const brief = useEditor(s => s.doc?.brief)
   const layers = useEditor(s => s.layers)
   const doc = useEditor(s => s.doc)
@@ -540,4 +557,96 @@ export function BriefPanel() {
 function contrastRatio(a: string, b: string) {
   const L = (h: string) => { const [r, g, bb] = [1, 3, 5].map(i => { const c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) }); return 0.2126 * r + 0.7152 * g + 0.0722 * bb }
   const x = L(a), y = L(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
+}
+
+
+// ─── Brand checks (Studio brand memory) ────────────────────────────
+
+function BrandChecks({ brandId }: { brandId: string }) {
+  const [brand, setBrand] = useState<import('@/studio/jobs').ClientBrand | null>(null)
+  const layers = useEditor(s => s.layers)
+  const doc = useEditor(s => s.doc)
+  useEffect(() => { import('@/editor/io').then(m => m.idb.get<import('@/studio/jobs').ClientBrand>('brands', brandId)).then(b => setBrand(b ?? null)).catch(() => {}) }, [brandId])
+  const report = useMemo(() => {
+    if (!brand || !doc) return null
+    return brandReport(brand, layers, doc)
+  }, [brand, layers, doc])
+  if (!brand || !report) return null
+  const s = useEditor.getState()
+  const ok = !report.colors.length && !report.fonts.length && !report.logos.length
+  return (
+    <div className="p-3 space-y-2.5 border-b border-white/[0.05]">
+      <div className="flex items-center justify-between">
+        <span className="text-[12.5px] font-semibold text-void-100">Brand: {brand.name}</span>
+        <span className={`text-[11.5px] ${ok ? 'text-emerald-400' : 'text-amber-300'}`}>{ok ? 'On brand' : `${report.colors.length + report.fonts.length + report.logos.length} to check`}</span>
+      </div>
+      <div className="flex gap-1">{brand.colors.map(c => <button key={c.hex + c.role} title={`${c.role} ${c.hex}`} onClick={() => s.setFg(c.hex)} className="flex-1 h-6 rounded border border-white/10" style={{ background: c.hex }} />)}</div>
+      {report.colors.map(c => (
+        <div key={c.hex} className="flex items-center gap-2 text-[12px]">
+          <span className="w-4 h-4 rounded border border-white/20 shrink-0" style={{ background: c.hex }} />
+          <span className="flex-1 text-void-300">{c.hex.toUpperCase()} is off-brand ({c.ids.length} layer{c.ids.length === 1 ? '' : 's'})</span>
+          <button onClick={() => { for (const id of c.ids) { const l = useEditor.getState().layers.find(x => x.id === id); if (!l) continue; const p: any = {}; if (l.type === 'text' && l.color.toLowerCase() === c.hex) p.color = c.nearest; if (l.type === 'shape') { if (l.fill?.toLowerCase() === c.hex) p.fill = c.nearest; if (l.stroke?.toLowerCase() === c.hex) p.stroke = c.nearest } s.updateLayer(id, p) } s.commit('Snap to brand colour') }}
+            className="text-accent-light hover:text-white shrink-0" title={`Change to ${c.nearest}`}>Fix</button>
+        </div>
+      ))}
+      {report.fonts.map(f => (
+        <div key={f.family} className="flex items-center gap-2 text-[12px]">
+          <span className="flex-1 text-void-300">{f.family} is not a brand font ({f.ids.length})</span>
+          <button onClick={() => { for (const id of f.ids) { const l = useEditor.getState().layers.find(x => x.id === id); if (l?.type === 'text') s.updateLayer(id, { fontFamily: l.fontSize >= f.split ? brand.display : brand.body }) } s.commit('Use brand fonts') }} className="text-accent-light hover:text-white shrink-0">Fix</button>
+        </div>
+      ))}
+      {report.logos.map((m, i) => (
+        <div key={i} className="flex items-center gap-2 text-[12px]">
+          <span className="flex-1 text-void-300">{m.text}</span>
+          <button onClick={() => s.setActive(m.id)} className="text-void-400 hover:text-white shrink-0">Select</button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const _lab = (h: string) => { const n = parseInt(h.slice(1), 16); const L = (v: number) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }; const r = L(n >> 16), g = L((n >> 8) & 255), b = L(n & 255); const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116); const X = f((r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047), Y = f(r * 0.2126 + g * 0.7152 + b * 0.0722), Z = f((r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883); return [116 * Y - 16, 500 * (X - Y), 200 * (Y - Z)] }
+const _de = (a: string, b: string) => { const x = _lab(a), y = _lab(b); return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) }
+
+/** Off-brand colours, fonts, logo size and clear space in the open design. */
+export function brandReport(brand: import('@/studio/jobs').ClientBrand, layers: Layer[], doc: import('../types').Doc) {
+  const allowed = [...brand.colors.map(c => c.hex.toLowerCase()), '#ffffff', '#000000']
+  const colors = new Map<string, { hex: string; nearest: string; ids: string[] }>()
+  const check = (hex: string | null | undefined, id: string) => {
+    if (!hex || !/^#[0-9a-f]{6}$/i.test(hex) || !brand.colors.length) return
+    const h = hex.toLowerCase()
+    let bd = Infinity
+    for (const a of allowed) bd = Math.min(bd, _de(h, a))
+    // Suggest a brand colour, not white or black, unless the colour was already near-neutral.
+    const lab = _lab(h), neutral = Math.hypot(lab[1], lab[2]) < 8
+    const pool = neutral ? allowed : brand.colors.map(c => c.hex.toLowerCase())
+    let best = pool[0], pd = Infinity
+    for (const a of pool) { const d = _de(h, a); if (d < pd) { pd = d; best = a } }
+    if (bd > 8) { const e = colors.get(h) ?? { hex: h, nearest: best, ids: [] }; e.ids.push(id); colors.set(h, e) }
+  }
+  const fonts = new Map<string, { family: string; ids: string[]; split: number }>()
+  const texts = layers.filter(l => l.type === 'text') as TextLayer[]
+  const split = texts.length ? (Math.max(...texts.map(t => t.fontSize)) + Math.min(...texts.map(t => t.fontSize))) / 2 : 40
+  for (const l of layers) {
+    if (!l.visible) continue
+    if (l.type === 'text') {
+      check(l.color, l.id)
+      if (![brand.display, brand.body].includes(l.fontFamily)) { const e = fonts.get(l.fontFamily) ?? { family: l.fontFamily, ids: [], split }; e.ids.push(l.id); fonts.set(l.fontFamily, e) }
+    }
+    if (l.type === 'shape') { check(l.fill, l.id); check(l.stroke, l.id) }
+  }
+  const logos: { id: string; text: string }[] = []
+  for (const l of layers) {
+    if (!l.visible || !(l.role === 'logo' || /logo/i.test(l.name))) continue
+    const b = layerBoundsOf(l, doc)
+    const frame = doc.frames?.find(f => f.id === l.frameId)
+    const W = frame?.width ?? doc.width
+    const shown = b.w * (1080 / W)
+    if (shown < brand.logoMin) logos.push({ id: l.id, text: `Logo "${l.name}" is ${Math.round(shown)} px wide at 1080; the brand minimum is ${brand.logoMin} px.` })
+    const pad = b.h * brand.clearSpace
+    const zone = { x: b.x - pad, y: b.y - pad, w: b.w + pad * 2, h: b.h + pad * 2 }
+    const crowd = layers.find(o => o.id !== l.id && o.visible && o.type !== 'adjustment' && o.frameId === l.frameId && o.role !== 'background' && (() => { const ob = layerBoundsOf(o, doc); const big = ob.w * ob.h > (frame ? frame.width * frame.height : doc.width * doc.height) * 0.8; return !big && ob.x < zone.x + zone.w && ob.x + ob.w > zone.x && ob.y < zone.y + zone.h && ob.y + ob.h > zone.y })())
+    if (crowd) logos.push({ id: l.id, text: `"${crowd.name}" is inside the logo's clear space.` })
+  }
+  return { colors: Array.from(colors.values()), fonts: Array.from(fonts.values()), logos }
 }

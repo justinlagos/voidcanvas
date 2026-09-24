@@ -8,12 +8,12 @@ import type { Doc, Group, Layer, TextLayer } from './types'
 // and an inbox used to pass work from one module to another.
 
 const DB = 'voidcanvas'
-const STORES = ['projects', 'index', 'inbox', 'boards', 'brand', 'versions', 'versionIndex'] as const
+const STORES = ['projects', 'index', 'inbox', 'boards', 'brand', 'versions', 'versionIndex', 'jobs', 'brands', 'looks'] as const
 export type StoreName = (typeof STORES)[number]
 
 function open(): Promise<IDBDatabase> {
   return new Promise((res, rej) => {
-    const req = indexedDB.open(DB, 4)
+    const req = indexedDB.open(DB, 5)
     req.onupgradeneeded = () => { for (const s of STORES) if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s, { keyPath: 'id' }) }
     req.onsuccess = () => res(req.result)
     req.onerror = () => rej(req.error)
@@ -110,6 +110,20 @@ export interface Handoff {
   boards?: boolean
   /** Editable pages: each becomes a board of real text, shape and image layers. */
   layered?: LayeredPage[]
+  /** Studio job this work belongs to, with its brand; the new design takes `docId` so Studio can find it again. */
+  job?: { id: string; brandId?: string | null; docId?: string }
+  /** Open a saved design instead of making a new one. */
+  openProject?: string
+  /** Then build linked formats from its master board, or push master changes into them. */
+  formats?: { deliverableId: string; label: string; width: number; height: number }[]
+  rebuildFormats?: boolean
+  /** The deliverable the master board answers. */
+  masterDeliverableId?: string | null
+  syncFormats?: boolean
+  /** Fonts for new text (a job's chosen direction or brand). */
+  fonts?: { display: string; body: string }
+  /** Colour match: the look taken from a Studio reference, applied over the photo. */
+  look?: { name: string; mean: [number, number, number]; std: [number, number, number]; grain: number }
   /** The brief and its must-haves, shown as a checklist in the Editor. */
   brief?: import('./types').DesignBrief
   /** When set, add the image plus a live, re-editable filter layer on top (from a tool page). */

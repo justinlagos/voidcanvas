@@ -1,6 +1,7 @@
 import { applyEffect } from '@/lib/effects'
 import type { AdjustmentLayer, Doc, Frame, Group, HueBand, Layer, RasterLayer, Rect, ShapeLayer, SubPath, TextLayer } from './types'
 import { drawStyled, hasActiveStyles } from './styles'
+import { transferStats } from '@/studio/analyze'
 
 // ─── Canvas helpers ────────────────────────────────────────────────
 
@@ -95,6 +96,7 @@ export function textLayout(l: TextLayer): { lines: TextLine[]; w: number; h: num
 
 export function layerSize(l: Layer, doc?: Doc): { w: number; h: number } {
   if (l.type === 'raster') return { w: l.canvas.width, h: l.canvas.height }
+  if (l.type === 'text' && l.onPath) return { w: l.onPath.w, h: l.onPath.h }
   if (l.type === 'shape') return { w: l.w, h: l.h }
   if (l.type === 'adjustment') return { w: doc?.width ?? 1, h: doc?.height ?? 1 }
   const t = textLayout(l)
@@ -201,6 +203,8 @@ export function polygonPoints(l: Pick<ShapeLayer, 'w' | 'h' | 'sides' | 'star'>,
 export function drawLayerContent(ctx: CanvasRenderingContext2D, l: Layer, k = 1) {
   if (l.type === 'raster') {
     ctx.drawImage(l.canvas, 0, 0)
+  } else if (l.type === 'text' && l.onPath) {
+    drawTextOnPath(ctx, l, k)
   } else if (l.type === 'text') {
     applyTextStyle(ctx, l)
     ctx.fillStyle = l.color
@@ -399,6 +403,7 @@ export const ADJUSTMENT_DEFAULTS: Record<string, Record<string, number>> = {
   posterize: { levels: 4 },
   threshold: { level: 128 },
   lut: { amount: 100 },
+  colorMatch: { amount: 80 },
 }
 
 export const HUE_BANDS: { id: HueBand; label: string; center: number; swatch: string }[] = [
@@ -618,6 +623,10 @@ function applyBuiltIn(img: ImageData, l: AdjustmentLayer, scale: number) {
       for (let i = 0; i < d.length; i += 4) { const y = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114; d[i] = d[i + 1] = d[i + 2] = y >= v.level ? 255 : 0 }
       break
     }
+    case 'colorMatch': {
+      if (l.look) transferStats(d, l.look, v.amount / 100)
+      break
+    }
     case 'lut': {
       const L = l.lut; if (!L) break
       const N = L.size, D = L.data, amt = v.amount / 100
@@ -807,7 +816,7 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
       }
       const styled = hasActiveStyles(l)
       const fill = l.fillOpacity ?? 1
-      const needsTemp = (l.mask && l.maskEnabled) || !!live || !!clipBaseCanvas || styled
+      const needsTemp = (l.mask && l.maskEnabled) || hasVectorMask(l) || !!live || !!clipBaseCanvas || styled
       acc.save()
       const clipF = l.frameId ? frameById.get(l.frameId) : undefined
       if (clipF) { acc.beginPath(); acc.rect(clipF.x * s, clipF.y * s, clipF.width * s, clipF.height * s); acc.clip() }
@@ -828,6 +837,7 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
           t.globalCompositeOperation = 'destination-in'
           t.drawImage(liveMask(maskSrc ?? fullMaskSized(w, h), live), 0, 0)
         }
+        if (hasVectorMask(l)) { t.globalCompositeOperation = 'destination-in'; t.drawImage(vectorMaskCanvas(l, w, h), 0, 0); t.globalCompositeOperation = 'source-over' }
         if (clipBaseCanvas || styled) {
           // Work in document space: intersect with the clip base, then draw with styles.
           acc.restore(); acc.save()
@@ -871,6 +881,7 @@ function renderLayerAlpha(doc: Doc, layer: Layer, s: number): HTMLCanvasElement 
   drawLayerContent(t, layer)
   const maskSrc = layer.mask && layer.maskEnabled ? layer.mask : null
   if (maskSrc) { t.globalCompositeOperation = 'destination-in'; t.drawImage(maskSrc, 0, 0) }
+  if (hasVectorMask(layer)) { t.globalCompositeOperation = 'destination-in'; t.drawImage(vectorMaskCanvas(layer, w, h), 0, 0) }
   x.drawImage(tmp, 0, 0)
   x.restore()
   return c
@@ -1110,3 +1121,91 @@ export function toneStroke(src: HTMLCanvasElement, stroke: HTMLCanvasElement, ki
   x.putImageData(img, b.x, b.y)
   return out
 }
+
+
+// ─── Type on a path ────────────────────────────────────────────────
+
+/** Points along the first subpath with their distance from the start, for placing glyphs. */
+export function pathPolyline(subs: SubPath[]): { x: number; y: number; d: number }[] {
+  const sp = subs[0]; if (!sp || sp.nodes.length < 2) return []
+  const n = sp.nodes, segs = sp.closed ? n.length : n.length - 1
+  const out: { x: number; y: number; d: number }[] = []
+  let d = 0
+  for (let i = 0; i < segs; i++) {
+    const a = n[i], b = n[(i + 1) % n.length]
+    const c = [a.x, a.y, a.outX, a.outY, b.inX, b.inY, b.x, b.y]
+    const est = Math.hypot(c[2] - c[0], c[3] - c[1]) + Math.hypot(c[4] - c[2], c[5] - c[3]) + Math.hypot(c[6] - c[4], c[7] - c[5])
+    const N = Math.max(8, Math.ceil(est / 2))
+    for (let k = i ? 1 : 0; k <= N; k++) {
+      const t = k / N, u = 1 - t
+      const x = u * u * u * c[0] + 3 * u * u * t * c[2] + 3 * u * t * t * c[4] + t * t * t * c[6]
+      const y = u * u * u * c[1] + 3 * u * u * t * c[3] + 3 * u * t * t * c[5] + t * t * t * c[7]
+      const prev = out[out.length - 1]
+      if (prev) d += Math.hypot(x - prev.x, y - prev.y)
+      out.push({ x, y, d })
+    }
+  }
+  return out
+}
+function pointAt(poly: { x: number; y: number; d: number }[], d: number): { x: number; y: number; a: number } | null {
+  if (poly.length < 2) return null
+  const total = poly[poly.length - 1].d
+  if (d < 0 || d > total) return null
+  let lo = 0, hi = poly.length - 1
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (poly[mid].d < d) lo = mid; else hi = mid }
+  const A = poly[lo], B = poly[hi], t = B.d - A.d ? (d - A.d) / (B.d - A.d) : 0
+  return { x: A.x + (B.x - A.x) * t, y: A.y + (B.y - A.y) * t, a: Math.atan2(B.y - A.y, B.x - A.x) }
+}
+
+function drawTextOnPath(ctx: CanvasRenderingContext2D, l: TextLayer, k: number) {
+  const tp = l.onPath!
+  let poly = pathPolyline(tp.subpaths)
+  if (poly.length < 2) return
+  if (tp.flip) { const total = poly[poly.length - 1].d; poly = poly.slice().reverse().map(p => ({ ...p, d: total - p.d })) }
+  const total = poly[poly.length - 1].d
+  applyTextStyle(ctx, l)
+  ctx.fillStyle = l.color; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center'
+  const text = (l.caps === 'all' ? l.text.toUpperCase() : l.text).replace(/\s*\n\s*/g, ' ')
+  const chars = Array.from(text)
+  const widths = chars.map(ch => ctx.measureText(ch).width)
+  const len = widths.reduce((a, b) => a + b, 0)
+  const start = l.align === 'center' ? tp.start - len / 2 : l.align === 'right' ? tp.start - len : tp.start
+  const shift = -(l.baselineShift ?? 0)
+  const paint = (fn: (ch: string) => void) => {
+    let d = start
+    chars.forEach((ch, i) => {
+      const mid = d + widths[i] / 2
+      d += widths[i]
+      const at = pointAt(poly, sp(mid, total, tp.subpaths[0]?.closed))
+      if (!at || !ch.trim()) return
+      ctx.save(); ctx.translate(at.x, at.y); ctx.rotate(at.a); ctx.translate(0, shift)
+      fn(ch); ctx.restore()
+    })
+  }
+  if (l.shadow) { ctx.shadowColor = l.shadow.color; ctx.shadowBlur = l.shadow.blur * k; ctx.shadowOffsetX = l.shadow.x * k; ctx.shadowOffsetY = l.shadow.y * k }
+  if (l.outline && l.outline.width > 0) { ctx.strokeStyle = l.outline.color; ctx.lineWidth = l.outline.width * 2; ctx.lineJoin = 'round'; paint(ch => ctx.strokeText(ch, 0, 0)); ctx.shadowColor = 'transparent' }
+  paint(ch => ctx.fillText(ch, 0, 0))
+  ctx.shadowColor = 'transparent'; ctx.textAlign = 'left'
+}
+/** On a closed path, text that runs past the end wraps round to the start. */
+function sp(d: number, total: number, closed?: boolean) { return closed && total > 0 ? ((d % total) + total) % total : d }
+
+// ─── Vector masks ──────────────────────────────────────────────────
+
+/** A vector mask as an alpha canvas in layer-local pixels (w × h). */
+export function vectorMaskCanvas(l: Layer, w: number, h: number): HTMLCanvasElement {
+  const vm = l.vmask!
+  const c = makeCanvas(w, h), x = ctx2d(c)
+  paintPathOps(x, vm.subpaths)
+  let out = c
+  if (vm.feather && vm.feather > 0) {
+    const f = makeCanvas(w, h), fx = ctx2d(f)
+    fx.filter = `blur(${vm.feather}px)`; fx.drawImage(c, 0, 0); fx.filter = 'none'; out = f
+  }
+  if (vm.invert) {
+    const inv = makeCanvas(w, h), ix = ctx2d(inv)
+    ix.fillStyle = '#fff'; ix.fillRect(0, 0, w, h); ix.globalCompositeOperation = 'destination-out'; ix.drawImage(out, 0, 0); out = inv
+  }
+  return out
+}
+export const hasVectorMask = (l: Layer) => !!(l.vmask && l.vmask.enabled && l.vmask.subpaths.length)
