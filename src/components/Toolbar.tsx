@@ -27,17 +27,31 @@ export function Toolbar() {
   }, [activeEffect])
 
   const router = useRouter()
-  // Pass the current result to the Editor as the first layer of a new design.
-  const openInEditor = useCallback(() => {
-    const canvas = (document.querySelector('canvas[data-result-canvas]') || document.querySelector('canvas')) as HTMLCanvasElement | null
-    if (!canvas) return
-    canvas.toBlob(async (blob) => {
-      if (!blob) return
-      const name = activeEffect === 'none' ? 'Photo' : `${activeEffect} effect`
-      const id = await sendHandoff({ from: 'effects', name, images: [{ name, blob }] })
-      router.push(`/editor?inbox=${id}`)
-    }, 'image/png')
-  }, [activeEffect, router])
+  // Send the photo plus the effect as its own live filter layer, so the effect stays
+  // editable (and can be hidden, masked or re-tuned) in the Editor.
+  // The photo goes at the same size the effect was previewed at, so pixel-based
+  // settings (dot size, block size, blur radius) look the same on the other side.
+  const openInEditor = useCallback(async (flatten = false) => {
+    const result = document.querySelector('canvas[data-result-canvas]') as HTMLCanvasElement | null
+    if (!result || !originalImage) return
+    const { activeEffect: effect, params } = useStore.getState()
+    let blob: Blob | null
+    if (flatten || effect === 'none') {
+      blob = await new Promise<Blob | null>(r => result.toBlob(r, 'image/png'))
+    } else {
+      const img = new Image()
+      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = originalImage })
+      const c = document.createElement('canvas'); c.width = result.width; c.height = result.height
+      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+      blob = await new Promise<Blob | null>(r => c.toBlob(r, 'image/png'))
+    }
+    if (!blob) return
+    const label = effect.replace(/([A-Z])/g, ' $1').replace(/^./, ch => ch.toUpperCase())
+    const id = flatten || effect === 'none'
+      ? await sendHandoff({ from: 'effects', name: effect === 'none' ? 'Photo' : `${label} result`, images: [{ name: effect === 'none' ? 'Photo' : `${label} (flattened)`, blob }] })
+      : await sendHandoff({ from: 'effects', name: `${label} design`, images: [{ name: 'Photo', blob }], liveEffect: { effect, params: { ...params } } })
+    router.push(`/editor?inbox=${id}`)
+  }, [originalImage, router])
 
   const handleClear = useCallback(() => {
     setOriginalImage(null)
@@ -89,8 +103,8 @@ export function Toolbar() {
       <motion.button
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
-        onClick={openInEditor}
-        title="Keep working on this in the Editor: add layers, type and retouching"
+        onClick={(e) => openInEditor(e.shiftKey)}
+        title="Opens the photo with the effect on its own live layer. Shift-click to send one flattened image instead."
         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-accent hover:bg-accent-hover text-white rounded-md transition-colors"
       >
         <Layers size={14} />

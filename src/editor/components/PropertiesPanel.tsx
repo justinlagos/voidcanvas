@@ -242,6 +242,31 @@ function ShapeProps({ layer }: { layer: ShapeLayer }) {
           <Slider label="Points" value={layer.sides ?? 5} min={3} max={40} onChange={v => up({ sides: v })} onCommit={() => s.commit('Points')} />
           <Slider label="Star depth" value={Math.round((1 - (layer.star ?? 1)) * 100)} min={0} max={90} unit="%" onChange={v => up({ star: 1 - v / 100 })} onCommit={() => s.commit('Star depth')} />
         </>}
+        {layer.stroke && layer.shape === 'path' && (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1 text-[11.5px] text-void-400">Stroke position
+              <select value={layer.strokeAlign ?? 'center'} onChange={e => s.updateLayer(layer.id, { strokeAlign: e.target.value as ShapeLayer['strokeAlign'] }, 'Stroke position')} className="h-7 px-1.5 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px] text-void-100">
+                <option value="inside">Inside</option><option value="center">Centre</option><option value="outside">Outside</option>
+              </select></label>
+            <label className="flex flex-col gap-1 text-[11.5px] text-void-400">Dashes
+              <select value={(layer.strokeDash ?? []).join(',')} onChange={e => s.updateLayer(layer.id, { strokeDash: e.target.value ? e.target.value.split(',').map(Number) : [] }, 'Stroke dashes')} className="h-7 px-1.5 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px] text-void-100">
+                <option value="">Solid</option><option value="3,2">Dashed</option><option value="0.01,2">Dotted</option><option value="6,2,1,2">Dash dot</option>
+              </select></label>
+          </div>
+        )}
+        {layer.stroke && (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1 text-[11.5px] text-void-400">Ends
+              <select value={layer.strokeCap ?? 'round'} onChange={e => s.updateLayer(layer.id, { strokeCap: e.target.value as ShapeLayer['strokeCap'] }, 'Stroke ends')} className="h-7 px-1.5 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px] text-void-100">
+                <option value="butt">Flat</option><option value="round">Round</option><option value="square">Square</option>
+              </select></label>
+            <label className="flex flex-col gap-1 text-[11.5px] text-void-400">Corners
+              <select value={layer.strokeJoin ?? 'round'} onChange={e => s.updateLayer(layer.id, { strokeJoin: e.target.value as ShapeLayer['strokeJoin'] }, 'Stroke corners')} className="h-7 px-1.5 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px] text-void-100">
+                <option value="miter">Sharp</option><option value="round">Round</option><option value="bevel">Bevel</option>
+              </select></label>
+          </div>
+        )}
+        {layer.shape === 'path' && <p className="text-[11.5px] text-void-500 leading-snug">Edit points with Direct Select (A), or add to this shape with the Pen (hold Shift to start a new part).</p>}
         {layer.shape === 'rect' && <Slider label="Rounded corners" value={layer.radius} min={0} max={Math.round(Math.min(layer.w, layer.h) / 2)} unit="px" onChange={v => up({ radius: v })} onCommit={() => s.commit('Corners')} />}
       </div>
     </Section>

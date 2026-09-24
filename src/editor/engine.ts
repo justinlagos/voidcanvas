@@ -266,9 +266,71 @@ export function drawLayerContent(ctx: CanvasRenderingContext2D, l: Layer, k = 1)
       const r = Math.min(l.radius, l.w / 2, l.h / 2)
       ctx.roundRect(sw / 2, sw / 2, Math.max(1, l.w - sw), Math.max(1, l.h - sw), r)
     }
-    if (l.fill && l.shape !== 'line') { ctx.fillStyle = l.fill; ctx.fill('evenodd') }
-    if (l.stroke && sw > 0) { ctx.strokeStyle = l.stroke; ctx.lineWidth = sw; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke() }
+    const usesOps = l.shape === 'path' && (l.subpaths ?? []).some(sp => sp.op)
+    const align = l.shape === 'line' ? 'center' : (l.strokeAlign ?? 'center')
+    const strokeStyle = (c: CanvasRenderingContext2D, width: number) => {
+      c.strokeStyle = l.stroke!; c.lineWidth = width
+      c.lineCap = l.strokeCap ?? 'round'; c.lineJoin = l.strokeJoin ?? 'round'; c.miterLimit = 10
+      c.setLineDash(l.strokeDash?.length ? l.strokeDash.map(v => v * sw) : [])
+    }
+    if (!usesOps && align === 'center') {
+      if (l.fill && l.shape !== 'line') { ctx.fillStyle = l.fill; ctx.fill('evenodd') }
+      if (l.stroke && sw > 0) { strokeStyle(ctx, sw); ctx.stroke(); ctx.setLineDash([]) }
+      return
+    }
+    // Path operations and inside/outside strokes are built on a scratch canvas in layer space.
+    const kk = Math.max(0.05, Math.min(4, k))
+    const W = Math.max(1, Math.ceil(l.w * kk)), H = Math.max(1, Math.ceil(l.h * kk))
+    const shapeMask = makeCanvas(W, H), sm = ctx2d(shapeMask)
+    sm.setTransform(kk, 0, 0, kk, 0, 0)
+    if (usesOps) paintPathOps(sm, l.subpaths ?? [])
+    else { sm.fillStyle = '#fff'; sm.beginPath(); ctx2dTrace(sm, l); sm.fill('evenodd') }
+    const out = makeCanvas(W, H), o = ctx2d(out)
+    if (l.fill && l.shape !== 'line') { o.drawImage(shapeMask, 0, 0); o.globalCompositeOperation = 'source-in'; o.fillStyle = l.fill; o.fillRect(0, 0, W, H); o.globalCompositeOperation = 'source-over' }
+    if (l.stroke && sw > 0) {
+      const st = makeCanvas(W, H), sx = ctx2d(st)
+      sx.setTransform(kk, 0, 0, kk, 0, 0); sx.beginPath(); ctx2dTrace(sx, l)
+      strokeStyle(sx, align === 'center' ? sw : sw * 2); sx.stroke()
+      sx.setTransform(1, 0, 0, 1, 0, 0)
+      if (align === 'inside') { sx.globalCompositeOperation = 'destination-in'; sx.drawImage(shapeMask, 0, 0) }
+      if (align === 'outside') { sx.globalCompositeOperation = 'destination-out'; sx.drawImage(shapeMask, 0, 0) }
+      o.drawImage(st, 0, 0)
+    }
+    ctx.drawImage(out, 0, 0, l.w, l.h)
   }
+}
+
+function ctx2dTrace(c: CanvasRenderingContext2D, l: ShapeLayer) {
+  if (l.shape === 'path') { tracePath(c, l.subpaths ?? []); return }
+  const sw = l.stroke ? l.strokeWidth : 0
+  if (l.shape === 'ellipse') c.ellipse(l.w / 2, l.h / 2, Math.max(0.5, l.w / 2 - sw / 2), Math.max(0.5, l.h / 2 - sw / 2), 0, 0, Math.PI * 2)
+  else if (l.shape === 'polygon') { polygonPoints(l, sw / 2).forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y))); c.closePath() }
+  else if (l.shape === 'line') { c.moveTo(0, l.h / 2); c.lineTo(l.w, l.h / 2) }
+  else c.roundRect(sw / 2, sw / 2, Math.max(1, l.w - sw), Math.max(1, l.h - sw), Math.min(l.radius, l.w / 2, l.h / 2))
+}
+
+/**
+ * Fill subpaths as white, combining each with the ones before it: combine (union), subtract,
+ * intersect or exclude. Subpaths with no operation join the one before in an even-odd fill, so
+ * a letter O drawn as two rings still gets its hole.
+ */
+export function paintPathOps(c: CanvasRenderingContext2D, subs: SubPath[]) {
+  const W = c.canvas.width, H = c.canvas.height
+  const m = c.getTransform()
+  // Group runs: a subpath with an op starts a new run; ones without join the current run.
+  const runs: { op: NonNullable<SubPath['op']>; subs: SubPath[] }[] = []
+  for (const sp of subs) {
+    if (!runs.length || sp.op) runs.push({ op: sp.op ?? 'add', subs: [sp] })
+    else runs[runs.length - 1].subs.push(sp)
+  }
+  runs.forEach((r, i) => {
+    const t = makeCanvas(W, H), tx = ctx2d(t)
+    tx.setTransform(m); tx.fillStyle = '#fff'; tx.beginPath(); tracePath(tx, r.subs); tx.fill('evenodd')
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0)
+    c.globalCompositeOperation = i === 0 ? 'source-over' : r.op === 'sub' ? 'destination-out' : r.op === 'intersect' ? 'destination-in' : r.op === 'xor' ? 'xor' : 'source-over'
+    c.drawImage(t, 0, 0)
+    c.restore()
+  })
 }
 
 // ─── Adjustments ───────────────────────────────────────────────────

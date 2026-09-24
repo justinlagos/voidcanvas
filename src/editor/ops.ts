@@ -1,7 +1,8 @@
-import { cloneCanvas, ctx2d, drawLayerContent, fullMaskSized, layerMatrix, layerSize, makeCanvas, maskBounds, renderDoc, tracePath, uid } from './engine'
+import { cloneCanvas, ctx2d, drawLayerContent, fullMaskSized, layerMatrix, layerSize, makeCanvas, maskBounds, paintPathOps, renderDoc, tracePath, uid } from './engine'
 import { base, nextRev, useEditor } from './store'
 import { morph } from './styles'
-import type { Doc, Layer, LayerStyles, PathNode, RasterLayer, ShapeLayer, SubPath, VectorPath } from './types'
+import type { Doc, Layer, LayerStyles, PathNode, PathOp, RasterLayer, ShapeLayer, SubPath, VectorPath } from './types'
+import { docSubsToLayerPatch, layerSubsToDoc, reverseSub, samplePath, simplifySub, toSvgD } from './pen'
 
 // Document-wide operations used by the menus: image and canvas size, rotation, selection modifiers,
 // channels, paths and fills. Each one is a single undo step.
@@ -242,7 +243,7 @@ export function strokeSelection(color: string, width: number, position: 'inside'
 
 export function pathMask(subpaths: SubPath[], w: number, h: number, feather = 0) {
   const m = makeCanvas(w, h), x = ctx2d(m)
-  x.fillStyle = '#fff'; x.beginPath(); tracePath(x, subpaths); x.fill('evenodd')
+  paintPathOps(x, subpaths)
   if (!feather) return m
   const out = makeCanvas(w, h), o = ctx2d(out); const off = w + feather * 4 + 10
   o.shadowColor = '#fff'; o.shadowBlur = feather * 2; o.shadowOffsetX = off; o.drawImage(m, -off, 0)
@@ -253,18 +254,27 @@ export function activePath(): VectorPath | null {
   const s = st(); return s.doc?.paths?.find(p => p.id === s.activePathId) ?? null
 }
 
+/** The path the path commands act on: the selected saved path, or else the selected shape layer's outline. */
+export function currentPath(): { name: string; subpaths: SubPath[]; layerId?: string } | null {
+  const p = activePath(); if (p) return p
+  const l = st().active()
+  if (l?.type === 'shape') return { name: l.name, subpaths: layerSubsToDoc(l), layerId: l.id }
+  return null
+}
+const needPath = () => { const p = currentPath(); if (!p) st().notify('Draw a path with the Pen tool, or select a shape layer, first.'); return p }
+
 export function setPaths(paths: VectorPath[], label?: string) {
   const s = st(); s.setDoc({ paths }, !!label)
   if (label) useEditor.setState({ history: useEditor.getState().history.map((h, i, a) => i === a.length - 1 ? { ...h, label } : h) })
 }
 
 export function pathToSelection(id?: string, mode: 'new' | 'add' | 'sub' | 'intersect' = 'new') {
-  const s = st(); const p = id ? s.doc?.paths?.find(x => x.id === id) : activePath(); if (!p || !s.doc) { s.notify('Draw a path with the Pen tool first.'); return }
+  const s = st(); const p = id ? s.doc?.paths?.find(x => x.id === id) : needPath(); if (!p || !s.doc) return
   combineSelection(pathMask(p.subpaths, s.doc.width, s.doc.height), mode, 'Path to selection')
 }
 
 export function fillPath(color: string) {
-  const s = st(); const p = activePath(); if (!p || !s.doc) { s.notify('Draw a path with the Pen tool first.'); return }
+  const s = st(); const p = needPath(); if (!p || !s.doc) return
   const l = s.ensurePaintable(); if (!l || l.type !== 'raster') return
   const m = pathMask(p.subpaths, s.doc.width, s.doc.height), x = ctx2d(m)
   x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, m.width, m.height)
@@ -272,30 +282,91 @@ export function fillPath(color: string) {
   s.updateLayer(l.id, { canvas: c }, 'Fill path')
 }
 
-export function strokePath(color: string, width: number) {
-  const s = st(); const p = activePath(); if (!p || !s.doc) { s.notify('Draw a path with the Pen tool first.'); return }
+/**
+ * Stroke the path onto pixels. With taper on, the line starts and ends thin, like Photoshop's
+ * "Simulate pressure" when stroking a path with the brush.
+ */
+export function strokePath(color: string, width: number, taper = false) {
+  const s = st(); const p = needPath(); if (!p || !s.doc) return
   const l = s.ensurePaintable(); if (!l || l.type !== 'raster') return
   const c = cloneCanvas(l.canvas), x = ctx2d(c)
-  x.strokeStyle = color; x.lineWidth = width; x.lineCap = 'round'; x.lineJoin = 'round'
-  x.beginPath(); tracePath(x, p.subpaths); x.stroke()
-  s.updateLayer(l.id, { canvas: c }, 'Stroke path')
+  x.strokeStyle = color; x.fillStyle = color; x.lineWidth = width; x.lineCap = 'round'; x.lineJoin = 'round'
+  if (!taper) { x.beginPath(); tracePath(x, p.subpaths); x.stroke() }
+  else {
+    for (const run of samplePath(p.subpaths, Math.max(0.5, width / 6))) {
+      for (const q of run) {
+        const r = (width / 2) * Math.max(0.04, Math.sin(Math.PI * q.t))
+        x.beginPath(); x.arc(q.x, q.y, r, 0, Math.PI * 2); x.fill()
+      }
+    }
+  }
+  s.updateLayer(l.id, { canvas: c }, taper ? 'Stroke path (tapered)' : 'Stroke path')
 }
 
 /** Turn the active path into a vector shape layer filled with the main colour. */
 export function shapeFromPath() {
-  const s = st(); const p = activePath(); if (!p || !s.doc) { s.notify('Draw a path with the Pen tool first.'); return }
-  const pts = p.subpaths.flatMap(sp => sp.nodes.flatMap(n => [[n.x, n.y], [n.inX, n.inY], [n.outX, n.outY]]))
-  if (!pts.length) return
-  const x0 = Math.min(...pts.map(q => q[0])), y0 = Math.min(...pts.map(q => q[1]))
-  const x1 = Math.max(...pts.map(q => q[0])), y1 = Math.max(...pts.map(q => q[1]))
-  const local = scalePaths(p.subpaths, 1, 1, -x0, -y0)
+  const s = st(); const p = activePath(); if (!p || !s.doc) { s.notify('Select a saved path in the Paths panel first.'); return }
+  if (!p.subpaths.some(sp => sp.nodes.length)) return
   const open = p.subpaths.every(sp => !sp.closed)
-  s.addShape('path', x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0), { subpaths: local, fill: open ? null : s.fg, stroke: open ? s.fg : null, strokeWidth: open ? 4 : 0, name: p.name })
+  s.addShape('path', 0, 0, 1, 1, { fill: open ? null : s.fg, stroke: open ? s.fg : null, strokeWidth: open ? 4 : 0, name: p.name })
+  const l = s.active(); if (!l || l.type !== 'shape') return
+  s.updateLayer(l.id, docSubsToLayerPatch(l, p.subpaths))
+  useEditor.setState({ activePathId: null })
+}
+
+/** Copy a shape layer's outline into the Paths panel as a saved path. */
+export function pathFromLayer() {
+  const s = st(); const l = s.active(); if (!s.doc || l?.type !== 'shape') { s.notify('Select a shape layer first.'); return }
+  const path: VectorPath = { id: uid(), name: `${l.name} path`, subpaths: layerSubsToDoc(l) }
+  setPaths([...(s.doc.paths ?? []), path], 'Path from shape')
+  useEditor.setState({ activePathId: path.id })
+}
+
+/** Replace the subpaths of the current path (saved path or shape layer) in one undo step. */
+export function editCurrentPath(fn: (subs: SubPath[]) => SubPath[], label: string) {
+  const s = st(); const p = needPath(); if (!p || !s.doc) return
+  const next = fn(p.subpaths)
+  if (p.layerId) {
+    const l = s.layers.find(x => x.id === p.layerId); if (l?.type !== 'shape') return
+    s.updateLayer(l.id, docSubsToLayerPatch(l, next), label)
+  } else setPaths((s.doc.paths ?? []).map(x => (x.id === (p as VectorPath).id ? { ...x, subpaths: next } : x)), label)
+}
+export const reversePath = () => editCurrentPath(subs => subs.map(reverseSub), 'Reverse path direction')
+export const simplifyPath = () => editCurrentPath(subs => subs.map(sp => simplifySub(sp, 1.5)), 'Simplify path')
+export const closeOpenPaths = () => editCurrentPath(subs => subs.map(sp => (sp.nodes.length > 2 ? { ...sp, closed: true } : sp)), 'Close path')
+export function setPathOps(op: PathOp, which: 'last' | 'all' = 'last') {
+  editCurrentPath(subs => subs.map((sp, i) => (which === 'all' ? (i ? { ...sp, op } : { ...sp, op: 'add' as PathOp }) : i === subs.length - 1 && i > 0 ? { ...sp, op } : sp)), 'Path operation')
+}
+
+export function duplicatePath() {
+  const s = st(); const p = activePath(); if (!p || !s.doc) return
+  const copy: VectorPath = { ...p, id: uid(), name: `${p.name} copy`, subpaths: p.subpaths.map(sp => ({ ...sp, nodes: sp.nodes.map(n => ({ ...n })) })) }
+  setPaths([...(s.doc.paths ?? []), copy], 'Duplicate path'); useEditor.setState({ activePathId: copy.id })
+}
+
+function pathSvg(p: { name: string; subpaths: SubPath[]; layerId?: string }) {
+  const s = st(); const doc = s.doc!
+  const l = p.layerId ? s.layers.find(x => x.id === p.layerId) : null
+  const fill = l?.type === 'shape' ? (l.fill ?? 'none') : 'none'
+  const stroke = l?.type === 'shape' ? (l.stroke ?? 'none') : '#000'
+  const sw = l?.type === 'shape' ? l.strokeWidth : 1
+  const rule = p.subpaths.some(sp => sp.op) ? 'nonzero' : 'evenodd'
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${doc.width}" height="${doc.height}" viewBox="0 0 ${doc.width} ${doc.height}"><path d="${toSvgD(p.subpaths)}" fill="${fill}" fill-rule="${rule}" stroke="${stroke}" stroke-width="${sw}"/></svg>`
+}
+export async function copyPathSvg() {
+  const s = st(); const p = needPath(); if (!p) return
+  try { await navigator.clipboard.writeText(pathSvg(p)); s.notify('Copied as SVG. Paste it into Figma, Illustrator or code.') }
+  catch { s.notify('Could not reach the clipboard. Use Export path as SVG instead.') }
+}
+export function exportPathSvg() {
+  const p = needPath(); if (!p) return
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([pathSvg(p)], { type: 'image/svg+xml' }))
+  a.download = `${(p.name || 'path').replace(/[^\w\- ]+/g, '') || 'path'}.svg`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000)
 }
 
 export function maskFromPath() {
   const s = st(); const p = activePath(); const l = s.active()
-  if (!p || !s.doc || !l) { s.notify('Select a layer and a path first.'); return }
+  if (!p || !s.doc || !l) { s.notify('Pick a saved path in the Paths panel and select the layer to mask.'); return }
   useEditor.setState({ selection: pathMask(p.subpaths, s.doc.width, s.doc.height) })
   s.addMask(l.id, true)
 }

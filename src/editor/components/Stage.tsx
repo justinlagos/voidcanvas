@@ -12,6 +12,7 @@ import { useUi } from '../ui-store'
 import { FloatingBar } from './FloatingBar'
 import { frameAt, frameForLayer } from '../frames'
 import * as ops from '../ops'
+import * as pen from '../pen'
 
 const ACCENT = '#8b7cff'
 const GUIDE = '#29d3ff'
@@ -33,26 +34,48 @@ type Drag =
   | { kind: 'guide'; axis: 'v' | 'h'; index: number; pos: number }
   | { kind: 'tcorner'; index: number; start: Pt; quad0: Pt[]; grid0: Pt[] | null; warp: boolean }
   | { kind: 'tmove'; start: Pt; quad0: Pt[]; grid0: Pt[] | null }
-  | { kind: 'pen'; pathId: string; sub: number; idx: number; start: Pt; alt: boolean }
-  | { kind: 'pnode'; pathId: string; sub: number; idx: number; part: 'node' | 'in' | 'out'; alt: boolean }
+  | { kind: 'pen'; target: Target; sub: number; idx: number; mode: 'place' | 'close' | 'retract'; last: Pt; moved: boolean }
+  | { kind: 'pnode'; target: Target; picks: Pick[]; hit: Pick; part: 'node' | 'in' | 'out'; start: Pt; base: SubPath[]; moved: boolean }
+  | { kind: 'pseg'; target: Target; sub: number; seg: number; t: number; last: Pt; moved: boolean }
+  | { kind: 'psub'; target: Target; subs: number[]; start: Pt; base: SubPath[]; moved: boolean }
+  | { kind: 'pmarq'; target: Target; start: Pt; cur: Pt; add: boolean; base: Pick[] }
 
 export const stageApi: {
   fit: () => void; fitSelection: () => void; fitFrame: () => void; zoomBy: (f: number) => void; zoomTo: (z: number) => void
   /** Enter and Escape for multi-click tools (pen, polygonal lasso). Return true when handled. */
   enter: () => boolean; escape: () => boolean; deleteNode: () => boolean
-} = { fit: () => {}, fitSelection: () => {}, fitFrame: () => {}, zoomBy: () => {}, zoomTo: () => {}, enter: () => false, escape: () => false, deleteNode: () => false }
+  /** Direct selection: nudge the selected anchor points; select every point. Return true when handled. */
+  nudgeNodes: (dx: number, dy: number) => boolean; selectAllNodes: () => boolean
+  /** Selected anchor points, for the path commands (average, cut, join). */
+  pathPicks: () => { target: Target; picks: Pick[] } | null
+} = { fit: () => {}, fitSelection: () => {}, fitFrame: () => {}, zoomBy: () => {}, zoomTo: () => {}, enter: () => false, escape: () => false, deleteNode: () => false, nudgeNodes: () => false, selectAllNodes: () => false, pathPicks: () => null }
 
 // ─── Path helpers ──────────────────────────────────────────────────
 
-function withPath(pathId: string, fn: (p: VectorPath) => VectorPath) {
+// A path being drawn or edited lives either in the Paths panel (a saved path, in document pixels)
+// or in a shape layer (converted to document pixels while editing, so tools never care which).
+export type Target = { kind: 'path'; id: string } | { kind: 'layer'; id: string }
+export type Pick = { sub: number; idx: number }
+const sameTarget = (a: Target | null | undefined, b: Target | null | undefined) => !!a && !!b && a.kind === b.kind && a.id === b.id
+
+export function getSubs(t: Target): SubPath[] {
+  const s = useEditor.getState()
+  if (t.kind === 'path') return s.doc?.paths?.find(p => p.id === t.id)?.subpaths ?? []
+  const l = s.layers.find(x => x.id === t.id)
+  return l?.type === 'shape' ? pen.layerSubsToDoc(l) : []
+}
+export function setSubs(t: Target, subs: SubPath[]) {
   const s = useEditor.getState(); if (!s.doc) return
-  const paths = (s.doc.paths ?? []).map(p => (p.id === pathId ? fn(p) : p))
-  s.setDoc({ paths })
+  if (t.kind === 'path') { s.setDoc({ paths: (s.doc.paths ?? []).map(p => (p.id === t.id ? { ...p, subpaths: subs } : p)) }); return }
+  const l = s.layers.find(x => x.id === t.id); if (l?.type !== 'shape') return
+  if (l.shape !== 'path') tipOnce('live-shape-path', 'This live shape is now a path, so every point can be edited. Undo to get the live shape back.')
+  s.updateLayer(l.id, pen.docSubsToLayerPatch(l, subs))
 }
 function setNode(sp: SubPath[], sub: number, idx: number, n: PathNode): SubPath[] {
-  return sp.map((x, i) => (i === sub ? { ...x, nodes: x.nodes.map((m, j) => (j === idx ? n : m)) } : x))
+  return sp.map((x, i) => (i === sub ? (() => { const y = { ...x, nodes: x.nodes.map((m, j) => (j === idx ? n : m)) }; return y.nodes.some(m => m.auto) ? pen.autoSmooth(y) : y })() : x))
 }
-function pathOf(p: VectorPath) { const p2 = new Path2D(); tracePath(p2 as any, p.subpaths); return p2 }
+function path2d(subs: SubPath[]) { const p2 = new Path2D(); tracePath(p2 as any, subs); return p2 }
+const isPathTool = (t: ToolId) => t === 'pen' || t === 'curvature' || t === 'pathselect'
 
 export function Stage() {
   const wrap = useRef<HTMLDivElement>(null)
@@ -74,8 +97,14 @@ export function Stage() {
   const needComposite = useRef(true)
   const size = useRef({ w: 0, h: 0, dpr: 1 })
   const poly = useRef<Pt[] | null>(null)
-  const penSub = useRef<{ pathId: string; sub: number } | null>(null)
-  const selNode = useRef<{ pathId: string; sub: number; idx: number } | null>(null)
+  /** The subpath the Pen is adding to, until Enter, Esc or a close. */
+  const penSub = useRef<{ target: Target; sub: number } | null>(null)
+  /** Anchor points picked with Direct Selection. */
+  const sel = useRef<{ target: Target; picks: Pick[] } | null>(null)
+  /** What a click would do right now, shown next to the pointer. */
+  const hover = useRef<{ label: string; at: Pt } | null>(null)
+  /** Smart guide lines while placing or dragging points. */
+  const pathSnap = useRef<{ v: number | null; h: number | null; info: string | null }>({ v: null, h: null, info: null })
   const tfSrc = useRef<{ id: string; rev: number; canvas: HTMLCanvasElement } | null>(null)
   const penSeen = useRef(false)
   const lastPointer = useRef(0)
@@ -109,6 +138,20 @@ export function Stage() {
     return { x: e.clientX - r.left, y: e.clientY - r.top }
   }
   const rulerSize = () => (useUi.getState().showRulers && size.current.w >= 600 ? RULER : 0)
+
+  /** The path the path tools are working on right now. */
+  const activeTarget = (): Target | null => {
+    const s = useEditor.getState()
+    if (penSub.current && getSubs(penSub.current.target).length) return penSub.current.target
+    const l = s.active()
+    if (s.tool === 'pen' || s.tool === 'curvature') {
+      if ((s.options.penMode ?? 'shape') === 'path') return s.activePathId ? { kind: 'path', id: s.activePathId } : null
+      return l?.type === 'shape' && l.shape === 'path' && !l.locked ? { kind: 'layer', id: l.id } : null
+    }
+    if (s.activePathId && s.doc?.paths?.some(p => p.id === s.activePathId)) return { kind: 'path', id: s.activePathId }
+    if (l?.type === 'shape' && s.tool === 'pathselect') return { kind: 'layer', id: l.id }
+    return null
+  }
 
   // ── Drawing ──────────────────────────────────────────────────────
 
@@ -326,17 +369,23 @@ export function Stage() {
     }
 
     // Vector paths: the active one with its anchor points and handles.
-    const ap = s.doc?.paths?.find(p => p.id === s.activePathId)
-    if (ap && (s.tool === 'pen' || s.tool === 'pathselect' || s.activePathId)) {
+    const tgt = activeTarget()
+    const showPath = tgt && (isPathTool(s.tool) || (tgt.kind === 'path'))
+    if (tgt && showPath) {
+      const subs = getSubs(tgt)
       octx.save(); octx.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * panX, dpr * panY)
       octx.strokeStyle = PATH; octx.lineWidth = 1.5 / zoom
-      octx.beginPath(); tracePath(octx, ap.subpaths); octx.stroke(); octx.restore()
-      if (s.tool === 'pen' || s.tool === 'pathselect') {
-        ap.subpaths.forEach((sp, si) => sp.nodes.forEach((n, ni) => {
-          const p = toScreen(n)
-          const isSel = selNode.current?.pathId === ap.id && selNode.current.sub === si && selNode.current.idx === ni
-          const isLast = penSub.current?.pathId === ap.id && penSub.current.sub === si && ni === sp.nodes.length - 1
-          if (isSel || isLast || s.tool === 'pathselect') {
+      octx.beginPath(); tracePath(octx, subs); octx.stroke(); octx.restore()
+      if (isPathTool(s.tool)) {
+        const picks = sel.current && sameTarget(sel.current.target, tgt) ? sel.current.picks : []
+        const picked = new Set(picks.map(q => `${q.sub}:${q.idx}`))
+        // Handles show for picked points and their neighbours (Photoshop), and for the point being placed.
+        const withHandles = new Set<string>()
+        for (const q of picks) { const n = subs[q.sub]?.nodes.length ?? 0; withHandles.add(`${q.sub}:${q.idx}`); if (n) { withHandles.add(`${q.sub}:${(q.idx + 1) % n}`); withHandles.add(`${q.sub}:${(q.idx - 1 + n) % n}`) } }
+        if (penSub.current && sameTarget(penSub.current.target, tgt)) { const sp = subs[penSub.current.sub]; if (sp) { withHandles.add(`${penSub.current.sub}:${sp.nodes.length - 1}`); withHandles.add(`${penSub.current.sub}:0`) } }
+        subs.forEach((sp, si) => sp.nodes.forEach((n, ni) => {
+          const p = toScreen(n), key = `${si}:${ni}`
+          if (withHandles.has(key)) {
             for (const [hx, hy] of [[n.inX, n.inY], [n.outX, n.outY]] as const) {
               if (hx === n.x && hy === n.y) continue
               const hp = toScreen({ x: hx, y: hy })
@@ -344,15 +393,51 @@ export function Stage() {
               octx.beginPath(); octx.arc(hp.x, hp.y, 3.5, 0, Math.PI * 2); octx.fillStyle = PATH; octx.fill()
             }
           }
-          octx.beginPath(); octx.rect(p.x - 4, p.y - 4, 8, 8); octx.fillStyle = isSel ? PATH : '#fff'; octx.fill(); octx.strokeStyle = PATH; octx.lineWidth = 1.25; octx.stroke()
+          octx.beginPath()
+          // Curvature points are round, corner and bezier points are square (as in Photoshop).
+          if (n.auto) octx.arc(p.x, p.y, 4, 0, Math.PI * 2); else octx.rect(p.x - 4, p.y - 4, 8, 8)
+          octx.fillStyle = picked.has(key) ? PATH : '#fff'; octx.fill(); octx.strokeStyle = PATH; octx.lineWidth = 1.25; octx.stroke()
         }))
         // Rubber band from the last point to the pointer while drawing.
-        const cur = penSub.current && cursor.current && s.tool === 'pen' ? ap.subpaths[penSub.current.sub] : null
-        if (cur && cur.nodes.length && !drag.current) {
+        const ps = penSub.current
+        const cur = ps && cursor.current && (s.tool === 'pen' || s.tool === 'curvature') && sameTarget(ps.target, tgt) ? subs[ps.sub] : null
+        if (cur && cur.nodes.length && !drag.current && s.options.penRubber !== false) {
           const last = cur.nodes[cur.nodes.length - 1], a = toScreen(last), c = cursor.current!
           const o = toScreen({ x: last.outX, y: last.outY })
-          octx.setLineDash([4, 4]); octx.strokeStyle = PATH; octx.beginPath(); octx.moveTo(a.x, a.y); octx.bezierCurveTo(o.x, o.y, c.x, c.y, c.x, c.y); octx.stroke(); octx.setLineDash([])
+          octx.setLineDash([4, 4]); octx.strokeStyle = PATH; octx.lineWidth = 1; octx.beginPath(); octx.moveTo(a.x, a.y)
+          if (s.tool === 'curvature' && cur.nodes.length >= 2) {
+            // Preview the curve the next point would make.
+            const pd = toDoc(c.x, c.y)
+            const trial = pen.autoSmooth({ ...cur, nodes: [...cur.nodes, pen.node(pd.x, pd.y, { auto: true })] })
+            const tn = trial.nodes, A = tn[tn.length - 2], B = tn[tn.length - 1]
+            const o2 = toScreen({ x: A.outX, y: A.outY }), i2 = toScreen({ x: B.inX, y: B.inY })
+            octx.bezierCurveTo(o2.x, o2.y, i2.x, i2.y, c.x, c.y)
+          } else octx.bezierCurveTo(o.x, o.y, c.x, c.y, c.x, c.y)
+          octx.stroke(); octx.setLineDash([])
         }
+      }
+    }
+    // Marquee for picking points with Direct Selection.
+    const dm = drag.current
+    if (dm?.kind === 'pmarq') {
+      const a = toScreen(dm.start), b = toScreen(dm.cur)
+      octx.save(); octx.strokeStyle = PATH; octx.setLineDash([4, 3]); octx.fillStyle = 'rgba(41,211,255,0.08)'
+      octx.fillRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y))
+      octx.strokeRect(Math.min(a.x, b.x) + 0.5, Math.min(a.y, b.y) + 0.5, Math.abs(b.x - a.x), Math.abs(b.y - a.y)); octx.restore()
+    }
+    // Smart guides and readouts for the Pen.
+    if (isPathTool(s.tool)) {
+      const g = pathSnap.current
+      octx.save(); octx.strokeStyle = '#ff4fd8'; octx.lineWidth = 1; octx.setLineDash([3, 3])
+      if (g.v !== null) { const x = Math.round(g.v * zoom + panX) + 0.5; octx.beginPath(); octx.moveTo(x, 0); octx.lineTo(x, h); octx.stroke() }
+      if (g.h !== null) { const y = Math.round(g.h * zoom + panY) + 0.5; octx.beginPath(); octx.moveTo(0, y); octx.lineTo(w, y); octx.stroke() }
+      octx.restore()
+      const label = drag.current ? g.info : hover.current?.label
+      if (label && cursor.current) {
+        octx.save(); octx.font = '11px Inter, system-ui, sans-serif'
+        const tw = octx.measureText(label).width, x = cursor.current.x + 14, y = cursor.current.y + 16
+        octx.fillStyle = 'rgba(12,12,16,0.88)'; octx.beginPath(); octx.roundRect(x, y, tw + 12, 18, 5); octx.fill()
+        octx.fillStyle = '#fff'; octx.textBaseline = 'middle'; octx.fillText(label, x + 6, y + 9); octx.restore()
       }
     }
 
@@ -588,21 +673,35 @@ export function Stage() {
     stageApi.zoomTo = z => zoomAt(1, undefined, z)
     stageApi.enter = () => {
       if (poly.current) { finishPoly(); return true }
-      if (penSub.current) { penSub.current = null; useEditor.getState().commit('Finish path'); invalidate(); return true }
+      if (penSub.current) { penSub.current = null; hover.current = null; invalidate(); return true }
       return false
     }
     stageApi.escape = () => {
       if (poly.current) { poly.current = null; invalidate(); return true }
-      if (penSub.current) { penSub.current = null; invalidate(); return true }
-      if (selNode.current) { selNode.current = null; invalidate(); return true }
+      if (penSub.current) { penSub.current = null; hover.current = null; invalidate(); return true }
+      if (sel.current?.picks.length) { sel.current = null; invalidate(); return true }
       return false
     }
     stageApi.deleteNode = () => {
-      const sn = selNode.current; if (!sn) return false
-      withPath(sn.pathId, p => ({ ...p, subpaths: p.subpaths.map((x, i) => (i === sn.sub ? { ...x, nodes: x.nodes.filter((_, j) => j !== sn.idx) } : x)).filter(x => x.nodes.length) }))
-      selNode.current = null
-      useEditor.getState().commit('Delete anchor point'); invalidate(); return true
+      const sn = sel.current; if (!sn || !sn.picks.length) return false
+      const subs = getSubs(sn.target)
+      const next = pen.deleteNodes(subs, sn.picks)
+      if (!next.length && sn.target.kind === 'layer') { useEditor.getState().removeLayer(sn.target.id); sel.current = null; invalidate(); return true }
+      setSubs(sn.target, next)
+      sel.current = null
+      useEditor.getState().commit(sn.picks.length > 1 ? 'Delete anchor points' : 'Delete anchor point'); invalidate(); return true
     }
+    stageApi.nudgeNodes = (dx, dy) => {
+      const sn = sel.current; const s = useEditor.getState()
+      if (!sn || !sn.picks.length || !isPathTool(s.tool)) return false
+      setSubs(sn.target, pen.moveNodes(getSubs(sn.target), sn.picks, dx, dy)); s.commit('Nudge points'); invalidate(); return true
+    }
+    stageApi.selectAllNodes = () => {
+      const s = useEditor.getState(); if (!isPathTool(s.tool)) return false
+      const t = activeTarget(); if (!t) return false
+      sel.current = { target: t, picks: getSubs(t).flatMap((sp, si) => sp.nodes.map((_, idx) => ({ sub: si, idx }))) }; invalidate(); return true
+    }
+    stageApi.pathPicks = () => (sel.current && sel.current.picks.length ? { target: sel.current.target, picks: sel.current.picks } : null)
   }, [fit, fitSelection, fitFrame, zoomAt, finishPoly, invalidate])
 
   useEffect(() => {
@@ -624,7 +723,9 @@ export function Stage() {
   useEffect(() => { fit() }, [docId, fit])
   useEffect(() => { invalidate(true) }, [docRev, compare, editingTextId, transform?.layerId, viewChannel, invalidate])
   useEffect(() => { invalidate() }, [selRev, view, tool, activeId, crop, optSize, transform, quickMask, activePathId, showRulers, showGuides, pixelGrid, invalidate])
-  useEffect(() => { if (tool !== 'pen') penSub.current = null; if (tool !== 'polylasso') poly.current = null }, [tool])
+  useEffect(() => { if (tool !== 'pen' && tool !== 'curvature') penSub.current = null; if (!isPathTool(tool)) { sel.current = null; hover.current = null; pathSnap.current = { v: null, h: null, info: null } } if (tool !== 'polylasso') poly.current = null }, [tool])
+  // Undo or another panel can remove the path being drawn.
+  useEffect(() => { if (penSub.current && !getSubs(penSub.current.target)[penSub.current.sub]) penSub.current = null; if (sel.current && !getSubs(sel.current.target).length) sel.current = null }, [docRev])
 
   useEffect(() => {
     const t = setInterval(() => { const st = useEditor.getState(); if (st.selection && !st.quickMask) { antsPhase.current = (antsPhase.current + 1) % 8; invalidate() } }, 140)
@@ -821,7 +922,12 @@ export function Stage() {
       return
     }
 
-    if (t === 'pen') { penDown(p, e); return }
+    if (t === 'pen' || t === 'curvature') {
+      // Ctrl or Cmd held: Direct Selection for as long as it is held (Photoshop and Illustrator).
+      if (e.ctrlKey || e.metaKey) { pathSelectDown(p, e); return }
+      if (t === 'pen') penDown(p, e); else curvatureDown(p, e)
+      return
+    }
     if (t === 'pathselect') { pathSelectDown(p, e); return }
 
     if (t === 'polylasso') {
@@ -958,68 +1064,296 @@ export function Stage() {
     }
   }
 
-  // ── Pen and direct selection ─────────────────────────────────────
+  // ── Pen, Curvature Pen and Direct Selection ──────────────────────
 
-  function penDown(p: Pt, e: React.PointerEvent) {
+  type Hit = { type: 'node' | 'in' | 'out'; sub: number; idx: number } | { type: 'seg'; sub: number; seg: number; t: number; pt: Pt }
+
+  /** Handles you can grab: on picked points, their neighbours, and the ends of the path being drawn. */
+  function handleKeys(t: Target, subs: SubPath[]) {
+    const keys = new Set<string>()
+    const picks = sel.current && sameTarget(sel.current.target, t) ? sel.current.picks : []
+    for (const q of picks) { const n = subs[q.sub]?.nodes.length ?? 0; if (!n) continue; keys.add(`${q.sub}:${q.idx}`); keys.add(`${q.sub}:${(q.idx + 1) % n}`); keys.add(`${q.sub}:${(q.idx - 1 + n) % n}`) }
+    if (penSub.current && sameTarget(penSub.current.target, t)) { const sp = subs[penSub.current.sub]; if (sp) { keys.add(`${penSub.current.sub}:${sp.nodes.length - 1}`); keys.add(`${penSub.current.sub}:0`) } }
+    return keys
+  }
+
+  function hitTest(t: Target, p: Pt, withSegments = true): Hit | null {
+    const s = useEditor.getState(); const tol = 7 / s.view.zoom
+    const subs = getSubs(t); const hk = handleKeys(t, subs)
+    // Handles first (they sit on top), then points, then segments.
+    for (let si = 0; si < subs.length; si++) for (let ni = 0; ni < subs[si].nodes.length; ni++) {
+      if (!hk.has(`${si}:${ni}`)) continue
+      const n = subs[si].nodes[ni]
+      if (pen.hasOut(n) && Math.hypot(n.outX - p.x, n.outY - p.y) < tol) return { type: 'out', sub: si, idx: ni }
+      if (pen.hasIn(n) && Math.hypot(n.inX - p.x, n.inY - p.y) < tol) return { type: 'in', sub: si, idx: ni }
+    }
+    for (let si = 0; si < subs.length; si++) for (let ni = 0; ni < subs[si].nodes.length; ni++) {
+      const n = subs[si].nodes[ni]
+      if (Math.hypot(n.x - p.x, n.y - p.y) < tol) return { type: 'node', sub: si, idx: ni }
+    }
+    if (!withSegments) return null
+    const near = pen.nearestSegment(subs, p)
+    if (near && near.d < tol) return { type: 'seg', sub: near.sub, seg: near.seg, t: near.t, pt: near.pt }
+    return null
+  }
+
+  /** Smart guides: line a point up with other points, guides and the page edges and centre. */
+  function snapPoint(t: Target | null, p: Pt, skip: Set<string>, e: { ctrlKey: boolean; metaKey: boolean }): Pt {
+    const s = useEditor.getState(); const ui = useUi.getState()
+    pathSnap.current.v = null; pathSnap.current.h = null
+    if (!ui.snap || e.ctrlKey || e.metaKey || !s.doc) return p
+    const tol = 6 / s.view.zoom
+    const xs: number[] = [0, s.doc.width / 2, s.doc.width], ys: number[] = [0, s.doc.height / 2, s.doc.height]
+    if (ui.snapToGuides && s.doc.guides) { xs.push(...s.doc.guides.v); ys.push(...s.doc.guides.h) }
+    if (t) getSubs(t).forEach((sp, si) => sp.nodes.forEach((n, ni) => { if (!skip.has(`${si}:${ni}`)) { xs.push(n.x); ys.push(n.y) } }))
+    let bx = p.x, by = p.y, dx = tol, dy = tol
+    for (const x of xs) { const d = Math.abs(x - p.x); if (d < dx) { dx = d; bx = x; pathSnap.current.v = x } }
+    for (const y of ys) { const d = Math.abs(y - p.y); if (d < dy) { dy = d; by = y; pathSnap.current.h = y } }
+    return { x: bx, y: by }
+  }
+
+  /** What a Pen click would do at p, for the pointer label and for the click itself. */
+  function penIntent(p: Pt, e: { altKey: boolean; shiftKey: boolean }): { kind: 'close' | 'continue' | 'join' | 'retract' | 'add' | 'delete' | 'convert' | 'new' | 'place'; hit?: Hit; target?: Target; end?: 'start' | 'end' } {
+    const s = useEditor.getState()
+    const ps = penSub.current
+    const t = activeTarget()
+    if (ps) {
+      const subs = getSubs(ps.target), sp = subs[ps.sub]
+      if (sp) {
+        const h = hitTest(ps.target, p, false)
+        if (h && h.type === 'node') {
+          if (h.sub === ps.sub && h.idx === 0 && sp.nodes.length >= 2) return { kind: 'close', hit: h, target: ps.target }
+          if (h.sub === ps.sub && h.idx === sp.nodes.length - 1) return { kind: 'retract', hit: h, target: ps.target }
+          const other = subs[h.sub]
+          if (h.sub !== ps.sub && !other.closed && (h.idx === 0 || h.idx === other.nodes.length - 1)) return { kind: 'join', hit: h, target: ps.target, end: h.idx === 0 ? 'start' : 'end' }
+        }
+      }
+      return { kind: 'place', target: ps.target }
+    }
+    if (t) {
+      const subs = getSubs(t)
+      const h = hitTest(t, p)
+      if (h && h.type === 'node') {
+        const sp = subs[h.sub]
+        if (!sp.closed && (h.idx === 0 || h.idx === sp.nodes.length - 1) && !e.altKey) return { kind: 'continue', hit: h, target: t, end: h.idx === 0 ? 'start' : 'end' }
+        if (e.altKey) return { kind: 'convert', hit: h, target: t }
+        if (s.options.penAutoAdd !== false) return { kind: 'delete', hit: h, target: t }
+      }
+      if (h && (h.type === 'in' || h.type === 'out') && e.altKey) return { kind: 'convert', hit: h, target: t }
+      if (h && h.type === 'seg' && s.options.penAutoAdd !== false && !e.altKey) return { kind: 'add', hit: h, target: t }
+    }
+    return { kind: 'new' }
+  }
+  const INTENT_LABEL: Record<string, string> = { close: 'Close path', continue: 'Continue path', join: 'Join paths', retract: 'Corner next (drag for a new handle)', add: '+ Add point', delete: '− Delete point', convert: 'Convert point' }
+
+  /** Start a new subpath: in a new shape layer, the selected shape (Shift), or the active saved path. */
+  function startSubpath(p: Pt, e: React.PointerEvent, auto: boolean): { target: Target; sub: number } | null {
     const s = useEditor.getState(); const doc = s.doc!
+    const mode = s.options.penMode ?? 'shape'
+    const nd = pen.node(p.x, p.y, auto ? { auto: true } : undefined)
+    const op = s.options.penOp
+    const al = s.active()
+    if (mode === 'shape') {
+      if (e.shiftKey && al?.type === 'shape' && al.shape === 'path' && !al.locked) {
+        const t: Target = { kind: 'layer', id: al.id }
+        const subs = getSubs(t); setSubs(t, [...subs, { closed: false, nodes: [nd], ...(op ? { op } : {}) }])
+        return { target: t, sub: subs.length }
+      }
+      const fill = s.options.penFill !== false ? s.fg : null
+      const sw = s.options.penStrokeWidth ?? 0
+      const id = s.addShape('path', p.x, p.y, 1, 1, { name: 'Shape', fill, stroke: sw > 0 || !fill ? (sw > 0 ? s.bg : s.fg) : null, strokeWidth: sw > 0 ? sw : fill ? 0 : 2 })
+      useEditor.setState({ activePathId: null })
+      const t: Target = { kind: 'layer', id }
+      setSubs(t, [{ closed: false, nodes: [nd] }])
+      return { target: t, sub: 0 }
+    }
     let path = doc.paths?.find(x => x.id === s.activePathId)
     if (!path) {
       path = { id: ops.newPathId(), name: `Path ${(doc.paths?.length ?? 0) + 1}`, subpaths: [] }
       s.setDoc({ paths: [...(doc.paths ?? []), path] }); useEditor.setState({ activePathId: path.id })
     }
-    const cur = penSub.current && penSub.current.pathId === path.id ? penSub.current : null
-    const tol = 9 / s.view.zoom
-    if (cur) {
-      const sp = path.subpaths[cur.sub]
-      if (sp && sp.nodes.length >= 2 && Math.hypot(sp.nodes[0].x - p.x, sp.nodes[0].y - p.y) < tol) {
-        withPath(path.id, pp => ({ ...pp, subpaths: pp.subpaths.map((x, i) => (i === cur.sub ? { ...x, closed: true } : x)) }))
-        penSub.current = null; s.commit('Close path'); invalidate(); return
-      }
-      const idx = sp.nodes.length
-      withPath(path.id, pp => ({ ...pp, subpaths: pp.subpaths.map((x, i) => (i === cur.sub ? { ...x, nodes: [...x.nodes, ops.emptyNode(p.x, p.y)] } : x)) }))
-      drag.current = { kind: 'pen', pathId: path.id, sub: cur.sub, idx, start: p, alt: e.altKey }
-    } else {
-      const sub = path.subpaths.length
-      withPath(path.id, pp => ({ ...pp, subpaths: [...pp.subpaths, { closed: false, nodes: [ops.emptyNode(p.x, p.y)] }] }))
-      penSub.current = { pathId: path.id, sub }
-      drag.current = { kind: 'pen', pathId: path.id, sub, idx: 0, start: p, alt: e.altKey }
+    const t: Target = { kind: 'path', id: path.id }
+    setSubs(t, [...path.subpaths, { closed: false, nodes: [nd], ...(op && path.subpaths.length ? { op } : {}) }])
+    return { target: t, sub: path.subpaths.length }
+  }
+
+  function penDown(p0: Pt, e: React.PointerEvent) {
+    const s = useEditor.getState()
+    const intent = penIntent(p0, e)
+    const ps = penSub.current
+    hover.current = null
+    if (intent.kind === 'close' && ps) {
+      setSubs(ps.target, getSubs(ps.target).map((x, i) => (i === ps.sub ? { ...x, closed: true } : x)))
+      drag.current = { kind: 'pen', target: ps.target, sub: ps.sub, idx: 0, mode: 'close', last: p0, moved: false }
+      invalidate(); return
     }
+    if (intent.kind === 'retract' && ps) {
+      // Click the last point: drop its outgoing handle so the next segment starts straight.
+      const sp = getSubs(ps.target)[ps.sub], i = sp.nodes.length - 1, n = sp.nodes[i]
+      setSubs(ps.target, setNode(getSubs(ps.target), ps.sub, i, { ...n, outX: n.x, outY: n.y, smooth: false }))
+      drag.current = { kind: 'pen', target: ps.target, sub: ps.sub, idx: i, mode: 'retract', last: p0, moved: false }
+      invalidate(); return
+    }
+    if (intent.kind === 'join' && ps && intent.hit?.type === 'node') {
+      const r = pen.joinSubs(getSubs(ps.target), ps.sub, 'end', intent.hit.sub, intent.end!)
+      setSubs(ps.target, r.subs); penSub.current = null; s.commit('Join paths'); invalidate(); return
+    }
+    if (intent.kind === 'continue' && intent.target && intent.hit?.type === 'node') {
+      let subs = getSubs(intent.target)
+      if (intent.end === 'start') { subs = subs.map((x, i) => (i === intent.hit!.sub ? pen.reverseSub(x) : x)); setSubs(intent.target, subs) }
+      penSub.current = { target: intent.target, sub: intent.hit.sub }
+      invalidate(); return
+    }
+    if (intent.kind === 'add' && intent.target && intent.hit?.type === 'seg') {
+      const r = pen.splitSegment(getSubs(intent.target), intent.hit.sub, intent.hit.seg, intent.hit.t)
+      setSubs(intent.target, r.subs); s.commit('Add anchor point')
+      sel.current = { target: intent.target, picks: [{ sub: intent.hit.sub, idx: r.idx }] }
+      drag.current = { kind: 'pnode', target: intent.target, picks: [{ sub: intent.hit.sub, idx: r.idx }], hit: { sub: intent.hit.sub, idx: r.idx }, part: 'node', start: p0, base: r.subs, moved: false }
+      invalidate(); return
+    }
+    if (intent.kind === 'delete' && intent.target && intent.hit?.type === 'node') {
+      const next = pen.deleteNodes(getSubs(intent.target), [{ sub: intent.hit.sub, idx: intent.hit.idx }])
+      if (!next.length && intent.target.kind === 'layer') s.removeLayer(intent.target.id)
+      else { setSubs(intent.target, next); s.commit('Delete anchor point') }
+      sel.current = null; invalidate(); return
+    }
+    if (intent.kind === 'convert' && intent.target && intent.hit && intent.hit.type !== 'seg') {
+      const h = intent.hit, subs = getSubs(intent.target), sp = subs[h.sub], n = sp.nodes[h.idx]
+      if (h.type === 'node') {
+        // Alt-click a smooth point makes it a corner; Alt-drag pulls fresh symmetric handles.
+        if (pen.hasIn(n) || pen.hasOut(n)) setSubs(intent.target, setNode(subs, h.sub, h.idx, { ...n, inX: n.x, inY: n.y, outX: n.x, outY: n.y, smooth: false, auto: false }))
+        sel.current = { target: intent.target, picks: [{ sub: h.sub, idx: h.idx }] }
+        drag.current = { kind: 'pnode', target: intent.target, picks: [{ sub: h.sub, idx: h.idx }], hit: { sub: h.sub, idx: h.idx }, part: 'out', start: p0, base: getSubs(intent.target), moved: false }
+        ;(drag.current as any).fresh = true
+      } else {
+        // Alt-drag a handle breaks it from its partner.
+        setSubs(intent.target, setNode(subs, h.sub, h.idx, { ...n, smooth: false, auto: false }))
+        drag.current = { kind: 'pnode', target: intent.target, picks: [{ sub: h.sub, idx: h.idx }], hit: { sub: h.sub, idx: h.idx }, part: h.type, start: p0, base: getSubs(intent.target), moved: false }
+      }
+      invalidate(); return
+    }
+    // Place a new point.
+    if (ps && intent.kind === 'place') {
+      const subs = getSubs(ps.target), sp = subs[ps.sub]
+      const last = sp.nodes[sp.nodes.length - 1]
+      let p = e.shiftKey ? pen.constrain45(last, p0) : snapPoint(ps.target, p0, new Set(), e)
+      const idx = sp.nodes.length
+      setSubs(ps.target, subs.map((x, i) => (i === ps.sub ? { ...x, nodes: [...x.nodes, pen.node(p.x, p.y)] } : x)))
+      drag.current = { kind: 'pen', target: ps.target, sub: ps.sub, idx, mode: 'place', last: p, moved: false }
+      invalidate(); return
+    }
+    const p = snapPoint(activeTarget(), p0, new Set(), e)
+    const started = startSubpath(p, e, false); if (!started) return
+    penSub.current = started
+    sel.current = null
+    drag.current = { kind: 'pen', target: started.target, sub: started.sub, idx: 0, mode: 'place', last: p, moved: false }
     invalidate()
+  }
+
+  /** Curvature Pen: click points and the curve flows through them. Double-click or Alt-click makes a corner. */
+  function curvatureDown(p0: Pt, e: React.PointerEvent) {
+    const s = useEditor.getState()
+    const ps = penSub.current
+    const t = ps?.target ?? activeTarget()
+    hover.current = null
+    if (t) {
+      const h = hitTest(t, p0)
+      const subs = getSubs(t)
+      if (h?.type === 'node') {
+        const sp = subs[h.sub]
+        if (ps && h.sub === ps.sub && h.idx === 0 && sp.nodes.length >= 2) {
+          setSubs(t, subs.map((x, i) => (i === ps.sub ? pen.autoSmooth({ ...x, closed: true }) : x))); penSub.current = null; s.commit('Close path'); invalidate(); return
+        }
+        if (e.detail >= 2 || e.altKey) {
+          // Toggle corner and curve.
+          const n = sp.nodes[h.idx]
+          const nn = n.auto ? { ...n, auto: false, inX: n.x, inY: n.y, outX: n.x, outY: n.y, smooth: false } : { ...n, auto: true }
+          setSubs(t, setNode(subs, h.sub, h.idx, nn)); s.commit(n.auto ? 'Corner point' : 'Curve point'); invalidate(); return
+        }
+        sel.current = { target: t, picks: [{ sub: h.sub, idx: h.idx }] }
+        drag.current = { kind: 'pnode', target: t, picks: [{ sub: h.sub, idx: h.idx }], hit: { sub: h.sub, idx: h.idx }, part: 'node', start: p0, base: subs, moved: false }
+        invalidate(); return
+      }
+      if (h?.type === 'seg' && !ps) {
+        const r = pen.splitSegment(subs, h.sub, h.seg, h.t)
+        const withAuto = setNode(r.subs, h.sub, r.idx, { ...r.subs[h.sub].nodes[r.idx], auto: true })
+        setSubs(t, withAuto); s.commit('Add anchor point')
+        sel.current = { target: t, picks: [{ sub: h.sub, idx: r.idx }] }
+        drag.current = { kind: 'pnode', target: t, picks: [{ sub: h.sub, idx: r.idx }], hit: { sub: h.sub, idx: r.idx }, part: 'node', start: p0, base: withAuto, moved: false }
+        invalidate(); return
+      }
+    }
+    const corner = e.detail >= 2 || e.altKey
+    if (ps) {
+      const subs = getSubs(ps.target)
+      const p = snapPoint(ps.target, p0, new Set(), e)
+      const nodes = [...subs[ps.sub].nodes, pen.node(p.x, p.y, corner ? undefined : { auto: true })]
+      setSubs(ps.target, subs.map((x, i) => (i === ps.sub ? pen.autoSmooth({ ...x, nodes }) : x)))
+      s.commit('Add anchor point'); invalidate(); return
+    }
+    const p = snapPoint(activeTarget(), p0, new Set(), e)
+    const started = startSubpath(p, e, !corner); if (!started) return
+    penSub.current = started; sel.current = null
+    s.commit('Add anchor point'); invalidate()
   }
 
   function pathSelectDown(p: Pt, e: React.PointerEvent) {
     const s = useEditor.getState(); const doc = s.doc!
-    const tol = 8 / s.view.zoom
-    const paths = [doc.paths?.find(x => x.id === s.activePathId), ...(doc.paths ?? []).filter(x => x.id !== s.activePathId)].filter(Boolean) as VectorPath[]
-    for (const path of paths) {
-      for (let si = 0; si < path.subpaths.length; si++) {
-        const nodes = path.subpaths[si].nodes
-        for (let ni = 0; ni < nodes.length; ni++) {
-          const n = nodes[ni]
-          const part = Math.hypot(n.x - p.x, n.y - p.y) < tol ? 'node' : (n.inX !== n.x || n.inY !== n.y) && Math.hypot(n.inX - p.x, n.inY - p.y) < tol ? 'in' : (n.outX !== n.x || n.outY !== n.y) && Math.hypot(n.outX - p.x, n.outY - p.y) < tol ? 'out' : null
-          if (!part) continue
-          useEditor.setState({ activePathId: path.id })
-          selNode.current = { pathId: path.id, sub: si, idx: ni }
-          if (part === 'node' && e.altKey) {
-            // Alt-click switches a point between corner and smooth.
-            const hasHandles = n.inX !== n.x || n.inY !== n.y || n.outX !== n.x || n.outY !== n.y
-            const prev = nodes[(ni - 1 + nodes.length) % nodes.length], next = nodes[(ni + 1) % nodes.length]
-            const dx = (next.x - prev.x) / 4, dy = (next.y - prev.y) / 4
-            const nn: PathNode = hasHandles ? { ...n, inX: n.x, inY: n.y, outX: n.x, outY: n.y, smooth: false } : { ...n, inX: n.x - dx, inY: n.y - dy, outX: n.x + dx, outY: n.y + dy, smooth: true }
-            withPath(path.id, pp => ({ ...pp, subpaths: setNode(pp.subpaths, si, ni, nn) }))
-            s.commit('Convert point'); invalidate(); return
-          }
-          drag.current = { kind: 'pnode', pathId: path.id, sub: si, idx: ni, part, alt: e.altKey }
-          invalidate(); return
+    const t = activeTarget()
+    if (t) {
+      const h = hitTest(t, p)
+      const subs = getSubs(t)
+      if (h && h.type !== 'seg') {
+        const key = { sub: h.sub, idx: h.idx }
+        if (h.type === 'node' && e.altKey && !e.shiftKey) {
+          // Alt-click a point switches it between corner and smooth.
+          setSubs(t, setNode(subs, h.sub, h.idx, pen.convertNode(subs[h.sub], h.idx)))
+          sel.current = { target: t, picks: [key] }; s.commit('Convert point'); invalidate(); return
         }
+        let picks = sel.current && sameTarget(sel.current.target, t) ? sel.current.picks : []
+        const isPicked = picks.some(q => q.sub === h.sub && q.idx === h.idx)
+        if (h.type === 'node') {
+          if (e.shiftKey) picks = isPicked ? picks.filter(q => !(q.sub === h.sub && q.idx === h.idx)) : [...picks, key]
+          else if (!isPicked) picks = [key]
+        }
+        sel.current = { target: t, picks }
+        if (h.type !== 'node' && e.altKey) setSubs(t, setNode(subs, h.sub, h.idx, { ...subs[h.sub].nodes[h.idx], smooth: false, auto: false }))
+        drag.current = { kind: 'pnode', target: t, picks: h.type === 'node' ? picks : [key], hit: key, part: h.type, start: p, base: getSubs(t), moved: false }
+        invalidate(); return
       }
-      // Clicking on the outline selects that path.
-      const x = ctx2d(overC.current!); x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.lineWidth = tol * 2
-      const onIt = x.isPointInStroke(pathOf(path), p.x, p.y) || x.isPointInPath(pathOf(path), p.x, p.y)
-      x.restore()
-      if (onIt) { useEditor.setState({ activePathId: path.id }); selNode.current = null; invalidate(); return }
+      if (h && h.type === 'seg') {
+        if (e.altKey) {
+          // Alt-click the outline: pick the whole subpath and drag it (Path Selection).
+          const all = subs[h.sub].nodes.map((_, idx) => ({ sub: h.sub, idx }))
+          sel.current = { target: t, picks: e.shiftKey && sel.current && sameTarget(sel.current.target, t) ? [...sel.current.picks, ...all] : all }
+          drag.current = { kind: 'psub', target: t, subs: [h.sub], start: p, base: subs, moved: false }
+        } else {
+          sel.current = { target: t, picks: [] }
+          drag.current = { kind: 'pseg', target: t, sub: h.sub, seg: h.seg, t: h.t, last: p, moved: false }
+        }
+        invalidate(); return
+      }
     }
-    selNode.current = null; invalidate()
+    // Another saved path under the pointer?
+    const x = ctx2d(overC.current!); x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.lineWidth = 16 / s.view.zoom
+    for (const path of doc.paths ?? []) {
+      if (t && t.kind === 'path' && t.id === path.id) continue
+      const pp = path2d(path.subpaths)
+      if (x.isPointInStroke(pp, p.x, p.y)) { x.restore(); useEditor.setState({ activePathId: path.id }); sel.current = null; invalidate(); return }
+    }
+    x.restore()
+    // A shape layer under the pointer becomes the one being edited.
+    const hit = hitLayer(s.layers, p.x, p.y, doc, s.groups)
+    if (hit?.type === 'shape' && !(t?.kind === 'layer' && t.id === hit.id)) {
+      useEditor.setState({ activePathId: null }); s.setActive(hit.id); sel.current = { target: { kind: 'layer', id: hit.id }, picks: [] }; invalidate(); return
+    }
+    // Empty space: drag a box to pick points.
+    if (t) {
+      const base = e.shiftKey && sel.current && sameTarget(sel.current.target, t) ? sel.current.picks : []
+      sel.current = { target: t, picks: base }
+      drag.current = { kind: 'pmarq', target: t, start: p, cur: p, add: e.shiftKey, base }
+    } else sel.current = null
+    invalidate()
   }
 
   function onMove(e: React.PointerEvent) {
@@ -1046,6 +1380,15 @@ export function Stage() {
     }
 
     const d = drag.current
+    if (!d && s.doc && (s.tool === 'pen' || s.tool === 'curvature' || s.tool === 'pathselect')) {
+      // Say what a click would do here (add, delete, close, join...).
+      const p = toDoc(sp.x, sp.y)
+      if (s.tool === 'pen' && !(e.ctrlKey || e.metaKey)) { const it = penIntent(p, e); const label = INTENT_LABEL[it.kind]; hover.current = label ? { label, at: p } : null }
+      else if (s.tool === 'curvature') { const t = penSub.current?.target ?? activeTarget(); const h = t ? hitTest(t, p) : null; hover.current = h?.type === 'node' ? { label: penSub.current && h.idx === 0 && h.sub === penSub.current.sub ? 'Close path' : 'Drag to move · double-click for corner', at: p } : h?.type === 'seg' && !penSub.current ? { label: '+ Add point', at: p } : null }
+      else hover.current = null
+      pathSnap.current = { v: null, h: null, info: null }
+      invalidate(); return
+    }
     if (!d || !s.doc) { if (PAINT_TOOLS.includes(s.tool) || poly.current || penSub.current || useUi.getState().showRulers) invalidate(); return }
     const p = toDoc(sp.x, sp.y)
 
@@ -1084,24 +1427,79 @@ export function Stage() {
     }
 
     if (d.kind === 'pen') {
-      // Dragging while placing a point pulls out symmetric handles. Alt breaks the symmetry.
-      withPath(d.pathId, pp => {
-        const n = pp.subpaths[d.sub]?.nodes[d.idx]; if (!n) return pp
-        const nn: PathNode = { ...n, outX: p.x, outY: p.y, inX: d.alt ? n.inX : 2 * n.x - p.x, inY: d.alt ? n.inY : 2 * n.y - p.y, smooth: !d.alt }
-        return { ...pp, subpaths: setNode(pp.subpaths, d.sub, d.idx, nn) }
-      })
+      const subs = getSubs(d.target), sp = subs[d.sub]; const n = sp?.nodes[d.idx]; if (!n) return
+      // Space while dragging moves the point being placed (Photoshop and Illustrator).
+      if (space.current && d.mode === 'place') {
+        const dx = p.x - d.last.x, dy = p.y - d.last.y
+        setSubs(d.target, setNode(subs, d.sub, d.idx, { ...n, x: n.x + dx, y: n.y + dy, inX: n.inX + dx, inY: n.inY + dy, outX: n.outX + dx, outY: n.outY + dy }))
+        d.last = p; d.moved = true; invalidate(); return
+      }
+      d.last = p
+      if (!d.moved && Math.hypot(p.x - n.x, p.y - n.y) * s.view.zoom < 3) return
+      d.moved = true
+      const hnd = e.shiftKey ? pen.constrain45(n, p) : p
+      const mirror = { x: 2 * n.x - hnd.x, y: 2 * n.y - hnd.y }
+      let nn: PathNode
+      if (d.mode === 'close') nn = e.altKey ? { ...n, inX: mirror.x, inY: mirror.y, smooth: false } : { ...n, inX: mirror.x, inY: mirror.y, outX: hnd.x, outY: hnd.y, smooth: true }
+      else if (d.mode === 'retract') nn = { ...n, outX: hnd.x, outY: hnd.y, smooth: false }
+      else nn = { ...n, outX: hnd.x, outY: hnd.y, ...(e.altKey ? { smooth: false } : { inX: mirror.x, inY: mirror.y, smooth: true }) }
+      setSubs(d.target, setNode(subs, d.sub, d.idx, nn))
+      const len = Math.hypot(hnd.x - n.x, hnd.y - n.y), ang = Math.round((-Math.atan2(hnd.y - n.y, hnd.x - n.x) * 180) / Math.PI)
+      pathSnap.current = { v: null, h: null, info: `Handle ${Math.round(len)} px · ${ang}°${e.altKey ? ' · broken' : ''}` }
       invalidate(); return
     }
     if (d.kind === 'pnode') {
-      withPath(d.pathId, pp => {
-        const n = pp.subpaths[d.sub]?.nodes[d.idx]; if (!n) return pp
+      const dx0 = p.x - d.start.x, dy0 = p.y - d.start.y
+      if (!d.moved && Math.hypot(dx0, dy0) * s.view.zoom < 2) return
+      d.moved = true
+      const base = d.base
+      const n = base[d.hit.sub]?.nodes[d.hit.idx]; if (!n) return
+      if (d.part === 'node') {
+        // Move every picked point; snap the one under the pointer.
+        const skip = new Set(d.picks.map(q => `${q.sub}:${q.idx}`))
+        let target = { x: n.x + dx0, y: n.y + dy0 }
+        if (e.shiftKey && d.picks.length === 1) target = pen.constrain45(n, target)
+        else target = snapPoint(d.target, target, skip, e)
+        setSubs(d.target, pen.moveNodes(base, d.picks, target.x - n.x, target.y - n.y))
+        pathSnap.current.info = `Δ ${Math.round(target.x - n.x)}, ${Math.round(target.y - n.y)} px`
+      } else {
+        const fresh = (d as any).fresh
+        const hp = e.shiftKey ? pen.constrain45(n, p) : p
+        const mirror = { x: 2 * n.x - hp.x, y: 2 * n.y - hp.y }
         let nn: PathNode
-        if (d.part === 'node') { const dx = p.x - n.x, dy = p.y - n.y; nn = { ...n, x: p.x, y: p.y, inX: n.inX + dx, inY: n.inY + dy, outX: n.outX + dx, outY: n.outY + dy } }
-        else if (d.part === 'out') nn = { ...n, outX: p.x, outY: p.y, ...(n.smooth && !d.alt ? { inX: 2 * n.x - p.x, inY: 2 * n.y - p.y } : {}) }
-        else nn = { ...n, inX: p.x, inY: p.y, ...(n.smooth && !d.alt ? { outX: 2 * n.x - p.x, outY: 2 * n.y - p.y } : {}) }
-        if (d.alt && d.part !== 'node') nn.smooth = false
-        return { ...pp, subpaths: setNode(pp.subpaths, d.sub, d.idx, nn) }
-      })
+        if (fresh) nn = { ...n, outX: hp.x, outY: hp.y, inX: mirror.x, inY: mirror.y, smooth: true, auto: false }
+        else {
+          const broken = e.altKey || !n.smooth
+          const keepLen = (ox: number, oy: number) => { const l0 = Math.hypot(ox - n.x, oy - n.y), hl = Math.hypot(hp.x - n.x, hp.y - n.y) || 1; return { x: n.x - ((hp.x - n.x) / hl) * l0, y: n.y - ((hp.y - n.y) / hl) * l0 } }
+          if (d.part === 'out') { const o = keepLen(n.inX, n.inY); nn = { ...n, outX: hp.x, outY: hp.y, auto: false, ...(broken ? { smooth: false } : { inX: o.x, inY: o.y }) } }
+          else { const o = keepLen(n.outX, n.outY); nn = { ...n, inX: hp.x, inY: hp.y, auto: false, ...(broken ? { smooth: false } : { outX: o.x, outY: o.y }) } }
+        }
+        setSubs(d.target, setNode(base, d.hit.sub, d.hit.idx, nn))
+        const len = Math.hypot(hp.x - n.x, hp.y - n.y), ang = Math.round((-Math.atan2(hp.y - n.y, hp.x - n.x) * 180) / Math.PI)
+        pathSnap.current = { v: null, h: null, info: `Handle ${Math.round(len)} px · ${ang}°` }
+      }
+      invalidate(); return
+    }
+    if (d.kind === 'pseg') {
+      const dx = p.x - d.last.x, dy = p.y - d.last.y; d.last = p; d.moved = true
+      const subs = getSubs(d.target)
+      setSubs(d.target, subs.map((x, i) => (i === d.sub ? pen.bendSegment(x, d.seg, d.t, dx, dy) : x)))
+      pathSnap.current = { v: null, h: null, info: 'Bend segment' }
+      invalidate(); return
+    }
+    if (d.kind === 'psub') {
+      const dx = p.x - d.start.x, dy = p.y - d.start.y; d.moved = true
+      const picks = d.subs.flatMap(si => d.base[si].nodes.map((_, idx) => ({ sub: si, idx })))
+      setSubs(d.target, pen.moveNodes(d.base, picks, dx, dy))
+      pathSnap.current = { v: null, h: null, info: `Δ ${Math.round(dx)}, ${Math.round(dy)} px` }
+      invalidate(); return
+    }
+    if (d.kind === 'pmarq') {
+      d.cur = p
+      const x0 = Math.min(d.start.x, p.x), x1 = Math.max(d.start.x, p.x), y0 = Math.min(d.start.y, p.y), y1 = Math.max(d.start.y, p.y)
+      const inside = getSubs(d.target).flatMap((sp, si) => sp.nodes.map((n, idx) => ({ sub: si, idx, n }))).filter(q => q.n.x >= x0 && q.n.x <= x1 && q.n.y >= y0 && q.n.y <= y1).map(q => ({ sub: q.sub, idx: q.idx }))
+      const keys = new Set(d.base.map(q => `${q.sub}:${q.idx}`))
+      sel.current = { target: d.target, picks: [...d.base, ...inside.filter(q => !keys.has(`${q.sub}:${q.idx}`))] }
       invalidate(); return
     }
 
@@ -1275,8 +1673,20 @@ export function Stage() {
       invalidate(); return
     }
     if (d.kind === 'tcorner' || d.kind === 'tmove') { invalidate(); return }
-    if (d.kind === 'pen') { s.commit('Add anchor point'); invalidate(); return }
-    if (d.kind === 'pnode') { s.commit('Edit path'); invalidate(); return }
+    if (d.kind === 'pen') {
+      pathSnap.current = { v: null, h: null, info: null }
+      if (d.mode === 'close') { penSub.current = null; s.commit('Close path') }
+      else if (d.mode === 'retract') { if (d.moved) s.commit('Edit handle') }
+      else s.commit(d.moved ? 'Add curve point' : 'Add anchor point')
+      invalidate(); return
+    }
+    if (d.kind === 'pnode' || d.kind === 'pseg' || d.kind === 'psub') {
+      pathSnap.current = { v: null, h: null, info: null }
+      if (d.moved) s.commit(d.kind === 'pseg' ? 'Bend segment' : d.kind === 'psub' ? 'Move path' : d.part === 'node' ? 'Move points' : 'Edit handle')
+      else if (d.kind === 'pnode' && (d as any).fresh) s.commit('Corner point')
+      invalidate(); return
+    }
+    if (d.kind === 'pmarq') { invalidate(); return }
     if (d.kind === 'gresize') { s.commit('Resize selection'); invalidate(); return }
     if (d.kind === 'move' && d.moved) {
       if (s.doc?.frames?.length) {
