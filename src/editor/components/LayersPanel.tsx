@@ -44,6 +44,7 @@ type Ctx = {
 function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
   const s = useEditor.getState()
   const { layers, activeId, selectedIds, editingMask, renaming, setRenaming, dragId, setDragId, over, setOver } = ctx
+  const vmEdit = useEditor(st => st.vmaskEditId)
   const i = layers.indexOf(l)
   const on = selectedIds.includes(l.id)
   const fx = hasActiveStyles(l)
@@ -83,6 +84,12 @@ function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
         <span title="Mask. Click to paint on it, Alt-click to view it, Shift-click to turn it off." className={`shrink-0 rounded-[5px] p-[2px] cursor-pointer ${on && editingMask ? 'ring-2 ring-accent' : ''} ${l.maskEnabled ? '' : 'opacity-40'}`}
           onClick={e => { e.stopPropagation(); if (e.shiftKey) { s.updateLayer(l.id, { maskEnabled: !l.maskEnabled }, 'Toggle mask'); return } if (e.altKey) { const st = useEditor.getState(); useEditor.setState({ viewChannel: st.viewChannel === 'mask:' + l.id ? 'rgb' : 'mask:' + l.id, docRev: st.docRev + 1 }); return } useEditor.setState({ activeId: l.id, selectedIds: [l.id], editingMask: true }) }}>
           <Thumb layer={l} mask />
+        </span>
+      )}
+      {l.vmask && (
+        <span title="Vector mask. Click to edit its points, Shift-click to turn it off." onClick={e => { e.stopPropagation(); if (e.shiftKey) { s.updateLayer(l.id, { vmask: { ...l.vmask!, enabled: !l.vmask!.enabled } }, 'Toggle vector mask'); return } useEditor.setState({ activeId: l.id, selectedIds: [l.id] }); ops.editVectorMask(l.id) }}
+          className={`shrink-0 w-8 h-8 rounded-[4px] bg-void-900 border border-void-700 cursor-pointer ${l.vmask.enabled ? '' : 'opacity-40'} ${vmEdit === l.id ? 'ring-2 ring-accent' : ''}`}>
+          <VmaskThumb layer={l} />
         </span>
       )}
       {renaming === l.id ? (
@@ -166,6 +173,7 @@ function ContextMenu({ at, id, onClose }: { at: DOMRect; id: string; onClose: ()
         {sep}
         {item(l.clipId ? 'Release clipping mask' : 'Create clipping mask', () => (l.clipId ? s.releaseClippingMask(id) : s.createClippingMask(id)), !l.clipId && !s.canClip(id))}
         {item(l.mask ? 'Delete mask' : 'Add mask', () => (l.mask ? s.removeMask(id) : s.addMask(id, !!s.selection)))}
+        {item(l.vmask ? 'Delete vector mask' : 'Add vector mask', () => { s.setActive(id); l.vmask ? ops.deleteVectorMask() : ops.addVectorMask(false) }, l.type === 'adjustment')}
         {item('Select layer pixels', () => ops.selectLayerPixels(id), l.type === 'adjustment')}
         {sep}
         {item('Group layers', () => s.groupSelected())}
@@ -318,4 +326,11 @@ export function LayersPanel() {
       {adj && <AddAdjustmentMenu at={adj} onClose={() => setAdj(null)} />}
     </div>
   )
+}
+
+/** Tiny preview of a vector mask: the path, white inside. */
+function VmaskThumb({ layer }: { layer: Layer }) {
+  const { w, h } = layerSize(layer)
+  const d = (layer.vmask?.subpaths ?? []).map(sp => sp.nodes.map((n, i) => i ? `C${sp.nodes[i - 1].outX},${sp.nodes[i - 1].outY} ${n.inX},${n.inY} ${n.x},${n.y}` : `M${n.x},${n.y}`).join(' ') + (sp.closed && sp.nodes.length > 1 ? ` C${sp.nodes[sp.nodes.length - 1].outX},${sp.nodes[sp.nodes.length - 1].outY} ${sp.nodes[0].inX},${sp.nodes[0].inY} ${sp.nodes[0].x},${sp.nodes[0].y}Z` : '')).join(' ')
+  return <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet" style={{ background: layer.vmask?.invert ? '#fff' : '#555' }}><path d={d} fill={layer.vmask?.invert ? '#555' : '#fff'} fillRule="evenodd" /></svg>
 }

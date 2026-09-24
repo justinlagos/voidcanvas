@@ -1,8 +1,8 @@
-import { cloneCanvas, ctx2d, drawLayerContent, fullMaskSized, layerMatrix, layerSize, makeCanvas, maskBounds, paintPathOps, renderDoc, tracePath, uid } from './engine'
+import { cloneCanvas, ctx2d, drawLayerContent, fullMaskSized, layerMatrix, layerSize, makeCanvas, maskBounds, paintPathOps, pathPolyline, renderDoc, tracePath, uid, vectorMaskCanvas } from './engine'
 import { base, nextRev, useEditor } from './store'
 import { morph } from './styles'
-import type { Doc, Layer, LayerStyles, PathNode, PathOp, RasterLayer, ShapeLayer, SubPath, VectorPath } from './types'
-import { docSubsToLayerPatch, layerSubsToDoc, reverseSub, samplePath, simplifySub, toSvgD } from './pen'
+import type { Doc, Layer, LayerStyles, PathNode, PathOp, RasterLayer, ShapeLayer, SubPath, TextLayer, VectorPath } from './types'
+import { docSubsToLayerPatch, docSubsToTextPathPatch, docToVmask, layerSubsToDoc, reverseSub, samplePath, simplifySub, toSvgD } from './pen'
 
 // Document-wide operations used by the menus: image and canvas size, rotation, selection modifiers,
 // channels, paths and fills. Each one is a single undo step.
@@ -573,3 +573,141 @@ export const emptyNode = (x: number, y: number): PathNode => ({ x, y, inX: x, in
 export function rasterizeLayer(id: string) { const s = st(); const r = s.rasterize(id); if (r) s.commit('Rasterize layer') }
 export function fullSelection() { const s = st(); if (s.doc) return fullMaskSized(s.doc.width, s.doc.height); return null }
 export type { ShapeLayer }
+
+// ─── Pathfinder, Outline Stroke, Expand ────────────────────────────
+
+const PF_LABEL: Record<string, string> = { unite: 'Unite', minusFront: 'Minus front', minusBack: 'Minus back', intersect: 'Intersect', exclude: 'Exclude', divide: 'Divide' }
+
+/**
+ * Illustrator's Pathfinder on the selected shape layers (or on the parts of one shape, or of the
+ * selected saved path). The result is new, real geometry: every point can be edited.
+ */
+export async function pathfinderSelected(op: import('./vector').PathfinderOp) {
+  const s = st(); if (!s.doc) return
+  const v = await import('./vector')
+  const shapes = s.layers.filter(l => s.selectedIds.includes(l.id) && l.type === 'shape') as ShapeLayer[]
+  try {
+    if (shapes.length >= 2) {
+      const docShapes = shapes.map(l => layerSubsToDoc(l))
+      const div = op === 'divide' ? v.divide(docShapes) : null
+      const res = div ? div.map(d => d.subs) : v.pathfinder(op, docShapes)
+      const top = shapes[shapes.length - 1], bottom = shapes[0]
+      const style = op === 'minusFront' ? bottom : top
+      s.setActive(top.id)
+      const made: string[] = []
+      for (let i = 0; i < res.length; i++) {
+        const subs = res[i]; if (!subs.length) continue
+        const src = div ? shapes[div[i].owner] : style
+        const id = s.addShape('path', 0, 0, 1, 1, { name: op === 'divide' ? `Piece ${i + 1}` : PF_LABEL[op], fill: src.fill ?? s.fg, stroke: src.stroke, strokeWidth: src.stroke ? src.strokeWidth : 0, strokeAlign: src.strokeAlign, strokeCap: src.strokeCap, strokeJoin: src.strokeJoin, strokeDash: src.strokeDash, opacity: style.opacity, blend: style.blend, frameId: style.frameId, groupId: style.groupId } as any)
+        const l = st().layers.find(x => x.id === id) as ShapeLayer
+        st().updateLayer(id, docSubsToLayerPatch(l, subs)); made.push(id)
+      }
+      const keep = new Set(made)
+      useEditor.setState({ layers: st().layers.filter(l => keep.has(l.id) || !shapes.some(x => x.id === l.id)), selectedIds: made, activeId: made[made.length - 1] ?? null, docRev: st().docRev + 1 })
+      st().commit(`Pathfinder: ${PF_LABEL[op]}`)
+      if (!made.length) s.notify('Nothing is left after that operation.')
+      return
+    }
+    // One shape, or a saved path: work on its parts.
+    const p = currentPath(); if (!p) { s.notify('Select two or more shape layers (Shift-click in Layers), or one shape with several parts.'); return }
+    if (p.subpaths.length < 2) { s.notify('Pathfinder needs two or more shapes, or one shape made of several parts.'); return }
+    const res = v.pathfinder(op, p.subpaths.map(sp => [{ ...sp, op: undefined }]))
+    editCurrentPath(() => res.flat(), `Pathfinder: ${PF_LABEL[op]}`)
+  } catch (e) { console.error(e); s.notify('That shape could not be merged. Try Simplify on it first.') }
+}
+
+/** Turn render-time path operations into real geometry, so the outline is one clean path. */
+export async function expandPathOps() {
+  const s = st(); const p = currentPath(); if (!p) { s.notify('Select a shape layer or a saved path first.'); return }
+  if (!p.subpaths.some(sp => sp.op)) { s.notify('This path has no combine, subtract, intersect or exclude parts to expand.'); return }
+  const v = await import('./vector')
+  editCurrentPath(subs => v.expandOps(subs), 'Expand path operations')
+}
+
+/** Illustrator's Outline Stroke. On a shape layer the stroke becomes its own filled shape. */
+export async function outlineStroke() {
+  const s = st(); if (!s.doc) return
+  const v = await import('./vector')
+  const l = s.active()
+  try {
+    if (l?.type === 'shape' && !s.activePathId) {
+      if (!l.stroke || !l.strokeWidth) { s.notify('This shape has no stroke to outline. Give it an outline in Properties first.'); return }
+      const subs = v.outlineStroke(layerSubsToDoc(l), l.strokeWidth, l.strokeCap ?? 'round', l.strokeJoin ?? 'round', l.shape === 'line' ? 'center' : l.strokeAlign ?? 'center')
+      const id = s.addShape('path', 0, 0, 1, 1, { name: `${l.name} stroke`, fill: l.stroke, stroke: null, strokeWidth: 0, opacity: l.opacity, blend: l.blend, frameId: l.frameId, groupId: l.groupId } as any)
+      const nl = st().layers.find(x => x.id === id) as ShapeLayer
+      st().updateLayer(id, docSubsToLayerPatch(nl, subs))
+      if (l.fill && l.shape !== 'line') st().updateLayer(l.id, { stroke: null, strokeWidth: 0 })
+      else useEditor.setState({ layers: st().layers.filter(x => x.id !== l.id), docRev: st().docRev + 1 })
+      st().setActive(id); st().commit('Outline stroke')
+      return
+    }
+    const p = activePath(); if (!p) { s.notify('Select a shape layer with a stroke, or a saved path.'); return }
+    const w = Math.max(1, Math.round(s.options.size / 4))
+    const out: VectorPath = { id: uid(), name: `${p.name} outline`, subpaths: v.outlineStroke(p.subpaths, w) }
+    setPaths([...(s.doc.paths ?? []), out], 'Outline stroke'); useEditor.setState({ activePathId: out.id })
+    s.notify(`Outlined at ${w} px (a quarter of the brush size).`)
+  } catch (e) { console.error(e); s.notify('Could not outline that stroke. Try Simplify on the path first.') }
+}
+
+// ─── Type on a path ────────────────────────────────────────────────
+
+/** Put text along a path (document space). `at` picks where along the path it starts. */
+export function textOnPath(docSubs?: SubPath[], at?: { x: number; y: number }) {
+  const s = st(); if (!s.doc) return
+  const subs = (docSubs ?? currentPath()?.subpaths ?? []).slice(0, 1)
+  if (!subs.length || subs[0].nodes.length < 2) { s.notify('Draw or select a path first, then use the Type tool on it.'); return }
+  const fontSize = Math.round(Math.max(18, Math.min(s.doc.width, s.doc.height) / 22))
+  s.addText(0, 0)
+  const l = st().active(); if (l?.type !== 'text') return
+  const base: TextLayer = { ...l, text: 'Type along the path', fontSize, fontWeight: 600, name: 'Path text', onPath: { subpaths: [], start: 0, w: 1, h: 1 } }
+  const patch = docSubsToTextPathPatch(base, subs)
+  let start = 0
+  if (at && patch.onPath) {
+    const ox = patch.x ?? 0, oy = patch.y ?? 0
+    const poly = pathPolyline(patch.onPath.subpaths)
+    let bd = Infinity
+    for (const q of poly) { const d = Math.hypot(q.x - (at.x - ox), q.y - (at.y - oy)); if (d < bd) { bd = d; start = q.d } }
+  }
+  st().updateLayer(l.id, { ...patch, text: base.text, fontSize, fontWeight: 600, name: 'Path text', align: 'left', boxWidth: null, onPath: { ...patch.onPath!, start } }, 'Type on path')
+  useEditor.setState({ editingTextId: l.id, tool: 'move' })
+}
+
+/** Take text off its path: it becomes ordinary point text where the path started. */
+export function releaseTextFromPath() {
+  const s = st(); const l = s.active(); if (l?.type !== 'text' || !l.onPath) return
+  const first = layerSubsToDoc(l)[0]?.nodes[0]
+  s.updateLayer(l.id, { onPath: null, x: first ? first.x : l.x, y: first ? first.y - l.fontSize : l.y, scaleX: 1, scaleY: 1, rotation: 0 }, 'Release text from path')
+}
+
+// ─── Vector masks ──────────────────────────────────────────────────
+
+/** Add a vector mask: from the selected saved path, or a reveal-all rectangle you then edit. */
+export function addVectorMask(fromPath = true) {
+  const s = st(); const l = s.active(); if (!s.doc || !l) { s.notify('Select a layer first.'); return }
+  if (l.type === 'adjustment') { s.notify('Vector masks work on image, text and shape layers. Use a layer mask on adjustments.'); return }
+  const src = fromPath ? activePath() : null
+  const { w, h } = layerSize(l, s.doc)
+  const subpaths = src ? docToVmask(l, src.subpaths, s.doc) : [{ closed: true, nodes: [emptyNode(0, 0), emptyNode(w, 0), emptyNode(w, h), emptyNode(0, h)] }]
+  s.updateLayer(l.id, { vmask: { subpaths, enabled: true, feather: 0 } }, src ? 'Vector mask from path' : 'Add vector mask')
+  useEditor.setState({ vmaskEditId: l.id, activePathId: null, tool: 'pathselect' })
+  s.notify(src ? 'Vector mask added. Edit its points with Direct Select (A) or add parts with the Pen.' : 'Vector mask added around the layer. Drag its points with Direct Select (A), or draw into it with the Pen.')
+}
+export function editVectorMask(id: string | null) { useEditor.setState({ vmaskEditId: id, ...(id ? { tool: 'pathselect' as const, activePathId: null } : {}) }) }
+export function updateVectorMask(patch: Partial<NonNullable<Layer['vmask']>>, label?: string) {
+  const s = st(); const l = s.active(); if (!l?.vmask) return
+  s.updateLayer(l.id, { vmask: { ...l.vmask, ...patch } }, label)
+}
+export function deleteVectorMask() {
+  const s = st(); const l = s.active(); if (!l?.vmask) return
+  s.updateLayer(l.id, { vmask: null }, 'Delete vector mask'); if (s.vmaskEditId === l.id) useEditor.setState({ vmaskEditId: null })
+}
+/** Turn the vector mask into pixels, combined with any layer mask already there. */
+export function rasterizeVectorMask() {
+  const s = st(); const l = s.active(); if (!s.doc || !l?.vmask) return
+  const { w, h } = layerSize(l, s.doc)
+  const vm = vectorMaskCanvas(l, w, h)
+  const m = l.mask ? cloneCanvas(l.mask) : fullMaskSized(w, h)
+  const x = ctx2d(m); x.globalCompositeOperation = 'destination-in'; x.drawImage(vm, 0, 0)
+  s.updateLayer(l.id, { vmask: null, mask: m, maskEnabled: true }, 'Rasterize vector mask')
+  useEditor.setState({ vmaskEditId: null })
+}
