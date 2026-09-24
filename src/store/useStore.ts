@@ -128,6 +128,12 @@ interface Store {
   toggleSidebarSection: (section: string) => void
 }
 
+/** Per-effect starting values that show a change straight away. Only applied when the effect is picked. */
+export const EFFECT_STARTERS: Partial<Record<EffectType, Partial<EffectParams>>> = {
+  hueShift: { angle: 120 },
+  channelMixer: { mixR: 130, mixG: 95, mixB: 70 },
+}
+
 export const defaultParams: EffectParams = {
   intensity: 50,
   scale: 50,
@@ -159,7 +165,9 @@ export const useStore = create<Store>((set, get) => ({
   setActiveEffect: (effect) => {
     get().pushHistory()
     if (effect !== 'none') track('effect.apply', { id: effect, tool: 'effects' })
-    set({ activeEffect: effect })
+    // Some effects do nothing at the shared defaults (hue 0, channels at 100%), so they start at a visible setting.
+    const starter = EFFECT_STARTERS[effect]
+    set(starter ? (s) => ({ activeEffect: effect, params: { ...s.params, ...starter } }) : { activeEffect: effect })
   },
 
   params: { ...defaultParams },

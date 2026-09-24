@@ -10,6 +10,7 @@ import { defaultParams, type EffectType, type EffectParams } from '@/store/useSt
 import { Logo } from '@/components/AppNav'
 import { canvasToBlob, downloadBlob, sendHandoff } from '@/editor/io'
 import { track } from '@/lib/analytics'
+import { EFFECT_COUNT } from '@/components/effect-list'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const MAX = 2400
@@ -172,7 +173,7 @@ export function ToolPage({ def }: { def: ToolDef }) {
         <section className="mt-6 flex items-center gap-2 flex-wrap">
           <span className="text-[12.5px] text-void-500 mr-1">More tools</span>
           {RELATED.filter(r => r.slug !== def.slug).map(r => <Link key={r.slug} href={`/tools/${r.slug}`} className={`h-8 px-3 rounded-lg bg-void-900 border border-void-800 text-[12.5px] text-void-300 hover:text-white hover:border-void-600 inline-flex items-center ${focus}`}>{r.name}</Link>)}
-          <Link href="/effects" className={`h-8 px-3 rounded-lg bg-void-900 border border-void-800 text-[12.5px] text-void-300 hover:text-white hover:border-void-600 inline-flex items-center gap-1 ${focus}`}>All 60 effects <ArrowRight size={13} /></Link>
+          <Link href="/effects" className={`h-8 px-3 rounded-lg bg-void-900 border border-void-800 text-[12.5px] text-void-300 hover:text-white hover:border-void-600 inline-flex items-center gap-1 ${focus}`}>All {EFFECT_COUNT} effects <ArrowRight size={13} /></Link>
         </section>
 
         {/* About + FAQ */}

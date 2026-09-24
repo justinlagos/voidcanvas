@@ -7,6 +7,7 @@ import { Lock } from 'lucide-react'
 import { PrivacyPanel, PrivateBadge } from '@/editor/components/PrivacyPanel'
 import { initPrivateFromSession } from '@/editor/io'
 import { listProjects, type ProjectSummary } from '@/editor/io'
+import { EFFECT_COUNT } from '@/components/effect-list'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
@@ -76,7 +77,7 @@ export default function Home() {
             {[['halftone','Halftone'],['dither','Dither'],['glitch','Glitch']].map(([slug,name]) => (
               <Link key={slug} href={`/tools/${slug}`} className={`h-9 px-3.5 rounded-lg bg-void-900 border border-void-800 text-[13px] text-void-200 hover:text-white hover:border-void-600 flex items-center ${focus}`}>{name}</Link>
             ))}
-            <Link href="/effects" className={`h-9 px-3.5 rounded-lg bg-void-900 border border-void-800 text-[13px] text-void-200 hover:text-white hover:border-void-600 flex items-center ${focus}`}>All 60 effects</Link>
+            <Link href="/effects" className={`h-9 px-3.5 rounded-lg bg-void-900 border border-void-800 text-[13px] text-void-200 hover:text-white hover:border-void-600 flex items-center ${focus}`}>All {EFFECT_COUNT} effects</Link>
           </div>
         </section>
 

@@ -6,7 +6,7 @@ import { Check, ChevronRight, Download, Menu as MenuIcon, Plus, Redo2, Search, U
 import { MENUS, buildActions, prettyKey, resolveAction, type Action, type MenuItem } from '../actions'
 import { useEditor } from '../store'
 import { Button, IconButton, focusRing } from './ui'
-import { PrivateBadge } from './PrivacyPanel'
+import { PrivateBadge, usePrivate } from './PrivacyPanel'
 
 // Photopea-style menu bar. Menus open on click, then follow the pointer across the bar, like desktop apps.
 // Arrow keys move through items, Right opens a submenu, Escape closes.
@@ -82,6 +82,7 @@ function MenuList({ items, actions, onDone, level = 0, autoFocus }: { items: Men
 export function MenuBar({ onExport, onAdd, onSearch }: { onExport: () => void; onAdd: () => void; onSearch: () => void }) {
   const doc = useEditor(s => s.doc)
   const dirty = useEditor(s => s.dirty)
+  const priv = usePrivate()
   const canUndo = useEditor(s => s.historyIndex > 0)
   const canRedo = useEditor(s => s.historyIndex < s.history.length - 1)
   // Rebuilt on every open so enabled and checked states are current.
@@ -154,7 +155,7 @@ export function MenuBar({ onExport, onAdd, onSearch }: { onExport: () => void; o
         <div className="hidden lg:flex items-center gap-2 mx-auto min-w-0">
           <input aria-label="Design name" value={doc.name} onChange={e => s.setDoc({ name: e.target.value })} onBlur={() => useEditor.setState({ dirty: true })}
             className={`h-7 w-48 px-2 rounded-md bg-transparent hover:bg-void-900 focus:bg-void-900 text-[12.5px] text-center text-void-200 truncate ${focusRing}`} />
-          <span className="flex items-center gap-1.5 text-[11.5px] text-void-500 shrink-0" aria-live="polite"><span className={`w-1.5 h-1.5 rounded-full ${dirty ? 'bg-amber-400' : 'bg-emerald-500'}`} />{dirty ? 'Saving' : 'Saved on this device'}</span>
+          <span className="flex items-center gap-1.5 text-[11.5px] text-void-500 shrink-0" aria-live="polite"><span className={`w-1.5 h-1.5 rounded-full ${priv ? 'bg-accent' : dirty ? 'bg-amber-400' : 'bg-emerald-500'}`} />{priv ? 'Private session, not saved' : dirty ? 'Saving' : 'Saved on this device'}</span>
         </div>
       )}
       {!doc && <span className="flex-1" />}

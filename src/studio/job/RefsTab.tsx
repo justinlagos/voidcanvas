@@ -189,7 +189,7 @@ function RefDetail({ r, job, onClose, onNote, toast, onType, onTypeCard }: { r: 
 }
 
 function Readout({ a, toast }: { a: RefAnalysis; toast: (m: string) => void }) {
-  const copy = (hex: string) => { navigator.clipboard?.writeText(hex); toast(`Copied ${hex.toUpperCase()}`) }
+  const copy = async (hex: string) => { try { if (!navigator.clipboard) throw new Error('no clipboard'); await navigator.clipboard.writeText(hex); toast(`Copied ${hex.toUpperCase()}`) } catch { toast(`Copy blocked. The colour is ${hex.toUpperCase()}`) } }
   const arrow = a.light.strength > 0.15
   return (
     <>

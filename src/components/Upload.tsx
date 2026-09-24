@@ -32,30 +32,41 @@ function FloatingParticle({ index }: { index: number }) {
   )
 }
 
+export const MAX_UPLOAD_MB = 25
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+
 export function Upload() {
   const { setOriginalImage, originalImage } = useStore()
   const [isDragOver, setIsDragOver] = useState(false)
   const [dragCount, setDragCount] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const [fileError, setFileError] = useState<string | null>(null)
+
+  // One check for the picker and the drop zone: an image, under the size limit.
+  const loadFile = useCallback((file: File | undefined) => {
     if (!file) return
+    const isImage = file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|avif|bmp|svg)$/i.test(file.name)
+    if (!isImage) { setFileError(`${file.name || 'That file'} is not an image. Use PNG, JPG, WebP or GIF.`); return }
+    if (file.size > MAX_UPLOAD_BYTES) { setFileError(`${file.name} is ${(file.size / 1048576).toFixed(1)} MB. The limit is ${MAX_UPLOAD_MB} MB.`); return }
+    setFileError(null)
     const reader = new FileReader()
     reader.onload = (event) => setOriginalImage(event.target?.result as string)
+    reader.onerror = () => setFileError('Could not read that file.')
     reader.readAsDataURL(file)
   }, [setOriginalImage])
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    loadFile(e.target.files?.[0])
+    e.target.value = ''
+  }, [loadFile])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setIsDragOver(false)
     setDragCount(0)
-    const file = e.dataTransfer.files?.[0]
-    if (!file || !file.type.startsWith('image/')) return
-    const reader = new FileReader()
-    reader.onload = (event) => setOriginalImage(event.target?.result as string)
-    reader.readAsDataURL(file)
-  }, [setOriginalImage])
+    loadFile(e.dataTransfer.files?.[0])
+  }, [loadFile])
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -219,14 +230,15 @@ export function Upload() {
                   {fmt}
                 </span>
               ))}
-              <span className="text-void-600 text-xs ml-1">up to 10MB</span>
+              <span className="text-void-600 text-xs ml-1">up to {MAX_UPLOAD_MB} MB</span>
             </motion.div>
+            {fileError && <p role="alert" className="relative z-10 mt-4 text-[12.5px] text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">{fileError}</p>}
           </div>
         </motion.div>
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp,image/svg+xml,.png,.jpg,.jpeg,.webp,.gif,.avif,.bmp,.svg"
           onChange={handleFileChange}
           className="hidden"
         />

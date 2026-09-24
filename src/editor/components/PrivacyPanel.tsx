@@ -76,9 +76,15 @@ export function PrivacyPanel({ onClose }: { onClose: () => void }) {
 }
 
 /** Small always-visible marker when a private session is active. */
-export function PrivateBadge() {
+/** True while a private session is on. Polls, since the flag lives outside React. */
+export function usePrivate() {
   const [on, setOn] = useState(false)
   useEffect(() => { initPrivateFromSession(); setOn(isPrivate()); const i = setInterval(() => setOn(isPrivate()), 1000); return () => clearInterval(i) }, [])
+  return on
+}
+
+export function PrivateBadge() {
+  const on = usePrivate()
   if (!on) return null
   return <span className="inline-flex items-center gap-1 px-2 h-6 rounded-full bg-accent/20 text-accent-light text-[11.5px] font-medium border border-accent/30"><Lock size={11} />Private</span>
 }

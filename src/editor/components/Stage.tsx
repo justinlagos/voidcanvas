@@ -1,4 +1,5 @@
 'use client'
+import { uiFont } from '@/lib/ui-font'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -263,19 +264,19 @@ export function Stage() {
         octx.lineWidth = on ? 1.5 : 1
         octx.strokeRect(a.x - 0.5, a.y - 0.5, fw + 1, fh + 1)
         const label = f.name, dim = `${f.width}×${f.height}`
-        octx.font = `600 12px Inter, sans-serif`
+        octx.font = `600 12px ${uiFont()}`
         const nameW = octx.measureText(label).width
-        octx.font = `500 11px Inter, sans-serif`
+        octx.font = `500 11px ${uiFont()}`
         const dimW = octx.measureText(dim).width
         const padX = 8, gap = 8, badgeH = 20, badgeW = padX * 2 + nameW + gap + dimW
         const by = a.y - badgeH - 7
         octx.fillStyle = on ? ACCENT : 'rgba(30,30,36,0.92)'
         octx.beginPath(); octx.roundRect(a.x, by, badgeW, badgeH, 6); octx.fill()
         octx.textBaseline = 'middle'
-        octx.font = `600 12px Inter, sans-serif`
+        octx.font = `600 12px ${uiFont()}`
         octx.fillStyle = on ? '#fff' : 'rgba(255,255,255,0.9)'
         octx.fillText(label, a.x + padX, by + badgeH / 2 + 0.5)
-        octx.font = `500 11px Inter, sans-serif`
+        octx.font = `500 11px ${uiFont()}`
         octx.fillStyle = on ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.45)'
         octx.fillText(dim, a.x + padX + nameW + gap, by + badgeH / 2 + 0.5)
         octx.textBaseline = 'alphabetic'
@@ -449,7 +450,7 @@ export function Stage() {
       octx.restore()
       const label = drag.current ? g.info : hover.current?.label
       if (label && cursor.current) {
-        octx.save(); octx.font = '11px Inter, system-ui, sans-serif'
+        octx.save(); octx.font = `11px ${uiFont()}`
         const tw = octx.measureText(label).width, x = cursor.current.x + 14, y = cursor.current.y + 16
         octx.fillStyle = 'rgba(12,12,16,0.88)'; octx.beginPath(); octx.roundRect(x, y, tw + 12, 18, 5); octx.fill()
         octx.fillStyle = '#fff'; octx.textBaseline = 'middle'; octx.fillText(label, x + 6, y + 9); octx.restore()
@@ -467,7 +468,7 @@ export function Stage() {
       octx.strokeStyle = GUIDE; octx.setLineDash([6, 3]); octx.beginPath()
       if (d.axis === 'v') { const x = d.pos * zoom + panX; octx.moveTo(x, 0); octx.lineTo(x, h) } else { const y = d.pos * zoom + panY; octx.moveTo(0, y); octx.lineTo(w, y) }
       octx.stroke(); octx.setLineDash([])
-      const label = `${Math.round(d.pos)} px`; octx.font = '600 11px Inter, sans-serif'
+      const label = `${Math.round(d.pos)} px`; octx.font = `600 11px ${uiFont()}`
       const at = d.axis === 'v' ? { x: d.pos * zoom + panX + 6, y: RULER + 16 } : { x: RULER + 6, y: d.pos * zoom + panY - 6 }
       octx.fillStyle = GUIDE; octx.fillText(label, at.x, at.y)
     }
@@ -481,7 +482,7 @@ export function Stage() {
       octx.strokeStyle = MAG; octx.fillStyle = MAG; octx.lineWidth = 1
       for (const m of dist.current) {
         const sx0 = m.x * zoom + panX, sy0 = m.y * zoom + panY
-        octx.font = '600 11px Inter, sans-serif'
+        octx.font = `600 11px ${uiFont()}`
         const t = `${m.px}`, tw = octx.measureText(t).width
         if (m.axis === 'h') {
           const sx1 = (m.x + m.w) * zoom + panX
@@ -1885,7 +1886,7 @@ function drawRulers(o: CanvasRenderingContext2D, w: number, h: number, zoom: num
   const steps = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000, 10000]
   const step = steps.find(s => s * zoom >= 60) ?? 10000
   const minor = step / (step % 5 === 0 ? 5 : step % 2 === 0 ? 2 : 1)
-  o.fillStyle = '#8a8a98'; o.strokeStyle = '#55555f'; o.font = '10px Inter, sans-serif'; o.textBaseline = 'top'
+  o.fillStyle = '#8a8a98'; o.strokeStyle = '#55555f'; o.font = `10px ${uiFont()}`; o.textBaseline = 'top'
   o.beginPath()
   const x0 = Math.floor((R - panX) / zoom / minor) * minor, x1 = (w - panX) / zoom
   for (let v = x0; v <= x1; v += minor) {
@@ -1938,7 +1939,7 @@ function TextEditor() {
         onChange={e => useEditor.getState().updateLayer(layer.id, { text: e.target.value.replace(/\n/g, ' ') })}
         onBlur={close2}
         onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); (e.target as HTMLTextAreaElement).blur() } }}
-        style={{ position: 'absolute', left: Math.max(8, view.panX + layer.x * view.zoom), top: Math.max(8, view.panY + layer.y * view.zoom - 44), width: 320, height: 34, padding: '6px 10px', borderRadius: 8, border: '1.5px solid #8b7cff', background: 'rgba(18,18,24,0.95)', color: '#fff', font: '13px Inter, system-ui, sans-serif', resize: 'none', outline: 'none' }}
+        style={{ position: 'absolute', left: Math.max(8, view.panX + layer.x * view.zoom), top: Math.max(8, view.panY + layer.y * view.zoom - 44), width: 320, height: 34, padding: '6px 10px', borderRadius: 8, border: '1.5px solid #8b7cff', background: 'rgba(18,18,24,0.95)', color: '#fff', font: `13px ${uiFont()}`, resize: 'none', outline: 'none' }}
       />
     )
   }

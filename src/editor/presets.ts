@@ -11,6 +11,6 @@ export const SIZE_PRESETS: SizePreset[] = [
   { id: 'web', label: 'Website hero', group: 'Screen', width: 2400, height: 1200 },
   { id: 'a4', label: 'A4 flyer', group: 'Print', width: 2480, height: 3508 },
   { id: 'a5', label: 'A5 flyer', group: 'Print', width: 1748, height: 2480 },
-  { id: 'poster', label: 'Poster 18 × 24 in', group: 'Print', width: 2700, height: 3600 },
+  { id: 'poster', label: 'Poster 18 × 24 in', group: 'Print', width: 5400, height: 7200 },
   { id: 'card', label: 'Business card', group: 'Print', width: 1050, height: 600 },
 ]
