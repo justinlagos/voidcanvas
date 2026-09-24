@@ -1,7 +1,12 @@
 import type { Metadata, Viewport } from 'next'
+import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Pwa } from '@/components/Pwa'
 import { Analytics } from '@/components/Feedback'
 import './globals.css'
+
+// Fonts ship with the app (self-hosted by next/font), so nothing is fetched from Google at runtime.
+const inter = Inter({ subsets: ['latin'], weight: ['300', '400', '500', '600', '700'], display: 'swap', variable: '--font-inter' })
+const mono = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500'], display: 'swap', variable: '--font-mono' })
 
 export const metadata: Metadata = {
   title: 'Voidcanvas: brief to finished design in your browser',
@@ -19,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
       <body className="font-sans antialiased">{children}<Pwa /><Analytics /></body>
     </html>
   )

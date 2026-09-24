@@ -287,7 +287,7 @@ export function buildActions(): Record<string, Action> {
     // Window
     ...(Object.keys(PANEL_LABELS) as PanelId[]).map(p => ({ id: 'panel.' + p, label: PANEL_LABELS[p], run: () => ui().showPanel(p), checked: () => { const w = ui().workspace; return w.groups.some(g => g.tabs.includes(p)) || w.floating.some(f => f.tabs.includes(p)) } })),
     ...Object.keys(WORKSPACES).map(n => ({ id: 'ws.' + n, label: n, run: () => ui().applyWorkspace(n), checked: () => ui().workspace.name === n })),
-    { id: 'ws.save', label: 'Save workspace…', run: () => { const n = prompt('Name this workspace'); if (n?.trim()) ui().saveWorkspaceAs(n.trim()) } },
+    { id: 'ws.save', label: 'Save workspace…', run: () => openModal('saveWorkspace') },
     { id: 'ws.reset', label: 'Reset workspace', run: () => ui().resetWorkspace() },
     ...[0.9, 1, 1.1, 1.25, 1.4, 1.5].map(k => ({ id: 'scale.' + k, label: `${Math.round(k * 100)}%`, run: () => ui().setPref('uiScale', k), checked: () => Math.abs(ui().uiScale - k) < 0.01, keywords: 'interface size ui scale' })),
     { id: 'density.compact', label: 'Compact', run: () => ui().setPref('density', 'compact'), checked: () => ui().density === 'compact' },

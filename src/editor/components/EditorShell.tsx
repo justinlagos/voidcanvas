@@ -21,7 +21,7 @@ import { MenuBar } from './MenuBar'
 import { track } from '@/lib/analytics'
 import { StatusBar } from './StatusBar'
 import { Dock, MobilePanels } from './Dock'
-import { AiInfoDialog, CanvasSizeDialog, ColorRangeDialog, FillDialog, GuideLayoutDialog, ImageSizeDialog, ImportReportDialog, LooksDialog, MissingFontsDialog, ModifySelectionDialog, NewGuideDialog, PreferencesDialog, StrokeDialog, VersionsDialog, fontAvailable } from './MoreDialogs'
+import { AiInfoDialog, CanvasSizeDialog, ColorRangeDialog, FillDialog, GuideLayoutDialog, ImageSizeDialog, ImportReportDialog, LooksDialog, MissingFontsDialog, ModifySelectionDialog, NameDialog, NewGuideDialog, PreferencesDialog, StrokeDialog, VersionsDialog, fontAvailable } from './MoreDialogs'
 import { LayerStyleDialog } from './LayerStyleDialog'
 import { SelectMask } from './SelectMask'
 import { buildActions, eventCombo, internalClip, normCombo, pasteInPlace } from '../actions'
@@ -338,6 +338,7 @@ export function EditorShell() {
       {m === 'canvasSize' && hasDoc && <CanvasSizeDialog onClose={close} aiFill={modal?.props?.aiFill} />}
       {m === 'guideLayout' && hasDoc && <GuideLayoutDialog onClose={close} />}
       {m === 'newGuide' && hasDoc && <NewGuideDialog onClose={close} />}
+      {m === 'saveWorkspace' && <NameDialog onClose={close} title="Save workspace" label="Workspace name" placeholder="My layout" initial={useUi.getState().workspace.name === 'Essentials' ? '' : useUi.getState().workspace.name} onSubmit={n => useUi.getState().saveWorkspaceAs(n)} />}
       {m === 'fill' && hasDoc && <FillDialog onClose={close} />}
       {m === 'stroke' && hasDoc && <StrokeDialog onClose={close} />}
       {m === 'modify' && hasDoc && <ModifySelectionDialog onClose={close} kind={modal?.props?.kind ?? 'feather'} />}

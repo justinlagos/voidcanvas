@@ -508,7 +508,8 @@ const FONT_SPECS: Record<string, string> = {
   'Permanent Marker': '', 'JetBrains Mono': ':ital,wght@0,400;0,700;1,400;1,700',
 }
 export const FONTS = Object.keys(FONT_SPECS)
-const loaded = new Set<string>(['Inter'])
+// The UI's Inter comes from next/font under a generated name, so text layers set in Inter load it like any other family.
+const loaded = new Set<string>()
 
 const cssLink = (href: string) => new Promise<boolean>(r => {
   const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = href
