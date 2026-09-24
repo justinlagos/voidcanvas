@@ -201,7 +201,7 @@ function TypeTab({ brand }: { brand: Brand }) {
   )
 }
 
-function ExportTab({ brand, o, onPdf, onPrint, onHtml, onEditor, busy, count }: { brand: Brand; o: Orientation; onPdf: () => void; onPrint: () => void; onHtml: () => void; onEditor: () => void; busy: boolean; count: number }) {
+function ExportTab({ brand, o, onPdf, onPrint, onHtml, onEditor, onSave, busy, count }: { brand: Brand; o: Orientation; onPdf: () => void; onPrint: () => void; onHtml: () => void; onEditor: () => void; onSave: () => void; busy: boolean; count: number }) {
   const [fmt, setFmt] = useState<'css' | 'tailwind' | 'json'>('css')
   const [copied, setCopied] = useState(false)
   const code = fmt === 'css' ? toCss(brand) : fmt === 'tailwind' ? toTailwind(brand) : toJson(brand)
@@ -215,6 +215,7 @@ function ExportTab({ brand, o, onPdf, onPrint, onHtml, onEditor, busy, count }: 
           <Button onClick={onPrint} disabled={busy || !count} className="w-full"><Printer size={15} />Print PDF</Button>
           <Button onClick={onHtml} disabled={busy || !count} className="w-full"><Globe size={15} />HTML handoff</Button>
           <Button onClick={onEditor} disabled={busy || !count} className="w-full"><Layers size={15} />Editor</Button>
+          <Button onClick={onSave} disabled={busy} className="w-full col-span-2">Save as a client brand in Studio</Button>
         </div>
         <p className="mt-2 text-[11.5px] text-void-500 leading-snug">Print PDF: {PRINT_TRIM[o].label}, 300 dpi, 3 mm bleed, crop marks. Images are RGB, so ask your printer to convert with their profile. HTML handoff is one file the client opens in a browser: pages with arrow-key navigation, logo downloads and click-to-copy colours.</p>
       </Field>
@@ -392,6 +393,22 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
     await eachPage(pages, brand, logo, o, 1, async c => { slides.push(c.toDataURL('image/jpeg', 0.85)) })
     downloadBlob(new Blob([buildHandoffHtml(brand, logo, slides)], { type: 'text/html' }), `${base}-brand.html`)
   })
+  // Brand memory: the resolved system becomes a client brand Studio jobs can check against.
+  const saveAsClient = async () => {
+    const { newBrand, useJobs } = await import('./jobs')
+    const roleOf = (i: number) => (i === 0 ? 'primary' : i === 1 ? 'secondary' : 'accent') as 'primary' | 'secondary' | 'accent'
+    const logos = logo ? [{ id: 'logo', name: logo.fileName || 'Logo', blob: await canvasToBlob(logo.img), w: logo.width, h: logo.height }] : []
+    const b = newBrand({
+      name: brand.name, client: brand.name,
+      colors: [...brand.roles.map((r, i) => ({ hex: r.hex, role: roleOf(i) })), { hex: brand.surfaces.light, role: 'background' as const }, { hex: brand.surfaces.inkOnLight, role: 'text' as const }, ...(brand.neutrals[4] ? [{ hex: brand.neutrals[4], role: 'neutral' as const }] : [])],
+      display: brand.fonts.heading.family, body: brand.fonts.body.family, scale: { base: brand.baseSize, ratio: brand.ratio },
+      logos, logoMin: Math.max(40, Math.round(brand.logo.minWidth)), clearSpace: Math.min(2, Math.max(0.1, brand.logo.clearSpace > 3 ? brand.logo.clearSpace / 100 : brand.logo.clearSpace)),
+      voice: brand.voice.tone.split(/,\s*/), dos: brand.voice.dos, donts: brand.voice.donts,
+    })
+    await useJobs.getState().saveBrand(b)
+    setErr(null); setBusy(null)
+    setErr(`Saved. ${brand.name} is in Studio > Brands. Pick it on a job and the Editor checks every design against it.`)
+  }
   const openInEditor = async () => {
     setBusy('Opening in Editor'); setErr(null)
     try {
@@ -441,7 +458,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
             {tab === 'Identity' && <IdentityTab logo={logo} onLogo={onLogo} brand={brand} logoErr={logoErr} />}
             {tab === 'Colour' && <ColourTab brand={brand} />}
             {tab === 'Type' && <TypeTab brand={brand} />}
-            {tab === 'Export' && <ExportTab brand={brand} o={o} onPdf={exportPdf} onPrint={exportPrint} onHtml={exportHtml} onEditor={openInEditor} busy={!!busy} count={visible.length} />}
+            {tab === 'Export' && <ExportTab brand={brand} o={o} onPdf={exportPdf} onPrint={exportPrint} onHtml={exportHtml} onEditor={openInEditor} onSave={saveAsClient} busy={!!busy} count={visible.length} />}
           </div>
           <p className="px-4 py-2.5 border-t border-void-800/60 text-[11.5px] text-void-500 leading-snug">New take changes anything unlocked. Editing a value locks it. Page order and layouts are always kept.</p>
         </aside>

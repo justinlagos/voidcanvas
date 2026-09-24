@@ -711,3 +711,70 @@ export function rasterizeVectorMask() {
   s.updateLayer(l.id, { vmask: null, mask: m, maskEnabled: true }, 'Rasterize vector mask')
   useEditor.setState({ vmaskEditId: null })
 }
+
+// ─── Formats (Studio: key visual to every format) ──────────────────
+
+export interface FormatTarget { deliverableId: string; label: string; width: number; height: number }
+
+/** The master board: the one other formats are linked to, else the active board, else the first. */
+function masterFrame(doc: Doc, id?: string | null) {
+  const fs = doc.frames ?? []
+  return fs.find(f => f.id === id) ?? fs.find(f => fs.some(k => k.linkedFrom === f.id)) ?? fs.find(f => f.id === st().activeFrameId) ?? fs[0] ?? null
+}
+
+/** Build (or rebuild) a linked board for each format from the master, laid out by role. */
+export async function buildFormats(targets: FormatTarget[], masterId?: string | null, rebuild = false, masterDeliverableId?: string | null) {
+  const s = st(); let doc = s.doc; if (!doc) return
+  const A = await import('./adapt')
+  let layers = [...s.layers]
+  if (!doc.frames?.length) {
+    const f0 = { id: uid(), name: doc.name, x: 0, y: 0, width: doc.width, height: doc.height, background: doc.background }
+    doc = { ...doc, frames: [f0], background: null }
+    layers = layers.map(l => ({ ...l, frameId: f0.id }))
+  }
+  let m = masterFrame(doc, masterId)!
+  // The master board answers its own deliverable.
+  if (masterDeliverableId && !m.deliverableId) { m = { ...m, deliverableId: masterDeliverableId }; doc = { ...doc, frames: doc.frames!.map(f => (f.id === m.id ? m : f)) } }
+  targets = targets.filter(t => t.deliverableId !== m.deliverableId)
+  const roles = A.inferRoles(layers, m, doc)
+  // Write the guessed roles onto the master, so they show (and can be changed) in Properties.
+  layers = layers.map(l => (l.frameId === m.id && !l.role && roles.has(l.id) ? ({ ...l, role: roles.get(l.id), rev: nextRev() } as Layer) : l))
+  const master = layers.filter(l => l.frameId === m.id)
+  let frames = [...doc.frames!]
+  let ox = Math.max(...frames.map(f => f.x + f.width)) + 160
+  for (const t of targets) {
+    let f = frames.find(x => x.deliverableId === t.deliverableId)
+    if (f && !rebuild && f.width === t.width && f.height === t.height && layers.some(l => l.frameId === f!.id)) continue
+    if (!f) { f = { id: uid(), name: t.label, x: ox, y: m.y, width: t.width, height: t.height, background: m.background, linkedFrom: m.id, deliverableId: t.deliverableId }; frames.push(f); ox += t.width + 160 }
+    else { f = { ...f, width: t.width, height: t.height, linkedFrom: m.id, background: m.background }; frames = frames.map(x => (x.id === f!.id ? f! : x)) }
+    layers = layers.filter(l => l.frameId !== f!.id).concat(A.layoutByRole(master, m, f, doc, roles))
+  }
+  const width = Math.max(...frames.map(f => f.x + f.width)), height = Math.max(...frames.map(f => f.y + f.height))
+  s.loadFramed({ ...doc, frames, width, height }, A.orderLikeMaster(layers, m.id), undefined, s.groups)
+  useEditor.setState({ dirty: true, activeFrameId: m.id })
+  st().notify(`${targets.length} format${targets.length === 1 ? '' : 's'} laid out from "${m.name}". Change the master and use Update formats; each format keeps its own layout.`)
+}
+
+/** Push master content (text, colours, pictures) into every linked format. */
+export async function syncFormats(masterId?: string | null) {
+  const s = st(); const doc = s.doc; if (!doc?.frames?.length) return
+  const m = masterFrame(doc, masterId); if (!m) return
+  if (!doc.frames.some(f => f.linkedFrom === m.id)) { s.notify('This board has no linked formats yet. Build them from the job in Studio, or with Layer > Formats.'); return }
+  const A = await import('./adapt')
+  const roles = A.inferRoles(s.layers, m, doc)
+  const r = A.syncFormats(doc, s.layers, m.id, roles)
+  useEditor.setState({ layers: A.orderLikeMaster(r.layers, m.id), docRev: s.docRev + 1 })
+  st().commit('Update formats')
+  st().notify(r.changed ? `Updated ${r.changed} layer${r.changed === 1 ? '' : 's'} across the formats. Layouts you adjusted were kept.` : 'The formats already match the master.')
+}
+
+/** Throw away one format's own layout and lay it out from the master again. */
+export async function relayFormat(frameId?: string | null) {
+  const s = st(); const doc = s.doc; if (!doc?.frames) return
+  const f = doc.frames.find(x => x.id === (frameId ?? s.activeFrameId)); if (!f?.linkedFrom) { s.notify('Select a linked format board first.'); return }
+  const m = doc.frames.find(x => x.id === f.linkedFrom); if (!m) return
+  const A = await import('./adapt')
+  const roles = A.inferRoles(s.layers, m, doc)
+  const layers = s.layers.filter(l => l.frameId !== f.id).concat(A.layoutByRole(s.layers.filter(l => l.frameId === m.id), m, f, doc, roles))
+  useEditor.setState({ layers: A.orderLikeMaster(layers, m.id), docRev: s.docRev + 1 }); st().commit('Re-lay format')
+}

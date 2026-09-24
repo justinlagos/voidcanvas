@@ -21,7 +21,7 @@ import { MenuBar } from './MenuBar'
 import { track } from '@/lib/analytics'
 import { StatusBar } from './StatusBar'
 import { Dock, MobilePanels } from './Dock'
-import { AiInfoDialog, CanvasSizeDialog, ColorRangeDialog, FillDialog, GuideLayoutDialog, ImageSizeDialog, ImportReportDialog, MissingFontsDialog, ModifySelectionDialog, NewGuideDialog, PreferencesDialog, StrokeDialog, VersionsDialog, fontAvailable } from './MoreDialogs'
+import { AiInfoDialog, CanvasSizeDialog, ColorRangeDialog, FillDialog, GuideLayoutDialog, ImageSizeDialog, ImportReportDialog, LooksDialog, MissingFontsDialog, ModifySelectionDialog, NewGuideDialog, PreferencesDialog, StrokeDialog, VersionsDialog, fontAvailable } from './MoreDialogs'
 import { LayerStyleDialog } from './LayerStyleDialog'
 import { SelectMask } from './SelectMask'
 import { buildActions, eventCombo, internalClip, normCombo, pasteInPlace } from '../actions'
@@ -120,12 +120,30 @@ export function EditorShell() {
       if (!h) return
       track('doc.import', { kind: 'from-' + h.from, count: h.images?.length ?? 0 })
       const ed = useEditor.getState()
+      // Jobs: open the job's design and build or update its formats.
+      if (h.openProject) {
+        const ok = await openProject(h.openProject)
+        if (!ok) { ed.notify('That design is no longer on this device.'); return }
+        if (h.formats?.length) await ops.buildFormats(h.formats, null, !!h.rebuildFormats, h.masterDeliverableId)
+        if (h.syncFormats) await ops.syncFormats()
+        if (h.brief) { useEditor.getState().setDoc({ brief: h.brief }); showBriefPanel() }
+        useEditor.setState({ dirty: true }); await saveProject().catch(() => {})
+        return
+      }
+      const tagJob = () => {
+        if (!h.job) return
+        const d = useEditor.getState().doc; if (!d) return
+        useEditor.setState({ doc: { ...d, id: h.job.docId ?? d.id, jobId: h.job.id, brandId: h.job.brandId ?? null }, dirty: true })
+        const oldId = d.id, newId = h.job.docId ?? d.id
+        if (oldId !== newId) useTabs.setState(t => ({ tabs: t.tabs.filter(x => x.id !== newId).map(x => (x.id === oldId ? { ...x, id: newId } : x)), activeId: newId }))
+      }
+      if (h.fonts) { useEditor.setState({ brandFont: h.fonts.display } as any); import('../io').then(m => { m.ensureFont(h.fonts!.display, 700); m.ensureFont(h.fonts!.body, 400) }) }
       // A brief from Studio travels with the design as a checklist.
       const applyBrief = () => { if (h.brief) { useEditor.getState().setDoc({ brief: h.brief }); useEditor.setState({ dirty: true }); showBriefPanel() } }
       if (h.layered?.length && h.size) {
         const { buildFramedFromLayered } = await import('../io')
         await buildFramedFromLayered(h.name, h.layered, h.size, h.palette)
-        applyBrief()
+        tagJob(); applyBrief()
         ed.notify(h.brief ? 'Your drafts are open as boards. Keep the one you like, delete the rest. The Brief panel ticks off what is on the design.' : 'Opened as editable boards. Double-click any text to edit it; shapes and colours are real layers.')
         return
       }
@@ -146,9 +164,17 @@ export function EditorShell() {
         if (fl && fl.type === 'adjustment') st.updateLayer(fl.id, { effectParams: { ...(fl.effectParams ?? {}), ...h.liveEffect.params } } as any)
         ed.notify('Added as a live filter layer. Adjust it any time in the layers panel.')
       }
+      if (h.look) {
+        const st = useEditor.getState()
+        st.addAdjustment('colorMatch')
+        const fl = st.active()
+        if (fl && fl.type === 'adjustment') st.updateLayer(fl.id, { look: { name: h.look.name, mean: h.look.mean, std: h.look.std }, name: `Look: ${h.look.name}` } as any)
+        if (h.look.grain > 1.4) { st.addAdjustment('voidEffect', 'grain' as any); const g = useEditor.getState().active(); if (g?.type === 'adjustment') st.updateLayer(g.id, { effectParams: { ...(g.effectParams ?? {}), intensity: Math.min(60, Math.round(h.look.grain * 12)) }, name: 'Grain (from the reference)' } as any) }
+        ed.notify('The look is on its own layer. Lower Strength in Properties to blend it, or hide it to compare.')
+      }
       if (h.palette?.length) { useEditor.setState({ swatches: Array.from(new Set([...h.palette, ...useEditor.getState().swatches])).slice(0, 21), fg: h.palette[0] }) }
-      applyBrief()
-      if (h.from === 'studio') ed.notify('Your references are in as layers and the board palette is in your colours.')
+      tagJob(); applyBrief()
+      if (h.from === 'studio' && !h.look) ed.notify(h.job ? 'Key visual started with the job\'s palette, type and brief. Design it here, then build every format from the job in Studio.' : 'Your references are in as layers and the board palette is in your colours.')
     })
   }, [])
 
@@ -323,6 +349,7 @@ export function EditorShell() {
       {m === 'selectMask' && hasDoc && <SelectMask onClose={close} />}
       {m === 'missingFonts' && hasDoc && <MissingFontsDialog onClose={close} fonts={modal?.props?.fonts ?? []} />}
       {m === 'importReport' && <ImportReportDialog onClose={close} report={modal?.props} />}
+      {m === 'looks' && hasDoc && <LooksDialog onClose={close} />}
 
       {busy && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55" role="status" aria-live="polite">

@@ -1,6 +1,7 @@
 import { applyEffect } from '@/lib/effects'
 import type { AdjustmentLayer, Doc, Frame, Group, HueBand, Layer, RasterLayer, Rect, ShapeLayer, SubPath, TextLayer } from './types'
 import { drawStyled, hasActiveStyles } from './styles'
+import { transferStats } from '@/studio/analyze'
 
 // ─── Canvas helpers ────────────────────────────────────────────────
 
@@ -402,6 +403,7 @@ export const ADJUSTMENT_DEFAULTS: Record<string, Record<string, number>> = {
   posterize: { levels: 4 },
   threshold: { level: 128 },
   lut: { amount: 100 },
+  colorMatch: { amount: 80 },
 }
 
 export const HUE_BANDS: { id: HueBand; label: string; center: number; swatch: string }[] = [
@@ -619,6 +621,10 @@ function applyBuiltIn(img: ImageData, l: AdjustmentLayer, scale: number) {
     }
     case 'threshold': {
       for (let i = 0; i < d.length; i += 4) { const y = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114; d[i] = d[i + 1] = d[i + 2] = y >= v.level ? 255 : 0 }
+      break
+    }
+    case 'colorMatch': {
+      if (l.look) transferStats(d, l.look, v.amount / 100)
       break
     }
     case 'lut': {

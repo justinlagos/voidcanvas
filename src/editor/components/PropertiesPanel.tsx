@@ -1,6 +1,8 @@
 'use client'
 
 import * as ops from '../ops'
+import { ROLE_LABEL } from '../adapt'
+const ROLE_OPTIONS = Object.entries(ROLE_LABEL).map(([id, label]) => ({ id, label }))
 import { useEffect, useRef, useState } from 'react'
 import { AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, Eclipse, FolderPlus, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
 import { effectParams } from '@/components/ParamControls'
@@ -28,6 +30,7 @@ const ADJ_FIELDS: Record<string, { key: string; label: string; min: number; max:
   posterize: [{ key: 'levels', label: 'Levels', min: 2, max: 32 }],
   threshold: [{ key: 'level', label: 'Level', min: 1, max: 255 }],
   lut: [{ key: 'amount', label: 'Strength', min: 0, max: 100 }],
+  colorMatch: [{ key: 'amount', label: 'Strength', min: 0, max: 100 }],
 }
 
 export async function removeBackground(layerId: string, mode: 'person' | 'any' = 'person') {
@@ -120,6 +123,7 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
   )
 
   if (count > 1) return <div>{arrange}</div>
+  const hasBoards = !!useEditor.getState().doc?.frames?.length
 
   return (
     <div>
@@ -127,6 +131,9 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
         <div className="space-y-3">
           <Slider label="Opacity" value={Math.round(layer.opacity * 100)} min={0} max={100} unit="%" onChange={v => up({ opacity: v / 100 })} onCommit={commit('Opacity')} />
           <Select label="Blend" value={layer.blend} options={BLEND_MODES} onChange={v => s.updateLayer(layer.id, { blend: v }, 'Blend mode')} />
+          {layer.type !== 'adjustment' && hasBoards && (
+            <Select label="Role in formats" value={(layer.role ?? '') as string} options={[{ id: '', label: 'Automatic' }, ...ROLE_OPTIONS]} onChange={v => s.updateLayer(layer.id, { role: (v || null) as any }, 'Layer role')} />
+          )}
         </div>
       </Section>
 

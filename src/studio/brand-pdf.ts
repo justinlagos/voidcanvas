@@ -10,9 +10,9 @@ import type { LogoInfo } from './brand/logo'
 const enc = new TextEncoder()
 const PT = 72 / 25.4 // points per mm
 
-interface Page { jpeg: Uint8Array; pxW: number; pxH: number; mediaW: number; mediaH: number; imgX: number; imgY: number; imgW: number; imgH: number; boxes?: string; extra?: string }
+export interface Page { jpeg: Uint8Array; pxW: number; pxH: number; mediaW: number; mediaH: number; imgX: number; imgY: number; imgW: number; imgH: number; boxes?: string; extra?: string }
 
-async function assemble(pages: Page[], withFont: boolean): Promise<Blob> {
+export async function assemble(pages: Page[], withFont: boolean): Promise<Blob> {
   const parts: (string | Uint8Array)[] = []; let pos = 0; const off: number[] = []
   const push = (p: string | Uint8Array) => { parts.push(p); pos += typeof p === 'string' ? enc.encode(p).length : p.length }
   const obj = (n: number, body: string) => { off[n] = pos; push(`${n} 0 obj\n${body}\nendobj\n`) }
@@ -53,7 +53,7 @@ export const PRINT_TRIM = { portrait: { w: 210, h: 297, label: 'A4 portrait, 210
 const BLEED = 3, SLUG = 10
 
 /** Grow a canvas by `b` px each side, repeating the edge pixels so full-bleed colour runs past the trim. */
-function withBleed(src: HTMLCanvasElement, b: number) {
+export function withBleed(src: HTMLCanvasElement, b: number) {
   const W = src.width, H = src.height
   const c = document.createElement('canvas'); c.width = W + b * 2; c.height = H + b * 2
   const x = c.getContext('2d')!
@@ -70,7 +70,7 @@ function withBleed(src: HTMLCanvasElement, b: number) {
   return c
 }
 
-const ascii = (s: string) => s.normalize('NFKD').replace(/[^\x20-\x7e]/g, '').replace(/[()\\]/g, m => '\\' + m)
+export const ascii = (s: string) => s.normalize('NFKD').replace(/[^\x20-\x7e]/g, '').replace(/[()\\]/g, m => '\\' + m)
 
 /** Print PDF: 300 dpi, 3 mm bleed, crop marks in registration, TrimBox and BleedBox for imposition. */
 export async function exportPrintPdf(brand: Brand, logo: LogoInfo | null, pages: PageSpec[], o: Orientation, filename: string) {
