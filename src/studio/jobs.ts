@@ -212,3 +212,18 @@ export function deliverableFrom(f: FormatDef): Deliverable {
 /** client_job_format_v3 */
 export const slug = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s-]+/g, '-').slice(0, 40) || 'untitled'
 export const fileName = (j: Job, d: { label: string }, v: number, ext: string) => `${slug(j.client || 'client')}_${slug(j.name)}_${slug(d.label)}_v${v}.${ext}`
+
+/** The one thing to do next on a job, for the home list and the job page. */
+export function nextAction(j: Job): { label: string; tab: 'brief' | 'refs' | 'directions' | 'formats' | 'review' | 'deliver' } {
+  if (j.status === 'delivered') return { label: 'Delivered', tab: 'deliver' }
+  if (!j.brief.trim()) return { label: 'Paste the brief', tab: 'brief' }
+  if (!j.refs.length && !j.directions.length) return { label: 'Add references', tab: 'refs' }
+  if (!j.directions.length) return { label: 'Set a direction', tab: 'directions' }
+  if (!j.chosenDirection && j.directions.length > 1) return { label: 'Pick a direction', tab: 'directions' }
+  if (!j.designId) return { label: 'Start the key visual', tab: 'formats' }
+  const left = j.deliverables.filter(d => !d.done).length
+  if (!j.deliverables.length) return { label: 'Add the formats', tab: 'formats' }
+  if (j.status === 'review' || j.versions.length) return left ? { label: `${left} format${left > 1 ? 's' : ''} to build`, tab: 'formats' } : { label: 'Ready to deliver', tab: 'deliver' }
+  if (!j.versions.length) return { label: 'Send for review', tab: 'review' }
+  return left ? { label: `${left} format${left > 1 ? 's' : ''} to build`, tab: 'formats' } : { label: 'Ready to deliver', tab: 'deliver' }
+}

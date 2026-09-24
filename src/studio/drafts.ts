@@ -72,7 +72,7 @@ export function readBrief(text: string, title = ''): BriefFields {
 
   // Headline: a labelled or quoted line, else the project title, else the first short sentence.
   const sentences = t.split(/(?<=[.!?])\s+|\n+/).map(x => x.trim()).filter(Boolean)
-  const titleOk = title && !/^untitled/i.test(title)
+  const titleOk = title && !/^(untitled|new job|new design)/i.test(title)
   // Things said to the designer, not things to print: deadlines, budgets, requests, delivery notes.
   const isInstruction = (x: string) => /\b(deadline|budget|please|send|drafts?|revert|feedback|asap|urgent|approval|approve|no later|by (?:${DAYS}|${MONTHS}|\d)|we need|i need|can you|could you|we want|i want|we would like|keep it|make it|make sure|use the|use our|attached|see attached|let me know|thanks?|regards)\b/i.test(x)
   // "Flyer for a church harvest thanksgiving" or "We need an Instagram post for our bakery's new sourdough range" describes the job; the subject is the headline.
