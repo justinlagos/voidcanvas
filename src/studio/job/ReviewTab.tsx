@@ -7,7 +7,7 @@ import { uid } from '@/editor/engine'
 import { slug, type Job, type Pin, type Version } from '../jobs'
 import { boardCanvas, boardsOf, loadDesign, toBlob } from '../render'
 import { screenPdf } from '../pdf'
-import { SCENES, renderMockup, type Pt, type SceneId } from '../mockups'
+import { SCENES, bestScene, findSurface, loadScenePhoto, quadAspect, renderOnPhoto, renderScene, sceneUrl, type Finish } from '../mockups'
 import { Btn, Empty, Overlay, focusRing, fmtDate, useObjectUrl } from '../ui'
 import type { TabProps } from './JobView'
 
@@ -247,54 +247,115 @@ function Compare({ job, v, img }: { job: Job; v: Version; img: number }) {
 }
 
 function Mockups({ im, name }: { im: Version['images'][number]; name: string }) {
-  // Wide art goes on a billboard, tall art on a wall; the designer can change it.
-  const [scene, setScene] = useState<SceneId>(() => (im.w / im.h > 1.5 ? 'billboard' : im.w / im.h < 0.7 ? 'phone' : 'wall'))
+  // Start on the scene whose surface is closest in shape to the design.
+  const [scene, setScene] = useState<string>(() => bestScene(im.w / im.h).id)
+  const [fit, setFit] = useState<'auto' | 'fill' | 'fit'>('auto')
   const [url, setUrl] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
   const [photo, setPhoto] = useState<ImageBitmap | null>(null)
-  const [quad, setQuad] = useState<Pt[] | null>(null)
+  const [quad, setQuad] = useState<[number, number][] | null>(null)
+  const [finish, setFinish] = useState<Finish>('print')
+  const [keepFront, setKeepFront] = useState(false)
   const photoIn = useRef<HTMLInputElement>(null)
-  const box = useRef<HTMLDivElement>(null)
   const dragI = useRef<number | null>(null)
   const art = useRef<HTMLCanvasElement | null>(null)
-  useEffect(() => { blobToCanvas(im.blob, 2400).then(c => { art.current = c; setUrl(null); render() }) }, [im]) // eslint-disable-line react-hooks/exhaustive-deps
-  const render = async (s: SceneId = scene, q: Pt[] | null = quad) => {
+  const seq = useRef(0)
+  const [artReady, setArtReady] = useState(0)
+  useEffect(() => { blobToCanvas(im.blob, 2400).then(c => { art.current = c; setArtReady(n => n + 1) }) }, [im])
+  // Preload the other scenes' photos quietly so switching is instant (and cached for offline use).
+  useEffect(() => { const t = setTimeout(() => SCENES.forEach(s => loadScenePhoto(s.id).catch(() => {})), 1500); return () => clearTimeout(t) }, [])
+
+  const custom = scene === 'custom'
+  const opts = { fit: fit === 'auto' ? undefined : fit, keepFront: custom ? keepFront : undefined }
+  useEffect(() => {
     if (!art.current) return
-    if (s === 'custom' && (!photo || !q)) { setUrl(null); return }
-    const c = await renderMockup(s, art.current, s === 'custom' && photo && q ? { photo, quad: q } : undefined)
-    setUrl(c.toDataURL('image/jpeg', 0.9))
-  }
-  useEffect(() => { render() }, [scene, quad, photo]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (custom && (!photo || !quad)) { setUrl(null); return }
+    const my = ++seq.current
+    setBusy(true); setErr(null)
+    // Let the busy state paint, then render. Dragging corners re-renders on release.
+    const t = setTimeout(async () => {
+      try {
+        const def = SCENES.find(s => s.id === scene)
+        const c = custom ? renderOnPhoto(photo!, [{ q: quad!, aspect: quadAspect(quad!, photo!.width, photo!.height), finish }], art.current!, opts) : await renderScene(def!, art.current!, opts)
+        if (my !== seq.current) return
+        setUrl(c.toDataURL('image/jpeg', 0.9)); c.width = 0; c.height = 0
+      } catch (e) { if (my === seq.current) setErr((e as Error).message || 'Could not render this mockup.') }
+      finally { if (my === seq.current) setBusy(false) }
+    }, 30)
+    return () => clearTimeout(t)
+  }, [scene, fit, photo, quad, finish, keepFront, artReady]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadPhoto = async (f: File) => {
     const b = await createImageBitmap(f)
-    setPhoto(b)
-    const w = b.width, h = b.height
-    setQuad([{ x: w * 0.3, y: h * 0.2 }, { x: w * 0.7, y: h * 0.2 }, { x: w * 0.7, y: h * 0.8 }, { x: w * 0.3, y: h * 0.8 }])
-    setScene('custom')
+    setPhoto(b); setQuad(findSurface(b)); setScene('custom')
   }
+  const [dragQuad, setDragQuad] = useState<[number, number][] | null>(null)
+  const shownQuad = dragQuad ?? quad
   const download = async () => { if (!url) return; const b = await (await fetch(url)).blob(); downloadBlob(b, `${name}_${scene}.jpg`) }
+  const current = SCENES.find(s => s.id === scene)
+  const ratio = custom && photo ? `${photo.width} / ${photo.height}` : undefined
   return (
-    <div className="h-full flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {SCENES.map(s => <button key={s.id} onClick={() => (s.id === 'custom' && !photo ? photoIn.current?.click() : setScene(s.id))} className={`h-8 px-3 rounded-lg text-[12.5px] ${focusRing} ${scene === s.id ? 'bg-void-700 text-white' : 'text-void-400 hover:text-white'}`}>{s.label}</button>)}
-        <input ref={photoIn} type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) loadPhoto(f) }} />
-        {scene === 'custom' && <Btn subtle onClick={() => photoIn.current?.click()}>Change photo</Btn>}
-        <span className="flex-1" />
-        <Btn onClick={download} disabled={!url}><Download size={14} />Download mockup</Btn>
+    <div className="h-full flex gap-3 min-h-0">
+      <div className="w-[132px] shrink-0 overflow-y-auto pr-1 space-y-1.5">
+        <button onClick={() => (photo ? setScene('custom') : photoIn.current?.click())} className={`w-full rounded-lg border border-dashed px-2 py-3 text-[11.5px] text-left ${focusRing} ${custom ? 'border-accent text-white' : 'border-void-700 text-void-300 hover:text-white'}`}>
+          <span className="font-medium block">Your own photo</span><span className="text-void-500">A blank wall, screen or print</span>
+        </button>
+        {SCENES.map(s => (
+          <button key={s.id} onClick={() => setScene(s.id)} title={s.label} className={`block w-full rounded-lg overflow-hidden border-2 ${focusRing} ${scene === s.id ? 'border-accent' : 'border-transparent hover:border-void-600'}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={sceneUrl(s.id, true)} alt="" loading="lazy" className="w-full aspect-[4/3] object-cover bg-void-900" />
+            <span className="block px-1.5 py-1 text-[10.5px] text-left text-void-300 bg-void-950 truncate">{s.label}</span>
+          </button>
+        ))}
+        <input ref={photoIn} type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) loadPhoto(f); e.target.value = '' }} />
       </div>
-      {scene === 'custom' && photo && <p className="text-[12px] text-void-400">Drag the four corners onto the surface in your photo: a wall, a screen, a board, a shop window.</p>}
-      <div ref={box} className="flex-1 min-h-0 flex items-center justify-center bg-black/30 rounded-xl overflow-hidden">
-        <div className="relative max-h-full max-w-full" style={{ aspectRatio: scene === 'custom' && photo ? `${photo.width} / ${photo.height}` : '1800 / 1300', height: '100%' }}
-          onPointerMove={e => {
-            if (dragI.current === null || !photo || !quad) return
-            const r = e.currentTarget.getBoundingClientRect()
-            const p = { x: ((e.clientX - r.left) / r.width) * photo.width, y: ((e.clientY - r.top) / r.height) * photo.height }
-            setQuad(quad.map((q, i) => (i === dragI.current ? p : q)))
-          }} onPointerUp={() => { dragI.current = null }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {url ? <img src={url} alt="Mockup" className="absolute inset-0 w-full h-full object-contain" /> : <span className="absolute inset-0 flex items-center justify-center text-void-500 text-[13px]">{scene === 'custom' ? 'Choose a photo' : 'Rendering…'}</span>}
-          {scene === 'custom' && photo && quad && quad.map((q, i) => (
-            <span key={i} onPointerDown={e => { (e.currentTarget.parentElement as HTMLElement).setPointerCapture(e.pointerId); dragI.current = i }} className="absolute w-5 h-5 -ml-2.5 -mt-2.5 rounded-full bg-white border-2 border-accent cursor-move shadow-lg" style={{ left: `${(q.x / photo.width) * 100}%`, top: `${(q.y / photo.height) * 100}%` }} />
-          ))}
+      <div className="flex-1 min-w-0 flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[12.5px] font-medium">{custom ? 'Your own photo' : current?.label}</span>
+          <div role="radiogroup" aria-label="Placement" className="flex rounded-lg bg-void-950 border border-void-800 p-0.5">
+            {([['auto', 'Auto'], ['fill', 'Fill'], ['fit', 'Fit']] as const).map(([k, l]) => <button key={k} role="radio" aria-checked={fit === k} onClick={() => setFit(k)} className={`h-7 px-2.5 rounded-md text-[12px] ${focusRing} ${fit === k ? 'bg-void-700 text-white' : 'text-void-400 hover:text-white'}`}>{l}</button>)}
+          </div>
+          {custom && photo && <>
+            <select value={finish} onChange={e => setFinish(e.target.value as Finish)} aria-label="Surface" className="h-8 px-2 rounded-lg bg-void-950 border border-void-800 text-[12px]">
+              <option value="print">Paper or print</option><option value="screen">Screen or lightbox</option><option value="fabric">Fabric</option>
+            </select>
+            <label className="flex items-center gap-1.5 text-[12px] text-void-300 cursor-pointer"><input type="checkbox" checked={keepFront} onChange={e => setKeepFront(e.target.checked)} className="accent-[#8b7cff]" />Keep hands and objects in front</label>
+            <Btn subtle onClick={() => setQuad(findSurface(photo))}>Find the surface again</Btn>
+            <Btn subtle onClick={() => photoIn.current?.click()}>Change photo</Btn>
+          </>}
+          <span className="flex-1" />
+          {busy && <span className="text-[12px] text-accent-light">Rendering…</span>}
+          <Btn onClick={download} disabled={!url || busy}><Download size={14} />Download mockup</Btn>
+        </div>
+        {custom && photo && <p className="text-[12px] text-void-400">Studio found the brightest plain surface. Drag the corners if it picked the wrong one. The photo&apos;s own light and shadows go over your design.</p>}
+        {err && <p className="text-[12px] text-rose-300">{err}</p>}
+        <div className="flex-1 min-h-0 flex items-center justify-center bg-black/30 rounded-xl overflow-hidden">
+          {custom && !photo ? (
+            <Empty title="Use a photo of your own" action={<Btn primary onClick={() => photoIn.current?.click()}>Choose a photo</Btn>}>Shoot a blank wall, poster frame, screen, sign or printed sheet straight on or at an angle. Studio finds the surface and puts the design on it with the photo&apos;s light.</Empty>
+          ) : (
+            <div className="relative max-h-full max-w-full" style={{ aspectRatio: ratio, height: ratio ? '100%' : undefined }}
+              onPointerMove={e => {
+                if (dragI.current === null || !photo || !shownQuad) return
+                const r = e.currentTarget.getBoundingClientRect()
+                const p: [number, number] = [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))]
+                setDragQuad(shownQuad.map((q, i) => (i === dragI.current ? p : q)))
+              }} onPointerUp={() => { if (dragI.current !== null && dragQuad) setQuad(dragQuad); dragI.current = null; setDragQuad(null) }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {url ? <img src={url} alt="Mockup" className={`${ratio ? 'absolute inset-0 w-full h-full' : 'max-h-full max-w-full'} object-contain transition-opacity ${busy ? 'opacity-70' : ''}`} style={ratio ? undefined : { maxHeight: 'calc(100vh - 260px)' }} /> : <span className="block px-10 py-24 text-void-500 text-[13px]">{err ? '' : 'Rendering…'}</span>}
+              {custom && photo && shownQuad && (
+                <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 1 1" preserveAspectRatio="none">
+                  <polygon points={shownQuad.map(p => p.join(',')).join(' ')} fill="none" stroke="#8b7cff" strokeWidth={0.003} vectorEffect="non-scaling-stroke" style={{ strokeWidth: 1.5 }} />
+                </svg>
+              )}
+              {custom && photo && shownQuad && shownQuad.map((q, i) => (
+                <span key={i} role="slider" aria-label={['Top left', 'Top right', 'Bottom right', 'Bottom left'][i] + ' corner'} aria-valuenow={Math.round(q[0] * 100)} tabIndex={0}
+                  onPointerDown={e => { (e.currentTarget.parentElement as HTMLElement).setPointerCapture(e.pointerId); dragI.current = i }}
+                  onKeyDown={e => { const d = e.shiftKey ? 0.01 : 0.002; const m: Record<string, [number, number]> = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }; const v = m[e.key]; if (!v || !quad) return; e.preventDefault(); setQuad(quad.map((p, j) => (j === i ? [p[0] + v[0], p[1] + v[1]] : p))) }}
+                  className={`absolute w-5 h-5 -ml-2.5 -mt-2.5 rounded-full bg-white border-2 border-accent cursor-move shadow-lg ${focusRing}`} style={{ left: `${q[0] * 100}%`, top: `${q[1] * 100}%` }} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
