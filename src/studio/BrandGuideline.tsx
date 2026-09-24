@@ -6,7 +6,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, AlertCircle, ChevronR
 import { Button, focusRing } from '@/editor/components/ui'
 import { canvasToBlob, downloadBlob, sendHandoff, type LayeredItem, type LayeredPage } from '@/editor/io'
 import { extractPalette } from '@/editor/engine'
-import { useBrand } from './brand/store'
+import { guardUnload, useBrand } from './brand/store'
 import { FONT_SUGGESTIONS, HARMONIES, PERSONALITIES, SCALES, buildBrand, resolve, type ArtDirection, type Brand, type FontRef, type TokKey } from './brand/tokens'
 import { RAMP_STEPS, isHex } from './brand/color'
 import { loadFont, registerLocalFont } from './brand/fonts'
@@ -359,9 +359,11 @@ const TABS = ['Identity', 'Colour', 'Type', 'Export'] as const
 export function BrandGuideline({ onBack }: { onBack: () => void }) {
   const router = useRouter()
   const tokens = useBrand(s => s.tokens), set = useBrand(s => s.set), newTake = useBrand(s => s.newTake), pages = useBrand(s => s.pages)
+  const logo = useBrand(s => s.logo), setLogoInfo = useBrand(s => s.setLogo), hydration = useBrand(s => s.hydration), hydrate = useBrand(s => s.hydrate), startOver = useBrand(s => s.startOver)
   const [tab, setTab] = useState<(typeof TABS)[number]>('Identity')
-  const [logo, setLogo] = useState<LogoInfo | null>(null)
   const [logoErr, setLogoErr] = useState('')
+  const [restoredNote, setRestoredNote] = useState<'show' | 'confirm' | 'hidden'>('show')
+  useEffect(() => { hydrate(); return guardUnload() }, [hydrate])
   const [o, setO] = useState<Orientation>('landscape')
   const [busy, setBusy] = useState<string | null>(null)
   const [active, setActive] = useState(0)
@@ -375,7 +377,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
   const onLogo = async (f: File) => {
     setLogoErr('')
     try {
-      const info = await analyseLogo(f); setLogo(info)
+      const info = await analyseLogo(f); setLogoInfo(info, f)
       const c = document.createElement('canvas'); c.width = 64; c.height = 64; const x = c.getContext('2d')!
       x.fillStyle = '#fff'; x.fillRect(0, 0, 64, 64); x.drawImage(info.img, 0, 0, 64, 64)
       // Only take a colour that has some chroma. A white, grey or black logo leaves the brand colour alone.
@@ -389,9 +391,15 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
   const exportPrint = () => run('Building print PDF', async () => { const { exportPrintPdf } = await import('./brand-pdf'); await exportPrintPdf(brand, logo, pages, o, `${base}-guidelines-print-${o}.pdf`) })
   const exportHtml = () => run('Building HTML handoff', async () => {
     const { buildHandoffHtml } = await import('./brand/handoff')
+    const { inlineGoogleFontFaces } = await import('./brand/fonts')
     const slides: string[] = []
     await eachPage(pages, brand, logo, o, 1, async c => { slides.push(c.toDataURL('image/jpeg', 0.85)) })
-    downloadBlob(new Blob([buildHandoffHtml(brand, logo, slides)], { type: 'text/html' }), `${base}-brand.html`)
+    // Fonts go into the file, so it reads the same offline. Anything that cannot be fetched is linked instead.
+    setBusy('Embedding fonts')
+    const google = Array.from(new Set([brand.fonts.heading, brand.fonts.body, brand.fonts.mono].filter(f => f.source === 'google').map(f => f.family)))
+    const { css, missing } = await inlineGoogleFontFaces(google)
+    downloadBlob(new Blob([buildHandoffHtml(brand, logo, slides, css, missing)], { type: 'text/html' }), `${base}-brand.html`)
+    if (missing.length) setErr(`Saved. ${missing.join(', ')} could not be embedded, so the file loads ${missing.length === 1 ? 'it' : 'them'} from Google when online.`)
   })
   // Brand memory: the resolved system becomes a client brand Studio jobs can check against.
   const saveAsClient = async () => {
@@ -449,6 +457,19 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
         </div>
       </header>
 
+      {hydration === 'restored' && restoredNote !== 'hidden' && (
+        <div role="status" data-brand-restored className="flex flex-wrap items-center gap-3 px-4 py-2 border-b border-void-800/60 bg-void-900/60 text-[12.5px] text-void-300">
+          {restoredNote === 'show' ? <>
+            <span>Picked up where you left off. Your brand is saved on this device as you work.</span>
+            <button onClick={() => setRestoredNote('confirm')} className={`ml-auto h-7 px-2.5 rounded-md border border-void-700 text-void-200 hover:text-white ${focusRing}`}>Start over</button>
+            <button onClick={() => setRestoredNote('hidden')} aria-label="Dismiss" className={`h-7 px-2 rounded-md text-void-400 hover:text-white ${focusRing}`}>Dismiss</button>
+          </> : <>
+            <span>Start a new brand? The saved one on this device will be cleared.</span>
+            <button onClick={() => { startOver(); setRestoredNote('hidden') }} className={`ml-auto h-7 px-2.5 rounded-md bg-red-900/60 border border-red-800 text-white ${focusRing}`}>Clear and start over</button>
+            <button onClick={() => setRestoredNote('show')} className={`h-7 px-2 rounded-md text-void-400 hover:text-white ${focusRing}`}>Keep it</button>
+          </>}
+        </div>
+      )}
       <div className="flex-1 flex flex-col lg:flex-row min-h-0">
         <aside className="order-last lg:order-none lg:w-[330px] shrink-0 border-t lg:border-t-0 lg:border-r border-void-800/60 flex flex-col min-h-0">
           <div role="tablist" className="grid grid-cols-4 gap-1 p-2 border-b border-void-800/60">
