@@ -12,7 +12,7 @@ const MODULES = [
 export function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <Link href="/" className="flex items-center gap-2.5 shrink-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent" aria-label="Voidcanvas home">
-      <span className="w-7 h-7 bg-white rounded-md flex items-center justify-center">
+      <span className="w-7 h-7 bg-white rounded-md flex items-center justify-center ring-1 ring-black/[0.08]">
         <span className="text-void-950 font-bold text-sm tracking-tight">V</span>
       </span>
       {!compact && <span className="hidden sm:block text-[15px] font-semibold tracking-tight">Void<span className="text-void-500">canvas</span></span>}

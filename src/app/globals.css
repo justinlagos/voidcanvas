@@ -163,3 +163,54 @@ input[type="range"].vc-bar::-moz-range-track { background: #3a3a44; }
 
 /* Landing page: tab panel swap. */
 @keyframes fadein { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+
+/* Landing page theme. Two art directions on one structure. Scoped to .lp so the app itself is never affected. */
+.lp {
+  --lp-bg: #0d0d10;
+  --lp-fg: #ffffff;
+  --lp-text: #eeeef0;
+  --lp-muted: #b8b8c1;
+  --lp-dim: #91919f;
+  --lp-faint: #747484;
+  --lp-card: #131318;
+  --lp-panel: #1a1a1e;
+  --lp-line: rgba(255, 255, 255, 0.08);
+  --lp-accent-text: #b9afff;
+  --lp-btn: #ffffff;
+  --lp-btn-fg: #0d0d10;
+  --lp-btn-hover: #e6e6ea;
+  --lp-nav: rgba(13, 13, 16, 0.75);
+  --lp-glow: rgba(139, 124, 255, 0.22);
+  --lp-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  --lp-shadow-sm: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --lp-ring: rgba(255, 255, 255, 0.1);
+  --lp-field: #141418;
+  color-scheme: dark;
+}
+html[data-lp-theme="light"] .lp {
+  /* Paper, not inverted dark: warm-neutral ground, white cards, ink type, deeper accent for text. */
+  --lp-bg: #f2f1f4;
+  --lp-fg: #0d0d10;
+  --lp-text: #1a1a1f;
+  --lp-muted: #4d4d58;
+  --lp-dim: #5e5e6c;
+  --lp-faint: #7a7a88;
+  --lp-card: #ffffff;
+  --lp-panel: #e8e7ec;
+  --lp-line: rgba(13, 13, 16, 0.09);
+  --lp-accent-text: #5f4fe0;
+  --lp-btn: #0d0d10;
+  --lp-btn-fg: #ffffff;
+  --lp-btn-hover: #2a2a33;
+  --lp-nav: rgba(242, 241, 244, 0.8);
+  --lp-glow: rgba(139, 124, 255, 0.3);
+  --lp-shadow: 0 30px 70px rgba(24, 18, 48, 0.16);
+  --lp-shadow-sm: 0 16px 40px rgba(24, 18, 48, 0.14);
+  --lp-ring: rgba(13, 13, 16, 0.08);
+  --lp-field: #ffffff;
+  color-scheme: light;
+}
+html[data-lp-theme="light"] body { background: #f2f1f4; }
+html[data-lp-theme="light"] .lp ::selection { background: rgba(139, 124, 255, 0.25); color: inherit; }
+/* Theme switch: the ground cross-fades; everything else swaps at once. */
+.lp { transition: background-color 0.25s, color 0.25s; }

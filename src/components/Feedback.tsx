@@ -55,7 +55,7 @@ function FeedbackWidget({ path }: { path: string }) {
     check(); const mo = new MutationObserver(check); mo.observe(document.body, { childList: true, subtree: true }); addEventListener('resize', check)
     return () => { mo.disconnect(); removeEventListener('resize', check) }
   }, [path])
-  const showButton = !path.startsWith('/editor') && !open && !hasBar
+  const showButton = path !== '/' && !path.startsWith('/editor') && !open && !hasBar
 
   const submit = async () => {
     if (!mood && !msg.trim()) return

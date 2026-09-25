@@ -25,6 +25,12 @@ const config: Config = {
           light: '#b9afff',
           soft: 'rgba(139,124,255,0.15)',
         },
+        // Landing page theme tokens (dark and light art directions). Defined in globals.css, landing only.
+        lp: {
+          bg: 'var(--lp-bg)', fg: 'var(--lp-fg)', text: 'var(--lp-text)', muted: 'var(--lp-muted)', dim: 'var(--lp-dim)', faint: 'var(--lp-faint)',
+          card: 'var(--lp-card)', panel: 'var(--lp-panel)', line: 'var(--lp-line)', accent: 'var(--lp-accent-text)',
+          btn: 'var(--lp-btn)', 'btn-fg': 'var(--lp-btn-fg)', 'btn-hover': 'var(--lp-btn-hover)',
+        },
         void: {
           50: '#f7f7f8',
           100: '#eeeef0',
