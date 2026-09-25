@@ -143,7 +143,8 @@ export interface TextLayer extends LayerBase {
   spaceAfter?: number
   baselineShift?: number
   outline?: { color: string; width: number } | null
-  shadow?: { color: string; blur: number; x: number; y: number } | null
+  /** Text shadow. opacity is 0..1 and defaults to 1 for designs saved before it existed. */
+  shadow?: { color: string; blur: number; x: number; y: number; opacity?: number } | null
   /** Type on a path: the path in layer-local pixels, where the text starts along it (px) and which side it sits on. */
   onPath?: TextPath | null
 }

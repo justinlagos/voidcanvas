@@ -8,7 +8,7 @@ import { Bebas_Neue, Instrument_Serif } from 'next/font/google'
 import type { CSSProperties, ReactNode } from 'react'
 
 export const display = Bebas_Neue({ weight: '400', subsets: ['latin'], display: 'swap', variable: '--font-display' })
-export const serif = Instrument_Serif({ weight: '400', style: ['normal', 'italic'], subsets: ['latin'], display: 'swap', variable: '--font-serif' })
+export const serif = Instrument_Serif({ weight: '400', style: ['normal', 'italic'], subsets: ['latin'], display: 'swap', variable: '--font-serif', adjustFontFallback: false })
 export const workFonts = `${display.variable} ${serif.variable}`
 
 const D: CSSProperties = { fontFamily: 'var(--font-display), Impact, sans-serif' }

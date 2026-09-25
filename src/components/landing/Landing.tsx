@@ -468,9 +468,13 @@ export function Landing() {
             <li>Usage counts are anonymous: event names, small settings such as file type, page area, device type, browser, time zone and screen size, with a random id for this browser. Never images, file names, text or layer content. Off in a private session, when Do Not Track or Global Privacy Control is on, or when you switch them off.</li>
             <li>Saved designs live only in this browser on this device. Clearing site data removes them. Export or save as a template anything you need to keep.</li>
           </ol>
-          <div className="mt-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-[13px] text-void-400">
-            <div className="flex items-center gap-3"><Logo compact /><span>Voidcanvas</span></div>
-            <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
+          <div className="mt-10 flex flex-col sm:flex-row sm:items-start justify-between gap-6 text-[13px] text-void-400">
+            <div className="max-w-[420px]">
+              <div className="flex items-center gap-3 text-void-200"><Logo compact /><span className="font-medium">Voidcanvas</span></div>
+              <p className="mt-3 leading-relaxed">Made by <span className="text-void-200">MotionPlay Labs</span>, a design and software studio working between Lagos and Kent.</p>
+              <p className="mt-2 text-[12px] text-void-500 leading-relaxed">MotionPlay Labs Ltd is registered in England and Wales, company no. 17304660, and in Nigeria with the Corporate Affairs Commission, RC 9621200.</p>
+            </div>
+            <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2 sm:max-w-[300px]">
               <Link href="/studio" className={`hover:text-white ${focus}`}>Studio</Link>
               <Link href="/editor" className={`hover:text-white ${focus}`}>Editor</Link>
               <Link href="/effects" className={`hover:text-white ${focus}`}>Effects</Link>
@@ -479,7 +483,7 @@ export function Landing() {
               <Link href="/tools/glitch" className={`hover:text-white ${focus}`}>Glitch</Link>
               <button onClick={() => setPrivacy(true)} className={`hover:text-white ${focus}`}>Privacy</button>
             </nav>
-            <p>© {new Date().getFullYear()} Voidcanvas. The sequel to Art Director Studio.</p>
+            <p className="sm:text-right sm:max-w-[200px]">© {new Date().getFullYear()} MotionPlay Labs Ltd.<br className="hidden sm:block" />The sequel to Art Director Studio.</p>
           </div>
         </div>
       </footer>

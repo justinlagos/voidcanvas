@@ -1,7 +1,7 @@
 import { applyEffect } from '@/lib/effects'
 import { FX_WORK, scaleParams } from '@/lib/effect-scale'
 import type { AdjustmentLayer, Doc, Frame, Group, HueBand, Layer, RasterLayer, Rect, ShapeLayer, SubPath, TextLayer } from './types'
-import { drawStyled, hasActiveStyles } from './styles'
+import { drawStyled, hasActiveStyles, withAlpha } from './styles'
 import { transferStats } from '@/studio/analyze'
 
 // ─── Canvas helpers ────────────────────────────────────────────────
@@ -238,7 +238,7 @@ export function drawLayerContent(ctx: CanvasRenderingContext2D, l: Layer, k = 1)
         }
       }
     }
-    if (l.shadow) { ctx.shadowColor = l.shadow.color; ctx.shadowBlur = l.shadow.blur * k; ctx.shadowOffsetX = l.shadow.x * k; ctx.shadowOffsetY = l.shadow.y * k }
+    if (l.shadow) { ctx.shadowColor = withAlpha(l.shadow.color, l.shadow.opacity ?? 1); ctx.shadowBlur = l.shadow.blur * k; ctx.shadowOffsetX = l.shadow.x * k; ctx.shadowOffsetY = l.shadow.y * k }
     if (l.outline && l.outline.width > 0) {
       ctx.strokeStyle = l.outline.color; ctx.lineWidth = l.outline.width * 2; ctx.lineJoin = 'round'
       paint((t, x, y) => ctx.strokeText(t, x, y))
@@ -1198,7 +1198,7 @@ function drawTextOnPath(ctx: CanvasRenderingContext2D, l: TextLayer, k: number) 
       fn(ch); ctx.restore()
     })
   }
-  if (l.shadow) { ctx.shadowColor = l.shadow.color; ctx.shadowBlur = l.shadow.blur * k; ctx.shadowOffsetX = l.shadow.x * k; ctx.shadowOffsetY = l.shadow.y * k }
+  if (l.shadow) { ctx.shadowColor = withAlpha(l.shadow.color, l.shadow.opacity ?? 1); ctx.shadowBlur = l.shadow.blur * k; ctx.shadowOffsetX = l.shadow.x * k; ctx.shadowOffsetY = l.shadow.y * k }
   if (l.outline && l.outline.width > 0) { ctx.strokeStyle = l.outline.color; ctx.lineWidth = l.outline.width * 2; ctx.lineJoin = 'round'; paint(ch => ctx.strokeText(ch, 0, 0)); ctx.shadowColor = 'transparent' }
   paint(ch => ctx.fillText(ch, 0, 0))
   ctx.shadowColor = 'transparent'; ctx.textAlign = 'left'
