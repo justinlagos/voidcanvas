@@ -37,6 +37,11 @@ To see a function's current SQL: `select pg_get_functiondef('public.vc_admin_das
 | `error` | uncaught error (max 10 per tab, URLs stripped) | `msg, src` |
 | `feedback.open` / `feedback.sent` | feedback box | `trigger, mood, has_text` |
 | `pwa.install` | app installed | none |
+| `bug.open` / `bug.sent` | in-app bug report box opened / report sent (the report itself goes to `feedback` with `context.kind = 'bug'`) | `trigger` / `where, severity` |
+| `help.open` | a link in the Help menu of Studio, Effects or the quick tools | `to` |
+| `learn.search`, `learn.search.pick` | search on /learn (first 40 characters of the query) | `q, n` / `slug` |
+| `learn.helpful` | "Was this guide useful?" | `slug, yes` |
+| `landing.nav` | Blog link in the landing header | `to` |
 
 ## Local testing
 

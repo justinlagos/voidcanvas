@@ -142,7 +142,7 @@ export function MenuBar({ onExport, onAdd, onSearch }: { onExport: () => void; o
         </button>
         {open === 0 && (
           <div className="absolute left-0 top-full mt-1 min-w-[240px] py-1.5 rounded-xl bg-[#1d1d23] border border-white/[0.09] shadow-2xl" role="menu">
-            {[['/', 'Home and all designs'], ['/studio', 'Studio: briefs and brand'], ['/effects', 'Effects: one-click looks'], ['/tools/halftone', 'Quick tools']].map(([href, label]) => (
+            {[['/', 'Home and all designs'], ['/studio', 'Studio: briefs and brand'], ['/effects', 'Effects: one-click looks'], ['/tools/halftone', 'Quick tools'], ['/learn', 'Learn']].map(([href, label]) => (
               <Link key={href} href={href} role="menuitem" onClick={() => setOpen(null)} className="flex items-center h-8 pl-8 pr-3 text-[13px] text-void-100 hover:bg-accent hover:text-white">{label}</Link>
             ))}
             <div className="my-1 mx-2 h-px bg-white/[0.07]" />

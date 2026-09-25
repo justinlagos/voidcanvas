@@ -1,5 +1,6 @@
 'use client'
 
+import { HelpMenu } from '@/components/HelpMenu'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeft, Camera, Check, Copy, Crop, Eclipse, FlipHorizontal, ImageIcon, ImageOff, Layers as LayersIcon, MoreHorizontal, PenLine, Redo2, Share2, Sparkles, Trash2, Type, Undo2, Wand2 } from 'lucide-react'
 import { useEditor } from '../store'
@@ -78,6 +79,7 @@ export function MobileEditor() {
         <input aria-label="Design name" value={name} onChange={e => s.setDoc({ name: e.target.value })} onBlur={() => useEditor.setState({ dirty: true })} className="flex-1 min-w-0 h-9 px-2 rounded-md bg-transparent text-[14px] text-void-100 truncate outline-none focus:bg-void-900" />
         <button aria-label="Undo" disabled={!canUndo} onClick={s.undo} className="w-10 h-10 flex items-center justify-center rounded-lg text-void-200 disabled:opacity-30 active:bg-void-800"><Undo2 size={19} /></button>
         <button aria-label="Redo" disabled={!canRedo} onClick={s.redo} className="w-10 h-10 flex items-center justify-center rounded-lg text-void-200 disabled:opacity-30 active:bg-void-800"><Redo2 size={19} /></button>
+        <HelpMenu />
         <button onClick={() => { setMode(null); setSheet(sheet === 'export' ? null : 'export') }} className="h-9 px-3 ml-1 rounded-lg bg-white text-void-950 text-[13px] font-medium inline-flex items-center gap-1.5"><Share2 size={15} />Share</button>
       </header>
 

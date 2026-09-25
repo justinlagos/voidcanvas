@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import { Toolbar } from './Toolbar'
 import { AppNav, Logo } from './AppNav'
+import { HelpMenu } from './HelpMenu'
 import { useStore } from '@/store/useStore'
 
 export function Header() {
@@ -28,6 +29,7 @@ export function Header() {
 
       <div className="flex items-center gap-3">
         {originalImage && <Toolbar />}
+        <HelpMenu />
       </div>
     </header>
   )

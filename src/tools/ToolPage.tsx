@@ -10,6 +10,7 @@ import { EXPORT_MAX, FX_WORK } from '@/lib/effect-scale'
 import { effectParams } from '@/components/ParamControls'
 import { defaultParams, type EffectType, type EffectParams } from '@/store/useStore'
 import { Logo } from '@/components/AppNav'
+import { HelpMenu } from '@/components/HelpMenu'
 import { canvasToBlob, downloadBlob, sendHandoff } from '@/editor/io'
 import { track } from '@/lib/analytics'
 import { EFFECT_COUNT } from '@/components/effect-list'
@@ -131,6 +132,7 @@ export function ToolPage({ def }: { def: ToolDef }) {
         <nav className="flex items-center gap-1 text-[13px]">
           <Link href="/effects" className={`px-3 h-8 inline-flex items-center rounded-lg text-void-400 hover:text-white hover:bg-void-900 ${focus}`}>Effects</Link>
           <Link href="/editor" className={`px-3 h-8 inline-flex items-center rounded-lg text-void-100 bg-void-800/70 hover:bg-void-800 ${focus}`}>Open Editor</Link>
+          <HelpMenu className="ml-1" />
         </nav>
       </header>
 

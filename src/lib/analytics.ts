@@ -23,6 +23,8 @@ let timer: ReturnType<typeof setTimeout> | null = null
 let started = false
 let errorsSent = 0
 const recentActions: string[] = []
+// Recent error messages, kept only in memory. They leave the device only inside a bug report the person sends.
+const recentErrors: string[] = []
 
 const ls = {
   get(k: string) { try { return localStorage.getItem(k) } catch { return null } },
@@ -136,6 +138,7 @@ export function initAnalytics() {
   const report = (msg: string, src: string) => {
     if (errorsSent >= 10) return
     const m = String(msg || 'Unknown error').replace(/https?:\/\/\S+/g, '[url]').replace(/blob:\S+/g, '[blob]').slice(0, 160)
+    if (!/ResizeObserver loop|Script error\.?$/.test(m) && recentErrors[recentErrors.length - 1] !== m) { recentErrors.push(m); if (recentErrors.length > 5) recentErrors.shift() }
     if (/ResizeObserver loop|Script error\.?$/.test(m) || seen.has(m)) return
     seen.add(m); errorsSent++
     track('error', { msg: m, src })
@@ -174,3 +177,47 @@ export function noteExportForPrompt() {
   ls.set('vc-exports', String(n))
   if (n >= 2 && !ls.get('vc-asked')) { ls.set('vc-asked', '1'); setTimeout(() => { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('vc:feedback', { detail: { trigger: 'after-export', quick: true } })) }, 1200) }
 }
+
+export interface BugReport {
+  summary: string; steps: string; expected: string
+  where: string; severity: string; frequency: string
+  email: string; details: boolean
+}
+
+/** What a bug report attaches when "Include technical details" is on. Shown to the person before sending. */
+export function bugDetails() {
+  if (typeof window === 'undefined') return null
+  const e = env()
+  return {
+    page: location.pathname.slice(0, 200), device: e.device, browser: e.browser, os: e.os, screen: e.screen,
+    window: `${innerWidth}x${innerHeight}`, installed: e.installed, lang: e.lang, tz: e.tz,
+    recent: recentActions.slice(-5).join(','), errors: recentErrors.join(' | ').slice(0, 800),
+  }
+}
+
+/** Sends a bug report through the feedback table, marked kind: bug. Works even when usage counts are off,
+ *  because the person chose to send it. Never includes images, file names or design content. */
+export async function sendBugReport(b: BugReport, fromPath?: string): Promise<boolean> {
+  if (typeof window === 'undefined') return false
+  const d = deviceId(); const s = sessionId()
+  const path = (fromPath || location.pathname).slice(0, 200)
+  const body = [
+    b.summary.trim(),
+    b.steps.trim() && `Steps:\n${b.steps.trim()}`,
+    b.expected.trim() && `Expected:\n${b.expected.trim()}`,
+  ].filter(Boolean).join('\n\n').slice(0, 2000)
+  const det = b.details ? bugDetails() : null
+  const row = {
+    device_id: d.id, session_id: s.id, mood: null, message: `[Bug] ${body}`.slice(0, 2000), email: b.email.trim().slice(0, 200) || null,
+    area: areaOf(path), path,
+    context: { trigger: 'bug-report', kind: 'bug', where: b.where, severity: b.severity, frequency: b.frequency, ...(det ? { ...det, page: path } : { details: 'withheld' }) },
+  }
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/feedback`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(row) })
+    if (r.ok) track('bug.sent', { where: b.where, severity: b.severity })
+    return r.ok
+  } catch { return false }
+}
+
+/** Opens the bug report box from anywhere in the app. */
+export function openBugReport(trigger = 'menu') { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('vc:bug', { detail: { trigger } })) }

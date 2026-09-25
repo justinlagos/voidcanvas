@@ -9,6 +9,7 @@ const inter = Inter({ subsets: ['latin'], weight: ['300', '400', '500', '600', '
 const mono = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500'], display: 'swap', variable: '--font-mono' })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://voidcanvas.netlify.app'),
   title: 'Voidcanvas: brief to finished design in your browser',
   description: 'A layered editor, brand builder and effects that run entirely in your browser. Your files never leave your device. No account, no cloud.',
   manifest: '/manifest.webmanifest',

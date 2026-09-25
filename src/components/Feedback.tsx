@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Frown, Meh, MessageSquare, Smile, X } from 'lucide-react'
 import { initAnalytics, openFeedback, sendFeedback, track } from '@/lib/analytics'
+import { BugDialog } from '@/components/site/BugDialog'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const MOODS = [
@@ -19,7 +20,7 @@ export function Analytics() {
   const path = usePathname() ?? '/'
   useEffect(() => { initAnalytics() }, [])
   useEffect(() => { if (!path.startsWith('/admin') && lastView !== path) { lastView = path; track('page.view') } }, [path])
-  return <FeedbackWidget path={path} />
+  return <><FeedbackWidget path={path} /><BugDialog /></>
 }
 
 function FeedbackWidget({ path }: { path: string }) {
@@ -55,7 +56,8 @@ function FeedbackWidget({ path }: { path: string }) {
     check(); const mo = new MutationObserver(check); mo.observe(document.body, { childList: true, subtree: true }); addEventListener('resize', check)
     return () => { mo.disconnect(); removeEventListener('resize', check) }
   }, [path])
-  const showButton = path !== '/' && !path.startsWith('/editor') && !open && !hasBar
+  const onSite = /^\/(learn|blog|about|report-a-bug)(\/|$)/.test(path)
+  const showButton = path !== '/' && !onSite && !path.startsWith('/editor') && !open && !hasBar
 
   const submit = async () => {
     if (!mood && !msg.trim()) return

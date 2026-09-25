@@ -8,26 +8,23 @@
 
 import Link from 'next/link'
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowRight, ArrowUpRight, ChevronDown, Moon, Sun, ChevronLeft, ChevronRight, Lock, Play } from 'lucide-react'
+import { ArrowRight, BookOpen, ChevronDown, Moon, Sun, ChevronLeft, ChevronRight, Lock, Play } from 'lucide-react'
 import { Logo } from '@/components/AppNav'
-import { MotionPlayLabsLogo } from './MotionPlayLabsLogo'
+import { SiteFooter } from '@/components/site/SiteFooter'
+import { useLpTheme } from '@/components/site/theme'
+import { CatIcon } from '@/components/site/bits'
+import type { LearnCategory } from '@/content/types'
 import { PrivacyPanel, PrivateBadge } from '@/editor/components/PrivacyPanel'
 import { initPrivateFromSession, listProjects, idb, type ProjectSummary } from '@/editor/io'
 import { nextAction, type Job } from '@/studio/jobs'
 import { EFFECT_COUNT } from '@/components/effect-list'
 import { SIZE_PRESETS } from '@/editor/presets'
-import { sendFeedback, track } from '@/lib/analytics'
+import { track } from '@/lib/analytics'
 import { Ami, Analogue, EditorFrame, EditorLive, EffectsFrame, Fx, Kofi, KofiGuide, Move, Oya, Photo, Sessions, StudioFrame, workFonts } from './work'
 import { Scene } from './motion'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const APP = 'https://voidcanvas.netlify.app'
-
-const FOOTER_LINKS: [string, [string, string][]][] = [
-  ['Make', [['Studio', '/studio'], ['Editor', '/editor'], ['Effects', '/effects']]],
-  ['Quick tools', [['Halftone', '/tools/halftone'], ['Dither', '/tools/dither'], ['Glitch', '/tools/glitch']]],
-  ['About', [['Privacy', '#privacy'], ['Art Director Studio', 'https://artdirectorstudio.com']]],
-]
 
 const FOOTNOTES: [string, string][] = [
   ['Background removal', 'Runs on your device. The model (MODNet via transformers.js, both Apache-2.0) downloads once from a CDN on first use. Your image is never sent.'],
@@ -165,43 +162,6 @@ function Panel({ art, caption, wide }: { art: ReactNode; caption: ReactNode; wid
       <div className={`${wide ? 'aspect-[16/10]' : 'aspect-[4/5]'} sm:aspect-[16/10]`}>{art}</div>
       <figcaption className="px-6 sm:px-10 py-5 sm:py-7 text-center text-[16px] sm:text-[20px] font-semibold tracking-tight text-lp-fg max-w-[820px] mx-auto">{caption}</figcaption>
     </figure>
-  )
-}
-
-/** Feedback, in the footer. One field, an optional email, a send button; sends through the same channel as the app. */
-function FeedbackForm() {
-  const [msg, setMsg] = useState('')
-  const [email, setEmail] = useState('')
-  const [state, setState] = useState<'idle' | 'sending' | 'done' | 'failed'>('idle')
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!msg.trim() || state === 'sending') return
-    setState('sending')
-    const ok = await sendFeedback({ mood: null, message: msg, email, trigger: 'footer' })
-    setState(ok ? 'done' : 'failed')
-    if (ok) { setMsg(''); setEmail('') }
-  }
-  const field = `w-full rounded-lg bg-[var(--lp-field)] border border-lp-line px-3 text-[13px] text-lp-text placeholder:text-lp-faint focus:border-lp-faint focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent transition-colors`
-  return (
-    <form onSubmit={submit} aria-label="Feedback" className="text-[13px]">
-      <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-lp-faint">Feedback</h3>
-      <p className="mt-2.5 text-lp-dim">What would you improve? Every message is read.</p>
-      {state === 'done' ? (
-        <div role="status" className="mt-3 rounded-lg border border-lp-line bg-lp-panel px-3 py-2.5 text-lp-text flex items-center justify-between gap-3">
-          <span>Thanks. Every message is read.</span>
-          <button type="button" onClick={() => setState('idle')} className={`text-lp-dim hover:text-lp-fg rounded ${focus}`}>Send another</button>
-        </div>
-      ) : (
-        <>
-          <textarea value={msg} onChange={e => { setMsg(e.target.value); if (state === 'failed') setState('idle') }} maxLength={2000} rows={2} required aria-label="Your feedback" placeholder="What should we fix or add?" className={`${field} mt-3 py-2 resize-none`} />
-          <div className="mt-2 flex gap-2">
-            <input value={email} onChange={e => setEmail(e.target.value)} type="email" maxLength={200} aria-label="Email, only if you want a reply" placeholder="Email, if you want a reply" className={`${field} h-9 min-w-0 flex-1`} />
-            <button type="submit" disabled={state === 'sending' || !msg.trim()} aria-busy={state === 'sending'} className={`h-9 px-3.5 shrink-0 rounded-lg bg-lp-btn text-lp-btn-fg text-[13px] font-medium disabled:opacity-40 hover:bg-lp-btn-hover ${focus}`}>{state === 'sending' ? 'Sending…' : 'Send feedback'}</button>
-          </div>
-          <p className={`mt-2 text-[11.5px] ${state === 'failed' ? 'text-rose-400' : 'text-lp-faint'}`} role={state === 'failed' ? 'alert' : undefined}>{state === 'failed' ? 'Could not send. Check your connection and try again.' : 'Your designs are never sent.'}</p>
-        </>
-      )}
-    </form>
   )
 }
 
@@ -382,21 +342,17 @@ const QA = [
 
 /* ---------- page ---------- */
 
-export function Landing() {
+export interface LandingLearn {
+  total: number
+  paths: { id: string; name: string; blurb: string; steps: { slug: string; title: string; min: number }[] }[]
+  cats: { id: LearnCategory; name: string; count: number }[]
+  posts: { slug: string; title: string; summary: string; date: string; iso: string }[]
+}
+
+export function Landing({ learn }: { learn: LandingLearn }) {
   const [privacy, setPrivacy] = useState(false)
   // Landing-only theme. The choice is read before hydration by the script in page.tsx and kept in localStorage.
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
-  useEffect(() => {
-    setTheme(document.documentElement.getAttribute('data-lp-theme') === 'light' ? 'light' : 'dark')
-    return () => { document.documentElement.removeAttribute('data-lp-theme') }
-  }, [])
-  const flipTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark'
-    setTheme(next)
-    if (next === 'light') document.documentElement.setAttribute('data-lp-theme', 'light'); else document.documentElement.removeAttribute('data-lp-theme')
-    try { localStorage.setItem('vc-landing-theme', next) } catch { /* private mode */ }
-    track('landing.theme', { theme: next })
-  }
+  const { theme, flip: flipTheme } = useLpTheme()
   const [tab, setTab] = useState(0)
   const [open, setOpen] = useState<number | null>(0)
   const [recent, setRecent] = useState<ProjectSummary[]>([])
@@ -424,7 +380,7 @@ export function Landing() {
   useEffect(() => {
     const on = () => setScrolled(scrollY > 8)
     on(); addEventListener('scroll', on, { passive: true })
-    const ids = ['editor', 'studio', 'effects', 'free', 'questions']
+    const ids = ['editor', 'studio', 'effects', 'learn', 'questions']
     const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) setHere(e.target.id) }, { rootMargin: '-45% 0px -50% 0px' })
     ids.forEach(id => { const el = document.getElementById(id); if (el) io.observe(el) })
     return () => { removeEventListener('scroll', on); io.disconnect() }
@@ -437,11 +393,12 @@ export function Landing() {
         <div className="max-w-[1120px] mx-auto h-full px-5 sm:px-8 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3"><Logo /><PrivateBadge /></div>
           <nav aria-label="Sections" className="hidden md:flex items-center gap-6 text-[13px] text-lp-dim">
-            {[['#editor', 'Editor'], ['#studio', 'Studio'], ['#effects', 'Effects'], ['#free', 'Free'], ['#questions', 'Questions']].map(([h, l]) => (
+            {[['#editor', 'Editor'], ['#studio', 'Studio'], ['#effects', 'Effects'], ['#learn', 'Learn'], ['#questions', 'Questions']].map(([h, l]) => (
               <a key={h} href={h} aria-current={here === h.slice(1) ? 'true' : undefined} className={`relative py-1 rounded transition-colors ${here === h.slice(1) ? 'text-lp-fg' : 'hover:text-lp-fg'} ${focus}`}>
                 {l}<span className={`absolute left-0 right-0 -bottom-[13px] h-[2px] rounded-full bg-accent transition-transform duration-300 origin-center ${here === h.slice(1) ? 'scale-x-100' : 'scale-x-0'}`} />
               </a>
             ))}
+            <Link href="/blog" onClick={() => track('landing.nav', { to: 'blog' })} className={`py-1 rounded hover:text-lp-fg ${focus}`}>Blog</Link>
           </nav>
           <div className="flex items-center gap-2">
             <button onClick={() => setPrivacy(true)} className={`hidden sm:flex items-center gap-1.5 h-8 px-2 rounded-md text-[13px] text-lp-dim hover:text-lp-fg ${focus}`}><Lock size={13} />Your privacy</button>
@@ -582,6 +539,69 @@ export function Landing() {
         </div>
       </Seen>
 
+      {/* Learn: the library, as a place to start. Paths first, then topics, then the latest from the blog. */}
+      <Seen id="learn" className="pt-28 sm:pt-40">
+        <div className="max-w-[1120px] mx-auto px-5 sm:px-8">
+          <Reveal className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+            <div>
+              <Eyebrow>Learn</Eyebrow>
+              <H2 className="mt-3 max-w-[760px]">Get good at the tools.<br />Then get better at design.</H2>
+            </div>
+            <p className="text-[17px] text-lp-muted max-w-[400px] leading-relaxed lg:pb-2"><strong className="text-lp-fg font-semibold">{learn.total} guides</strong>, from your first design to print-ready files, plus type, colour and layout taught properly. Every step checked against the app.</p>
+          </Reveal>
+
+          <div className="mt-10 sm:mt-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {learn.paths.map((p, i) => (
+              <Reveal key={p.id} delay={i * 70} className="group relative rounded-[24px] bg-lp-card border border-lp-line p-6 flex flex-col hover:border-lp-faint transition-colors">
+                <span className="text-[12.5px] font-semibold text-lp-accent">Path {i + 1}</span>
+                <h3 className="mt-2 text-[20px] font-semibold tracking-tight text-lp-fg leading-snug">
+                  <Link href={`/learn/${p.steps[0].slug}?path=${p.id}`} onClick={() => track('landing.cta', { where: 'learn.path', href: p.id })} className={`after:absolute after:inset-0 after:rounded-[24px] rounded ${focus}`}>{p.name}</Link>
+                </h3>
+                <p className="mt-1.5 text-[14px] text-lp-dim leading-relaxed">{p.blurb}</p>
+                <ol className="hidden sm:block mt-4 space-y-1.5 text-[13px] text-lp-muted">
+                  {p.steps.slice(0, 4).map((st, j) => <li key={st.slug} className="flex gap-2"><span className="w-4 shrink-0 text-lp-faint tabular-nums">{j + 1}</span><span className="line-clamp-1">{st.title}</span></li>)}
+                  {p.steps.length > 4 && <li className="pl-6 text-lp-faint">and {p.steps.length - 4} more</li>}
+                </ol>
+                <span className="mt-auto pt-5 flex items-center justify-between text-[12.5px] text-lp-faint">
+                  <span>{p.steps.length} guides · {p.steps.reduce((n, x) => n + x.min, 0)} min</span>
+                  <ArrowRight size={16} className="text-lp-accent transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal className="mt-4 grid lg:grid-cols-[1fr_1.1fr] gap-4">
+            <div className="rounded-[24px] bg-lp-card border border-lp-line p-6 sm:p-7">
+              <h3 className="text-[13px] font-semibold text-lp-dim">Every topic</h3>
+              <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1">
+                {learn.cats.map(c => (
+                  <li key={c.id}><Link href={`/learn#${c.id}`} onClick={() => track('landing.cta', { where: 'learn.topic', href: c.id })} className={`flex items-center gap-2.5 py-2 rounded text-[14.5px] text-lp-text hover:text-lp-fg ${focus}`}><CatIcon id={c.id} size={16} className="text-lp-accent shrink-0" /><span className="flex-1 truncate">{c.name}</span><span className="text-[12px] text-lp-faint tabular-nums">{c.count}</span></Link></li>
+                ))}
+              </ul>
+              <Cta href="/learn" where="learn.all" className="mt-5"><BookOpen size={15} />Browse all {learn.total} guides</Cta>
+            </div>
+            <div className="rounded-[24px] bg-lp-card border border-lp-line p-6 sm:p-7 flex flex-col">
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="text-[13px] font-semibold text-lp-dim">From the blog</h3>
+                <span className="text-[12px] text-lp-faint">A new post every Friday</span>
+              </div>
+              <ul className="mt-2 divide-y divide-[var(--lp-line)]">
+                {learn.posts.map(p => (
+                  <li key={p.slug}>
+                    <Link href={`/blog/${p.slug}`} onClick={() => track('landing.cta', { where: 'blog.post', href: p.slug })} className={`group block py-3.5 rounded ${focus}`}>
+                      <time dateTime={p.iso} className="text-[12px] text-lp-faint">{p.date}</time>
+                      <span className="block mt-0.5 text-[16px] font-semibold tracking-tight leading-snug text-lp-fg group-hover:text-lp-accent transition-colors">{p.title}</span>
+                      {learn.posts.length < 3 && <span className="block mt-1.5 text-[14px] leading-relaxed text-lp-dim line-clamp-3">{p.summary}</span>}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/blog" onClick={() => track('landing.cta', { where: 'blog.all', href: '/blog' })} className={`mt-auto pt-3 inline-flex items-center gap-1.5 text-[14px] font-medium text-lp-accent hover:text-lp-fg rounded ${focus}`}>All posts <ArrowRight size={14} /></Link>
+            </div>
+          </Reveal>
+        </div>
+      </Seen>
+
       {/* Final call */}
       <Seen id="start" className="pt-28 sm:pt-40">
         <div className="max-w-[1120px] mx-auto px-5 sm:px-8 text-center">
@@ -616,50 +636,11 @@ export function Landing() {
         </div>
       </Seen>
 
-      {/* Footer: a quiet closing layer. Links, a feedback form, who makes it, the fine print. */}
-      <footer className="mt-20 sm:mt-28 border-t border-lp-line text-lp-dim">
-        <div className="max-w-[1120px] mx-auto px-5 sm:px-8">
-          <div className="grid gap-x-8 gap-y-7 py-9 md:grid-cols-12">
-            <div className="md:col-span-3">
-              <div className="flex items-center gap-2.5 text-lp-fg"><Logo compact /><span className="text-[14px] font-semibold tracking-tight">Voidcanvas</span></div>
-              <p className="mt-3 text-[13px] leading-relaxed max-w-[260px]">A free design suite in your browser. Brand work in Studio, layouts in the Editor, image treatments in Effects.</p>
-              <Cta where="footer" className="mt-4 !h-8 !px-3.5 !text-[13px]">Start designing <ArrowRight size={13} /></Cta>
-            </div>
-            <nav aria-label="Footer" className="md:col-span-5 grid grid-cols-3 gap-4 text-[13px]">
-              {FOOTER_LINKS.map(([head, links]) => (
-                <div key={head}>
-                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-lp-faint">{head}</h3>
-                  <ul className="mt-2.5 space-y-1.5">
-                    {links.map(([label, href]) => (
-                      <li key={label}>
-                        {href === '#privacy' ? <button onClick={() => { setPrivacy(true); track('landing.footer', { to: 'privacy' }) }} className={`hover:text-lp-fg rounded ${focus}`}>{label}</button>
-                          : href.startsWith('http') ? <a href={href} target="_blank" rel="noopener" onClick={() => track('landing.footer', { to: href })} className={`inline-flex items-center gap-0.5 hover:text-lp-fg rounded ${focus}`}>{label}<ArrowUpRight size={11} aria-hidden /></a>
-                          : <Link href={href} onClick={() => track('landing.footer', { to: href })} className={`hover:text-lp-fg rounded ${focus}`}>{label}</Link>}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </nav>
-            <div className="md:col-span-4"><FeedbackForm /></div>
-          </div>
-
-          {/* Maker: one line. Notes: three short columns. */}
-          <div className="border-t border-lp-line py-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 text-[12px] leading-relaxed">
-            <MotionPlayLabsLogo className="w-10 h-10 shrink-0 text-lp-fg" />
-            <p className="text-lp-text sm:flex-1"><span className="text-lp-fg font-semibold">MotionPlay Labs</span>, a design and software studio between Lagos and Kent, makes Voidcanvas as the follow-up to <a href="https://artdirectorstudio.com" target="_blank" rel="noopener" className={`underline underline-offset-2 decoration-[var(--lp-line)] hover:text-lp-fg rounded ${focus}`}>Art Director Studio</a>.</p>
-            <p className="text-[11px] text-lp-faint sm:text-right sm:max-w-[300px]">MotionPlay Labs Ltd. England and Wales no. 17304660. Nigeria CAC RC 9621200.</p>
-          </div>
-          <ol className="border-t border-lp-line py-5 grid sm:grid-cols-3 gap-x-6 gap-y-2.5 text-[11px] leading-relaxed text-lp-faint">
-            {FOOTNOTES.map(([head, body], i) => <li key={head}><span className="text-lp-dim font-medium">{i + 1}. {head}. </span>{body}</li>)}
-          </ol>
-
-          <div className="border-t border-lp-line py-3.5 pb-7 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11.5px] text-lp-faint">
-            <p>© {new Date().getFullYear()} MotionPlay Labs Ltd.</p>
-            <p>Free. No account. Your files stay on your device.</p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter onPrivacy={() => setPrivacy(true)} notes={
+        <ol className="border-t border-lp-line py-5 grid sm:grid-cols-3 gap-x-6 gap-y-2.5 text-[11px] leading-relaxed text-lp-faint">
+          {FOOTNOTES.map(([head, body], i) => <li key={head}><span className="text-lp-dim font-medium">{i + 1}. {head}. </span>{body}</li>)}
+        </ol>
+      } />
 
       {privacy && <PrivacyPanel onClose={() => setPrivacy(false)} />}
     </main>

@@ -4,6 +4,7 @@ import { track } from '@/lib/analytics'
 import { useEffect, useMemo, useState } from 'react'
 import { BookOpen, Briefcase, Plus, Search, SwatchBook, Trash2 } from 'lucide-react'
 import { AppNav, Logo } from '@/components/AppNav'
+import { HelpMenu } from '@/components/HelpMenu'
 import { BrandGuideline } from './BrandGuideline'
 import { JobView } from './job/JobView'
 import { BrandsView } from './brands/BrandsView'
@@ -32,7 +33,7 @@ export function StudioShell() {
 
   return (
     <main className={`vc-tap flex flex-col bg-void-950 text-void-100 ${view.name === 'home' || view.name === 'brands' ? 'min-h-[100dvh]' : 'h-[100dvh] overflow-hidden'}`}>
-      <header className="h-12 shrink-0 flex items-center gap-3 px-3 border-b border-void-800/60"><Logo /><AppNav /></header>
+      <header className="h-12 shrink-0 flex items-center gap-3 px-3 border-b border-void-800/60"><Logo /><AppNav /><HelpMenu className="ml-auto" /></header>
       {view.name === 'guidelines' ? <BrandGuideline onBack={() => open({ name: 'home' })} />
         : view.name === 'brands' ? <BrandsView initial={view.id} onBack={() => open({ name: 'home' })} onGuidelines={() => open({ name: 'guidelines' })} />
         : view.name === 'job' ? (job ? <JobView key={job.id} job={job} onBack={() => open({ name: 'home' })} onBrands={id => open({ name: 'brands', id })} /> : <div className="p-10 text-void-400 text-[13px]">{jobs ? 'That job is not on this device.' : 'Loading…'}</div>)

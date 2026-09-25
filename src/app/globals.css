@@ -229,3 +229,11 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 48px; }
 }
 .lp a, .lp button { -webkit-tap-highlight-color: transparent; }
 .lp a:active, .lp button:active { transition-duration: .08s; }
+
+/* Learn and Blog body text. Rhythm between blocks lives here so the content data stays plain. */
+.lp-prose > * + * { margin-top: 1.15em; }
+.lp-prose > h2 { margin-top: 2.4em; }
+.lp-prose > h3 { margin-top: 1.9em; }
+.lp-prose > h2 + *, .lp-prose > h3 + * { margin-top: 0.7em; }
+.lp-prose > aside, .lp-prose > div, .lp-prose > ol, .lp-prose > ul, .lp-prose > blockquote { margin-top: 1.4em; }
+.lp-prose > * + aside, .lp-prose > aside + * { margin-top: 1.5em; }

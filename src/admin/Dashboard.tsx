@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, Frown, Info, KeyRound, Lightbulb, LogOut, Meh, RefreshCw, Smile, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowDownRight, Bug, ArrowUpRight, CheckCircle2, Frown, Info, KeyRound, Lightbulb, LogOut, Meh, RefreshCw, Smile, XCircle } from 'lucide-react'
 import { AI_LABEL, AREA_LABEL, FORMAT_LABEL, IMPORT_LABEL, change, changePassword, fmtPct, loadDashboard, pct, place, setFeedbackStatus, type Dash, type FeedbackRow } from './data'
 import { buildInsights, type Tone } from './insights'
 import { DailyBars, Funnel, Heatmap, Ranked } from './charts'
@@ -98,7 +98,7 @@ export function Dashboard() {
   const [err, setErr] = useState('')
   const [metric, setMetric] = useState<(typeof METRICS)[number]['k']>('visitors')
   const [labels, setLabels] = useState<Record<string, string>>({})
-  const [fbFilter, setFbFilter] = useState<'all' | 'new' | 1 | 2 | 3>('all')
+  const [fbFilter, setFbFilter] = useState<'all' | 'new' | 'bug' | 1 | 2 | 3>('all')
   const [showTable, setShowTable] = useState(false)
   const [booting, setBooting] = useState(true)
 
@@ -136,7 +136,7 @@ export function Dashboard() {
     setData({ ...data, feedback: data.feedback.map(x => (x.id === row.id ? { ...x, status } : x)) })
     try { await setFeedbackStatus(pw, row.id, status) } catch { /* shown on next refresh */ }
   }
-  const fb = data.feedback.filter(x => fbFilter === 'all' ? true : fbFilter === 'new' ? x.status === 'new' : x.mood === fbFilter)
+  const fb = data.feedback.filter(x => fbFilter === 'all' ? true : fbFilter === 'new' ? x.status === 'new' : fbFilter === 'bug' ? x.context?.kind === 'bug' : x.mood === fbFilter)
   const used = new Set(data.actions.map(a => a.id))
   const unused = Object.keys(labels).filter(k => k.includes('.') && !used.has(k) && !/^(scale|density|ws|panel|fx)\./.test(k))
   const exportsByFormat = Object.entries(data.exports.reduce<Record<string, number>>((m, e) => { const k = FORMAT_LABEL[e.format] || e.format.toUpperCase(); m[k] = (m[k] || 0) + e.n; return m }, {})).sort((a, b) => b[1] - a[1])
@@ -270,7 +270,7 @@ export function Dashboard() {
 
         <Card title="Feedback" sub={moodTotal ? `${data.feedback_moods['3']} Love it · ${data.feedback_moods['2']} It’s okay · ${data.feedback_moods['1']} Not good` : 'Nothing yet. People send it from the Feedback button or Help menu.'}>
           <div className="flex flex-wrap gap-1.5 mb-4">
-            {([['all', 'All'], ['new', 'Unread'], [1, 'Not good'], [2, 'It’s okay'], [3, 'Love it']] as const).map(([k, l]) => (
+            {([['all', 'All'], ['new', 'Unread'], ['bug', 'Bug reports'], [1, 'Not good'], [2, 'It’s okay'], [3, 'Love it']] as const).map(([k, l]) => (
               <button key={String(k)} onClick={() => setFbFilter(k)} aria-pressed={fbFilter === k} className={`px-2.5 h-7 rounded-full text-[12px] border ${focus} ${fbFilter === k ? 'bg-white text-void-950 border-white' : 'border-void-800 text-void-400 hover:text-white'}`}>{l}</button>
             ))}
           </div>
@@ -278,10 +278,11 @@ export function Dashboard() {
             <ul className="divide-y divide-void-800/70">
               {fb.map(x => { const M = x.mood ? MOOD[x.mood] : null; return (
                 <li key={x.id} className={`py-3 flex gap-3 ${x.status === 'done' ? 'opacity-50' : ''}`}>
-                  <span className={`mt-0.5 shrink-0 ${M ? M.cls : 'text-void-500'}`} title={M?.l}>{M ? <M.Icon size={18} /> : <Info size={18} />}</span>
+                  <span className={`mt-0.5 shrink-0 ${x.context?.kind === 'bug' ? 'text-rose-300' : M ? M.cls : 'text-void-500'}`} title={x.context?.kind === 'bug' ? 'Bug report' : M?.l}>{x.context?.kind === 'bug' ? <Bug size={18} /> : M ? <M.Icon size={18} /> : <Info size={18} />}</span>
                   <div className="min-w-0 flex-1">
                     <p className="text-[13.5px] text-void-50 whitespace-pre-wrap break-words">{x.message || <span className="text-void-500">{M ? M.l : 'No message'}, no comment</span>}</p>
-                    <p className="text-[11.5px] text-void-500 mt-1">{ago(x.ts)} · {AREA_LABEL[x.area || ''] || x.area} · {x.context?.device} {x.context?.browser}{x.context?.tz ? ` · ${place(x.context.tz)}` : ''}{x.context?.trigger === 'after-export' ? ' · asked after export' : ''}{x.context?.recent ? ` · last used: ${String(x.context.recent).split(',').map((k: string) => labels[k] || k).join(', ')}` : ''}</p>
+                    <p className="text-[11.5px] text-void-500 mt-1">{ago(x.ts)} · {AREA_LABEL[x.area || ''] || x.area} · {x.context?.device} {x.context?.browser}{x.context?.tz ? ` · ${place(x.context.tz)}` : ''}{x.context?.trigger === 'after-export' ? ' · asked after export' : ''}{x.context?.kind === 'bug' ? ` · bug: ${x.context.severity || '?'}, ${x.context.frequency || '?'}${x.context.os ? `, ${x.context.os}` : ''}${x.context.screen ? ` ${x.context.screen}` : ''}` : ''}{x.context?.recent ? ` · last used: ${String(x.context.recent).split(',').map((k: string) => labels[k] || k).join(', ')}` : ''}</p>
+                    {x.context?.kind === 'bug' && x.context?.errors && <p className="mt-1 text-[11.5px] font-mono text-rose-300/80 break-words">Errors: {String(x.context.errors)}</p>}
                     {x.email && <a href={`mailto:${x.email}?subject=${encodeURIComponent('Your Voidcanvas feedback')}`} className="text-[12px] text-accent-light hover:text-white">Reply to {x.email}</a>}
                   </div>
                   <div className="flex gap-1 shrink-0 self-start">
