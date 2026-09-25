@@ -98,6 +98,10 @@ interface EditorState {
   setActiveFrame: (id: string | null) => void
   addFrame: (preset: { name: string; width: number; height: number }) => void
   removeFrame: (id: string) => void
+  /** Deletes a group with everything inside it, nested groups included. */
+  removeGroup: (groupId: string) => void
+  /** Locks or unlocks every layer inside a group, and the group itself. */
+  setGroupLocked: (groupId: string, locked: boolean) => void
   renameFrame: (id: string, name: string) => void
   setFrameSize: (id: string, width: number, height: number) => void
   duplicateFrame: (id: string) => void
@@ -303,9 +307,35 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   removeFrame: (id) => {
-    const { doc, layers } = get(); if (!doc?.frames) return
-    set({ doc: { ...doc, frames: doc.frames.filter(f => f.id !== id) }, layers: layers.filter(l => l.frameId !== id), activeFrameId: null, selectedIds: [], activeId: null, docRev: get().docRev + 1 })
+    const { doc, layers, groups, activeFrameId } = get(); if (!doc?.frames) return
+    const f = doc.frames.find(x => x.id === id); if (!f) return
+    if (doc.frames.length < 2) { get().notify('A design needs at least one board. Add another board before closing this one.'); return }
+    const frames = doc.frames.filter(x => x.id !== id)
+    const next = layers.filter(l => l.frameId !== id)
+    const keep = activeFrameId && activeFrameId !== id ? activeFrameId : frames[frames.length - 1].id
+    set({ doc: { ...doc, frames }, layers: next, groups: prune(groups, next), activeFrameId: keep, selectedIds: [], activeId: null, editingMask: false, docRev: get().docRev + 1 })
     get().commit('Delete board')
+    get().notify(`Board “${f.name}” deleted. Undo brings it back.`)
+  },
+
+  removeGroup: (groupId) => {
+    const { layers, groups } = get()
+    const g = groups.find(x => x.id === groupId); if (!g) return
+    const next = layers.filter(l => !inGroup(l, groupId, groups))
+    const keep = next[next.length - 1]?.id ?? null
+    set({ layers: next, groups: prune(groups.filter(x => x.id !== groupId), next), activeId: keep, selectedIds: keep ? [keep] : [], editingMask: false, docRev: get().docRev + 1 })
+    get().commit('Delete group')
+  },
+
+  setGroupLocked: (groupId, locked) => {
+    const { layers, groups } = get()
+    const inside = (gid: string | null | undefined): boolean => !!gid && (gid === groupId || inside(groups.find(x => x.id === gid)?.parentId))
+    set({
+      layers: layers.map(l => inGroup(l, groupId, groups) ? ({ ...l, locked, rev: nextRev() } as Layer) : l),
+      groups: groups.map(x => inside(x.id) ? { ...x, locked } : x),
+      docRev: get().docRev + 1,
+    })
+    get().commit(locked ? 'Lock group' : 'Unlock group')
   },
 
   renameFrame: (id, name) => {

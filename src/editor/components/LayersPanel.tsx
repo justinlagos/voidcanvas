@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, CornerDownRight, Eye, EyeOff, Folder, FolderPlus, FunctionSquare, LayoutGrid, Link, Lock, LockKeyhole, Move, Paintbrush, Plus, Search, Shapes, SlidersHorizontal, SquareDashedBottom, Trash2, Type, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, CornerDownRight, Eye, EyeOff, Folder, FolderPlus, FunctionSquare, LayoutGrid, Link, Lock, LockKeyhole, Move, Paintbrush, Plus, Search, Shapes, SlidersHorizontal, SquareDashedBottom, Trash2, Type, Unlock, X } from 'lucide-react'
 import { ctx2d, drawLayerContent, layerSize } from '../engine'
 import * as ops from '../ops'
 import { ADJUSTMENT_LABELS, groupChain, groupDepth, inGroup, useEditor } from '../store'
@@ -39,6 +39,19 @@ type Ctx = {
   renaming: string | null; setRenaming: (v: string | null) => void
   dragId: string | null; setDragId: (v: string | null) => void; over: number | null; setOver: (v: number | null) => void
   filter: (l: Layer) => boolean; menu: (e: React.MouseEvent, id: string) => void
+  /** A group or board being dragged, so the bin can take it. Layers use dragId. */
+  setCarry: (v: Carry | null) => void
+}
+
+type Carry = { kind: 'group' | 'board'; id: string }
+
+/** Row buttons that show on hover or keyboard focus, and always on touch screens where there is no hover. */
+const rowAct = `w-6 h-7 shrink-0 inline-flex items-center justify-center rounded ${focusRing} text-void-400 hover:text-white opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100`
+
+/** Deletes one layer, leaving the rest of the selection alone. */
+function deleteLayer(id: string) {
+  useEditor.setState({ selectedIds: [id], activeId: id })
+  useEditor.getState().removeSelected()
 }
 
 function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
@@ -103,11 +116,14 @@ function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
       )}
       {l.linkId && <Link size={12} className="shrink-0 text-void-400" aria-label="Linked" />}
       {fx && <button onClick={e => { e.stopPropagation(); s.setActive(l.id); openModal('layerStyle') }} className="shrink-0 text-[10.5px] italic font-semibold text-accent-light px-1 rounded hover:bg-white/10" title="Layer style">fx</button>}
-      {(l.locked || l.lockPosition || l.lockPixels || l.lockAlpha) && (
-        <button aria-label="Unlock layer" onClick={e => { e.stopPropagation(); s.updateLayer(l.id, { locked: false, lockPosition: false, lockPixels: false, lockAlpha: false }, 'Unlock layer') }} className="w-5 h-6 shrink-0 inline-flex items-center justify-center text-void-300 hover:text-white">
+      {(l.locked || l.lockPosition || l.lockPixels || l.lockAlpha) ? (
+        <button aria-label="Unlock layer" title="Unlock" onClick={e => { e.stopPropagation(); s.updateLayer(l.id, { locked: false, lockPosition: false, lockPixels: false, lockAlpha: false }, 'Unlock layer') }} className={`w-6 h-7 shrink-0 inline-flex items-center justify-center rounded ${focusRing} text-void-300 hover:text-white`}>
           {l.locked ? <Lock size={12} /> : <LockKeyhole size={12} className="opacity-70" />}
         </button>
+      ) : (
+        <button aria-label="Lock layer" title="Lock" onClick={e => { e.stopPropagation(); s.updateLayer(l.id, { locked: true }, 'Lock layer') }} className={rowAct}><Unlock size={12} /></button>
       )}
+      <button aria-label="Delete layer" title="Delete" onClick={e => { e.stopPropagation(); deleteLayer(l.id) }} className={`${rowAct} hover:!text-rose-400`}><Trash2 size={12} /></button>
     </li>
   )
 }
@@ -116,8 +132,10 @@ function GroupRow({ g, ctx, depth }: { g: Group; ctx: Ctx; depth: number }) {
   const s = useEditor.getState()
   const members = ctx.layers.filter(l => inGroup(l, g.id, ctx.groups))
   const allOn = members.length > 0 && members.every(x => ctx.selectedIds.includes(x.id))
+  const locked = members.length > 0 && members.every(x => x.locked)
   return (
     <li className={`group flex items-center gap-1.5 pr-1.5 py-[3px] rounded-md ${allOn ? 'bg-accent/[0.14]' : 'hover:bg-white/[0.04]'}`} style={{ paddingLeft: depth * 14 }} onClick={() => s.selectGroup(g.id)}
+      draggable={ctx.renaming !== g.id} onDragStart={e => { ctx.setCarry({ kind: 'group', id: g.id }); e.dataTransfer.setData('text/vc-group', g.id); e.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => ctx.setCarry(null)}
       onContextMenu={e => { const first = members[members.length - 1]; if (first) { s.selectGroup(g.id); ctx.menu(e, first.id) } }}>
       <button aria-label={g.visible ? 'Hide group' : 'Show group'} onClick={e => { e.stopPropagation(); s.updateGroup(g.id, { visible: !g.visible }, 'Toggle group') }} className={`w-6 h-7 ml-0.5 shrink-0 inline-flex items-center justify-center rounded ${focusRing} ${g.visible ? 'text-void-300' : 'text-void-600'} hover:text-white`}>{g.visible ? <Eye size={14} /> : <EyeOff size={14} />}</button>
       <button aria-label={g.collapsed ? 'Expand group' : 'Collapse group'} onClick={e => { e.stopPropagation(); s.updateGroup(g.id, { collapsed: !g.collapsed }) }} className={`w-4 h-7 shrink-0 inline-flex items-center justify-center text-void-400 hover:text-white rounded ${focusRing}`}>{g.collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}</button>
@@ -126,6 +144,11 @@ function GroupRow({ g, ctx, depth }: { g: Group; ctx: Ctx; depth: number }) {
         <input autoFocus defaultValue={g.name} onClick={e => e.stopPropagation()} onBlur={e => { s.updateGroup(g.id, { name: e.target.value.trim() || g.name }, 'Rename group'); ctx.setRenaming(null) }} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }} className={`min-w-0 flex-1 h-6 px-1.5 rounded bg-surface-sunken border border-white/[0.08] text-[12.5px] ${focusRing}`} />
       ) : <span onDoubleClick={() => ctx.setRenaming(g.id)} title="Double-click to rename" className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-void-100">{g.name}</span>}
       <span className="text-[10.5px] tabular-nums text-void-500 pr-1">{g.blend && g.blend !== 'pass' ? BLEND_MODES.find(b => b.id === g.blend)?.label + ' ' : ''}{g.opacity < 1 ? `${Math.round(g.opacity * 100)}%` : ''}</span>
+      <button aria-label={locked ? 'Unlock group' : 'Lock group'} title={locked ? 'Unlock everything in this group' : 'Lock everything in this group'} onClick={e => { e.stopPropagation(); s.setGroupLocked(g.id, !locked) }}
+        className={locked ? `w-6 h-7 shrink-0 inline-flex items-center justify-center rounded ${focusRing} text-void-300 hover:text-white` : rowAct}>
+        {locked ? <Lock size={12} /> : <Unlock size={12} />}
+      </button>
+      <button aria-label="Delete group" title="Delete the group and its layers" onClick={e => { e.stopPropagation(); s.removeGroup(g.id) }} className={`${rowAct} hover:!text-rose-400`}><Trash2 size={12} /></button>
     </li>
   )
 }
@@ -222,6 +245,8 @@ export function LayersPanel() {
   const [renaming, setRenaming] = useState<string | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
   const [over, setOver] = useState<number | null>(null)
+  const [carry, setCarry] = useState<Carry | null>(null)
+  const [binOver, setBinOver] = useState(false)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [q, setQ] = useState('')
   const [kind, setKind] = useState<'all' | Layer['type']>('all')
@@ -233,7 +258,7 @@ export function LayersPanel() {
   useEffect(() => { const h = (e: Event) => setRenaming((e as CustomEvent).detail); window.addEventListener('vc:rename', h); return () => window.removeEventListener('vc:rename', h) }, [])
 
   const filter = (l: Layer) => (kind === 'all' || l.type === kind) && (!q || (l.type === 'text' ? l.text + ' ' + l.name : l.name).toLowerCase().includes(q.toLowerCase()))
-  const ctx: Ctx = { layers, activeId, selectedIds, groups, editingMask, renaming, setRenaming, dragId, setDragId, over, setOver, filter, menu: (e, id) => { e.preventDefault(); if (!selectedIds.includes(id)) s.setActive(id); setMenu({ at: new DOMRect(e.clientX, e.clientY, 0, 0), id }) } }
+  const ctx: Ctx = { layers, activeId, selectedIds, groups, editingMask, renaming, setRenaming, dragId, setDragId, over, setOver, filter, setCarry, menu: (e, id) => { e.preventDefault(); if (!selectedIds.includes(id)) s.setActive(id); setMenu({ at: new DOMRect(e.clientX, e.clientY, 0, 0), id }) } }
   const [head, setHead] = useState(!!active && (active.opacity < 1 || active.blend !== 'source-over' || (active.fillOpacity ?? 1) < 1 || !!(active as any).locked || !!(active as any).lockPixels || !!(active as any).lockPosition || !!(active as any).lockAlpha))
   const lockOn = (k: typeof LOCKS[number]['key']) => !!active && !!(active as any)[k]
   const lockDisabled = !active || active.type === 'adjustment'
@@ -298,13 +323,15 @@ export function LayersPanel() {
             const activeB = f.id === activeFrameId
             return (
               <Fragment key={f.id}>
-                <li className={`group flex items-center gap-1.5 pl-1 pr-1.5 py-1.5 mt-0.5 rounded-md ${activeB ? 'bg-accent-soft' : 'hover:bg-white/[0.04]'}`} onClick={() => s.setActiveFrame(f.id)}>
+                <li className={`group flex items-center gap-1.5 pl-1 pr-1.5 py-1.5 mt-0.5 rounded-md ${activeB ? 'bg-accent-soft' : 'hover:bg-white/[0.04]'}`} onClick={() => s.setActiveFrame(f.id)}
+                  draggable={renaming !== f.id} onDragStart={e => { setCarry({ kind: 'board', id: f.id }); e.dataTransfer.setData('text/vc-board', f.id); e.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => setCarry(null)}>
                   <button aria-label={isCol ? 'Expand board' : 'Collapse board'} onClick={e => { e.stopPropagation(); setCollapsed(c => { const n = new Set(c); n.has(f.id) ? n.delete(f.id) : n.add(f.id); return n }) }} className={`w-5 h-7 shrink-0 inline-flex items-center justify-center text-void-400 hover:text-white rounded ${focusRing}`}>{isCol ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</button>
                   <LayoutGrid size={15} className={`shrink-0 ${activeB ? 'text-accent-light' : 'text-void-400'}`} />
                   {renaming === f.id ? (
                     <input autoFocus defaultValue={f.name} onClick={e => e.stopPropagation()} onBlur={e => { s.renameFrame(f.id, e.target.value.trim() || f.name); setRenaming(null) }} onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }} className={`min-w-0 flex-1 h-7 px-1.5 rounded bg-surface-sunken border border-white/[0.08] text-[12.5px] ${focusRing}`} />
                   ) : <span onDoubleClick={() => setRenaming(f.id)} title="Double-click to rename" className={`min-w-0 flex-1 truncate text-[12.5px] font-semibold ${activeB ? 'text-white' : 'text-void-200'}`}>{f.name}</span>}
                   <span className="text-[10.5px] tabular-nums text-void-500 pr-0.5">{f.width}×{f.height}</span>
+                  {doc.frames!.length > 1 && <button aria-label={`Delete board ${f.name}`} title="Delete this board and its layers" onClick={e => { e.stopPropagation(); s.removeFrame(f.id) }} className={`${rowAct} hover:!text-rose-400`}><Trash2 size={12} /></button>}
                 </li>
                 {!isCol && (fl.length ? <Rows list={fl} ctx={ctx} /> : <li className="pl-8 py-1.5 text-[12px] text-void-600">Empty board</li>)}
               </Fragment>
@@ -325,7 +352,20 @@ export function LayersPanel() {
           <IconButton label="New adjustment layer" onClick={e => setAdj(e.currentTarget.getBoundingClientRect())} className="!h-7 !w-7"><SlidersHorizontal size={14} /></IconButton>
           <IconButton label="New group" shortcut="Ctrl+G" disabled={!active} onClick={() => s.groupSelected()} className="!h-7 !w-7"><FolderPlus size={14} /></IconButton>
           <IconButton label="New layer" shortcut="Ctrl+Shift+N" onClick={() => s.addBlank()} className="!h-7 !w-7"><Plus size={15} /></IconButton>
-          <IconButton label="Delete layer" shortcut="Delete" disabled={!active} onClick={() => s.removeSelected()} className="!h-7 !w-7"><Trash2 size={14} /></IconButton>
+          {/* The bin also takes drops: drag a layer, a group or a board onto it to delete it. */}
+          <div data-bin className={`rounded-lg transition-colors ${binOver ? 'bg-rose-500/25 ring-1 ring-rose-400' : dragId || carry ? 'outline-dashed outline-1 outline-void-500' : ''}`}
+            onDragOver={e => { const t = e.dataTransfer.types; if (!(t.includes('text/vc-layer') || t.includes('text/vc-group') || t.includes('text/vc-board'))) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (!binOver) setBinOver(true) }}
+            onDragLeave={() => setBinOver(false)}
+            onDrop={e => {
+              e.preventDefault(); e.stopPropagation(); setBinOver(false)
+              const layerId = e.dataTransfer.getData('text/vc-layer'), groupId = e.dataTransfer.getData('text/vc-group'), boardId = e.dataTransfer.getData('text/vc-board')
+              if (layerId) { if (selectedIds.includes(layerId) && selectedIds.length > 1) s.removeSelected(); else deleteLayer(layerId) }
+              else if (groupId) s.removeGroup(groupId)
+              else if (boardId) s.removeFrame(boardId)
+              setDragId(null); setOver(null); setCarry(null)
+            }}>
+            <IconButton label={dragId || carry ? 'Drop here to delete' : 'Delete layer'} shortcut={dragId || carry ? undefined : 'Delete'} disabled={!active && !dragId && !carry} onClick={() => s.removeSelected()} className={`!h-7 !w-7 ${binOver ? '!text-rose-300' : ''}`}><Trash2 size={14} /></IconButton>
+          </div>
         </div>
       </div>
       {menu && <ContextMenu at={menu.at} id={menu.id} onClose={() => setMenu(null)} />}

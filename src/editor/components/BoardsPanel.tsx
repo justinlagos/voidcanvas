@@ -46,7 +46,7 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
                     <span className="flex items-center gap-1.5">
                       {frames.some(x => x.linkedFrom === f.id) && <button aria-label="Re-sync variants" title="Update linked variants from this board" onClick={() => resyncVariants(f.id)} className="text-void-400 hover:text-white"><RefreshCw size={13} /></button>}
                       <button aria-label="Duplicate board" title="Duplicate board" onClick={() => s.duplicateFrame(f.id)} className="text-void-400 hover:text-white"><Copy size={13} /></button>
-                      <button aria-label="Delete board" title="Delete board" onClick={() => { if (confirm(`Delete board “${f.name}”?`)) s.removeFrame(f.id) }} className="text-void-500 hover:text-rose-400"><Trash2 size={13} /></button>
+                      <button aria-label="Delete board" title="Delete board" onClick={() => s.removeFrame(f.id)} className="text-void-500 hover:text-rose-400"><Trash2 size={13} /></button>
                     </span>
                   </div>
                 </div>

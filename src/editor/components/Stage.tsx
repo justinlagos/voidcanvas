@@ -96,6 +96,9 @@ export function Stage() {
   const pointers = useRef(new Map<number, Pt>())
   const pinch = useRef<{ d: number; zoom: number; mid: Pt; panX: number; panY: number; t: number; moved: boolean; count: number } | null>(null)
   const cursor = useRef<Pt | null>(null)
+  /** Screen rectangles of the × on each board's name badge, rebuilt every overlay draw. */
+  const closeHits = useRef<{ id: string; x: number; y: number; w: number; h: number }[]>([])
+  const overClose = useRef<string | null>(null)
   const snapLines = useRef<{ v: number[]; h: number[] }>({ v: [], h: [] })
   const dist = useRef<{ x: number; y: number; w: number; h: number; px: number; axis: 'h' | 'v' }[]>([])
   const ants = useRef<{ key: string; canvas: HTMLCanvasElement | null }>({ key: '', canvas: null })
@@ -257,7 +260,9 @@ export function Stage() {
       octx.stroke(); octx.restore()
     }
 
+    closeHits.current = []
     if (doc.frames && doc.frames.length) {
+      const canClose = doc.frames.length > 1
       for (const f of doc.frames) {
         const a = toScreen({ x: f.x, y: f.y })
         const fw = f.width * zoom, fh = f.height * zoom
@@ -270,7 +275,8 @@ export function Stage() {
         const nameW = octx.measureText(label).width
         octx.font = `500 11px ${uiFont()}`
         const dimW = octx.measureText(dim).width
-        const padX = 8, gap = 8, badgeH = 20, badgeW = padX * 2 + nameW + gap + dimW
+        const closeW = canClose ? 18 : 0
+        const padX = 8, gap = 8, badgeH = 20, badgeW = padX * 2 + nameW + gap + dimW + closeW
         // The badge is drawn at screen size, so at low zoom it can land on the board above or be wider than its own board.
         // Then it moves inside the board's top-left corner; if the board is too small even for that, only the active board keeps a label.
         const above = a.y - badgeH - 7
@@ -290,6 +296,17 @@ export function Stage() {
         octx.fillStyle = on ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.45)'
         octx.fillText(dim, bx + padX + nameW + gap, by + badgeH / 2 + 0.5)
         octx.textBaseline = 'alphabetic'
+        if (canClose) {
+          // The × closes (deletes) the board. Undo brings it back.
+          const cx = bx + badgeW - padX - 5, cy = by + badgeH / 2, hot = overClose.current === f.id
+          if (hot) { octx.fillStyle = 'rgba(255,255,255,0.18)'; octx.beginPath(); octx.arc(cx, cy, 8, 0, Math.PI * 2); octx.fill() }
+          octx.strokeStyle = hot ? '#fff' : on ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)'
+          octx.lineWidth = 1.5; octx.lineCap = 'round'; octx.beginPath()
+          octx.moveTo(cx - 3.5, cy - 3.5); octx.lineTo(cx + 3.5, cy + 3.5); octx.moveTo(cx + 3.5, cy - 3.5); octx.lineTo(cx - 3.5, cy + 3.5); octx.stroke()
+          octx.lineCap = 'butt'
+          // Generous target so it is easy to hit with a finger.
+          closeHits.current.push({ id: f.id, x: cx - 13, y: by - 6, w: 26, h: badgeH + 12 })
+        }
       }
     }
 
@@ -883,6 +900,8 @@ export function Stage() {
     const ui = useUi.getState()
     if (!s.doc) return
     const sp = local(e)
+    const close = e.button === 0 && !pointers.current.size ? closeHits.current.find(r => sp.x >= r.x && sp.x <= r.x + r.w && sp.y >= r.y && sp.y <= r.y + r.h) : null
+    if (close) { e.stopPropagation(); overClose.current = null; s.removeFrame(close.id); invalidate(); return }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     setBusyDrag(true)
     pointers.current.set(e.pointerId, sp)
@@ -1458,6 +1477,14 @@ export function Stage() {
     const s = useEditor.getState()
     const sp = local(e)
     cursor.current = e.pointerType === 'mouse' || e.pointerType === 'pen' ? sp : null
+    if (!drag.current && e.pointerType === 'mouse') {
+      const hit = closeHits.current.find(r => sp.x >= r.x && sp.x <= r.x + r.w && sp.y >= r.y && sp.y <= r.y + r.h)?.id ?? null
+      if (hit !== overClose.current) {
+        overClose.current = hit
+        if (wrap.current) wrap.current.style.cursor = hit ? 'pointer' : cursorFor(s.tool)
+        invalidate()
+      }
+    }
     if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, sp)
     const now = performance.now()
     if (now - lastPointer.current > 40 && s.doc) {

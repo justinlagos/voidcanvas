@@ -8,8 +8,9 @@
 
 import Link from 'next/link'
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Lock, Play } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, Lock, Play } from 'lucide-react'
 import { Logo } from '@/components/AppNav'
+import { MotionPlayLabsLogo } from './MotionPlayLabsLogo'
 import { PrivacyPanel, PrivateBadge } from '@/editor/components/PrivacyPanel'
 import { initPrivateFromSession, listProjects, idb, type ProjectSummary } from '@/editor/io'
 import { nextAction, type Job } from '@/studio/jobs'
@@ -20,6 +21,18 @@ import { Ami, Analogue, EditorFrame, EffectsFrame, Fx, Kofi, KofiGuide, Move, Oy
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const APP = 'https://voidcanvas.netlify.app'
+
+const FOOTER_LINKS: [string, [string, string][]][] = [
+  ['Make', [['Studio', '/studio'], ['Editor', '/editor'], ['Effects', '/effects']]],
+  ['Quick tools', [['Halftone', '/tools/halftone'], ['Dither', '/tools/dither'], ['Glitch', '/tools/glitch']]],
+  ['Voidcanvas', [['Privacy', '#privacy'], ['Send feedback', '#feedback'], ['Art Director Studio', 'https://artdirectorstudio.com']]],
+]
+
+const FOOTNOTES: [string, string][] = [
+  ['Background removal', 'Runs on your device. The model (MODNet via transformers.js, both Apache-2.0) downloads once from a CDN the first time you use it. Your image is never sent.'],
+  ['Usage counts', 'Anonymous. Event names and small settings such as file type, page area, device, browser, time zone and screen size, with a random id for this browser. Never images, file names, text or layer content. Off in a private session, with Do Not Track or Global Privacy Control, or when you switch it off.'],
+  ['Saved designs', 'Kept in this browser on this device. Clearing site data deletes them, so export anything you need to keep or save it as a template.'],
+]
 
 /* ---------- small pieces ---------- */
 
@@ -460,30 +473,61 @@ export function Landing() {
         </div>
       </Seen>
 
-      {/* Footnotes and footer */}
-      <footer className="mt-24 sm:mt-32 border-t border-void-800/80">
-        <div className="max-w-[1120px] mx-auto px-5 sm:px-8 py-10 text-[12px] text-void-500 leading-relaxed">
-          <ol className="list-decimal pl-4 space-y-1.5 max-w-[820px]">
-            <li>Background removal runs in the browser. The model (MODNet via transformers.js, both Apache-2.0) is downloaded once from a CDN on first use. No image is sent anywhere.</li>
-            <li>Usage counts are anonymous: event names, small settings such as file type, page area, device type, browser, time zone and screen size, with a random id for this browser. Never images, file names, text or layer content. Off in a private session, when Do Not Track or Global Privacy Control is on, or when you switch them off.</li>
-            <li>Saved designs live only in this browser on this device. Clearing site data removes them. Export or save as a template anything you need to keep.</li>
-          </ol>
-          <div className="mt-10 flex flex-col sm:flex-row sm:items-start justify-between gap-6 text-[13px] text-void-400">
-            <div className="max-w-[420px]">
-              <div className="flex items-center gap-3 text-void-200"><Logo compact /><span className="font-medium">Voidcanvas</span></div>
-              <p className="mt-3 leading-relaxed">Made by <span className="text-void-200">MotionPlay Labs</span>, a design and software studio working between Lagos and Kent.</p>
-              <p className="mt-2 text-[12px] text-void-500 leading-relaxed">MotionPlay Labs Ltd is registered in England and Wales, company no. 17304660, and in Nigeria with the Corporate Affairs Commission, RC 9621200.</p>
+      {/* Footer: where to go next, who makes it, the fine print. */}
+      <footer className="mt-24 sm:mt-32 border-t border-void-800/80 text-void-400">
+        <div className="max-w-[1120px] mx-auto px-5 sm:px-8">
+          <div className="grid gap-12 py-14 sm:py-16 md:grid-cols-12">
+            <div className="md:col-span-5">
+              <div className="flex items-center gap-3 text-white"><Logo compact /><span className="text-[17px] font-semibold tracking-tight">Voidcanvas</span></div>
+              <p className="mt-4 text-[15px] leading-relaxed max-w-[360px]">A free design suite that runs in your browser. Brand work in Studio, layouts in the Editor, image treatments in Effects.</p>
+              <Cta where="footer" className="mt-6">Start designing <ArrowRight size={15} /></Cta>
             </div>
-            <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2 sm:max-w-[300px]">
-              <Link href="/studio" className={`hover:text-white ${focus}`}>Studio</Link>
-              <Link href="/editor" className={`hover:text-white ${focus}`}>Editor</Link>
-              <Link href="/effects" className={`hover:text-white ${focus}`}>Effects</Link>
-              <Link href="/tools/halftone" className={`hover:text-white ${focus}`}>Halftone</Link>
-              <Link href="/tools/dither" className={`hover:text-white ${focus}`}>Dither</Link>
-              <Link href="/tools/glitch" className={`hover:text-white ${focus}`}>Glitch</Link>
-              <button onClick={() => setPrivacy(true)} className={`hover:text-white ${focus}`}>Privacy</button>
+            <nav aria-label="Footer" className="md:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-8 text-[14px]">
+              {FOOTER_LINKS.map(([head, links]) => (
+                <div key={head}>
+                  <h3 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-void-500">{head}</h3>
+                  <ul className="mt-4 space-y-3">
+                    {links.map(([label, href]) => (
+                      <li key={label}>
+                        {href === '#privacy' ? <button onClick={() => { setPrivacy(true); track('landing.footer', { to: 'privacy' }) }} className={`hover:text-white rounded ${focus}`}>{label}</button>
+                          : href === '#feedback' ? <button onClick={() => { window.dispatchEvent(new CustomEvent('vc:feedback', { detail: { trigger: 'footer' } })); track('landing.footer', { to: 'feedback' }) }} className={`hover:text-white rounded ${focus}`}>{label}</button>
+                          : href.startsWith('http') ? <a href={href} target="_blank" rel="noopener" onClick={() => track('landing.footer', { to: href })} className={`inline-flex items-center gap-1 hover:text-white rounded ${focus}`}>{label}<ArrowUpRight size={13} aria-hidden /></a>
+                          : <Link href={href} onClick={() => track('landing.footer', { to: href })} className={`hover:text-white rounded ${focus}`}>{label}</Link>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </nav>
-            <p className="sm:text-right sm:max-w-[200px]">© {new Date().getFullYear()} MotionPlay Labs Ltd.<br className="hidden sm:block" />The sequel to Art Director Studio.</p>
+          </div>
+
+          {/* Maker */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-8 rounded-2xl border border-void-800 bg-white/[0.02] p-6 sm:p-8">
+            <MotionPlayLabsLogo className="w-20 h-20 sm:w-28 sm:h-28 shrink-0 text-white" />
+            <div className="min-w-0">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-void-500">Made by</p>
+              <p className="mt-1.5 text-[19px] font-semibold tracking-tight text-white">MotionPlay Labs</p>
+              <p className="mt-2 text-[14.5px] leading-relaxed max-w-[560px]">A design and software studio working between Lagos and Kent. Voidcanvas is the follow-up to <a href="https://artdirectorstudio.com" target="_blank" rel="noopener" className={`text-void-200 underline underline-offset-2 decoration-void-600 hover:text-white rounded ${focus}`}>Art Director Studio</a>.</p>
+              <p className="mt-3 text-[12.5px] leading-relaxed text-void-500">MotionPlay Labs Ltd. Registered in England and Wales, company no. 17304660. Registered in Nigeria with the Corporate Affairs Commission, RC 9621200.</p>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="py-12">
+            <h3 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-void-500">Notes</h3>
+            <ol className="mt-5 grid gap-6 sm:grid-cols-3 text-[12.5px] leading-relaxed text-void-500">
+              {FOOTNOTES.map(([head, body], i) => (
+                <li key={head} className="flex gap-3">
+                  <span className="tabular-nums text-void-600">{i + 1}</span>
+                  <span><span className="block text-void-300 font-medium mb-1">{head}</span>{body}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-void-800/80 pt-6 pb-24 sm:pb-10 text-[12.5px] text-void-500">
+            <p>© {new Date().getFullYear()} MotionPlay Labs Ltd. All rights reserved.</p>
+            <p>Free. No account. Your files stay on your device.</p>
           </div>
         </div>
       </footer>

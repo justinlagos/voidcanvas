@@ -15,6 +15,8 @@ import { FONTS, ensureFont } from '../io'
 import { useEditor } from '../store'
 import { BLEND_MODES, type AdjustmentLayer, type Layer, type ShapeLayer, type TextLayer } from '../types'
 import { CURVE_PRESETS, CurvesEditor } from './CurvesEditor'
+import { defaultStyle, emptyStyles } from '../styles'
+import type { ShadowStyle } from '../types'
 import { Button, ColorField, IconButton, Section, Select, Slider, focusRing } from './ui'
 
 const ADJ_FIELDS: Record<string, { key: string; label: string; min: number; max: number }[]> = {
@@ -143,6 +145,7 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
       {layer.type === 'text' && <TextProps layer={layer} />}
       {layer.type === 'shape' && <ShapeProps layer={layer} />}
       {layer.type === 'adjustment' && <AdjustmentProps layer={layer} />}
+      {(layer.type === 'raster' || layer.type === 'shape') && <ShadowProps layer={layer} />}
       {layer.type === 'text' && layer.onPath && <PathTextProps layer={layer} />}
       {layer.vmask && <VectorMaskProps layer={layer} />}
 
@@ -185,6 +188,29 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
         )}
       </Section>
     </div>
+  )
+}
+
+/** Drop shadow for images and shapes, straight in the panel. It is the same drop shadow the Layer style dialog edits. */
+function ShadowProps({ layer }: { layer: Layer }) {
+  const s = useEditor.getState()
+  const sh = layer.styles?.dropShadow?.on ? layer.styles.dropShadow : null
+  const put = (next: ShadowStyle | null) => s.updateLayer(layer.id, { styles: { ...(layer.styles ?? emptyStyles()), dropShadow: next ?? (layer.styles?.dropShadow ? { ...layer.styles.dropShadow, on: false } : undefined) } })
+  const set = (patch: Partial<ShadowStyle>) => sh && put({ ...sh, ...patch })
+  const done = () => s.commit('Shadow')
+  return (
+    <Section title="Shadow" collapsible defaultOpen={!!sh}>
+      <div className="space-y-3">
+        <ColorField label="Colour" allowNone value={sh?.color ?? null} onChange={v => put(v ? { ...(layer.styles?.dropShadow ?? defaultStyle('dropShadow') as ShadowStyle), on: true, color: v } : null)} onCommit={done} />
+        {sh && <>
+          <Slider label="Opacity" value={Math.round(sh.opacity * 100)} min={0} max={100} unit="%" onChange={v => set({ opacity: v / 100 })} onCommit={done} />
+          <Slider label="Blur" value={sh.size} min={0} max={250} unit="px" onChange={v => set({ size: v })} onCommit={done} />
+          <Slider label="Distance" value={sh.distance} min={0} max={300} unit="px" onChange={v => set({ distance: v })} onCommit={done} />
+          <Slider label="Angle" value={sh.angle} min={-180} max={180} unit="°" onChange={v => set({ angle: v })} onCommit={done} />
+          <Slider label="Spread" value={sh.spread} min={0} max={100} unit="%" onChange={v => set({ spread: v })} onCommit={done} />
+        </>}
+      </div>
+    </Section>
   )
 }
 
