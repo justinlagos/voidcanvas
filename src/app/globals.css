@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
 :root {
   --background: #0c0c0e;
   --foreground: #eeeef0;
@@ -152,3 +150,13 @@ input[type="range"].vc-bar::-moz-range-track { background: #3a3a44; }
 .vc-compact .vc-tool { height: 32px; width: 32px; }
 .vc-touch .vc-tool { height: 44px; width: 44px; }
 .vc-touch .vc-row { padding-top: 6px; padding-bottom: 6px; }
+
+/* Hint inside an empty text layer while typing on the canvas. */
+[data-canvas-text-editor]::placeholder { color: rgba(139, 124, 255, 0.55); }
+
+/* Fingers: anything tappable inside a .vc-tap container gets a 36 px minimum on touch phones. Desktop is unchanged. */
+@media (pointer: coarse) and (max-width: 767px) {
+  .vc-tap button, .vc-tap a[href], .vc-tap select { min-height: 36px; }
+  .vc-tap button:empty, .vc-tap button:not(:has(> :not(svg))) { min-width: 36px; }
+  .vc-tap input:not([type=range]):not([type=checkbox]):not([type=color]) { min-height: 36px; }
+}

@@ -197,7 +197,7 @@ export function renderFrame(frameId: string, scale = 1): HTMLCanvasElement | nul
   const { doc, layers, groups } = useEditor.getState()
   const f = doc?.frames?.find(x => x.id === frameId); if (!doc || !f) return null
   const full = makeCanvas(doc.width * scale, doc.height * scale)
-  renderDoc(full, doc, layers, { groups, scale, noCache: true })
+  renderDoc(full, doc, layers, { groups, scale, noCache: true, fullRes: true })
   const out = makeCanvas(f.width * scale, f.height * scale)
   ctx2d(out).drawImage(full, f.x * scale, f.y * scale, f.width * scale, f.height * scale, 0, 0, f.width * scale, f.height * scale)
   return out
@@ -215,7 +215,7 @@ export async function exportImage(o: ExportOptions): Promise<Blob> {
   const { doc, layers, groups } = useEditor.getState()
   if (!doc) throw new Error('Nothing to export')
   const c = makeCanvas(doc.width * o.scale, doc.height * o.scale)
-  renderDoc(c, doc, layers, { groups, scale: o.scale, noCache: true, transparent: o.transparent && o.format !== 'jpeg' })
+  renderDoc(c, doc, layers, { groups, scale: o.scale, noCache: true, fullRes: true, transparent: o.transparent && o.format !== 'jpeg' })
   if (o.format === 'pdf') {
     const flat = makeCanvas(c.width, c.height); const x = ctx2d(flat)
     x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(c, 0, 0)
@@ -508,7 +508,8 @@ const FONT_SPECS: Record<string, string> = {
   'Permanent Marker': '', 'JetBrains Mono': ':ital,wght@0,400;0,700;1,400;1,700',
 }
 export const FONTS = Object.keys(FONT_SPECS)
-const loaded = new Set<string>(['Inter'])
+// The UI's Inter comes from next/font under a generated name, so text layers set in Inter load it like any other family.
+const loaded = new Set<string>()
 
 const cssLink = (href: string) => new Promise<boolean>(r => {
   const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = href

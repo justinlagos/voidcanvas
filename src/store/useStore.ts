@@ -90,6 +90,8 @@ export interface EffectParams {
   segments: number
   posX: number
   posY: number
+  /** How many output pixels one working-size pixel is (1 in previews). Lets 1-px marks stay in proportion on full-size exports. */
+  renderScale: number
 }
 
 interface Store {
@@ -128,6 +130,12 @@ interface Store {
   toggleSidebarSection: (section: string) => void
 }
 
+/** Per-effect starting values that show a change straight away. Only applied when the effect is picked. */
+export const EFFECT_STARTERS: Partial<Record<EffectType, Partial<EffectParams>>> = {
+  hueShift: { angle: 120 },
+  channelMixer: { mixR: 130, mixG: 95, mixB: 70 },
+}
+
 export const defaultParams: EffectParams = {
   intensity: 50,
   scale: 50,
@@ -149,6 +157,7 @@ export const defaultParams: EffectParams = {
   segments: 6,
   posX: 50,
   posY: 50,
+  renderScale: 1,
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -159,7 +168,9 @@ export const useStore = create<Store>((set, get) => ({
   setActiveEffect: (effect) => {
     get().pushHistory()
     if (effect !== 'none') track('effect.apply', { id: effect, tool: 'effects' })
-    set({ activeEffect: effect })
+    // Some effects do nothing at the shared defaults (hue 0, channels at 100%), so they start at a visible setting.
+    const starter = EFFECT_STARTERS[effect]
+    set(starter ? (s) => ({ activeEffect: effect, params: { ...s.params, ...starter } }) : { activeEffect: effect })
   },
 
   params: { ...defaultParams },
@@ -193,7 +204,7 @@ export const useStore = create<Store>((set, get) => ({
   setComparisonPosition: (pos) => set({ comparisonPosition: pos }),
 
   zoom: 100,
-  setZoom: (zoom) => set({ zoom: Math.max(25, Math.min(400, zoom)) }),
+  setZoom: (zoom) => set({ zoom: Math.max(10, Math.min(400, Math.round(zoom))) }),
 
   effectCategory: 'all',
   setEffectCategory: (cat) => set({ effectCategory: cat }),

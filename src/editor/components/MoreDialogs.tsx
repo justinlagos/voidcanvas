@@ -107,6 +107,21 @@ export function GuideLayoutDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
+/** In-app replacement for the browser's prompt(): one text field, Enter saves, Escape cancels. */
+export function NameDialog({ onClose, title, label, placeholder, initial = '', action = 'Save', onSubmit }: { onClose: () => void; title: string; label: string; placeholder?: string; initial?: string; action?: string; onSubmit: (name: string) => void }) {
+  const [name, setName] = useState(initial)
+  const ok = name.trim().length > 0
+  const submit = () => { if (!ok) return; onSubmit(name.trim()); onClose() }
+  return (
+    <Modal title={title} onClose={onClose}>
+      <form className="p-5" onSubmit={e => { e.preventDefault(); submit() }}>
+        <label><Label>{label}</Label><input autoFocus className={FIELD} value={name} placeholder={placeholder} maxLength={60} onChange={e => setName(e.target.value)} /></label>
+      </form>
+      <Foot><Button onClick={onClose}>Cancel</Button><Button primary disabled={!ok} onClick={submit}>{action}</Button></Foot>
+    </Modal>
+  )
+}
+
 export function NewGuideDialog({ onClose }: { onClose: () => void }) {
   const [axis, setAxis] = useState<'v' | 'h'>('v'), [pos, setPos] = useState(100)
   return (

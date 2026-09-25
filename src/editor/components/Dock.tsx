@@ -207,6 +207,7 @@ function Floater({ f, onOpenFilters }: { f: FloatingPanel; onOpenFilters: () => 
 export function Dock({ onOpenFilters }: { onOpenFilters: () => void }) {
   const ws = useUi(s => s.workspace)
   const hydrated = useUi(s => s.hydrated)
+  const hideStrip = !!ws.hideStrip
   const ui = useUi.getState()
   const resize = useRef<{ x: number; w: number } | null>(null)
   const drag = useDragActive()
@@ -214,7 +215,7 @@ export function Dock({ onOpenFilters }: { onOpenFilters: () => void }) {
   if (!hydrated) return null
   return (
     <div className="vc-chrome hidden md:flex h-full shrink-0">
-      <Strip onOpenFilters={onOpenFilters} />
+      {!hideStrip && <Strip onOpenFilters={onOpenFilters} />}
       <div className="relative flex flex-col min-h-0 border-l border-white/[0.06] bg-surface-overlay" style={{ width: ws.dockWidth }}>
         <div role="separator" aria-orientation="vertical" aria-label="Resize panels" className="absolute left-[-3px] top-0 bottom-0 w-1.5 z-20 cursor-col-resize hover:bg-accent/40 touch-none"
           onPointerDown={e => { (e.target as HTMLElement).setPointerCapture(e.pointerId); resize.current = { x: e.clientX, w: ws.dockWidth } }}

@@ -188,8 +188,11 @@ function RefDetail({ r, job, onClose, onNote, toast, onType, onTypeCard }: { r: 
   )
 }
 
+// Clipboard writes can be refused (iframes, http, denied permission); say so instead of throwing.
+async function copyWith(toast: (m: string) => void, v: string) { try { if (!navigator.clipboard) throw new Error('no clipboard'); await navigator.clipboard.writeText(v); toast(`Copied ${v}`) } catch { toast(`Copy blocked. It is ${v}`) } }
+
 function Readout({ a, toast }: { a: RefAnalysis; toast: (m: string) => void }) {
-  const copy = (hex: string) => { navigator.clipboard?.writeText(hex); toast(`Copied ${hex.toUpperCase()}`) }
+  const copy = (hex: string) => copyWith(toast, hex.toUpperCase())
   const arrow = a.light.strength > 0.15
   return (
     <>
@@ -270,7 +273,7 @@ function TypePanel({ t, reading, pointing, onPoint, onCard, toast }: { t?: TypeR
                   <span className="block text-[20px] leading-tight truncate" style={{ fontFamily: `"${s.family}"`, fontWeight: s.weight, fontStyle: t.italic && !/Script/.test(t.cls ?? '') ? 'italic' : undefined, textTransform: t.caps ? 'uppercase' : undefined }}>Aa Bb Rr 123</span>
                   <span className="block text-[11px] text-void-500">{s.family} · {s.weight}</span>
                 </span>
-                <button aria-label={`Copy ${s.family}`} title="Copy the name" onClick={() => { navigator.clipboard?.writeText(s.family); toast(`Copied ${s.family}`) }} className={`w-7 h-7 rounded-md text-void-400 hover:text-white hover:bg-void-800 flex items-center justify-center ${focusRing}`}><Copy size={12} /></button>
+                <button aria-label={`Copy ${s.family}`} title="Copy the name" onClick={() => copyWith(toast, s.family)} className={`w-7 h-7 rounded-md text-void-400 hover:text-white hover:bg-void-800 flex items-center justify-center ${focusRing}`}><Copy size={12} /></button>
                 <button aria-label={`Add ${s.family} to the board`} title="Add a type card to the Directions board" onClick={() => onCard(s.family, s.weight)} className={`w-7 h-7 rounded-md text-void-400 hover:text-white hover:bg-void-800 flex items-center justify-center ${focusRing}`}><Plus size={13} /></button>
               </li>
             ))}

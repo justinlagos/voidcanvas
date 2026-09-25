@@ -9,7 +9,7 @@ One app, three modules. Each works alone and they pass work to each other.
 |---|---|---|
 | `/` | Hub | Entry point and recent designs |
 | `/studio` | Studio | Brief, reference board, palette pulled from references, size preset. "Start design in Editor" opens it all as a design. |
-| `/editor` | Editor | Layered image editor: raster, text, shape and adjustment layers, masks, 16 blend modes, selections, retouching, 60 live filters, export. |
+| `/editor` | Editor | Layered image editor: raster, text, shape and adjustment layers, masks, 16 blend modes, selections, retouching, 58 live filters, export. |
 | `/effects` | Effects | The original one-click effects tool. "Open in Editor" sends the result across. |
 
 Everything is stored on the user's device (IndexedDB database `voidcanvas`). No backend yet.
@@ -48,7 +48,7 @@ Deploys to Netlify as before. No new npm dependencies were added.
 - Brand guideline builder: a token-based brand system. Every value can be set and locked; New take only changes what is unlocked. OKLCH 50 to 900 ramps, semantic colours, WCAG 2.2 contrast pairings, modular type scales, any Google font or a local font file that never leaves the browser. Logo analysis trims and knocks out flat backgrounds, tests the mark's outer edge against every background and picks full colour, reversed or dark mono. Clear-space blueprint and minimum size page. Page outliner: drag or arrow to reorder, include or leave out, and switch layouts (Alt-click a thumbnail to cycle). Exports: screen PDF, print PDF (300 dpi, 3 mm bleed, crop marks, TrimBox and BleedBox), a self-contained HTML handoff with arrow-key pages, logo downloads and click-to-copy colours, Editor layers, CSS, Tailwind, design tokens JSON and Adobe .ase.
 - Masks on any layer, painted with Brush (show) and Eraser (hide). "Remove background" creates a mask, so nothing is destroyed.
 - Adjustments as layers: curves, brightness and contrast, hue and saturation, temperature, levels, black and white, blur, invert.
-- All 60 Void effects as live filter layers. They always compute at max 1200px so preview, export and the Effects tool match.
+- All 58 Void effects as live filter layers. Previews compute at 1200 px so the Editor and the Effects tool match; exports run at full size with pixel settings scaled up, so they look the same, only sharper.
 - Tools: move/resize/rotate with snapping, crop, text, shape, brush, eraser, fill, gradient, heal, clone stamp, rectangle/ellipse/lasso select, magic wand, eyedropper, pan, zoom. Pen pressure and pinch zoom supported.
 - 40-step undo, autosave, PNG/JPG/WebP export at 0.5x to 3x, transparent export, copy to clipboard, paste and drag-drop import.
 - Shortcuts follow Photoshop: V B E S J M L W G T U I C H Z, Ctrl+Z, Ctrl+J, Ctrl+D, [ ], Space to pan.
@@ -162,3 +162,8 @@ Studio can now read a pasted brief and pull out audience, tonal keywords and mus
 ## License
 
 MIT
+
+## Checks
+
+- `npm test`: unit tests (the brief reader).
+- `npm run build && npm run e2e`: 151 browser checks at desktop, tablet and phone sizes, one per QA bug and per UX phase (needs Playwright's Chromium; `npx playwright install chromium` once).

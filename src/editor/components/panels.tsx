@@ -1,4 +1,5 @@
 'use client'
+import { uiFont } from '@/lib/ui-font'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, Camera, Contrast, Droplet, Eye, EyeOff, Palette, Pin, Plus, RotateCcw, Sparkles, Strikethrough, Sun, SunMoon, Trash2, Underline, Wand2, X } from 'lucide-react'
@@ -156,7 +157,7 @@ export function CharacterPanel() {
       <div>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search fonts, or type any Google font name" className={`${NUM} mb-1.5`} onKeyDown={e => { if (e.key === 'Enter' && q.trim()) setFont(q.trim()) }} />
         <div className="max-h-40 overflow-y-auto rounded-lg border border-white/[0.05]">
-          {shown.map(f => <button key={f} onClick={() => setFont(f)} className={`w-full text-left px-2.5 h-8 text-[13px] ${f === l.fontFamily ? 'bg-accent/20 text-white' : 'text-void-200 hover:bg-white/[0.05]'}`} style={{ fontFamily: `"${f}", Inter` }}>{f}</button>)}
+          {shown.map(f => <button key={f} onClick={() => setFont(f)} className={`w-full text-left px-2.5 h-8 text-[13px] ${f === l.fontFamily ? 'bg-accent/20 text-white' : 'text-void-200 hover:bg-white/[0.05]'}`} style={{ fontFamily: `"${f}", ${uiFont()}` }}>{f}</button>)}
           {q && !shown.length && <button onClick={() => setFont(q.trim())} className="w-full text-left px-2.5 h-8 text-[12.5px] text-accent-light">Use “{q}” from Google Fonts</button>}
         </div>
         <button onClick={loadFile} className="mt-1.5 text-[12px] text-void-400 hover:text-white underline underline-offset-2">Add a font file from this device</button>

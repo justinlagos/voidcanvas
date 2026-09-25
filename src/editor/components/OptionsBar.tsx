@@ -58,6 +58,8 @@ function SelectionExtras() {
 
 export function OptionsBar() {
   const tool = useEditor(s => s.tool)
+  const [more, setMore] = useState(false)
+  const moreRef = useRef<HTMLButtonElement>(null)
   const o = useEditor(s => s.options)
   const crop = useEditor(s => s.crop)
   const selection = useEditor(s => s.selection)
@@ -95,10 +97,18 @@ export function OptionsBar() {
 
       {tool === 'move' && (
         <>
+          {/* The four Move settings rarely change, so they live behind one button instead of taking the whole bar. */}
+          <div className="relative">
+            <button ref={moreRef} onClick={() => setMore(v => !v)} aria-expanded={more} aria-haspopup="menu" className={chip(more)}>Move settings</button>
+            {more && (
+              <div role="menu" className="absolute left-0 top-full mt-1 z-30 min-w-[260px] p-2 space-y-1.5 rounded-xl bg-[#1d1d23] border border-white/[0.09] shadow-2xl" onPointerLeave={() => setMore(false)}>
           <Check2 on={o.autoSelect !== false} label="Auto-select" onChange={v => set('autoSelect', v)} title="Click picks the layer under the pointer. Off: drag moves the selected layer from anywhere." />
           <select aria-label="Auto-select what" value={o.autoSelectGroup ? 'group' : 'layer'} onChange={e => set('autoSelectGroup', e.target.value === 'group')} className="h-7 px-1.5 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px] shrink-0"><option value="layer">Layer</option><option value="group">Group</option></select>
           <Check2 on={o.showTransform !== false} label="Transform controls" onChange={v => set('showTransform', v)} />
           <Check2 on={o.showDistances !== false} label="Distances" onChange={v => set('showDistances', v)} />
+              </div>
+            )}
+          </div>
           <Sep />
           {([['left', AlignStartVertical, 'Align left'], ['hcenter', AlignCenterVertical, 'Align centres'], ['right', AlignEndVertical, 'Align right'], ['top', AlignStartHorizontal, 'Align tops'], ['vcenter', AlignCenterHorizontal, 'Align middles'], ['bottom', AlignEndHorizontal, 'Align bottoms']] as const).map(([h, I, label]) => (
             <IconButton key={h} label={count > 1 ? label : label + ' to the page'} disabled={!active} onClick={() => s.align(h)} className="!h-7 !w-7" tipSide="bottom"><I size={15} /></IconButton>

@@ -35,11 +35,18 @@ export function readBrief(text: string, title = ''): BriefFields {
   const lower = t.toLowerCase()
   // Labelled lines win ("Headline: ...", "Date - ...").
   const label = (names: string) => { const m = t.match(new RegExp(`^\\s*(?:${names})\\s*[:\\-–]\\s*(.+)$`, 'im')); return m ? m[1].trim() : '' }
-  const quoted = first(/[“"']([^"”']{4,70})[”"']/, t).replace(/^[“"']|[”"']$/g, '')
+  // Double and curly quotes always count. A straight single quote only counts at a word edge, so the apostrophe in "Mama's" never opens a quote.
+  const qm = t.match(/[“"]([^"”]{4,70})[”"]|(?:^|[\s(])'([^']{4,70})'(?=$|[\s).,;!?])/)
+  const quoted = (qm ? (qm[1] ?? qm[2]) : '').trim()
+  // A quote inside "must include ..." is something to print, not the title.
+  const quotedIsMust = !!quoted && new RegExp(`\\b(?:include|must|feature|carry|mention|needs? to have)\\b[^.\\n]*${quoted.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(t)
 
   const date = label('date|when|day') || first(new RegExp(`\\b(?:(?:${DAYS}),?\\s+)?(?:\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${MONTHS})|(?:${MONTHS})\\s+\\d{1,2}(?:st|nd|rd|th)?)(?:,?\\s+\\d{4})?\\b|\\b\\d{1,2}[\\/.]\\d{1,2}[\\/.]\\d{2,4}\\b`, 'i'), t)
   const time = label('time') || first(/\b\d{1,2}(?::\d{2})?\s?(?:am|pm)(?:\s?(?:-|–|to)\s?\d{1,2}(?::\d{2})?\s?(?:am|pm))?\b|\b\d{1,2}:\d{2}\b(?:\s?(?:-|–|to)\s?\d{1,2}:\d{2})?/i, t)
-  const venue = label('venue|where|location|address|at') || (t.match(/\b(?:at|venue:?|location:?)\s+((?:[Tt]he\s+)?[A-Z][\w'&-]*(?:\s+[A-Z0-9][\w'&-]*){0,6})/)?.[1] ?? '')
+  const PLACES = 'shop|store|branch|hall|centre|center|church|cathedral|hotel|arena|stadium|club|bar|lounge|gardens?|park|office|studio|campus|school|mall|plaza|restaurant|cafe|kitchen|market|hq|headquarters|gallery|theatre|theater|cinema|beach|resort|lodge|square'
+  const venue = label('venue|where|location|address|at')
+    || (t.match(new RegExp(`\\b(?:at|venue:?|location:?)\\s+(?:our\\s+|the\\s+|my\\s+)?((?:[A-Z][\\w'&-]*)(?:\\s+[\\w'&-]+){0,4}?\\s+(?:${PLACES}))\\b`))?.[1] ?? '')
+    || (t.match(/\b(?:at|venue:?|location:?)\s+((?:[Tt]he\s+)?[A-Z][\w'&-]*(?:\s+[A-Z0-9][\w'&-]*){0,6})/)?.[1] ?? '')
   const price = label('price|cost|tickets?|fee|entry') || first(/(?:₦|N|NGN|£|\$|€|GHS|KES)\s?\d[\d,]*(?:\.\d{2})?(?:k)?\b|\b\d[\d,]*\s?(?:naira|pounds|dollars)\b|\bfree\s+(?:entry|admission|to attend)\b|\bfree\b/i, t)
   const phone = first(/(?:\+\d{1,3}[\s-]?)?\(?0?\d{3,4}\)?[\s-]?\d{3}[\s-]?\d{3,4}\b/, t)
   const email = first(/[\w.+-]+@[\w-]+\.[\w.]+/, t)
@@ -57,32 +64,68 @@ export function readBrief(text: string, title = ''): BriefFields {
       if (/[\d@]|\.[a-z]{2,}/i.test(cta)) cta = cap(v === 'call' ? 'Call us' : v)
     }
   }
-  const audRaw = label('audience|for|target') || (t.match(/\b(?:for|aimed at|targeting|audience is)\s+([a-z0-9 ,'&-]{4,60}?)(?=[.,;\n]|$)/i)?.[1]?.trim() ?? '')
   // Only people count as an audience ("for young professionals", not "for a harvest service").
-  const audience = /\b(people|professionals|students|families|parents|women|men|kids|children|youths?|members|customers|clients|fans|couples|founders|creatives|designers|teens|adults|millennials|gen z|everyone|community|congregation|guests|buyers|homeowners|small businesses|entrepreneurs)\b/i.test(audRaw) ? audRaw : ''
+  const PEOPLE = /\b(people|professionals|students|families|parents|women|men|kids|children|youths?|members|customers|clients|fans|couples|founders|creatives|designers|teens|adults|millennials|gen z|everyone|community|congregation|guests|buyers|homeowners|small businesses|entrepreneurs|elderly|seniors|residents|staff|employees|graduates|mums|mothers|fathers|dads)\b/i
+  const audLabel = label('audience|target')
+  const audience = audLabel || (Array.from(t.matchAll(/\b(?:for|aimed at|targeting|audience is)\s+([a-z0-9 ,'&-]{4,60}?)(?=[.,;\n]|$)/gi)).map(m => m[1].trim()).find(a => PEOPLE.test(a)) ?? '')
   const feel = FEEL_WORDS.filter(w => new RegExp(`\\b${w}\\b`, 'i').test(lower))
 
   // Headline: a labelled or quoted line, else the project title, else the first short sentence.
   const sentences = t.split(/(?<=[.!?])\s+|\n+/).map(x => x.trim()).filter(Boolean)
-  const titleOk = title && !/^untitled/i.test(title)
-  // "Flyer for a church harvest thanksgiving" describes the job; the event is the headline.
-  const titleCase = (x: string) => x.replace(/\b([a-z])([a-z']*)/g, (_, c1, rest) => c1.toUpperCase() + rest)
-  const jobLine = t.match(/^\s*(?:an?\s+)?(?:flyer|poster|post|banner|graphic|design|artwork|carousel|thumbnail|invite|invitation|card|ad|advert)s?\s+(?:for|about|announcing|promoting)\s+(?:an?\s+|the\s+|our\s+|my\s+)?([^.\n]{3,60})/i)
-  const fromJob = jobLine ? titleCase(jobLine[1].trim()) : ''
-  const headline = label('headline|title|name|event') || quoted || (titleOk ? title : '') || fromJob || (sentences.find(x => x.length <= 60 && !/\b(must|need|should|please|we want|i want)\b/i.test(x)) ?? '').replace(/[.!]$/, '')
+  const titleOk = title && !/^(untitled|new job|new design)/i.test(title)
+  // Things said to the designer, not things to print: deadlines, budgets, requests, delivery notes.
+  const isInstruction = (x: string) => /\b(deadline|budget|please|send|drafts?|revert|feedback|asap|urgent|approval|approve|no later|by (?:${DAYS}|${MONTHS}|\d)|we need|i need|can you|could you|we want|i want|we would like|keep it|make it|make sure|use the|use our|attached|see attached|let me know|thanks?|regards)\b/i.test(x)
+  // "Flyer for a church harvest thanksgiving" or "We need an Instagram post for our bakery's new sourdough range" describes the job; the subject is the headline.
+  const titleCase = (x: string) => x.replace(/(?<![\w'])([a-z])([a-z']*)/g, (_, c1, rest) => c1.toUpperCase() + rest)
+  const KINDS = 'flyer|poster|post|banner|graphic|design|artwork|carousel|thumbnail|invite|invitation|card|ad|advert|creative|visual|story|reel|cover|billboard'
+  const jobLine = t.match(new RegExp(`^\\s*(?:(?:we|i)\\s+(?:need|want|would like|are looking for|'d like)\\s+|(?:need|want)\\s+)?(?:an?\\s+|the\\s+|some\\s+)?(?:[\\w-]+\\s+){0,2}?(?:${KINDS})s?\\s+(?:for|about|announcing|promoting|to promote|to announce)\\s+(?:an?\\s+|the\\s+|our\\s+|my\\s+)?([^.\\n,]{3,60}?)(?=\\s+(?:at|on|in|from|this|next|by|with|during)\\b|[.,\\n]|$)`, 'im'))
+  const fromJob = jobLine ? titleCase(jobLine[1].trim().replace(/^[a-z][\w-]*'s\s+/, '')) : ''
+  const jobSentence = jobLine ? jobLine[0].trim() : ''
+  const printable = (x: string) => !isInstruction(x) && !(jobSentence && x.includes(jobSentence))
+  const headline = label('headline|title|name|event') || (quotedIsMust ? '' : quoted) || (titleOk ? title : '') || fromJob || (sentences.find(x => x.length <= 60 && printable(x) && !/\b(must|need|should)\b/i.test(x)) ?? '').replace(/[.!]$/, '')
   const hl = headline.toLowerCase()
-  const subhead = label('subhead|subheading|tagline|strapline|theme') || (sentences.find(x => { const xl = x.toLowerCase(); return !xl.includes(hl) && !hl.includes(xl.replace(/[.]$/, '')) && !(jobLine && x.includes(jobLine[0].trim())) && !x.toLowerCase().replace(/[^a-z ]/g, '').split(/\s+/).filter(w => w && !['and', 'a', 'bit', 'but', 'very', 'quite', 'yet', 'with', 'feel', 'vibe', 'tone', 'look'].includes(w)).every(w => FEEL_WORDS.includes(w)) && x.length > 12 && x.length <= 90 && !/\b(must|need|include|logo|date|price|contact|call|tickets?|free)\b/i.test(x) && !/\d/.test(x) }) ?? '').replace(/[.]$/, '')
+  const feelOnly = (x: string) => x.toLowerCase().replace(/[^a-z ]/g, '').split(/\s+/).filter(w => w && !['and', 'a', 'bit', 'but', 'very', 'quite', 'yet', 'with', 'feel', 'vibe', 'tone', 'look', 'it', 'should', 'be'].includes(w)).every(w => FEEL_WORDS.includes(w))
+  const subhead = label('subhead|subheading|tagline|strapline|theme')
+    || (quoted && quoted.toLowerCase() !== hl ? quoted : '')
+    || (sentences.find(x => { const xl = x.toLowerCase(); return printable(x) && !xl.includes(hl) && !hl.includes(xl.replace(/[.]$/, '')) && !feelOnly(x) && x.length > 12 && x.length <= 90 && !/\b(must|need|include|logo|date|price|contact|call|tickets?|free)\b/i.test(x) && !/\d/.test(x) }) ?? '').replace(/[.]$/, '')
 
   const used = [headline, subhead, date, time, venue, price, cta, contact].map(x => x.toLowerCase()).filter(Boolean)
   const must: string[] = []
+  const addMust = (raw: string) => {
+    const v = cap(raw.replace(/^[\s,;:]+|[\s,;:.]+$/g, ''))
+    if (v.length < 2 || v.length > 120) return
+    if (must.some(m => m.toLowerCase() === v.toLowerCase())) return
+    must.push(v)
+  }
+  // Split a list on commas, semicolons and "and", but never inside quotes.
+  const splitList = (x: string) => {
+    const parts: string[] = []; let cur = '', q = ''
+    for (let i = 0; i < x.length; i++) {
+      const ch = x[i]
+      if (q) { cur += ch; if (ch === q || (q === '“' && ch === '”') || (q === '(' && ch === ')')) q = ''; continue }
+      if (ch === '"' || ch === '“' || ch === '(') { q = ch; cur += ch; continue }
+      if (ch === ',' || ch === ';') { parts.push(cur); cur = ''; continue }
+      if (x.slice(i, i + 5).toLowerCase() === ' and ' ) { parts.push(cur); cur = ''; i += 4; continue }
+      cur += ch
+    }
+    parts.push(cur)
+    return parts.map(p => p.trim().replace(/[.\s]+$/, '').replace(/^[“"']|[”"']$/g, '')).filter(Boolean)
+  }
   for (const line of t.split(/[\n;]+|(?<=\.)\s+/)) {
     const l = line.trim()
-    if (l.length < 6 || l.length > 120) continue
-    if (!/\b(must|need|should|include|feature|logo|sponsor|partners?|hashtag|disclaimer|terms|dress code|hosted by|powered by|in partnership|speakers?|guest|performing|lineup|featuring)\b/i.test(l)) continue
-    if (used.some(u => l.toLowerCase().includes(u) && u.length > 4)) continue
+    if (l.length < 6 || l.length > 160) continue
+    if (jobSentence && l.includes(jobSentence)) continue
+    // "We need an Instagram post" is the job, not something to print.
+    if (new RegExp(`\\b(?:need|want|looking for|would like)\\b[^.]{0,24}\\b(?:${KINDS})s?\\b`, 'i').test(l)) continue
     // A list of the formats wanted is a deliverables list, not something to print on the design.
     if (/\b(need|want|require|deliver|send)\b/i.test(l) && /\b(instagram|story|stories|poster|billboard|flyer|banner|reel|thumbnail|deck|slides?|a[345]|post|status)\b/i.test(l)) continue
-    must.push(cap(l.replace(/^(?:it\s+)?(?:must|should|needs? to)\s+(?:include|have|show|feature)\s*:?\s*/i, '').replace(/[.]$/, '')))
+    // "Must include: X, Y and Z" is a list; each item is its own must-have.
+    const listed = l.match(/^(?:it\s+|the\s+\w+\s+)?(?:must|should|needs?\s+to|has\s+to|please)?\s*(?:include|have|show|feature|carry|mention)s?\s*:?\s*(.+)$/i)
+    if (listed) { for (const item of splitList(listed[1])) if (item.toLowerCase() !== hl) addMust(item); continue }
+    if (!/\b(must|need|should|include|feature|logo|sponsor|partners?|hashtag|disclaimer|terms|dress code|hosted by|powered by|in partnership|speakers?|guest|performing|lineup|featuring)\b/i.test(l)) continue
+    if (isInstruction(l) && !/\b(logo|sponsor|hashtag|disclaimer)\b/i.test(l)) continue
+    if (used.some(u => l.toLowerCase().includes(u) && u.length > 4)) continue
+    addMust(l.replace(/^(?:it\s+)?(?:must|should|needs? to)\s+(?:include|have|show|feature)\s*:?\s*/i, '').replace(/[.]$/, ''))
   }
   return { headline: cap(headline), subhead: cap(subhead), date: cap(date), time, venue: cap(venue), price: price.replace(/^n(?=\d)/i, '₦'), cta, contact, audience: cap(audience), feel, must: must.slice(0, 5) }
 }

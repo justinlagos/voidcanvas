@@ -21,11 +21,12 @@ import { MenuBar } from './MenuBar'
 import { track } from '@/lib/analytics'
 import { StatusBar } from './StatusBar'
 import { Dock, MobilePanels } from './Dock'
-import { AiInfoDialog, CanvasSizeDialog, ColorRangeDialog, FillDialog, GuideLayoutDialog, ImageSizeDialog, ImportReportDialog, LooksDialog, MissingFontsDialog, ModifySelectionDialog, NewGuideDialog, PreferencesDialog, StrokeDialog, VersionsDialog, fontAvailable } from './MoreDialogs'
+import { AiInfoDialog, CanvasSizeDialog, ColorRangeDialog, FillDialog, GuideLayoutDialog, ImageSizeDialog, ImportReportDialog, LooksDialog, MissingFontsDialog, ModifySelectionDialog, NameDialog, NewGuideDialog, PreferencesDialog, StrokeDialog, VersionsDialog, fontAvailable } from './MoreDialogs'
 import { LayerStyleDialog } from './LayerStyleDialog'
 import { SelectMask } from './SelectMask'
 import { buildActions, eventCombo, internalClip, normCombo, pasteInPlace } from '../actions'
 import { useUi } from '../ui-store'
+import { MobileEditor, useIsPhone } from './MobileEditor'
 import * as ops from '../ops'
 import { markSessionClean, noteEdit, readCrashedSession, startAutoVersions, writeSession } from '../versions'
 
@@ -43,6 +44,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') { (w
 
 export function EditorShell() {
   const hasDoc = useEditor(s => !!s.doc)
+  const phone = useIsPhone()
   const toast = useEditor(s => s.toast)
   const busy = useEditor(s => s.busy)
   const dirty = useEditor(s => s.dirty)
@@ -309,9 +311,9 @@ export function EditorShell() {
   const m = modal?.name
   return (
     <main className={`h-[100dvh] flex flex-col bg-void-950 text-void-100 overflow-hidden ${ui.density === 'compact' ? 'vc-compact' : ''} ${ui.touchMode ? 'vc-touch' : ''}`} style={{ ['--vc-ui-scale' as any]: ui.uiScale }}>
-      <MenuBar onExport={() => setModal('export')} onAdd={() => setModal('add')} onSearch={() => setModal('palette')} />
-      {hasDoc && <div className="vc-chrome"><TabBar onNew={() => useEditor.getState().closeDoc()} /></div>}
-      {!hasDoc ? <StartScreen /> : (
+      {!(phone && hasDoc) && <MenuBar onExport={() => setModal('export')} onAdd={() => setModal('add')} onSearch={() => setModal('palette')} />}
+      {hasDoc && !phone && <div className="vc-chrome"><TabBar onNew={() => useEditor.getState().closeDoc()} /></div>}
+      {!hasDoc ? <StartScreen /> : phone ? <MobileEditor /> : (
         <>
           <OptionsBar />
           <div className="flex-1 min-h-0 flex flex-col md:flex-row relative">
@@ -338,6 +340,7 @@ export function EditorShell() {
       {m === 'canvasSize' && hasDoc && <CanvasSizeDialog onClose={close} aiFill={modal?.props?.aiFill} />}
       {m === 'guideLayout' && hasDoc && <GuideLayoutDialog onClose={close} />}
       {m === 'newGuide' && hasDoc && <NewGuideDialog onClose={close} />}
+      {m === 'saveWorkspace' && <NameDialog onClose={close} title="Save workspace" label="Workspace name" placeholder="My layout" initial={useUi.getState().workspace.name === 'Essentials' ? '' : useUi.getState().workspace.name} onSubmit={n => useUi.getState().saveWorkspaceAs(n)} />}
       {m === 'fill' && hasDoc && <FillDialog onClose={close} />}
       {m === 'stroke' && hasDoc && <StrokeDialog onClose={close} />}
       {m === 'modify' && hasDoc && <ModifySelectionDialog onClose={close} kind={modal?.props?.kind ?? 'feather'} />}

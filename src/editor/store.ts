@@ -66,7 +66,6 @@ interface EditorState {
   view: View
   crop: Rect | null
   cloneSource: { x: number; y: number } | null
-  focusText: number
 
   history: Snapshot[]
   historyIndex: number
@@ -233,7 +232,6 @@ export const useEditor = create<EditorState>((set, get) => ({
   view: { zoom: 1, panX: 0, panY: 0 },
   crop: null,
   cloneSource: null,
-  focusText: 0,
 
   history: [],
   historyIndex: -1,
@@ -520,7 +518,8 @@ export const useEditor = create<EditorState>((set, get) => ({
     const { doc, fg, brandFont } = get(); if (!doc) return
     const size = boxWidth ? Math.round(Math.max(16, Math.min(doc.width / 40, boxWidth / 12))) : Math.round(Math.max(24, doc.width / 14))
     const l: TextLayer = {
-      ...base(boxWidth ? 'Paragraph' : 'Text'), type: 'text', text: boxWidth ? 'Type your paragraph here. Text wraps inside the box, and you can drag the side handles to change its width.' : 'Your text',
+      // Starts empty: the canvas editor opens with a caret and a hint, so there is nothing to delete first.
+      ...base(boxWidth ? 'Paragraph' : 'Text'), type: 'text', text: '',
       fontFamily: brandFont ?? 'Inter', fontSize: size, fontWeight: boxWidth ? 400 : 700, italic: false,
       color: fg, align: 'left', lineHeight: boxWidth ? 1.4 : 1.15, letterSpacing: 0, boxWidth: boxWidth ?? null,
     }

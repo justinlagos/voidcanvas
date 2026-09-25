@@ -55,3 +55,37 @@ export function localFontFace(family: string): string | null {
   const mime = f.format === 'truetype' ? 'font/ttf' : f.format === 'opentype' ? 'font/otf' : `font/${f.format}`
   return `@font-face{font-family:"${family}";src:url(data:${mime};base64,${btoa(bin)}) format("${f.format}");font-weight:100 900;font-display:swap}`
 }
+
+const b64 = (buf: ArrayBuffer) => { const u8 = new Uint8Array(buf); let bin = ''; for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, Array.from(u8.subarray(i, i + 0x8000))); return btoa(bin) }
+
+/**
+ * Google families as @font-face rules with the font files inlined, so an export works offline.
+ * Only the latin subset is kept (the guideline is in English and the file stays small). Returns null
+ * for any family that could not be fetched, so the caller can fall back to a link.
+ */
+export async function inlineGoogleFontFaces(families: string[], weights = [400, 600, 700]): Promise<{ css: string; missing: string[] }> {
+  const out: string[] = [], missing: string[] = []
+  for (const family of families) {
+    try {
+      const fam = family.trim().replace(/ /g, '+')
+      let res = await fetch(`https://fonts.googleapis.com/css2?family=${fam}:wght@${weights.join(';')}&display=swap`)
+      if (!res.ok) res = await fetch(`https://fonts.googleapis.com/css2?family=${fam}&display=swap`)
+      if (!res.ok) throw new Error(String(res.status))
+      const css = await res.text()
+      // Blocks are "/* latin */ @font-face {...}". Keep latin and latin-ext only.
+      const blocks = css.split(/(?=\/\* [a-z-]+ \*\/)/).filter(b => /^\/\* latin(-ext)? \*\//.test(b.trim()))
+      const chosen = blocks.length ? blocks : css.split(/(?=@font-face)/).filter(b => b.includes('@font-face'))
+      const rules: string[] = []
+      for (const block of chosen) {
+        const m = block.match(/url\((https:[^)]+)\)\s*format\('([^']+)'\)/)
+        if (!m) continue
+        const fr = await fetch(m[1]); if (!fr.ok) throw new Error(String(fr.status))
+        const mime = m[2] === 'woff2' ? 'font/woff2' : m[2] === 'woff' ? 'font/woff' : 'font/ttf'
+        rules.push(block.replace(/\/\* [a-z-]+ \*\/\s*/g, '').replace(m[1], `data:${mime};base64,${b64(await fr.arrayBuffer())}`).trim())
+      }
+      if (!rules.length) throw new Error('no faces')
+      out.push(rules.join('\n'))
+    } catch { missing.push(family) }
+  }
+  return { css: out.join('\n'), missing }
+}

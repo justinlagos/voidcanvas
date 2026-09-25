@@ -17,12 +17,23 @@ export interface Workspace {
   strip: PanelId[]
   floating: FloatingPanel[]
   dockWidth: number
+  /** No icon strip beside the dock. Tucked-away panels open from the Window menu instead. */
+  hideStrip?: boolean
 }
 
 let n = 0
 const gid = () => 'g' + Date.now().toString(36) + (n++)
 
 export const WORKSPACES: Record<string, () => Workspace> = {
+  // The default: what you need to finish a simple job. Everything else is under Window.
+  Simple: () => ({
+    name: 'Simple', dockWidth: 288, floating: [], hideStrip: true,
+    strip: ['brief', 'history', 'swatches', 'adjustments', 'character', 'paragraph', 'styles', 'channels', 'paths', 'info', 'brand', 'navigator'],
+    groups: [
+      { id: gid(), tabs: ['properties'], active: 'properties', size: 1.1 },
+      { id: gid(), tabs: ['layers'], active: 'layers', size: 1 },
+    ],
+  }),
   Essentials: () => ({
     name: 'Essentials', dockWidth: 300, floating: [],
     strip: ['brief', 'info', 'adjustments', 'character', 'paragraph', 'styles', 'brand', 'navigator'],
@@ -76,7 +87,7 @@ export interface UiPrefs {
 
 const DEFAULT_PREFS: UiPrefs = {
   uiScale: 1, density: 'comfortable', touchMode: false, showContextBar: true,
-  showRulers: true, showGuides: true, lockGuides: false, snap: true, snapToGuides: true, pixelGrid: true,
+  showRulers: false, showGuides: true, lockGuides: false, snap: true, snapToGuides: true, pixelGrid: true,
   historyLimit: 100, historyMemoryMB: 1200, versionEveryMin: 10, showStatusBar: true, aiConsent: {},
 }
 
@@ -102,6 +113,8 @@ interface UiState extends UiPrefs {
   /** Read stored preferences. Called once on mount so server and first client render match. */
   hydrate: () => void
   hydrated: boolean
+  /** Set once the Simple default has been applied, so a later switch to Essentials sticks. */
+  simpleDefault?: boolean
 }
 
 const KEY = 'vc-ui-v1'
@@ -113,7 +126,7 @@ function persist(s: UiState) {
     const { workspace, saved } = s
     const prefs: any = {}
     for (const k of Object.keys(DEFAULT_PREFS)) prefs[k] = (s as any)[k]
-    localStorage.setItem(KEY, JSON.stringify({ ...prefs, workspace, saved }))
+    localStorage.setItem(KEY, JSON.stringify({ ...prefs, workspace, saved, simpleDefault: s.simpleDefault }))
   } catch { /* storage blocked: preferences last for this visit only */ }
 }
 
@@ -139,7 +152,7 @@ export const useUi = create<UiState>((set, get) => {
   const save = (patch: Partial<UiState>) => { set(patch); persist(get()) }
   return {
     ...DEFAULT_PREFS,
-    workspace: WORKSPACES.Essentials(),
+    workspace: WORKSPACES.Simple(),
     saved: {},
     flyout: null,
     hydrated: false,
@@ -148,7 +161,13 @@ export const useUi = create<UiState>((set, get) => {
       const stored = load()
       const prefs: any = {}
       for (const k of Object.keys(DEFAULT_PREFS)) if (k in stored) prefs[k] = (stored as any)[k]
-      set({ ...prefs, workspace: complete((stored.workspace as Workspace) ?? WORKSPACES.Essentials()), saved: (stored.saved as Record<string, Workspace>) ?? {}, hydrated: true })
+      // Simple is the default for everyone once (Sept 2026). A layout the person saved under their own name is kept;
+      // the built-in ones move to Simple, and Essentials, Photo and Design stay one click away under Window.
+      let workspace = (stored.workspace as Workspace) ?? WORKSPACES.Simple()
+      const saved = (stored.saved as Record<string, Workspace>) ?? {}
+      if (!stored.simpleDefault && workspace.name in WORKSPACES && !saved[workspace.name]) workspace = WORKSPACES.Simple()
+      set({ ...prefs, workspace: complete(workspace), saved, hydrated: true, simpleDefault: true })
+      persist(get())
     },
 
     setPref: (k, v) => save({ [k]: v } as any),
@@ -159,7 +178,7 @@ export const useUi = create<UiState>((set, get) => {
     },
     saveWorkspaceAs: (name) => save({ saved: { ...get().saved, [name]: { ...get().workspace, name } }, workspace: { ...get().workspace, name } }),
     deleteWorkspace: (name) => { const s = { ...get().saved }; delete s[name]; save({ saved: s }) },
-    resetWorkspace: () => { const name = get().workspace.name; const fresh = get().saved[name] ?? (WORKSPACES[name] ?? WORKSPACES.Essentials)(); save({ workspace: complete(JSON.parse(JSON.stringify(fresh))), flyout: null }) },
+    resetWorkspace: () => { const name = get().workspace.name; const fresh = get().saved[name] ?? (WORKSPACES[name] ?? WORKSPACES.Simple)(); save({ workspace: complete(JSON.parse(JSON.stringify(fresh))), flyout: null }) },
 
     showPanel: (p) => {
       const w = get().workspace

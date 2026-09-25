@@ -6,7 +6,7 @@ import { Check, ChevronRight, Download, Menu as MenuIcon, Plus, Redo2, Search, U
 import { MENUS, buildActions, prettyKey, resolveAction, type Action, type MenuItem } from '../actions'
 import { useEditor } from '../store'
 import { Button, IconButton, focusRing } from './ui'
-import { PrivateBadge } from './PrivacyPanel'
+import { PrivateBadge, usePrivate } from './PrivacyPanel'
 
 // Photopea-style menu bar. Menus open on click, then follow the pointer across the bar, like desktop apps.
 // Arrow keys move through items, Right opens a submenu, Escape closes.
@@ -82,6 +82,7 @@ function MenuList({ items, actions, onDone, level = 0, autoFocus }: { items: Men
 export function MenuBar({ onExport, onAdd, onSearch }: { onExport: () => void; onAdd: () => void; onSearch: () => void }) {
   const doc = useEditor(s => s.doc)
   const dirty = useEditor(s => s.dirty)
+  const priv = usePrivate()
   const canUndo = useEditor(s => s.historyIndex > 0)
   const canRedo = useEditor(s => s.historyIndex < s.history.length - 1)
   // Rebuilt on every open so enabled and checked states are current.
@@ -129,7 +130,7 @@ export function MenuBar({ onExport, onAdd, onSearch }: { onExport: () => void; o
       </div>
 
       {/* Desktop menus */}
-      <nav aria-label="Menu" className="hidden md:flex items-center" role="menubar">
+      <nav aria-label="Menu" className="hidden lg:flex items-center" role="menubar">
         {MENUS.map((m, i) => (
           <div key={m.label} className="relative">
             <button role="menuitem" aria-haspopup="menu" aria-expanded={open === i + 1} disabled={!doc && !['File', 'Window', 'Help'].includes(m.label)}
@@ -143,8 +144,8 @@ export function MenuBar({ onExport, onAdd, onSearch }: { onExport: () => void; o
         ))}
       </nav>
 
-      {/* Phone and small tablet: one menu button holding every menu */}
-      <div className="md:hidden relative">
+      {/* Phone and tablet (below lg): one menu button holding every menu. The full menubar plus Search, Add and Export does not fit in 768 px. */}
+      <div className="lg:hidden relative">
         <IconButton label="Menu" onClick={() => setMobile(v => !v)} active={mobile}><MenuIcon size={18} /></IconButton>
         {mobile && <div className="absolute left-0 top-full mt-1"><MenuList items={MENUS.map(m => ({ label: m.label, items: m.items }))} actions={actions} onDone={() => setMobile(false)} /></div>}
       </div>
@@ -154,7 +155,7 @@ export function MenuBar({ onExport, onAdd, onSearch }: { onExport: () => void; o
         <div className="hidden lg:flex items-center gap-2 mx-auto min-w-0">
           <input aria-label="Design name" value={doc.name} onChange={e => s.setDoc({ name: e.target.value })} onBlur={() => useEditor.setState({ dirty: true })}
             className={`h-7 w-48 px-2 rounded-md bg-transparent hover:bg-void-900 focus:bg-void-900 text-[12.5px] text-center text-void-200 truncate ${focusRing}`} />
-          <span className="flex items-center gap-1.5 text-[11.5px] text-void-500 shrink-0" aria-live="polite"><span className={`w-1.5 h-1.5 rounded-full ${dirty ? 'bg-amber-400' : 'bg-emerald-500'}`} />{dirty ? 'Saving' : 'Saved on this device'}</span>
+          <span className="flex items-center gap-1.5 text-[11.5px] text-void-500 shrink-0" aria-live="polite"><span className={`w-1.5 h-1.5 rounded-full ${priv ? 'bg-accent' : dirty ? 'bg-amber-400' : 'bg-emerald-500'}`} />{priv ? 'Private session, not saved' : dirty ? 'Saving' : 'Saved on this device'}</span>
         </div>
       )}
       {!doc && <span className="flex-1" />}
@@ -164,8 +165,8 @@ export function MenuBar({ onExport, onAdd, onSearch }: { onExport: () => void; o
           <IconButton label="Redo" shortcut={prettyKey('Ctrl+Shift+Z')} disabled={!canRedo} onClick={s.redo} tipSide="bottom"><Redo2 size={16} /></IconButton>
           <button onClick={onSearch} title="Search every action" className={`hidden xl:flex items-center gap-2 h-8 ml-1 pl-2.5 pr-2 rounded-lg bg-surface-sunken border border-white/[0.06] text-[12.5px] text-void-400 hover:text-white ${focusRing}`}><Search size={13} />Search<kbd className="ml-1 text-[10.5px] px-1.5 py-0.5 rounded bg-void-800 text-void-300">{prettyKey('Ctrl+K')}</kbd></button>
           <IconButton label="Search every action" shortcut={prettyKey('Ctrl+K')} onClick={onSearch} className="xl:hidden" tipSide="bottom"><Search size={16} /></IconButton>
-          <Button onClick={onAdd} className="!h-8 !bg-accent !text-white hover:!bg-[#9a8dff] !px-2.5 sm:!px-3 ml-1"><Plus size={15} /><span className="hidden sm:inline">Add</span><span className="sr-only sm:hidden">Add</span></Button>
-          <Button primary onClick={onExport} className="!h-8 !px-2.5 sm:!px-3"><Download size={15} /><span className="hidden sm:inline">Export</span><span className="sr-only sm:hidden">Export</span></Button>
+          <Button onClick={onAdd} className="!h-8 !bg-accent !text-white hover:!bg-[#9a8dff] !px-2.5 lg:!px-3 ml-1"><Plus size={15} /><span className="hidden lg:inline">Add</span><span className="sr-only lg:hidden">Add</span></Button>
+          <Button primary onClick={onExport} className="!h-8 !px-2.5 lg:!px-3"><Download size={15} /><span className="hidden lg:inline">Export</span><span className="sr-only lg:hidden">Export</span></Button>
         </div>
       )}
       <Fragment />

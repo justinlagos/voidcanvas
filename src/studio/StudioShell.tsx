@@ -7,7 +7,7 @@ import { AppNav, Logo } from '@/components/AppNav'
 import { BrandGuideline } from './BrandGuideline'
 import { JobView } from './job/JobView'
 import { BrandsView } from './brands/BrandsView'
-import { STATUS_LABEL, newJob, useJobs, type Job, type JobStatus } from './jobs'
+import { STATUS_LABEL, newJob, nextAction, useJobs, type Job, type JobStatus } from './jobs'
 import { Btn, Empty, INPUT, focusRing, fmtDate, useObjectUrl } from './ui'
 
 // Studio is the art director's desk: every job from brief to delivery.
@@ -31,7 +31,7 @@ export function StudioShell() {
   const job = view.name === 'job' ? jobs?.find(j => j.id === view.id) : null
 
   return (
-    <main className={`flex flex-col bg-void-950 text-void-100 ${view.name === 'home' || view.name === 'brands' ? 'min-h-[100dvh]' : 'h-[100dvh] overflow-hidden'}`}>
+    <main className={`vc-tap flex flex-col bg-void-950 text-void-100 ${view.name === 'home' || view.name === 'brands' ? 'min-h-[100dvh]' : 'h-[100dvh] overflow-hidden'}`}>
       <header className="h-12 shrink-0 flex items-center gap-3 px-3 border-b border-void-800/60"><Logo /><AppNav /></header>
       {view.name === 'guidelines' ? <BrandGuideline onBack={() => open({ name: 'home' })} />
         : view.name === 'brands' ? <BrandsView initial={view.id} onBack={() => open({ name: 'home' })} onGuidelines={() => open({ name: 'guidelines' })} />
@@ -47,41 +47,42 @@ const STATUS_DOT: Record<JobStatus, string> = { direction: 'bg-sky-400', design:
 function Home({ jobs, onOpen, onNew, onRemove, onBrands, onGuidelines }: { jobs: Job[] | null; onOpen: (id: string) => void; onNew: () => void; onRemove: (id: string) => void; onBrands: () => void; onGuidelines: () => void }) {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<JobStatus | 'all'>('all')
-  const list = useMemo(() => (jobs ?? []).filter(j => (filter === 'all' || j.status === filter) && `${j.client} ${j.name}`.toLowerCase().includes(q.toLowerCase())), [jobs, q, filter])
+  const sorted = useMemo(() => (jobs ?? []).slice().sort((a, b) => b.updatedAt - a.updatedAt), [jobs])
+  const list = useMemo(() => sorted.filter(j => (filter === 'all' || j.status === filter) && `${j.client} ${j.name}`.toLowerCase().includes(q.toLowerCase())), [sorted, q, filter])
   const counts = useMemo(() => Object.fromEntries(STATUS_ORDER.map(s => [s, (jobs ?? []).filter(j => j.status === s).length])) as Record<JobStatus, number>, [jobs])
+  // Search and filters earn their place once there is something to search.
+  const many = (jobs?.length ?? 0) > 5
   return (
-    <div className="max-w-6xl w-full mx-auto px-5 sm:px-8 py-8 sm:py-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="max-w-3xl w-full mx-auto px-5 sm:px-8 py-8 sm:py-12">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[26px] sm:text-[30px] font-semibold tracking-tight">Studio</h1>
-          <p className="mt-1 text-[14px] text-void-400 max-w-xl">Every job from brief to delivery: references read for you, direction the client signs off, one key visual in every format, and a clean package at the end. Nothing leaves this device.</p>
+          <p className="mt-1 text-[14px] text-void-400">Every client job, from the brief to the files you hand over.</p>
         </div>
-        <div className="flex gap-2">
-          <Btn onClick={onGuidelines}><BookOpen size={14} />Guideline builder</Btn>
-          <Btn onClick={onBrands}><SwatchBook size={14} />Brands</Btn>
-          <Btn primary onClick={onNew}><Plus size={15} />New job</Btn>
-        </div>
+        <Btn primary onClick={onNew} className="shrink-0"><Plus size={15} />Start a job</Btn>
       </div>
 
-      <div className="mt-7 flex flex-wrap items-center gap-2">
-        <label className="relative">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-void-500" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Find a job or client" aria-label="Find a job" className={`${INPUT} pl-8 w-64`} />
-        </label>
-        <div className="flex gap-1 text-[12px]" role="tablist">
-          {(['all', ...STATUS_ORDER] as const).map(s => (
-            <button key={s} role="tab" aria-selected={filter === s} onClick={() => setFilter(s)} className={`h-8 px-3 rounded-lg ${focusRing} ${filter === s ? 'bg-void-700 text-white' : 'text-void-400 hover:text-white'}`}>
-              {s === 'all' ? `All ${jobs?.length ?? ''}` : `${STATUS_LABEL[s]} ${counts[s] || ''}`}
-            </button>
-          ))}
+      {many && (
+        <div className="mt-7 flex flex-wrap items-center gap-2">
+          <label className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-void-500" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Find a job or client" aria-label="Find a job" className={`${INPUT} pl-8 w-64`} />
+          </label>
+          <div className="flex gap-1 text-[12px]" role="tablist">
+            {(['all', ...STATUS_ORDER] as const).map(s => (
+              <button key={s} role="tab" aria-selected={filter === s} onClick={() => setFilter(s)} className={`h-8 px-3 rounded-lg ${focusRing} ${filter === s ? 'bg-void-700 text-white' : 'text-void-400 hover:text-white'}`}>
+                {s === 'all' ? `All ${jobs?.length ?? ''}` : `${STATUS_LABEL[s]} ${counts[s] || ''}`}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="mt-4">
+      <div className={many ? 'mt-4' : 'mt-8'}>
         {jobs === null ? <p className="text-void-500 text-[13px]">Loading…</p>
           : !jobs.length ? (
-            <Empty title="No jobs yet" action={<Btn primary onClick={onNew}><Plus size={15} />Start a job</Btn>}>
-              A job holds the brief, the formats you owe, your references, the directions you show the client, the key visual, every version they saw, and the files you hand over.
+            <Empty title="Start with the client's brief" action={<Btn primary onClick={onNew}><Plus size={15} />Start a job</Btn>}>
+              Paste it in. Studio reads it, keeps your references, and builds every format from one key visual.
             </Empty>
           ) : (
             <div className="rounded-2xl border border-void-800/80 overflow-hidden divide-y divide-void-800/70">
@@ -90,13 +91,19 @@ function Home({ jobs, onOpen, onNew, onRemove, onBrands, onGuidelines }: { jobs:
             </div>
           )}
       </div>
+
+      <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-void-400">
+        <span>Also here</span>
+        <button onClick={onBrands} className={`inline-flex items-center gap-1.5 hover:text-white rounded ${focusRing}`}><SwatchBook size={14} />Client brands</button>
+        <button onClick={onGuidelines} className={`inline-flex items-center gap-1.5 hover:text-white rounded ${focusRing}`}><BookOpen size={14} />Brand guideline builder</button>
+      </div>
     </div>
   )
 }
 
 function JobRow({ job, onOpen, onRemove }: { job: Job; onOpen: () => void; onRemove: () => void }) {
   const cover = useObjectUrl(job.refs[0]?.blob)
-  const done = job.deliverables.filter(d => d.done).length
+  const next = nextAction(job)
   const due = job.deliverables.map(d => d.due).filter(Boolean).sort()[0]
   return (
     <div className="group flex items-center gap-4 px-4 py-3 bg-void-950 hover:bg-void-900/70">
@@ -109,9 +116,9 @@ function JobRow({ job, onOpen, onRemove }: { job: Job; onOpen: () => void; onRem
           <span className="block text-[11.5px] text-void-500 truncate">{job.client || 'No client yet'}</span>
           <span className="block text-[14px] font-medium truncate">{job.name}</span>
         </span>
-        <span className="hidden sm:flex items-center gap-1.5 text-[12px] text-void-300 w-28"><span className={`w-2 h-2 rounded-full ${STATUS_DOT[job.status]}`} />{STATUS_LABEL[job.status]}</span>
-        <span className="hidden md:block text-[12px] text-void-400 w-28 tabular-nums">{job.deliverables.length ? `${done} of ${job.deliverables.length} formats` : 'No formats yet'}</span>
-        <span className="hidden md:block text-[12px] text-void-400 w-28">{due ? `Due ${due}` : `Updated ${fmtDate(job.updatedAt)}`}</span>
+        <span className="hidden sm:flex items-center gap-1.5 text-[12px] text-void-300 w-24"><span className={`w-2 h-2 rounded-full ${STATUS_DOT[job.status]}`} />{STATUS_LABEL[job.status]}</span>
+        <span className="text-[12.5px] text-void-100 w-36 text-right sm:text-left shrink-0">{next.label} <span className="text-void-500">→</span></span>
+        <span className="hidden md:block text-[12px] text-void-500 w-28">{due ? `Due ${due}` : fmtDate(job.updatedAt)}</span>
       </button>
       <button aria-label={`Delete ${job.name}`} onClick={onRemove} className={`w-8 h-8 rounded-lg text-void-500 hover:text-white hover:bg-void-800 items-center justify-center hidden group-hover:flex focus:flex ${focusRing}`}><Trash2 size={14} /></button>
     </div>
