@@ -6,6 +6,7 @@ const config: Config = {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
     './src/editor/**/*.{ts,tsx}',
+    './src/make/**/*.{ts,tsx}',
     './src/studio/**/*.{ts,tsx}',
     './src/tools/**/*.{ts,tsx}',
     './src/admin/**/*.{ts,tsx}',

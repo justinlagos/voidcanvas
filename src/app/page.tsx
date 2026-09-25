@@ -18,6 +18,17 @@ const MODULES = [
   { href: '/effects', name: 'Effects', line: 'One photo, one click', body: 'Halftone, dither, glitch, ASCII and more. Export straight away or send the result to the Editor.', art: 'effects' },
 ] as const
 
+// The campaign destinations: each one is a dare with a single button.
+const CHALLENGES = [
+  { href: '/make', name: 'Give me a challenge' },
+  { href: '/60', name: '60 seconds' },
+  { href: '/five', name: 'Five clicks' },
+  { href: '/rescue', name: 'Rescue this image' },
+  { href: '/brief', name: 'Client from hell' },
+  { href: '/one-image', name: 'One image, ten lives' },
+  { href: '/psd', name: 'Drop a PSD' },
+]
+
 function Art({ kind }: { kind: string }) {
   if (kind === 'studio') return (
     <svg viewBox="0 0 240 120" className="w-full h-full" aria-hidden>
@@ -52,11 +63,23 @@ export default function Home() {
         <button onClick={() => setPrivacy(true)} className="flex items-center gap-1.5 text-[13px] text-void-400 hover:text-white"><Lock size={14} />Your privacy</button>
       </header>
       <div className="max-w-5xl mx-auto px-5 sm:px-8 pt-8 sm:pt-14 pb-16">
-        <h1 className="text-[34px] sm:text-[52px] leading-[1.04] font-semibold tracking-[-0.03em] max-w-3xl">From the brief to the finished file, in one tab.</h1>
-        <p className="mt-4 text-[15px] sm:text-[17px] text-void-400 max-w-xl leading-relaxed">Three tools that work alone and hand work to each other. Free to use, and your files never leave your browser.</p>
-        <button onClick={() => setPrivacy(true)} className="mt-4 inline-flex items-center gap-2 px-3 h-9 rounded-full bg-void-900 border border-void-800 text-[13px] text-void-300 hover:text-white hover:border-void-600"><Lock size={14} className="text-accent-light" />No account. No cloud. Private by default.</button>
+        <h1 className="text-[52px] sm:text-[96px] lg:text-[120px] leading-[0.92] font-semibold tracking-[-0.05em]">MAKE SOMETHING.</h1>
+        <p className="mt-5 text-[19px] sm:text-[24px] text-void-300">Start with an image.</p>
+        <div className="mt-7 flex flex-wrap items-center gap-4">
+          <Link href="/make" data-home-cta className={`h-14 sm:h-16 px-8 sm:px-10 rounded-full bg-white text-void-950 text-[17px] sm:text-[20px] font-semibold tracking-tight inline-flex items-center hover:bg-void-100 ${focus}`}>Try it</Link>
+          <span className="text-[14px] text-void-400">No account required.</span>
+        </div>
 
-        <div className="mt-10 grid md:grid-cols-3 gap-4">
+        <section className="mt-14" aria-label="Challenges">
+          <div className="flex flex-wrap gap-2">
+            {CHALLENGES.map(c => (
+              <Link key={c.href} href={c.href} className={`h-10 px-4 rounded-full bg-void-900 border border-void-800 text-[13.5px] text-void-200 hover:text-white hover:border-void-500 flex items-center ${focus}`}>{c.name}</Link>
+            ))}
+          </div>
+        </section>
+
+        <h2 className="mt-16 text-[13px] font-semibold text-void-200 mb-3">Three tools. One tab. Free, and your files never leave your browser.</h2>
+        <div className="grid md:grid-cols-3 gap-4">
           {MODULES.map((m, i) => (
             <Link key={m.href} href={m.href} className={`group relative flex flex-col rounded-2xl bg-[#131318] border border-void-800/80 hover:border-void-600 transition-colors ${focus}`}>
               <span className="block h-36 p-4 bg-[#0f0f13] rounded-t-2xl"><Art kind={m.art} /></span>

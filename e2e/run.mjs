@@ -8,7 +8,7 @@ if (!process.env.BASE) {
   for (let i = 0; i < 60; i++) { try { await fetch(BASE); break } catch { await new Promise(r => setTimeout(r, 1000)) } }
 }
 let failed = false
-for (const f of ['qa-batch1', 'qa-batch2', 'qa-batch3', 'qa-batch5']) {
+for (const f of ['qa-batch1', 'qa-batch2', 'qa-batch3', 'qa-batch5', 'campaign']) {
   console.log(`\n== ${f}`)
   const code = await new Promise(r => spawn(process.execPath, [`e2e/${f}.mjs`], { stdio: 'inherit', env: { ...process.env, BASE } }).on('exit', r))
   if (code) failed = true

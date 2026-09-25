@@ -64,6 +64,7 @@ function sessionId(): { id: string; isNew: boolean } {
 
 export function areaOf(path: string) {
   const p = path.split('/')[1] || 'home'
+  if (['make', '60', 'five', 'rescue', 'brief', 'one-image', 'psd', 'remix'].includes(p)) return 'make'
   return ['studio', 'editor', 'effects', 'tools', 'admin'].includes(p) ? p : 'home'
 }
 

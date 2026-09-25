@@ -100,9 +100,15 @@ export async function wipeEverything(): Promise<void> {
 
 export interface Handoff {
   id: string
-  from: 'effects' | 'studio' | 'editor'
+  from: 'effects' | 'studio' | 'editor' | 'make'
   name: string
   images: { name: string; blob: Blob }[]
+  /** Files to run through the importer as they are (a PSD from /psd, for example). */
+  files?: { name: string; blob: Blob }[]
+  /** Board colour for a new design; null keeps it transparent. */
+  background?: string | null
+  /** A campaign challenge to run in the Editor: the dare, the clock, the click limit. */
+  challenge?: import('@/make/challenge').Challenge
   palette?: string[]
   size?: { width: number; height: number }
   note?: string

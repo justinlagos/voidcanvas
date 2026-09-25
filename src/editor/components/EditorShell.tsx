@@ -28,6 +28,8 @@ import { buildActions, eventCombo, internalClip, normCombo, pasteInPlace } from 
 import { useUi } from '../ui-store'
 import * as ops from '../ops'
 import { markSessionClean, noteEdit, readCrashedSession, startAutoVersions, writeSession } from '../versions'
+import { ChallengeBar, ChallengeEnd } from '@/make/ChallengeOverlay'
+import { useChallenge } from '@/make/challenge'
 
 type ModalState = { name: string; props?: any } | null
 
@@ -60,7 +62,7 @@ export function EditorShell() {
   const ui = useUi()
 
   useEffect(() => { useUi.getState().hydrate() }, [])
-  useEffect(() => { (window as any).__voidEditor = useEditor; (window as any).__voidUi = useUi }, [])
+  useEffect(() => { (window as any).__voidEditor = useEditor; (window as any).__voidUi = useUi; (window as any).__vcChallenge = useChallenge }, [])
 
   const docId = useEditor(s => s.doc?.id)
   useEffect(() => { getBrand().then(applyBrand).catch(() => {}) }, [docId])
@@ -120,6 +122,8 @@ export function EditorShell() {
       if (!h) return
       track('doc.import', { kind: 'from-' + h.from, count: h.images?.length ?? 0 })
       const ed = useEditor.getState()
+      // Files that need the importer (PSD, PDF) go through it untouched.
+      if (h.files?.length) { if (h.challenge) useChallenge.getState().begin(h.challenge); importFiles(h.files.map(f => new File([f.blob], f.name, { type: f.blob.type }))); return }
       // Jobs: open the job's design and build or update its formats.
       if (h.openProject) {
         const ok = await openProject(h.openProject)
@@ -155,8 +159,10 @@ export function EditorShell() {
         return
       }
       const size = h.size ?? (canvases[0] ? { width: canvases[0].width, height: canvases[0].height } : { width: 1080, height: 1350 })
-      ed.newDoc({ name: h.name, ...size, background: h.from === 'studio' ? '#ffffff' : null })
+      ed.newDoc({ name: h.name, ...size, background: h.background !== undefined ? h.background : h.from === 'studio' ? '#ffffff' : null })
       canvases.forEach((c, i) => useEditor.getState().addImage(c, c.width, c.height, h.images[i].name))
+      // The clock starts once the starter image is on the board.
+      if (h.challenge) useChallenge.getState().begin(h.challenge)
       if (h.liveEffect) {
         const st = useEditor.getState()
         st.addAdjustment('voidEffect', h.liveEffect.effect as any)
@@ -317,6 +323,7 @@ export function EditorShell() {
           <div className="flex-1 min-h-0 flex flex-col md:flex-row relative">
             <ToolRail />
             <Stage />
+            <ChallengeBar />
             <button onClick={() => setPanel(true)} aria-label="Open panels" className="md:hidden absolute right-3 top-3 z-10 h-10 px-3 rounded-full bg-void-900/95 border border-void-700 text-[13px] flex items-center gap-2 shadow-lg"><PanelRight size={16} />Layers</button>
             <Dock onOpenFilters={openFilters} />
             <MobilePanels open={panel} onClose={() => setPanel(false)} onOpenFilters={openFilters} />
@@ -325,6 +332,7 @@ export function EditorShell() {
         </>
       )}
 
+      {hasDoc && <ChallengeEnd onExport={() => setModal('export')} />}
       {m === 'add' && hasDoc && <AddMenu onClose={close} />}
       {m === 'filters' && hasDoc && <AddMenu filtersOnly onClose={close} />}
       {m === 'palette' && hasDoc && <CommandPalette onClose={close} open={x => setModal(x)} />}
