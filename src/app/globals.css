@@ -160,3 +160,6 @@ input[type="range"].vc-bar::-moz-range-track { background: #3a3a44; }
   .vc-tap button:empty, .vc-tap button:not(:has(> :not(svg))) { min-width: 36px; }
   .vc-tap input:not([type=range]):not([type=checkbox]):not([type=color]) { min-height: 36px; }
 }
+
+/* Landing page: tab panel swap. */
+@keyframes fadein { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
