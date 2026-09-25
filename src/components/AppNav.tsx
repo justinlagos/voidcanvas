@@ -24,7 +24,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
 export function AppNav() {
   const path = usePathname() ?? ''
   return (
-    <nav aria-label="Modules" className="flex items-center rounded-lg bg-void-900 p-0.5 border border-void-800/70">
+    <nav aria-label="Modules" className="vc-tap flex items-center rounded-lg bg-void-900 p-0.5 border border-void-800/70">
       {MODULES.map(m => {
         const on = path.startsWith(m.href)
         return (

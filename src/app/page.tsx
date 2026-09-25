@@ -59,7 +59,7 @@ export default function Home() {
   ].sort((a, b) => b.at - a.at).slice(0, 8)
 
   return (
-    <main className="min-h-[100dvh] bg-void-950 text-void-100">
+    <main className="vc-tap min-h-[100dvh] bg-void-950 text-void-100">
       <header className="h-14 flex items-center justify-between px-5 sm:px-8"><div className="flex items-center gap-3"><Logo /><PrivateBadge /></div>
         <button onClick={() => setPrivacy(true)} className="flex items-center gap-1.5 text-[13px] text-void-400 hover:text-white"><Lock size={14} />Your privacy</button>
       </header>

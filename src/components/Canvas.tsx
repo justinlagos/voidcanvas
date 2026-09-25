@@ -169,7 +169,7 @@ export function Canvas() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Canvas toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-void-800/40">
+      <div className="vc-tap flex items-center justify-between px-4 py-2 border-b border-void-800/40">
         <div className="flex items-center gap-1">
           <button
             onClick={() => setShowComparison(!showComparison)}
@@ -185,7 +185,7 @@ export function Canvas() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-void-500 font-mono tabular-nums" title={sourceSize.width > canvasSize.width ? `Preview at ${canvasSize.width} × ${canvasSize.height}. Downloads are ${sourceSize.width} × ${sourceSize.height}.` : undefined}>
+          <span className="text-[11px] text-void-500 font-mono tabular-nums whitespace-nowrap" title={sourceSize.width > canvasSize.width ? `Preview at ${canvasSize.width} × ${canvasSize.height}. Downloads are ${sourceSize.width} × ${sourceSize.height}.` : undefined}>
             {sourceSize.width || canvasSize.width} × {sourceSize.height || canvasSize.height}
           </span>
           <div className="w-px h-4 bg-void-800" />

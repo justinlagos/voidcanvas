@@ -162,3 +162,8 @@ Studio can now read a pasted brief and pull out audience, tonal keywords and mus
 ## License
 
 MIT
+
+## Checks
+
+- `npm test`: unit tests (the brief reader).
+- `npm run build && npm run e2e`: 151 browser checks at desktop, tablet and phone sizes, one per QA bug and per UX phase (needs Playwright's Chromium; `npx playwright install chromium` once).

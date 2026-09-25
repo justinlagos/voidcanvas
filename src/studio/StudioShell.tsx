@@ -31,7 +31,7 @@ export function StudioShell() {
   const job = view.name === 'job' ? jobs?.find(j => j.id === view.id) : null
 
   return (
-    <main className={`flex flex-col bg-void-950 text-void-100 ${view.name === 'home' || view.name === 'brands' ? 'min-h-[100dvh]' : 'h-[100dvh] overflow-hidden'}`}>
+    <main className={`vc-tap flex flex-col bg-void-950 text-void-100 ${view.name === 'home' || view.name === 'brands' ? 'min-h-[100dvh]' : 'h-[100dvh] overflow-hidden'}`}>
       <header className="h-12 shrink-0 flex items-center gap-3 px-3 border-b border-void-800/60"><Logo /><AppNav /></header>
       {view.name === 'guidelines' ? <BrandGuideline onBack={() => open({ name: 'home' })} />
         : view.name === 'brands' ? <BrandsView initial={view.id} onBack={() => open({ name: 'home' })} onGuidelines={() => open({ name: 'guidelines' })} />
