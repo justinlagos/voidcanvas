@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Check, ChevronRight, Download, Menu as MenuIcon, Plus, Redo2, Search, Undo2 } from 'lucide-react'
 import { MENUS, buildActions, prettyKey, resolveAction, type Action, type MenuItem } from '../actions'
@@ -24,6 +24,29 @@ function resolve(actions: Record<string, Action>, items: MenuItem[] | (() => Men
   }
   while (out.length && out[out.length - 1].kind === 'sep') out.pop()
   return out
+}
+
+/** A submenu opens to the right of its item, like desktop apps. It is placed with fixed coordinates so the parent
+ *  list's scrolling never clips it, and flips to the left only when there is no room on the right. */
+function SubMenu({ anchor, children, onKeyDown }: { anchor: HTMLElement | null; children: React.ReactNode; onKeyDown: (e: React.KeyboardEvent) => void }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = box.current; if (!anchor || !el) return
+    // The editor chrome can be zoomed (Interface size). Fixed coordinates inside it are in zoomed units.
+    const z = parseFloat(getComputedStyle(anchor).getPropertyValue('--vc-ui-scale')) || 1
+    const a = anchor.getBoundingClientRect(), w = el.offsetWidth * z, h = el.offsetHeight * z
+    let left = a.right + 2
+    if (left + w > innerWidth - 8) left = Math.max(8, a.left - w - 2)
+    let top = a.top - 6
+    if (top + h > innerHeight - 8) top = Math.max(8, innerHeight - 8 - h)
+    setPos({ left: left / z, top: top / z })
+  }, [anchor])
+  return (
+    <div ref={box} className="fixed z-50" style={{ left: pos?.left ?? -9999, top: pos?.top ?? 0, visibility: pos ? 'visible' : 'hidden' }} onKeyDown={onKeyDown}>
+      {children}
+    </div>
+  )
 }
 
 function MenuList({ items, actions, onDone, level = 0, autoFocus }: { items: MenuItem[] | (() => MenuItem[]); actions: Record<string, Action>; onDone: () => void; level?: number; autoFocus?: boolean }) {
@@ -52,9 +75,9 @@ function MenuList({ items, actions, onDone, level = 0, autoFocus }: { items: Men
                 <span className="flex-1">{r.label}</span><ChevronRight size={14} className="opacity-60" />
               </button>
               {sub === i && (
-                <div className="absolute left-full top-[-6px] ml-0.5 z-10" onKeyDown={e => { if (e.key === 'ArrowLeft') { e.stopPropagation(); setSub(null); refs.current[i]?.focus() } }}>
+                <SubMenu anchor={refs.current[i]} onKeyDown={e => { if (e.key === 'ArrowLeft') { e.stopPropagation(); setSub(null); refs.current[i]?.focus() } }}>
                   <MenuList items={r.items} actions={actions} onDone={onDone} level={level + 1} autoFocus />
-                </div>
+                </SubMenu>
               )}
             </div>
           )

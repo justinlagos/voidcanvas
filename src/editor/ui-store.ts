@@ -83,12 +83,17 @@ export interface UiPrefs {
   showStatusBar: boolean
   /** Remembered choice so the "runs on your device" note shows once per model. */
   aiConsent: Record<string, boolean>
+  /** The tool panel: docked on the left edge, or floating over the canvas at any position and shape. */
+  toolbar: ToolbarLayout
 }
+
+export interface ToolbarLayout { float: boolean; x: number; y: number; cols: number; collapsed: boolean }
 
 const DEFAULT_PREFS: UiPrefs = {
   uiScale: 1, density: 'comfortable', touchMode: false, showContextBar: true,
   showRulers: false, showGuides: true, lockGuides: false, snap: true, snapToGuides: true, pixelGrid: true,
   historyLimit: 100, historyMemoryMB: 1200, versionEveryMin: 10, showStatusBar: true, aiConsent: {},
+  toolbar: { float: false, x: 16, y: 16, cols: 2, collapsed: false },
 }
 
 interface UiState extends UiPrefs {

@@ -98,6 +98,10 @@ interface EditorState {
   setActiveFrame: (id: string | null) => void
   addFrame: (preset: { name: string; width: number; height: number }) => void
   removeFrame: (id: string) => void
+  /** Moves a board and every layer on it by dx, dy document pixels. Live while dragging; commit afterwards. */
+  moveFrame: (id: string, dx: number, dy: number) => void
+  /** After a board move: keeps every board on the page (nothing above or left of 0,0) and fits the page to them. */
+  settleFrames: () => { dx: number; dy: number }
   /** Deletes a group with everything inside it, nested groups included. */
   removeGroup: (groupId: string) => void
   /** Locks or unlocks every layer inside a group, and the group itself. */
@@ -316,6 +320,33 @@ export const useEditor = create<EditorState>((set, get) => ({
     set({ doc: { ...doc, frames }, layers: next, groups: prune(groups, next), activeFrameId: keep, selectedIds: [], activeId: null, editingMask: false, docRev: get().docRev + 1 })
     get().commit('Delete board')
     get().notify(`Board “${f.name}” deleted. Undo brings it back.`)
+  },
+
+  moveFrame: (id, dx, dy) => {
+    const { doc, layers } = get(); if (!doc?.frames || (!dx && !dy)) return
+    set({
+      doc: { ...doc, frames: doc.frames.map(f => f.id === id ? { ...f, x: f.x + dx, y: f.y + dy } : f) },
+      layers: layers.map(l => l.frameId === id ? ({ ...l, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer) : l),
+      docRev: get().docRev + 1,
+    })
+  },
+
+  settleFrames: () => {
+    const { doc, layers } = get(); if (!doc?.frames?.length) return { dx: 0, dy: 0 }
+    // Boards can be dragged anywhere. The page is the box around them, so a board dragged above or left of the
+    // others shifts everything to keep the page starting at 0,0; the view shifts back so nothing appears to jump.
+    const minX = Math.min(...doc.frames.map(f => f.x)), minY = Math.min(...doc.frames.map(f => f.y))
+    const dx = minX < 0 ? -Math.floor(minX) : 0, dy = minY < 0 ? -Math.floor(minY) : 0
+    const frames = doc.frames.map(f => ({ ...f, x: f.x + dx, y: f.y + dy }))
+    const loose = layers.some(l => !l.frameId)
+    const r = Math.ceil(Math.max(...frames.map(f => f.x + f.width))), b = Math.ceil(Math.max(...frames.map(f => f.y + f.height)))
+    const guides = doc.guides && (dx || dy) ? { v: doc.guides.v.map(v => v + dx), h: doc.guides.h.map(h => h + dy) } : doc.guides
+    set({
+      doc: { ...doc, frames, guides, width: loose ? Math.max(doc.width + dx, r) : r, height: loose ? Math.max(doc.height + dy, b) : b },
+      layers: dx || dy ? layers.map(l => ({ ...l, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer)) : layers,
+      docRev: get().docRev + 1,
+    })
+    return { dx, dy }
   },
 
   removeGroup: (groupId) => {

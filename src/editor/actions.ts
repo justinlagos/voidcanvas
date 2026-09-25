@@ -289,6 +289,7 @@ export function buildActions(): Record<string, Action> {
     ...Object.keys(WORKSPACES).map(n => ({ id: 'ws.' + n, label: n, run: () => ui().applyWorkspace(n), checked: () => ui().workspace.name === n })),
     { id: 'ws.save', label: 'Save workspace…', run: () => openModal('saveWorkspace') },
     { id: 'ws.reset', label: 'Reset workspace', run: () => ui().resetWorkspace() },
+    { id: 'tools.float', label: 'Floating tools', checked: () => ui().toolbar.float, run: () => { const t = ui().toolbar; ui().setPref('toolbar', { ...t, float: !t.float, collapsed: false }) } },
     ...[0.9, 1, 1.1, 1.25, 1.4, 1.5].map(k => ({ id: 'scale.' + k, label: `${Math.round(k * 100)}%`, run: () => ui().setPref('uiScale', k), checked: () => Math.abs(ui().uiScale - k) < 0.01, keywords: 'interface size ui scale' })),
     { id: 'density.compact', label: 'Compact', run: () => ui().setPref('density', 'compact'), checked: () => ui().density === 'compact' },
     { id: 'density.comfortable', label: 'Comfortable', run: () => ui().setPref('density', 'comfortable'), checked: () => ui().density === 'comfortable' },
@@ -313,7 +314,7 @@ export const MENUS: { label: string; items: MenuItem[] }[] = [
   { label: 'Select', items: ['sel.all', 'sel.none', 'sel.reselect', 'sel.inverse', '-', 'sel.subject', 'sel.object', 'sel.colorRange', 'sel.layer', '-', 'sel.mask', { label: 'Modify', items: ['sel.expand', 'sel.contract', 'sel.feather', 'sel.smooth', 'sel.border'] }, '-', 'sel.save', 'sel.path', 'sel.quickMask'] },
   { label: 'Filter', items: ['filter.gallery', 'filter.remove', '-', ...(['artistic', 'stylize', 'color', 'distortion', 'enhance'] as const).map(cat => ({ label: { artistic: 'Artistic', stylize: 'Stylize', color: 'Colour', distortion: 'Distort', enhance: 'Enhance' }[cat], items: effects.filter(e => e.category === cat).map(e => 'fx.' + e.id) }))] },
   { label: 'View', items: ['view.zoomIn', 'view.zoomOut', 'view.fit', 'view.100', 'view.fitSel', 'view.fitBoard', '-', 'view.rulers', 'view.guides', 'view.lockGuides', 'view.snap', 'view.pixelGrid', { label: 'Guides', items: ['view.newGuide', 'view.guideLayout', 'view.clearGuides'] }, '-', 'view.before', 'view.contextBar', 'view.status', 'view.touch'] },
-  { label: 'Window', items: [...(Object.keys(PANEL_LABELS) as PanelId[]).map(p => 'panel.' + p), '-', { label: 'Workspace', items: () => [...Object.keys(WORKSPACES).map(n => 'ws.' + n), ...Object.keys(useUi.getState().saved).filter(n => !WORKSPACES[n]).map(n => 'ws.saved.' + n), '-', 'ws.save', 'ws.reset'] }, { label: 'Interface size', items: ['scale.0.9', 'scale.1', 'scale.1.1', 'scale.1.25', 'scale.1.4', 'scale.1.5', '-', 'density.compact', 'density.comfortable'] }] },
+  { label: 'Window', items: [...(Object.keys(PANEL_LABELS) as PanelId[]).map(p => 'panel.' + p), '-', 'tools.float', { label: 'Workspace', items: () => [...Object.keys(WORKSPACES).map(n => 'ws.' + n), ...Object.keys(useUi.getState().saved).filter(n => !WORKSPACES[n]).map(n => 'ws.saved.' + n), '-', 'ws.save', 'ws.reset'] }, { label: 'Interface size', items: ['scale.0.9', 'scale.1', 'scale.1.1', 'scale.1.25', 'scale.1.4', 'scale.1.5', '-', 'density.compact', 'density.comfortable'] }] },
   { label: 'Help', items: ['help.search', 'help.keys', '-', 'help.ai', 'help.privacy', '-', 'help.feedback', 'help.bug'] },
 ]
 

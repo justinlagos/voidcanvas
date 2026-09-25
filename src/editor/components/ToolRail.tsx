@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeftRight, BoxSelect, Blend, Brush, CircleDashed, Crop, Droplet, Eraser, Hand, Lasso, LassoSelect, Moon, MousePointer2, MousePointerClick, MousePointerSquareDashed, PaintBucket, PenTool, Pipette, Spline, PenLine, Shapes, Sparkle, Sparkles, Stamp, Sun, Type, Wand2, ZoomIn } from 'lucide-react'
+import { ArrowLeftRight, BoxSelect, ChevronDown, ChevronUp, GripHorizontal, PanelLeft, Blend, Brush, CircleDashed, Crop, Droplet, Eraser, Hand, Lasso, LassoSelect, Moon, MousePointer2, MousePointerClick, MousePointerSquareDashed, PaintBucket, PenTool, Pipette, Spline, PenLine, Shapes, Sparkle, Sparkles, Stamp, Sun, Type, Wand2, ZoomIn } from 'lucide-react'
 import { makeCanvas } from '../engine'
 import { useEditor } from '../store'
+import { useUi } from '../ui-store'
 import type { ToolId } from '../types'
 import { ColorPopover, Floating } from './ColorPicker'
 import { KeyCap, Tooltip, focusRing } from './ui'
@@ -134,10 +135,27 @@ export function toggleQuickMask() {
   }
 }
 
+const TOOL = 38 // one tool cell, px, including its gap
+
+/** The tool panel. Docked on the left edge by default. Drag its grip onto the canvas to float it; a floating
+ *  panel moves anywhere, reshapes from one tall column to one long row by its corner, collapses to the current
+ *  tool, and docks again from its header or Window > Floating tools. */
+function useWide() {
+  const [wide, setWide] = useState(false)
+  useEffect(() => { const mq = matchMedia('(min-width: 768px)'); const on = () => setWide(mq.matches); on(); mq.addEventListener('change', on); return () => mq.removeEventListener('change', on) }, [])
+  return wide
+}
+
 export function ToolRail() {
+  const tb = useUi(s => s.toolbar)
+  const hydrated = useUi(s => s.hydrated)
+  const wide = useWide()
+  // Floating: the panel is drawn over the canvas by FloatingTools instead.
+  if (hydrated && wide && tb.float) return null
   return (
     <aside aria-label="Tools"
       className="vc-chrome order-last md:order-none shrink-0 flex md:flex-col items-center gap-0.5 px-2 py-1.5 md:py-2 md:w-[50px] overflow-x-auto md:overflow-y-auto md:overflow-x-visible border-t md:border-t-0 md:border-r border-white/[0.06] bg-surface-overlay">
+      {wide && <DetachGrip />}
       {FAMILIES.map((fam, i) => (
         <span key={fam[0].id} className="contents">
           <Slot fam={fam} />
@@ -148,5 +166,102 @@ export function ToolRail() {
       <ColorChips />
       <QuickMaskToggle />
     </aside>
+  )
+}
+
+/** Grip at the top of the docked rail. Drag it out onto the canvas (or double-click it) to float the tools there. */
+function DetachGrip() {
+  const start = useRef<{ x: number; y: number } | null>(null)
+  const detach = (clientX: number, clientY: number) => {
+    const host = document.querySelector('[data-tool-host]')?.getBoundingClientRect()
+    const t = useUi.getState().toolbar
+    useUi.getState().setPref('toolbar', { ...t, float: true, collapsed: false, x: Math.max(8, clientX - (host?.left ?? 0) - 20), y: Math.max(8, clientY - (host?.top ?? 0) - 10) })
+  }
+  return (
+    <Tooltip label="Drag onto the canvas to float the tools" side="right">
+      <button type="button" aria-label="Float the tools" onDoubleClick={() => detach(80, 120)}
+        onPointerDown={e => { e.stopPropagation(); start.current = { x: e.clientX, y: e.clientY }; (e.target as HTMLElement).setPointerCapture(e.pointerId) }}
+        onPointerMove={e => { const s0 = start.current; if (s0 && Math.hypot(e.clientX - s0.x, e.clientY - s0.y) > 14) { start.current = null; detach(e.clientX, e.clientY) } }}
+        onPointerUp={() => { start.current = null }}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); detach(80, 120) } }}
+        className={`shrink-0 w-9 h-4 mb-1 flex items-center justify-center rounded cursor-grab active:cursor-grabbing text-void-600 hover:text-void-300 hover:bg-white/[0.04] ${focusRing}`}>
+        <GripHorizontal size={14} />
+      </button>
+    </Tooltip>
+  )
+}
+
+/** Mounted inside the canvas area. Draws nothing unless the tools are floating on a wide screen. */
+export function FloatingTools() {
+  const wide = useWide()
+  const float = useUi(s => s.toolbar.float && s.hydrated)
+  return wide && float ? <FloatingToolsPanel /> : null
+}
+
+function FloatingToolsPanel() {
+  const tb = useUi(s => s.toolbar)
+  const tool = useEditor(s => s.tool)
+  const box = useRef<HTMLDivElement>(null)
+  const set = (patch: Partial<typeof tb>) => useUi.getState().setPref('toolbar', { ...useUi.getState().toolbar, ...patch })
+  const [live, setLive] = useState<{ x: number; y: number; cols: number } | null>(null)
+  const pos = live ?? tb
+  const cols = Math.max(1, Math.min(FAMILIES.length, pos.cols))
+  const active = TOOLS.find(t => t.id === tool) ?? TOOLS[0]
+
+  // Keep the panel inside the canvas area when the window or the dock changes size.
+  useEffect(() => {
+    const fit = () => {
+      const host = box.current?.parentElement?.getBoundingClientRect(), me = box.current?.getBoundingClientRect(); if (!host || !me) return
+      const x = Math.max(4, Math.min(tb.x, host.width - me.width - 4)), y = Math.max(4, Math.min(tb.y, host.height - me.height - 4))
+      if (x !== tb.x || y !== tb.y) set({ x, y })
+    }
+    fit(); addEventListener('resize', fit); return () => removeEventListener('resize', fit)
+  }, [tb.x, tb.y, tb.cols, tb.collapsed]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const drag = (e: React.PointerEvent, kind: 'move' | 'shape') => {
+    if (e.button !== 0) return
+    e.preventDefault(); e.stopPropagation()
+    const el = box.current!, host = el.parentElement!.getBoundingClientRect(), me = el.getBoundingClientRect()
+    const sx = e.clientX, sy = e.clientY, ox = tb.x, oy = tb.y, ow = me.width
+    let last = { x: tb.x, y: tb.y, cols: tb.cols }
+    const mv = (ev: PointerEvent) => {
+      if (kind === 'move') last = { ...last, x: Math.max(4, Math.min(host.width - me.width - 4, ox + ev.clientX - sx)), y: Math.max(4, Math.min(host.height - 40, oy + ev.clientY - sy)) }
+      else last = { ...last, cols: Math.max(1, Math.min(FAMILIES.length, Math.round((ow + ev.clientX - sx - 12) / TOOL))) }
+      setLive(last)
+    }
+    const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); setLive(null); set(last) }
+    addEventListener('pointermove', mv); addEventListener('pointerup', up)
+  }
+
+  return (
+    <div ref={box} role="toolbar" aria-label="Tools" onPointerDown={e => e.stopPropagation()}
+      className="vc-chrome absolute z-20 rounded-xl bg-surface-overlay/95 backdrop-blur border border-white/[0.09] shadow-[0_14px_40px_rgba(0,0,0,0.5)] select-none"
+      style={{ left: pos.x, top: pos.y }}>
+      <div className="flex items-center gap-0.5 h-6 px-1 border-b border-white/[0.06]">
+        <span onPointerDown={e => drag(e, 'move')} onDoubleClick={() => set({ collapsed: !tb.collapsed })} title="Drag to move. Double-click to collapse."
+          className="flex-1 min-w-[18px] h-full flex items-center justify-center cursor-grab active:cursor-grabbing text-void-600 hover:text-void-300"><GripHorizontal size={13} /></span>
+        <button type="button" aria-label={tb.collapsed ? 'Expand the tools' : 'Collapse the tools'} title={tb.collapsed ? 'Expand' : 'Collapse'} onClick={() => set({ collapsed: !tb.collapsed })}
+          className={`w-5 h-5 rounded flex items-center justify-center text-void-400 hover:text-white hover:bg-white/[0.06] ${focusRing}`}>{tb.collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}</button>
+        <button type="button" aria-label="Dock the tools" title="Dock on the left" onClick={() => set({ float: false, collapsed: false })}
+          className={`w-5 h-5 rounded flex items-center justify-center text-void-400 hover:text-white hover:bg-white/[0.06] ${focusRing}`}><PanelLeft size={12} /></button>
+      </div>
+      {tb.collapsed ? (
+        <div className="p-1.5 flex justify-center"><Slot fam={FAMILIES.find(f => f.some(t => t.id === active.id)) ?? FAMILIES[0]} /></div>
+      ) : (
+        <div className="relative p-1.5">
+          <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${cols}, 36px)` }}>
+            {FAMILIES.map(fam => <Slot key={fam[0].id} fam={fam} />)}
+          </div>
+          <div className={`flex items-center gap-2 mt-1.5 pt-1.5 border-t border-white/[0.06] ${cols === 1 ? 'flex-col' : ''}`}>
+            <ColorChips />
+            <QuickMaskToggle />
+          </div>
+          <span onPointerDown={e => drag(e, 'shape')} title="Drag to reshape: one column, a grid, or one row"
+            className="absolute right-0 bottom-0 w-4 h-4 cursor-nwse-resize flex items-end justify-end p-[3px] text-void-600 hover:text-void-300">
+            <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden><path d="M7 1L1 7M7 4L4 7" stroke="currentColor" strokeWidth="1.2" /></svg>
+          </span>
+        </div>
+      )}
+    </div>
   )
 }

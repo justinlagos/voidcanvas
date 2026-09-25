@@ -34,6 +34,7 @@ type Drag =
   | { kind: 'stroke'; last: Pt; smooth: Pt; carry: number; snapshot?: HTMLCanvasElement; offset?: Pt; tool: ToolId; quick?: boolean }
   | { kind: 'box'; tool: ToolId; start: Pt; cur: Pt; pts: Pt[]; mode: 'new' | 'add' | 'sub' | 'intersect' }
   | { kind: 'guide'; axis: 'v' | 'h'; index: number; pos: number }
+  | { kind: 'frame'; id: string; last: Pt; moved: boolean }
   | { kind: 'tcorner'; index: number; start: Pt; quad0: Pt[]; grid0: Pt[] | null; warp: boolean }
   | { kind: 'tmove'; start: Pt; quad0: Pt[]; grid0: Pt[] | null }
   | { kind: 'pen'; target: Target; sub: number; idx: number; mode: 'place' | 'close' | 'retract'; last: Pt; moved: boolean }
@@ -98,6 +99,9 @@ export function Stage() {
   const cursor = useRef<Pt | null>(null)
   /** Screen rectangles of the × on each board's name badge, rebuilt every overlay draw. */
   const closeHits = useRef<{ id: string; x: number; y: number; w: number; h: number }[]>([])
+  /** Screen rectangles of each board's name badge: drag one to move the board. */
+  const badgeHits = useRef<{ id: string; x: number; y: number; w: number; h: number }[]>([])
+  const overBadge = useRef<string | null>(null)
   const overClose = useRef<string | null>(null)
   const snapLines = useRef<{ v: number[]; h: number[] }>({ v: [], h: [] })
   const dist = useRef<{ x: number; y: number; w: number; h: number; px: number; axis: 'h' | 'v' }[]>([])
@@ -260,7 +264,7 @@ export function Stage() {
       octx.stroke(); octx.restore()
     }
 
-    closeHits.current = []
+    closeHits.current = []; badgeHits.current = []
     if (doc.frames && doc.frames.length) {
       const canClose = doc.frames.length > 1
       for (const f of doc.frames) {
@@ -286,8 +290,9 @@ export function Stage() {
         if (inside && !fits && !on) continue
         const bx = inside ? a.x + 6 : a.x
         const by = inside ? a.y + 6 : above
-        octx.fillStyle = on ? ACCENT : 'rgba(30,30,36,0.92)'
+        octx.fillStyle = on ? ACCENT : overBadge.current === f.id ? 'rgba(52,52,62,0.96)' : 'rgba(30,30,36,0.92)'
         octx.beginPath(); octx.roundRect(bx, by, badgeW, badgeH, 6); octx.fill()
+        badgeHits.current.push({ id: f.id, x: bx, y: by - 3, w: badgeW - closeW, h: badgeH + 6 })
         octx.textBaseline = 'middle'
         octx.font = `600 12px ${uiFont()}`
         octx.fillStyle = on ? '#fff' : 'rgba(255,255,255,0.9)'
@@ -902,6 +907,15 @@ export function Stage() {
     const sp = local(e)
     const close = e.button === 0 && !pointers.current.size ? closeHits.current.find(r => sp.x >= r.x && sp.x <= r.x + r.w && sp.y >= r.y && sp.y <= r.y + r.h) : null
     if (close) { e.stopPropagation(); overClose.current = null; s.removeFrame(close.id); invalidate(); return }
+    // Drag a board by its name badge to move it, with everything on it, anywhere on the canvas.
+    const badge = e.button === 0 && !pointers.current.size && !space.current ? badgeHits.current.find(r => sp.x >= r.x && sp.x <= r.x + r.w && sp.y >= r.y && sp.y <= r.y + r.h) : null
+    if (badge) {
+      e.stopPropagation(); (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setBusyDrag(true); pointers.current.set(e.pointerId, sp)
+      s.setActiveFrame(badge.id)
+      drag.current = { kind: 'frame', id: badge.id, last: toDoc(sp.x, sp.y), moved: false }
+      if (wrap.current) wrap.current.style.cursor = 'grabbing'
+      invalidate(); return
+    }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     setBusyDrag(true)
     pointers.current.set(e.pointerId, sp)
@@ -1478,10 +1492,12 @@ export function Stage() {
     const sp = local(e)
     cursor.current = e.pointerType === 'mouse' || e.pointerType === 'pen' ? sp : null
     if (!drag.current && e.pointerType === 'mouse') {
-      const hit = closeHits.current.find(r => sp.x >= r.x && sp.x <= r.x + r.w && sp.y >= r.y && sp.y <= r.y + r.h)?.id ?? null
-      if (hit !== overClose.current) {
-        overClose.current = hit
-        if (wrap.current) wrap.current.style.cursor = hit ? 'pointer' : cursorFor(s.tool)
+      const inside = (r: { x: number; y: number; w: number; h: number }) => sp.x >= r.x && sp.x <= r.x + r.w && sp.y >= r.y && sp.y <= r.y + r.h
+      const hit = closeHits.current.find(inside)?.id ?? null
+      const bhit = hit ? null : badgeHits.current.find(inside)?.id ?? null
+      if (hit !== overClose.current || bhit !== overBadge.current) {
+        overClose.current = hit; overBadge.current = bhit
+        if (wrap.current) wrap.current.style.cursor = hit ? 'pointer' : bhit ? 'grab' : cursorFor(s.tool)
         invalidate()
       }
     }
@@ -1518,6 +1534,17 @@ export function Stage() {
 
     if (d.kind === 'pan') { s.setView({ panX: d.px + sp.x - d.sx, panY: d.py + sp.y - d.sy }); return }
     if (d.kind === 'guide') { d.pos = Math.round(d.axis === 'v' ? p.x : p.y); invalidate(); return }
+    if (d.kind === 'frame') {
+      const dx = Math.round(p.x - d.last.x), dy = Math.round(p.y - d.last.y)
+      if (dx || dy) {
+        s.moveFrame(d.id, dx, dy); d.last = { x: d.last.x + dx, y: d.last.y + dy }; d.moved = true
+        // Keep the page around the boards as they move, so nothing is clipped mid-drag; hold the view still.
+        const sh = s.settleFrames()
+        if (sh.dx || sh.dy) { const v = useEditor.getState().view; s.setView({ panX: v.panX - sh.dx * v.zoom, panY: v.panY - sh.dy * v.zoom }); d.last = { x: d.last.x + sh.dx, y: d.last.y + sh.dy } }
+        invalidate(true)
+      }
+      return
+    }
 
     if (d.kind === 'tcorner' || d.kind === 'tmove') {
       const tf = s.transform; if (!tf) return
@@ -1791,6 +1818,12 @@ export function Stage() {
     const d = drag.current; drag.current = null
     snapLines.current = { v: [], h: [] }; dist.current = []
     if (!d || !s.doc) { invalidate(); return }
+
+    if (d.kind === 'frame') {
+      if (wrap.current) wrap.current.style.cursor = ''
+      if (d.moved) s.commit('Move board')
+      invalidate(true); return
+    }
 
     if (d.kind === 'guide') {
       const sp = local(e), R = rulerSize()

@@ -41,24 +41,45 @@ const FOOTNOTES: [string, string][] = [
 function Cta({ href = '/editor', where, children, big, ghost, className = '' }: { href?: string; where: string; children: ReactNode; big?: boolean; ghost?: boolean; className?: string }) {
   return (
     <Link href={href} onClick={() => track('landing.cta', { where, href })}
-      className={`inline-flex items-center justify-center gap-2 rounded-full font-medium transition-colors ${focus} ${big ? 'h-12 px-6 text-[16px]' : 'h-9 px-4 text-[14px]'} ${ghost ? 'text-lp-accent hover:text-lp-fg' : 'bg-lp-btn text-lp-btn-fg hover:bg-lp-btn-hover'} ${className}`}>
+      className={`inline-flex items-center justify-center gap-2 rounded-full font-medium transition-[color,background-color,transform] duration-200 active:scale-[0.97] ${focus} ${big ? 'h-12 px-6 text-[16px]' : 'h-9 px-4 text-[14px]'} ${ghost ? 'text-lp-accent hover:text-lp-fg' : 'bg-lp-btn text-lp-btn-fg hover:bg-lp-btn-hover'} ${className}`}>
       {children}
     </Link>
   )
 }
 
 /** Fades and lifts a block in the first time it scrolls into view. Off when the person prefers reduced motion. */
-function Reveal({ children, className = '', delay = 0, as: Tag = 'div' }: { children: ReactNode; className?: string; delay?: number; as?: 'div' | 'section' | 'li' | 'figure' }) {
+function Reveal({ children, className = '', delay = 0, as: Tag = 'div', kind = 'up' }: { children: ReactNode; className?: string; delay?: number; as?: 'div' | 'section' | 'li' | 'figure'; kind?: 'up' | 'scale' }) {
   const ref = useRef<HTMLElement>(null)
   const [on, setOn] = useState(false)
   useEffect(() => {
     const el = ref.current; if (!el) return
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { setOn(true); return }
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setOn(true); io.disconnect() } }, { rootMargin: '0px 0px -12% 0px', threshold: 0.15 })
+    // The root reaches far upward, so anything already scrolled past (a jump from a nav link, End key) counts as seen.
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setOn(true); io.disconnect() } }, { rootMargin: '100000px 0px -10% 0px', threshold: 0 })
     io.observe(el); return () => io.disconnect()
   }, [])
   const T = Tag as any
-  return <T ref={ref} style={{ transitionDelay: `${delay}ms` }} className={`transition-all duration-700 ease-out will-change-transform ${on ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'} ${className}`}>{children}</T>
+  return <T ref={ref} style={{ transitionDelay: `${delay}ms` }} data-on={on || undefined} className={`lp-reveal lp-reveal-${kind} ${className}`}>{children}</T>
+}
+
+/** One shared scroll loop for the page: sets --lp-p (0 at the bottom of the screen, 1 at the top) on every
+ *  [data-scroll] element in view, for transform-only parallax. Off under reduced motion. */
+function useScrollVars() {
+  useEffect(() => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const els = new Set<HTMLElement>()
+    const io = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? els.add(e.target as HTMLElement) : els.delete(e.target as HTMLElement)), { rootMargin: '20% 0px' })
+    document.querySelectorAll<HTMLElement>('[data-scroll]').forEach(el => io.observe(el))
+    let raf = 0
+    const tick = () => {
+      raf = 0
+      const vh = innerHeight
+      els.forEach(el => { const r = el.getBoundingClientRect(); el.style.setProperty('--lp-p', String(Math.max(-0.5, Math.min(1.5, 1 - (r.top + r.height / 2) / vh)).toFixed(4))) })
+    }
+    const on = () => { if (!raf) raf = requestAnimationFrame(tick) }
+    tick(); addEventListener('scroll', on, { passive: true }); addEventListener('resize', on)
+    return () => { io.disconnect(); removeEventListener('scroll', on); removeEventListener('resize', on); cancelAnimationFrame(raf) }
+  }, [])
 }
 
 /** Reports the first time a section is seen, so the funnel (view → scroll depth → click) can be read in the admin. */
@@ -69,7 +90,7 @@ function Seen({ id, children, className = '' }: { id: string; children: ReactNod
     const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { track('landing.section', { id }); io.disconnect() } }, { threshold: 0.3 })
     io.observe(el); return () => io.disconnect()
   }, [id])
-  return <section ref={ref} id={id} className={className}>{children}</section>
+  return <section ref={ref} id={id} className={`scroll-mt-12 ${className}`}>{children}</section>
 }
 
 function Eyebrow({ children }: { children: ReactNode }) {
@@ -198,7 +219,10 @@ function Showcase() {
         { el: <Move />, w: 'w-[38%] sm:w-[28%]', pos: 'right-[16%] top-[8%]', r: 'rotate-3', z: 'z-[3]' },
         { el: <Ami />, w: 'w-[34%] sm:w-[26%]', pos: 'right-0 top-[16%]', r: 'rotate-6', z: 'z-[1]' },
       ].map((c, i) => (
-        <div key={i} className={`absolute ${c.w} ${c.pos} ${c.r} ${c.z} rounded-lg sm:rounded-2xl overflow-hidden [box-shadow:var(--lp-shadow)] ring-1 ring-[var(--lp-ring)] transition-transform duration-500 hover:-translate-y-2`}>{c.el}</div>
+        // Outer: scroll drift (each print moves at its own rate, the outer ones spread). Inner: tilt and hover lift.
+        <div key={i} data-scroll className={`absolute ${c.w} ${c.pos} ${c.z}`} style={{ transform: `translate3d(calc(var(--lp-p, 0.5) * ${[-40, -18, 0, 18, 40][i]}px), calc(var(--lp-p, 0.5) * ${[-70, -30, -50, -20, -80][i]}px), 0)` }}>
+          <div className={`${c.r} rounded-lg sm:rounded-2xl overflow-hidden [box-shadow:var(--lp-shadow)] ring-1 ring-[var(--lp-ring)] transition-transform duration-500 ease-[cubic-bezier(.16,1,.3,1)] hover:-translate-y-2`}>{c.el}</div>
+        </div>
       ))}
     </Reveal>
   )
@@ -391,15 +415,33 @@ export function Landing() {
   ].sort((a, b) => b.at - a.at).slice(0, 8)
 
   const active = TABS[tab]
+  useScrollVars()
+
+  // The header is always there. At the top of the page it sits on the hero with no rule; once you scroll it gets
+  // a solid ground and a hairline. The section link you are in is highlighted.
+  const [scrolled, setScrolled] = useState(false)
+  const [here, setHere] = useState('')
+  useEffect(() => {
+    const on = () => setScrolled(scrollY > 8)
+    on(); addEventListener('scroll', on, { passive: true })
+    const ids = ['editor', 'studio', 'effects', 'free', 'questions']
+    const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) setHere(e.target.id) }, { rootMargin: '-45% 0px -50% 0px' })
+    ids.forEach(id => { const el = document.getElementById(id); if (el) io.observe(el) })
+    return () => { removeEventListener('scroll', on); io.disconnect() }
+  }, [])
 
   return (
     <main className={`lp vc-tap min-h-[100dvh] bg-lp-bg text-lp-text overflow-x-clip ${workFonts}`}>
       {/* Local nav: product name on the left, one call to action on the right. Sticks, and the CTA fills in once the hero is gone. */}
-      <div className="sticky top-0 z-40 h-12 border-b border-lp-line bg-[var(--lp-nav)] backdrop-blur-xl">
+      <div className={`fixed inset-x-0 top-0 z-50 h-12 border-b backdrop-blur-xl backdrop-saturate-150 transition-[background-color,border-color,box-shadow] duration-300 ${scrolled ? 'bg-[var(--lp-nav)] border-lp-line [box-shadow:0_1px_24px_rgba(0,0,0,0.08)]' : 'bg-transparent border-transparent'}`}>
         <div className="max-w-[1120px] mx-auto h-full px-5 sm:px-8 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3"><Logo /><PrivateBadge /></div>
           <nav aria-label="Sections" className="hidden md:flex items-center gap-6 text-[13px] text-lp-dim">
-            {[['#editor', 'Editor'], ['#studio', 'Studio'], ['#effects', 'Effects'], ['#free', 'Free'], ['#questions', 'Questions']].map(([h, l]) => <a key={h} href={h} className={`hover:text-lp-fg rounded ${focus}`}>{l}</a>)}
+            {[['#editor', 'Editor'], ['#studio', 'Studio'], ['#effects', 'Effects'], ['#free', 'Free'], ['#questions', 'Questions']].map(([h, l]) => (
+              <a key={h} href={h} aria-current={here === h.slice(1) ? 'true' : undefined} className={`relative py-1 rounded transition-colors ${here === h.slice(1) ? 'text-lp-fg' : 'hover:text-lp-fg'} ${focus}`}>
+                {l}<span className={`absolute left-0 right-0 -bottom-[13px] h-[2px] rounded-full bg-accent transition-transform duration-300 origin-center ${here === h.slice(1) ? 'scale-x-100' : 'scale-x-0'}`} />
+              </a>
+            ))}
           </nav>
           <div className="flex items-center gap-2">
             <button onClick={() => setPrivacy(true)} className={`hidden sm:flex items-center gap-1.5 h-8 px-2 rounded-md text-[13px] text-lp-dim hover:text-lp-fg ${focus}`}><Lock size={13} />Your privacy</button>
@@ -408,6 +450,8 @@ export function Landing() {
           </div>
         </div>
       </div>
+
+      <div aria-hidden className="h-12" />
 
       {/* Hero */}
       <Seen id="hero" className="relative">
@@ -458,7 +502,7 @@ export function Landing() {
             <H2 className="max-w-[720px]">Meet the tools.<br />Three of them, and they talk.</H2>
             <a href={`${APP}/editor`} onClick={() => track('landing.cta', { where: 'highlights.film', href: 'demo' })} className={`inline-flex items-center gap-2 text-[15px] text-lp-accent hover:text-lp-fg ${focus}`}><span className="w-9 h-9 rounded-full bg-lp-panel flex items-center justify-center"><Play size={14} className="ml-0.5" /></span>Watch the 60-second demo</a>
           </Reveal>
-          <Reveal delay={80} className="mt-8 sm:mt-10">
+          <Reveal delay={80} kind="scale" className="mt-8 sm:mt-10">
             <div className="flex justify-center">
               <div role="tablist" aria-label="Highlights" className="inline-flex max-w-full overflow-x-auto no-scrollbar p-1 rounded-full bg-lp-panel border border-lp-line">
                 {TABS.map((t, i) => (

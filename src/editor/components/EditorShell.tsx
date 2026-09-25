@@ -16,7 +16,7 @@ import { Stage, isTyping, stageApi } from './Stage'
 import { StartScreen } from './StartScreen'
 import { TabBar } from './TabBar'
 import { useTabs } from '../tabs'
-import { TOOL_KEYS, ToolRail, cycleFamily, toggleQuickMask } from './ToolRail'
+import { FloatingTools, TOOL_KEYS, ToolRail, cycleFamily, toggleQuickMask } from './ToolRail'
 import { MenuBar } from './MenuBar'
 import { track } from '@/lib/analytics'
 import { StatusBar } from './StatusBar'
@@ -318,7 +318,10 @@ export function EditorShell() {
           <OptionsBar />
           <div className="flex-1 min-h-0 flex flex-col md:flex-row relative">
             <ToolRail />
-            <Stage />
+            <div data-tool-host className="relative flex-1 min-w-0 min-h-0 flex">
+              <Stage />
+              <FloatingTools />
+            </div>
             <button onClick={() => setPanel(true)} aria-label="Open panels" className="md:hidden absolute right-3 top-3 z-10 h-10 px-3 rounded-full bg-void-900/95 border border-void-700 text-[13px] flex items-center gap-2 shadow-lg"><PanelRight size={16} />Layers</button>
             <Dock onOpenFilters={openFilters} />
             <MobilePanels open={panel} onClose={() => setPanel(false)} onOpenFilters={openFilters} />

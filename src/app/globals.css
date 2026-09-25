@@ -214,3 +214,18 @@ html[data-lp-theme="light"] body { background: #f2f1f4; }
 html[data-lp-theme="light"] .lp ::selection { background: rgba(139, 124, 255, 0.25); color: inherit; }
 /* Theme switch: the ground cross-fades; everything else swaps at once. */
 .lp { transition: background-color 0.25s, color 0.25s; }
+
+/* Landing page motion. Reveals: rise, un-blur and settle on a long ease-out; a staggered delay comes from the
+   component. Scroll is smooth for in-page links. All of it is off under reduced motion. */
+html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 48px; }
+.lp-reveal { transition: opacity .9s cubic-bezier(.16,1,.3,1), transform 1.1s cubic-bezier(.16,1,.3,1), filter .9s cubic-bezier(.16,1,.3,1); will-change: transform, opacity; }
+.lp-reveal-up:not([data-on]) { opacity: 0; transform: translate3d(0, 28px, 0); filter: blur(6px); }
+.lp-reveal-scale:not([data-on]) { opacity: 0; transform: translate3d(0, 40px, 0) scale(.96); filter: blur(4px); }
+.lp-reveal[data-on] { opacity: 1; transform: none; filter: none; }
+@media (prefers-reduced-motion: reduce) {
+  html:has(.lp) { scroll-behavior: auto; }
+  .lp-reveal, .lp-reveal:not([data-on]) { opacity: 1 !important; transform: none !important; filter: none !important; }
+  [data-scroll] { transform: none !important; }
+}
+.lp a, .lp button { -webkit-tap-highlight-color: transparent; }
+.lp a:active, .lp button:active { transition-duration: .08s; }
