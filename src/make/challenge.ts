@@ -48,14 +48,15 @@ export const useChallenge = create<ChallengeState>((set) => ({
 const LAST_KEY = 'vc-last-brief'
 
 /** Build the challenge for a campaign page. Random where the page is random, fixed where it is not. */
-export function buildChallenge(kind: ChallengeKind, opts: { seed?: number; last?: Brief | null } = {}): Challenge {
+export function buildChallenge(kind: ChallengeKind, opts: { seed?: number; last?: Brief | null; briefId?: string | null } = {}): Challenge {
+  const fixed = opts.briefId ? BRIEFS.find(b => b.id === opts.briefId) : undefined
   switch (kind) {
     case 'make': {
-      const b = opts.seed !== undefined ? pick(BRIEFS, opts.seed) : pickNext(BRIEFS, opts.last)
+      const b = fixed ?? (opts.seed !== undefined ? pick(BRIEFS, opts.seed) : pickNext(BRIEFS, opts.last))
       return { kind, text: b.text, seconds: b.seconds, clicks: 0, starter: b.starter, briefId: b.id }
     }
     case '60': {
-      const b = opts.seed !== undefined ? pick(BRIEFS, opts.seed) : pickNext(BRIEFS, opts.last)
+      const b = fixed ?? (opts.seed !== undefined ? pick(BRIEFS, opts.seed) : pickNext(BRIEFS, opts.last))
       return { kind, text: b.text, seconds: 60, clicks: 0, starter: b.starter === 'own' ? 'street' : b.starter, briefId: b.id }
     }
     case 'five':
@@ -76,6 +77,9 @@ export function buildChallenge(kind: ChallengeKind, opts: { seed?: number; last?
       return { kind, text: 'Make your version.', seconds: 0, clicks: 0, starter: 'own' }
   }
 }
+
+/** ?brief=<id> on a campaign page pins the brief (links from posts, tests, screen recordings). */
+export function briefFromUrl(): string | null { try { return new URLSearchParams(window.location.search).get('brief') } catch { return null } }
 
 export function rememberBrief(c: Challenge) { try { sessionStorage.setItem(LAST_KEY, c.briefId ?? '') } catch { /* ignore */ } }
 export function lastBrief(): Brief | null { try { const id = sessionStorage.getItem(LAST_KEY); return BRIEFS.find(b => b.id === id) ?? null } catch { return null } }

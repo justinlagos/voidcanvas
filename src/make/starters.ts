@@ -116,6 +116,16 @@ export function drawStarter(id: StarterId): HTMLCanvasElement {
   return c
 }
 
-export function starterBlob(id: StarterId): Promise<Blob> {
+function drawnBlob(id: StarterId): Promise<Blob> {
   return new Promise((res, rej) => drawStarter(id).toBlob(b => (b ? res(b) : rej(new Error('Could not draw starter'))), 'image/jpeg', 0.82))
+}
+
+/** The shipped photo for a starter (made for the campaign, ours to use); the drawn version is the fallback when it cannot load. */
+export async function starterBlob(id: StarterId): Promise<Blob> {
+  if (id === 'flat') return drawnBlob(id)
+  try {
+    const r = await fetch(`/starters/${id}.jpg`)
+    if (r.ok) { const b = await r.blob(); if (b.size > 1000) return b }
+  } catch { /* offline or missing: draw it */ }
+  return drawnBlob(id)
 }

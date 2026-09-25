@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { BigButton, CampaignPage, DropButton, Small, focus } from './CampaignPage'
 import { CLIENT_JOBS, formatClock, pick } from './briefs'
-import { buildChallenge, lastBrief, startChallenge, type Challenge } from './challenge'
+import { briefFromUrl, buildChallenge, lastBrief, startChallenge, type Challenge } from './challenge'
 import { drawStarter } from './starters'
 import { track } from '@/lib/analytics'
 
@@ -23,7 +23,7 @@ export function MakePage() {
   return (
     <CampaignPage kind="make" title={c ? <span data-brief className="text-[32px] sm:text-[56px] lg:text-[72px] tracking-[-0.04em]">{c.text}</span> : 'MAKE SOMETHING.'}
       sub={c ? <span data-brief-clock>You have {formatClock(c.seconds)}.</span> : undefined}>
-      {!c ? <BigButton onClick={() => { track('challenge.brief', { kind: 'make' }); setC(buildChallenge('make', { last: lastBrief() })) }}>GIVE ME A CHALLENGE</BigButton> : (
+      {!c ? <BigButton onClick={() => { track('challenge.brief', { kind: 'make' }); setC(buildChallenge('make', { last: lastBrief(), briefId: briefFromUrl() })) }}>GIVE ME A CHALLENGE</BigButton> : (
         <>
           <BigButton busy={busy} onClick={() => go(c)}>GO</BigButton>
           <button onClick={another} className={`text-[14px] opacity-60 hover:opacity-100 rounded ${focus}`}>Another brief</button>
@@ -39,7 +39,7 @@ export function SixtyPage() {
   const { busy, go } = useStart()
   return (
     <CampaignPage kind="60" title={<>YOU HAVE<br /><span className="font-mono tabular-nums">00:60</span></>} sub="Make something. The brief is waiting in the Editor.">
-      <BigButton busy={busy} onClick={() => go(buildChallenge('60', { last: lastBrief() }))}>START THE CLOCK</BigButton>
+      <BigButton busy={busy} onClick={() => go(buildChallenge('60', { last: lastBrief(), briefId: briefFromUrl() }))}>START THE CLOCK</BigButton>
     </CampaignPage>
   )
 }
@@ -57,8 +57,8 @@ export function FivePage() {
 /** /rescue: the worst image on the internet, drawn here so it is legally ours. */
 export function RescuePage() {
   const { busy, go } = useStart()
-  const [src, setSrc] = useState<string | null>(null)
-  useEffect(() => { try { setSrc(drawStarter('product').toDataURL('image/jpeg', 0.7)) } catch { /* no canvas */ } }, [])
+  const [src, setSrc] = useState<string | null>('/starters/product.jpg')
+  useEffect(() => { const i = new Image(); i.onerror = () => { try { setSrc(drawStarter('product').toDataURL('image/jpeg', 0.7)) } catch { setSrc(null) } }; i.src = '/starters/product.jpg' }, [])
   return (
     <CampaignPage kind="rescue" title="THIS IMAGE IS TERRIBLE." sub="Please improve it." dark={false}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
