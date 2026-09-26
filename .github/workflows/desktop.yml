@@ -1,6 +1,7 @@
 # Builds the desktop app for Windows, macOS and Linux.
-# Push a tag like desktop-v0.1.0 to build, attach the files to a GitHub release and publish it
-# (the installed apps update from there). Run by hand from the Actions tab to build without releasing.
+# To release: raise "version" in desktop/package.json and push to master. If there is no GitHub release
+# for that version yet, the files are built, attached to release v<version> and published; the installed
+# apps update from there. Run by hand from the Actions tab to build without releasing.
 #
 # Signing is optional. Add these repository secrets when the certificates exist:
 #   macOS:   MAC_CERTS (base64 .p12), MAC_CERTS_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
@@ -12,14 +13,31 @@ name: Desktop app
 
 on:
   push:
-    tags: ['desktop-v*']
+    branches: [master]
+    paths: ['desktop/package.json']
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      release: ${{ steps.v.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VER=$(node -p "require('./desktop/package.json').version")
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && ! gh release view "v$VER" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "release=true" >> "$GITHUB_OUTPUT"; else echo "release=false" >> "$GITHUB_OUTPUT"; fi
+
   build:
+    needs: check
     strategy:
       fail-fast: false
       matrix:
@@ -44,11 +62,6 @@ jobs:
       - name: Build the app
         run: npm run build:desktop
 
-      - name: Set version from tag
-        if: startsWith(github.ref, 'refs/tags/desktop-v')
-        shell: bash
-        run: cd desktop && npm version "${GITHUB_REF_NAME#desktop-v}" --no-git-tag-version --allow-same-version
-
       - name: Test the desktop app (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -68,8 +81,9 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          RELEASE: ${{ needs.check.outputs.release }}
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/desktop-v* ]]; then npx electron-builder --publish always; else npx electron-builder --publish never; fi
+          if [ "$RELEASE" = "true" ]; then npx electron-builder --publish always; else npx electron-builder --publish never; fi
 
       - uses: actions/upload-artifact@v4
         with:
@@ -84,11 +98,12 @@ jobs:
           if-no-files-found: ignore
 
   publish:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    needs: [check, build]
+    if: needs.check.outputs.release == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "v${GITHUB_REF_NAME#desktop-v}" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          VER: ${{ needs.check.outputs.version }}
+        run: gh release edit "v$VER" --repo "$GITHUB_REPOSITORY" --draft=false --latest
