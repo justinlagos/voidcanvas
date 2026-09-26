@@ -6,7 +6,7 @@ Repo: /home/claude/vc (Next.js 14, TypeScript). Voidcanvas is a free design suit
 Write the articles assigned to you as a TypeScript file exporting `export const articles: Article[] = [...]`, importing the type with `import type { Article } from '../types'`. Schema and inline markup: src/content/types.ts. Full slug plan: src/content/learn/PLAN.md. Link only to slugs in PLAN.md, as `[label](/learn/<slug>)`.
 
 ## Accuracy is the whole point
-- Read the code before you write. Every menu name, button label, panel name, shortcut, number, preset, format and setting you mention must exist in the code, spelled as the UI spells it. Grep for labels. Key sources: src/editor/actions.ts (every command, menu and shortcut), src/editor/components/*, src/editor/presets.ts, src/editor/io.ts, src/editor/import-formats.ts, src/studio/**, src/components/effect-list.ts, src/components/ParamControls.tsx, src/tools/defs.ts, README.md, PLAN-editor-ux.md.
+- Read the code before you write. Every menu name, button label, panel name, shortcut, number, preset, format and setting you mention must exist in the code, spelled as the UI spells it. Grep for labels. Key sources: src/editor/actions.ts (every command, menu and shortcut), src/editor/components/*, src/editor/presets.ts, src/editor/io.ts, src/editor/import-formats.ts, src/studio/**, src/components/effect-list.ts, src/components/ParamControls.tsx, src/tools/defs.ts, README.md, docs/plans/editor-ux.md.
 - If you cannot confirm something in the code, leave it out. Never invent features, numbers, testimonials or future plans.
 - On shortcuts: the app uses Ctrl on Windows/Linux and Cmd on Mac (see prettyKey). Write "Ctrl+K" and note once per article where helpful that Mac uses Cmd.
 

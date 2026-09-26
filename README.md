@@ -1,7 +1,8 @@
 # Voidcanvas
 
-**Your files don't leave your browser.** Edit locally, no cloud, no account, private by default. Projects are stored only in the browser via IndexedDB. The only outbound calls are web fonts (Google Fonts) and a one-time background-removal model download; neither sends any image or design. A **private session** mode keeps everything in memory (nothing written to disk) for shared computers, and **Delete all my data** wipes the local database.
+**Your files stay yours.** Designs are saved on your device: in the browser (IndexedDB), as `.void` files you choose to save, and in the desktop app's Voidcanvas folder. An account is optional; it syncs interface settings, encrypted on the device first. The only other outbound calls are web fonts (Google Fonts) and a one-time background-removal model download; neither sends any image or design. A **private session** keeps everything in memory for shared computers, and **Delete all my data** wipes the local database.
 
+Docs: `docs/void-format.md` (file format), `docs/accounts-and-keys.md` (accounts and encryption), `docs/plans/` (build plans), `supabase/analytics.md` (backend tables). How this repo is worked on and shipped: `CLAUDE.md`.
 
 One app, three modules. Each works alone and they pass work to each other.
 
@@ -12,7 +13,7 @@ One app, three modules. Each works alone and they pass work to each other.
 | `/editor` | Editor | Layered image editor: raster, text, shape and adjustment layers, masks, 16 blend modes, selections, retouching, 58 live filters, export. |
 | `/effects` | Effects | The original one-click effects tool. "Open in Editor" sends the result across. |
 
-Everything is stored on the user's device (IndexedDB database `voidcanvas`). No backend yet.
+Designs are stored on the user's device (IndexedDB database `voidcanvas`, and `.void` files). Supabase (`fpmyuqjiwckcjaufwwit`) holds anonymous usage counts, feedback, and encrypted data for optional accounts.
 
 ## Run
 
@@ -22,7 +23,7 @@ npm run dev        # http://localhost:3000
 npm run build && npm start
 ```
 
-Deploys to Netlify as before. No new npm dependencies were added.
+Pushing to `master` deploys the site to Netlify (voidcanvas.netlify.app). The desktop app is in `desktop/`; raising its version in `desktop/package.json` builds and publishes a release (`.github/workflows/desktop.yml`).
 
 ## Editor
 

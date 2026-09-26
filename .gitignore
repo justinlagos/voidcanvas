@@ -37,3 +37,5 @@ e2e/.out
 /desktop/app/
 /desktop/dist/
 /desktop/node_modules/
+*.bundle
+*.patch
