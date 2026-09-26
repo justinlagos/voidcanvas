@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:desktop": "node desktop/scripts/build-app.mjs",
+    "e2e:desktop": "node e2e/desktop.mjs",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",

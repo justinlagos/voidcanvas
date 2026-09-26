@@ -110,7 +110,7 @@ function startSession(firstVisit: boolean) {
   let ref = ''
   try { if (document.referrer) { const u = new URL(document.referrer); if (u.host !== location.host) ref = u.host.replace(/^www\./, '') } } catch { /* ignore */ }
   const q = new URLSearchParams(location.search)
-  track('session.start', { first: firstVisit, ref, utm: q.get('utm_source') || q.get('ref') || '' })
+  track('session.start', { first: firstVisit, ref, utm: q.get('utm_source') || q.get('ref') || '', app: process.env.NEXT_PUBLIC_DESKTOP ? 'desktop' : 'web' })
 }
 
 export function flush(beacon = false) {

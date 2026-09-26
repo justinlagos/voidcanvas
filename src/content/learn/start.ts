@@ -181,6 +181,43 @@ export const articles: Article[] = [
   },
 
   {
+    slug: 'desktop-app',
+    title: 'Use Voidcanvas as an app on your computer',
+    summary: 'The desktop app is the same Voidcanvas, installed, with your designs saved as .void files in a folder you own. It works offline and opens PSDs from your file browser.',
+    category: 'start',
+    level: 'Beginner',
+    updated: '2026-09-26',
+    related: ['saving-and-your-files', 'file-formats', 'import-psd-and-pdf'],
+    keywords: 'desktop app download install windows mac linux offline folder documents dropbox google drive onedrive icloud sync open with psd double click update',
+    body: [
+      { t: 'p', text: "Voidcanvas runs in your browser and as an app you install. The app has every feature the browser version has, costs nothing, and needs no account. What changes is where your work lives: in the app, every design you save is a real file in a folder on your computer." },
+      { t: 'try', label: 'Download the app', href: '/download' },
+
+      { t: 'h', text: 'Your Voidcanvas folder' },
+      { t: 'p', text: "The app keeps your designs in a folder called **Voidcanvas** inside Documents. The first time you press {{Ctrl+S}} on a design, it is saved there as a .void file named after the design, and **Saved to** the file name appears. After that, {{Ctrl+S}} updates the same file. The app also writes the file when you quit, and about once a minute while you work." },
+      { t: 'p', text: "The start screen lists the files in the folder under **Your Voidcanvas folder**, newest first, with a preview of each. Click one to open it. **Show folder** opens the folder in Finder or File Explorer. **Change folder** picks a different one." },
+      { t: 'tip', text: "Choose a folder inside Dropbox, Google Drive, OneDrive or iCloud Drive with **Change folder**, and your designs are backed up and on your other computers without doing anything else." },
+      { t: 'p', text: "To save somewhere else, use File, **Save to disk…** ({{Ctrl+Shift+S}}). The design then stays linked to that file instead." },
+
+      { t: 'h', text: 'Opening files' },
+      { t: 'list', items: [
+        "Double-click a .void file in Finder or File Explorer, or drag it onto the app window. It opens linked to that file, so {{Ctrl+S}} saves back to it.",
+        "Right-click a PSD and choose **Open with**, Voidcanvas. On Windows, Voidcanvas becomes the default app for PSDs only if no other app already is, so Photoshop keeps its files.",
+        "File, **Open…** ({{Ctrl+O}}) opens the system file window, starting in your Voidcanvas folder.",
+      ] },
+
+      { t: 'h', text: 'Offline' },
+      { t: 'p', text: "The whole app, the 16 built-in fonts and these Learn pages are on your computer, so you can work without a connection. Other Google Fonts, and Remove background the first time you use it, still need the internet." },
+
+      { t: 'h', text: 'Updates' },
+      { t: 'p', text: "On Windows and Linux (AppImage), new versions download in the background. When one is ready you see **Voidcanvas** and the version number **is ready. It installs when you quit.** Until the Mac app is signed, Mac users download new versions from the [download page](/download)." },
+
+      { t: 'h', text: 'Privacy' },
+      { t: 'p', text: "Nothing changes: your designs stay on your computer, and the app sends the same anonymous usage counts as the browser version, which you can turn off in Your privacy. In a [private session](/learn/private-session) the app writes nothing to your Voidcanvas folder." },
+    ],
+  },
+
+  {
     slug: 'moving-work-between-tools',
     title: 'Move work from Effects, Studio and the quick tools into the Editor',
     summary: 'Every module can hand work to the Editor as real, editable layers. Learn what each button sends and what arrives on the other side.',

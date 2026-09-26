@@ -24,6 +24,7 @@ import { Dock, MobilePanels } from './Dock'
 import { AiInfoDialog, CanvasSizeDialog, ColorRangeDialog, FillDialog, GuideLayoutDialog, ImageSizeDialog, ImportReportDialog, LooksDialog, MissingFontsDialog, ModifySelectionDialog, NameDialog, NewGuideDialog, PreferencesDialog, StrokeDialog, VersionsDialog, fontAvailable } from './MoreDialogs'
 import { LayerStyleDialog } from './LayerStyleDialog'
 import { SelectMask } from './SelectMask'
+import { useDesktop } from '../useDesktop'
 import { buildActions, eventCombo, internalClip, normCombo, pasteInPlace } from '../actions'
 import { useUi } from '../ui-store'
 import { MobileEditor, useIsPhone } from './MobileEditor'
@@ -197,6 +198,7 @@ export function EditorShell() {
   }, [toast])
 
   const actions = useMemo(() => buildActions(), [])
+  useDesktop(actions)
   const hotkeys = useMemo(() => {
     const m = new Map<string, () => void>()
     for (const a of Object.values(actions)) if (a.hotkey) m.set(normCombo(a.hotkey), () => { if (!a.enabled || a.enabled()) a.run() })

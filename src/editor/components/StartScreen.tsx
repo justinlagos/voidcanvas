@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ImagePlus, Trash2, MoreHorizontal, Download, Copy } from 'lucide-react'
+import { ImagePlus, Trash2, MoreHorizontal, Download, Copy, FolderOpen } from 'lucide-react'
 import { deleteProject, duplicateProject, exportProjectPng, exportProjectVoid, importFiles, importVoidFile, listProjects, openProject, type ProjectSummary } from '../io'
 import { SIZE_PRESETS } from '../presets'
 import { useEditor } from '../store'
@@ -9,6 +9,49 @@ import { useTabs } from '../tabs'
 import { clearSession, crashedAtStart } from '../versions'
 import { Button, focusRing } from './ui'
 import { track } from '@/lib/analytics'
+import { desktop, type LibraryFile } from '@/lib/desktop'
+
+/** Desktop app: the .void files in the person's Voidcanvas folder, kept in step with the folder. */
+function LibrarySection() {
+  const [lib, setLib] = useState<{ dir: string; files: LibraryFile[] } | null>(null)
+  useEffect(() => {
+    if (!desktop) return
+    let live = true
+    const load = () => desktop!.library.list().then(r => { if (live) setLib(r) }).catch(() => {})
+    load()
+    const off = desktop.library.onChange(load)
+    return () => { live = false; off() }
+  }, [])
+  if (!desktop || !lib) return null
+  const open = async (p: string) => { const { openPaths } = await import('../disk'); openPaths([p]) }
+  return (
+    <section className="mt-7">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <h2 className="text-[13px] font-semibold text-void-200">Your Voidcanvas folder</h2>
+          <p className="text-[12px] text-void-500 truncate" title={lib.dir}>{lib.dir}</p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Button onClick={() => desktop!.reveal()}><FolderOpen size={14} />Show folder</Button>
+          <Button onClick={() => desktop!.library.choose()}>Change folder</Button>
+        </div>
+      </div>
+      {lib.files.length ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
+          {lib.files.slice(0, 20).map(f => (
+            <button key={f.path} onClick={() => open(f.path)} title={f.path} className={`block w-full rounded-xl overflow-hidden bg-void-900 border border-void-800 hover:border-void-600 text-left ${focusRing}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <span className="block aspect-[4/3] bg-void-950">{f.preview && <img src={f.preview} alt="" className="w-full h-full object-contain" />}</span>
+              <span className="block px-2.5 py-2"><span className="block text-[12.5px] font-medium truncate">{f.name}</span><span className="block text-[11.5px] text-void-500">{new Date(f.modified).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span></span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[12.5px] text-void-500">Designs you save are kept here as .void files. Put this folder in Dropbox, Google Drive, OneDrive or iCloud Drive to have them on your other computers.</p>
+      )}
+    </section>
+  )
+}
 
 function RecentMenu({ p, onChanged }: { p: ProjectSummary; onChanged: (fn: (r: ProjectSummary[]) => ProjectSummary[]) => void }) {
   const [open, setOpen] = useState(false)
@@ -58,6 +101,7 @@ export function StartScreen() {
   // A .void dropped in Chromium comes with a handle, so the design stays linked to its file.
   const dropFiles = (dt: DataTransfer) => {
     const files = Array.from(dt.files)
+    if (desktop) { import('../disk').then(m => m.openDropped(files)); return }
     const i = files.findIndex(f => /\.void(\.png)?$/i.test(f.name))
     const item = i >= 0 ? Array.from(dt.items).filter(x => x.kind === 'file')[i] as any : null
     if (item?.getAsFileSystemHandle) {
@@ -92,6 +136,8 @@ export function StartScreen() {
             </div>
           </section>
         )}
+
+        <LibrarySection />
 
         <input ref={file} type="file" accept="image/*,.psd,.pdf,.void" multiple hidden onChange={e => handleFiles(Array.from(e.target.files ?? []))} />
         <button

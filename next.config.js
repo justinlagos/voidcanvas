@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
+// DESKTOP=1 builds a static export into out/, which the desktop app bundles and serves offline.
+const desktop = process.env.DESKTOP === '1'
+
 const nextConfig = {
   reactStrictMode: true,
+  ...(desktop ? { output: 'export', distDir: '.next-desktop', images: { unoptimized: true }, env: { NEXT_PUBLIC_DESKTOP: '1' } } : {}),
   webpack: (config) => {
     // pdfjs references an optional Node 'canvas' module we never use in the browser build.
     // paper.js: use the browser core build, never the Node build (which pulls in jsdom).

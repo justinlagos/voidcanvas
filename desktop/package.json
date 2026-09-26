@@ -1,0 +1,141 @@
+{
+  "name": "voidcanvas-desktop",
+  "productName": "Voidcanvas",
+  "version": "0.1.0",
+  "description": "Voidcanvas for your computer: design, edit and export, with your files on your own disk.",
+  "author": {
+    "name": "MotionPlay Labs Ltd",
+    "email": "mrjustinukaegbu@gmail.com"
+  },
+  "homepage": "https://voidcanvas.netlify.app",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never",
+    "release": "electron-builder --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.motionplaylabs.voidcanvas",
+    "productName": "Voidcanvas",
+    "copyright": "\u00a9 MotionPlay Labs Ltd",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "zip-preview.js",
+      "package.json",
+      "app/**/*"
+    ],
+    "asar": true,
+    "fileAssociations": [
+      {
+        "ext": "void",
+        "name": "Voidcanvas design",
+        "description": "Voidcanvas design",
+        "mimeType": "application/vnd.voidcanvas+zip",
+        "role": "Editor",
+        "rank": "Owner"
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "justinlagos",
+        "repo": "voidcanvas",
+        "releaseType": "draft"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "Voidcanvas-Setup-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "include": "build/installer.nsh",
+      "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.graphics-design",
+      "hardenedRuntime": true,
+      "fileAssociations": [
+        {
+          "ext": "psd",
+          "name": "Photoshop document",
+          "description": "Photoshop document",
+          "role": "Editor",
+          "rank": "Alternate"
+        }
+      ],
+      "artifactName": "Voidcanvas-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Graphics",
+      "fileAssociations": [
+        {
+          "ext": "psd",
+          "name": "Photoshop document",
+          "description": "Photoshop document",
+          "role": "Editor",
+          "rank": "Alternate",
+          "mimeType": "image/vnd.adobe.photoshop"
+        }
+      ],
+      "maintainer": "MotionPlay Labs Ltd <mrjustinukaegbu@gmail.com>",
+      "artifactName": "Voidcanvas-${arch}.${ext}",
+      "syncDesktopName": true,
+      "executableName": "voidcanvas"
+    }
+  },
+  "desktopName": "voidcanvas.desktop"
+}

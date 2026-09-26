@@ -1,10 +1,15 @@
 // ─── Files on disk ─────────────────────────────────────────────────
 // Save a design as a real file and keep it linked, so Ctrl+S updates that file as well as the copy
-// in this browser. Uses the File System Access API (Chrome, Edge, Opera, Arc and other Chromium
-// browsers on desktop). Everywhere else, Save to disk downloads a .void file instead.
+// kept by the app. Three ways to reach the disk:
+//   - Desktop app: native dialogs and file paths (desktop/preload.js). Every saved design gets a file,
+//     in the Voidcanvas folder unless the person chose somewhere else.
+//   - Chromium browsers: the File System Access API, with file handles.
+//   - Everything else: Save to disk downloads a .void file.
 //
-// A link is remembered per design, on this device only. In a private session it lasts until the tab closes.
+// A link is remembered per design, on this device only. In a private session it lasts until the tab closes,
+// and the desktop app writes nothing to the Voidcanvas folder on its own.
 
+import { baseName, desktop } from '@/lib/desktop'
 import { buildVoidFile, buildVoidPng, downloadBlob, idb, importFiles, isPrivate, openVoidBytes, saveProject } from './io'
 import { useEditor } from './store'
 import { VOID_MIME } from './voidfile'
@@ -14,92 +19,122 @@ type Handle = FileSystemFileHandle & {
   requestPermission?: (o: { mode: 'read' | 'readwrite' }) => Promise<PermissionState>
   createWritable: () => Promise<{ write: (b: Blob) => Promise<void>; close: () => Promise<void> }>
 }
-interface StoredHandle { id: string; handle: Handle; name: string }
+type Target = { handle: Handle; path?: undefined; name: string } | { path: string; handle?: undefined; name: string }
+interface StoredLink { id: string; handle?: Handle; path?: string; name: string }
 
-const mem = new Map<string, Handle>()
+const mem = new Map<string, Target>()
 
-export const canUseDisk = () => typeof window !== 'undefined' && 'showSaveFilePicker' in window && 'showOpenFilePicker' in window
+const hasPickers = () => typeof window !== 'undefined' && 'showSaveFilePicker' in window && 'showOpenFilePicker' in window
+export const canUseDisk = () => !!desktop || hasPickers()
 
 const isVoidPng = (name: string) => /\.void\.png$/i.test(name)
 const isVoid = (name: string) => /\.void$/i.test(name) || isVoidPng(name)
+const notify = (m: string) => useEditor.getState().notify(m)
 
-async function getHandle(docId: string): Promise<Handle | null> {
+async function getLink(docId: string): Promise<Target | null> {
   if (mem.has(docId)) return mem.get(docId)!
   if (isPrivate()) return null
-  try { const r = await idb.get<StoredHandle>('handles', docId); if (r?.handle) { mem.set(docId, r.handle); return r.handle } } catch { /* ignore */ }
-  return null
+  try {
+    const r = await idb.get<StoredLink>('handles', docId)
+    const t: Target | null = r?.path && desktop ? { path: r.path, name: r.name } : r?.handle ? { handle: r.handle, name: r.name } : null
+    if (t) mem.set(docId, t)
+    return t
+  } catch { return null }
 }
 
-async function setHandle(docId: string, h: Handle) {
-  mem.set(docId, h)
-  if (!isPrivate()) await idb.put('handles', { id: docId, handle: h, name: h.name } as StoredHandle).catch(() => {})
+async function setLink(docId: string, t: Target) {
+  mem.set(docId, t)
+  if (!isPrivate()) await idb.put('handles', { id: docId, name: t.name, ...(t.path ? { path: t.path } : { handle: t.handle }) } as StoredLink).catch(() => {})
 }
 
-/** The file the open design is linked to, if any. */
-export async function linkedFile(docId: string): Promise<string | null> { return (await getHandle(docId))?.name ?? null }
+/** The file the design is linked to, if any: its name, and its full path in the desktop app. */
+export async function linkedFile(docId: string): Promise<{ name: string; path?: string } | null> {
+  const t = await getLink(docId)
+  return t ? { name: t.name, path: t.path } : null
+}
 
 export async function unlinkFile(docId: string) { mem.delete(docId); await idb.del('handles', docId).catch(() => {}) }
 
-async function canWrite(h: Handle): Promise<boolean> {
+async function canWrite(t: Target): Promise<boolean> {
+  if (t.path) return true
   const o = { mode: 'readwrite' as const }
   try {
-    if ((await h.queryPermission?.(o)) === 'granted') return true
-    return (await h.requestPermission?.(o)) === 'granted'
+    if ((await t.handle!.queryPermission?.(o)) === 'granted') return true
+    return (await t.handle!.requestPermission?.(o)) === 'granted'
   } catch { return false }
 }
 
-async function write(h: Handle, blob: Blob) {
-  const w = await h.createWritable()
+async function write(t: Target, blob: Blob) {
+  if (t.path) { await desktop!.write(t.path, await blob.arrayBuffer()); return }
+  const w = await t.handle!.createWritable()
   await w.write(blob)
   await w.close()
 }
 
 const fileFor = (name: string) => (isVoidPng(name) ? buildVoidPng() : buildVoidFile())
-
 const aborted = (e: unknown) => (e as DOMException)?.name === 'AbortError'
 
 /** Save to disk…: choose where, write the file, and link the design to it. Downloads where the browser cannot. */
 export async function saveToDiskAs(): Promise<boolean> {
-  const ed = useEditor.getState()
-  const doc = ed.doc; if (!doc) return false
+  const doc = useEditor.getState().doc; if (!doc) return false
   import('@/lib/analytics').then(m => m.track('export', { format: 'void', disk: canUseDisk() })).catch(() => {})
   const f = await buildVoidFile(); if (!f) return false
-  if (!canUseDisk()) {
+
+  let t: Target
+  if (desktop) {
+    const p = await desktop.saveDialog(f.name); if (!p) return false
+    t = { path: p, name: baseName(p) }
+  } else if (hasPickers()) {
+    try {
+      const h: Handle = await (window as any).showSaveFilePicker({
+        suggestedName: f.name, id: 'voidcanvas-designs',
+        types: [{ description: 'Voidcanvas design', accept: { [VOID_MIME]: ['.void'] } }],
+      })
+      t = { handle: h, name: h.name }
+    } catch (e) { if (!aborted(e)) notify('Could not open the save window.'); return false }
+  } else {
     downloadBlob(f.blob, f.name)
-    ed.notify(`Downloaded ${f.name}. Open it any time with File, Open.`)
+    notify(`Downloaded ${f.name}. Open it any time with File, Open.`)
     return true
   }
-  let h: Handle
-  try {
-    h = await (window as any).showSaveFilePicker({
-      suggestedName: f.name, id: 'voidcanvas-designs',
-      types: [{ description: 'Voidcanvas design', accept: { [VOID_MIME]: ['.void'] } }],
-    })
-  } catch (e) { if (aborted(e)) return false; ed.notify('Could not open the save window.'); return false }
-  try {
-    await write(h, isVoidPng(h.name) ? (await buildVoidPng())!.blob : f.blob)
-  } catch { ed.notify(`Could not write ${h.name}. Check the folder is not read-only.`); return false }
-  await setHandle(doc.id, h)
-  ed.notify(`Saved to ${h.name}. Ctrl+S now updates this file too.`)
+
+  try { await write(t, isVoidPng(t.name) ? (await buildVoidPng())!.blob : f.blob) } catch { notify(`Could not write ${t.name}. Check the folder is not read-only.`); return false }
+  await setLink(doc.id, t)
+  notify(`Saved to ${t.name}. Ctrl+S now updates this file too.`)
   return true
 }
 
-/** Called by Save (Ctrl+S). If the design is linked to a file, write it. Returns the file name, or null. */
-export async function saveLinked(): Promise<string | null> {
+/**
+ * Write the design to its linked file. In the desktop app, a design with no file yet gets one in the
+ * Voidcanvas folder (except in a private session). Returns the file name, or null when nothing was written.
+ */
+export async function saveLinked(opts: { quiet?: boolean } = {}): Promise<string | null> {
   const doc = useEditor.getState().doc; if (!doc) return null
-  const h = await getHandle(doc.id); if (!h) return null
-  if (!(await canWrite(h))) { useEditor.getState().notify(`Saved in this browser. Allow access to update ${h.name}, or use Save to disk.`); return null }
-  const f = await fileFor(h.name); if (!f) return null
-  try { await write(h, f.blob); return h.name } catch {
-    useEditor.getState().notify(`Saved in this browser, but ${h.name} could not be updated. It may have been moved or deleted. Use Save to disk to choose a new place.`)
+  let t = await getLink(doc.id)
+  if (!t && desktop && !isPrivate()) {
+    const f = await buildVoidFile(); if (!f) return null
+    try {
+      const p = await desktop.uniqueInLibrary(f.name)
+      t = { path: p, name: baseName(p) }
+      await write(t, f.blob)
+      await setLink(doc.id, t)
+      return t.name
+    } catch { if (!opts.quiet) notify('Saved in the app, but the Voidcanvas folder could not be written. Choose another folder on the start screen.'); return null }
+  }
+  if (!t) return null
+  if (!(await canWrite(t))) { if (!opts.quiet) notify(`Saved in this browser. Allow access to update ${t.name}, or use Save to disk.`); return null }
+  const f = await fileFor(t.name); if (!f) return null
+  try { await write(t, f.blob); return t.name } catch {
+    if (!opts.quiet) notify(`Saved, but ${t.name} could not be updated. It may have been moved or deleted. Use Save to disk to choose a new place.`)
     await unlinkFile(doc.id)
     return null
   }
 }
 
-/** Open… with the system file window. A .void opened this way stays linked. Returns false where the browser has no file window, so the caller can fall back. */
+/** Open… with the system file window. A .void opened this way stays linked. Returns false where there is no file window, so the caller can fall back. */
 export async function openFromDisk(): Promise<boolean> {
-  if (!canUseDisk()) return false
+  if (desktop) { await openPaths(await desktop.openDialog()); return true }
+  if (!hasPickers()) return false
   let hs: Handle[]
   try {
     hs = await (window as any).showOpenFilePicker({
@@ -126,13 +161,54 @@ export async function openLinked(h: Handle): Promise<string | null> {
   const file = await h.getFile()
   import('@/lib/analytics').then(m => m.track('doc.import', { kind: 'void', count: 1 })).catch(() => {})
   const id = await openVoidBytes(new Uint8Array(await file.arrayBuffer()))
-  if (id) await setHandle(id, h)
+  if (id) await setLink(id, { handle: h, name: h.name })
   return id
 }
 
-/** Save (Ctrl+S): the copy in this browser, then the linked file if there is one. */
+/** Desktop: open files by path (from the file window, the operating system, or the Voidcanvas folder). */
+export async function openPaths(paths: string[]): Promise<void> {
+  if (!desktop || !paths.length) return
+  const others: File[] = []
+  for (const p of paths) {
+    try {
+      const { name, bytes } = await desktop.read(p)
+      if (isVoid(name)) {
+        import('@/lib/analytics').then(m => m.track('doc.import', { kind: 'void', count: 1 })).catch(() => {})
+        const id = await openVoidBytes(new Uint8Array(bytes))
+        if (id) await setLink(id, { path: p, name })
+      } else others.push(new File([bytes], name, { type: mimeFor(name) }))
+    } catch { notify(`Could not open ${baseName(p)}. It may have been moved or deleted.`) }
+  }
+  if (others.length) importFiles(others)
+}
+
+/** Files dropped onto the app. In the desktop app a dropped .void stays linked to its file. */
+export async function openDropped(files: File[]): Promise<void> {
+  const others: File[] = []
+  for (const f of files) {
+    if (!isVoid(f.name)) { others.push(f); continue }
+    const id = await openVoidBytes(new Uint8Array(await f.arrayBuffer()))
+    const p = desktop?.pathForFile(f)
+    if (id && p && (await desktop!.grantDrop(p))) await setLink(id, { path: p, name: f.name })
+  }
+  if (others.length) importFiles(others)
+}
+
+const mimeFor = (name: string) => {
+  const ext = name.toLowerCase().split('.').pop() || ''
+  return ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', avif: 'image/avif', bmp: 'image/bmp', pdf: 'application/pdf', psd: 'image/vnd.adobe.photoshop' } as Record<string, string>)[ext] ?? ''
+}
+
+/** Save (Ctrl+S): the copy kept by the app, then the linked file if there is one. */
 export async function saveNow(): Promise<void> {
-  try { await saveProject() } catch (e) { useEditor.getState().notify((e as Error).message || 'Could not save.'); return }
+  try { await saveProject() } catch (e) { notify((e as Error).message || 'Could not save.'); return }
   const name = await saveLinked()
-  useEditor.getState().notify(name ? `Saved to this device and to ${name}.` : 'Saved to this device.')
+  notify(name ? (desktop ? `Saved to ${name}.` : `Saved to this device and to ${name}.`) : 'Saved to this device.')
+}
+
+/** Desktop, before quitting or every so often: save without messages. */
+export async function saveQuietly(): Promise<void> {
+  if (!useEditor.getState().doc || isPrivate()) return
+  await saveProject().catch(() => {})
+  await saveLinked({ quiet: true }).catch(() => {})
 }

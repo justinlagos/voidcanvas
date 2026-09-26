@@ -457,6 +457,7 @@ const cssLink = (href: string) => new Promise<boolean>(r => {
 /** A font added from a file on this device. It must never be requested from Google. */
 const isLocalFace = (family: string) => { try { for (const f of Array.from(document.fonts)) if (f.family.replace(/["']/g, '') === family && f.status !== 'error') return true } catch { /* older browsers */ } return false }
 const pending = new Map<string, Promise<void>>()
+let bundled: Promise<boolean> | null = null
 
 export async function ensureFont(family: string, weight = 400, italic = false): Promise<void> {
   if (typeof document === 'undefined') return
@@ -464,7 +465,9 @@ export async function ensureFont(family: string, weight = 400, italic = false): 
     if (!pending.has(family)) pending.set(family, (async () => {
       const fam = family.replace(/ /g, '+')
       // Families outside the built-in list: ask for the usual weights, and fall back if the family has fewer.
-      if (family in FONT_SPECS) await cssLink(`https://fonts.googleapis.com/css2?family=${fam}${FONT_SPECS[family]}&display=swap`)
+      // The desktop app carries the built-in fonts, so they work offline.
+      if (family in FONT_SPECS && process.env.NEXT_PUBLIC_DESKTOP) { bundled ??= cssLink('/fonts/fonts.css'); await bundled }
+      else if (family in FONT_SPECS) await cssLink(`https://fonts.googleapis.com/css2?family=${fam}${FONT_SPECS[family]}&display=swap`)
       else if (!(await cssLink(`https://fonts.googleapis.com/css2?family=${fam}:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap`)) && !(await cssLink(`https://fonts.googleapis.com/css2?family=${fam}:wght@400;500;600;700&display=swap`)))
         await cssLink(`https://fonts.googleapis.com/css2?family=${fam}&display=swap`)
       loaded.add(family)
