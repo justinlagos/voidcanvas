@@ -42,8 +42,13 @@ To see a function's current SQL: `select pg_get_functiondef('public.vc_admin_das
 | `learn.search`, `learn.search.pick` | search on /learn (first 40 characters of the query) | `q, n` / `slug` |
 | `learn.helpful` | "Was this guide useful?" | `slug, yes` |
 | `landing.nav` | Blog link in the landing header | `to` |
+| `account.signin`, `account.setup`, `account.pair` | signed in with a code / recovery key made / a device approved | none |
 
 ## Local testing
 
 Tracking is off on localhost. Run `localStorage.setItem('vc-usage-dev', '1')` in the console to turn it on for your browser.
 Anyone can turn it off in Your privacy. It is also off in a private session and when Do Not Track or Global Privacy Control is set.
+
+## Accounts
+
+Tables `vc_keys`, `vc_devices`, `vc_pairings`, `vc_settings` hold encrypted keys and settings for optional accounts. See `docs/accounts-and-keys.md`.

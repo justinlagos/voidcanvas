@@ -153,6 +153,9 @@ function complete(w: Workspace): Workspace {
   return missing.length ? { ...w, strip: [...w.strip, ...missing] } : w
 }
 
+// Settings arriving from another device (settings sync): read them again.
+if (typeof window !== 'undefined') window.addEventListener('vc:settings-synced', () => { useUi.setState({ hydrated: false }); useUi.getState().hydrate() })
+
 export const useUi = create<UiState>((set, get) => {
   const save = (patch: Partial<UiState>) => { set(patch); persist(get()) }
   return {

@@ -218,6 +218,49 @@ export const articles: Article[] = [
   },
 
   {
+    slug: 'account-and-sync',
+    title: 'Sign in to keep your settings the same on every device',
+    summary: 'An account is optional. It syncs your interface settings, encrypted on your device first. Learn how signing in, the recovery key and adding a device work.',
+    category: 'start',
+    level: 'Beginner',
+    updated: '2026-09-26',
+    related: ['desktop-app', 'saving-and-your-files', 'private-session'],
+    keywords: 'account sign in login email code sync settings devices recovery key pair phone qr encrypted end to end lost device',
+    body: [
+      { t: 'p', text: "You never need an account to use Voidcanvas. If you make one, your interface settings follow you to every browser, computer and phone you sign in on. Your designs stay on your devices." },
+      { t: 'p', text: "What the account stores is encrypted on your device before it is sent, with a key only your devices have. Voidcanvas cannot read it." },
+
+      { t: 'h', text: 'Signing in' },
+      { t: 'p', text: "In the Editor, open Edit, **Account and sync…**. Enter your email and choose **Send a sign-in code**. Type the 6-digit code from the email and choose **Sign in**. There is no password." },
+
+      { t: 'h', text: 'Your recovery key' },
+      { t: 'p', text: "The first time you sign in, choose **Make my recovery key**. It is 52 letters and numbers in groups of four. Copy it into a password manager, or choose **Download as a text file**, then type its last four characters to finish." },
+      { t: 'warn', text: "Voidcanvas does not keep a copy of your recovery key and cannot reset it. If you lose every device you are signed in on and the recovery key, what your account stores cannot be recovered. Designs saved on your devices are not affected." },
+
+      { t: 'h', text: 'Adding a device' },
+      { t: 'p', text: "On the new device, sign in. It asks for your account key, which your other devices have. Choose one:" },
+      { t: 'list', items: [
+        "**Approve from another device**: the new device shows a code and a QR code. On a device you are already signed in on, open **Account and sync…**, type the code under **Add a device**, choose **Look up**, check the device name, then **Add this device**. Or scan the QR code with your phone. The new device finishes by itself a few seconds later. Codes last ten minutes.",
+        "**Use my recovery key**: type or paste the key. Upper or lower case, with or without the dashes, both work.",
+      ] },
+
+      { t: 'h', text: 'What syncs' },
+      { t: 'list', items: [
+        "Interface settings from Preferences, and your workspaces and panel layout.",
+        "Recent colours.",
+        "Light or dark for the website.",
+        "Your choice about sharing anonymous usage counts.",
+      ] },
+      { t: 'p', text: "Changes are sent within about 30 seconds, and other devices pick them up when you open or return to Voidcanvas. If two devices change settings at once, the latest change wins. Choose **Sync now** to check straight away." },
+
+      { t: 'h', text: 'Devices, lost devices and signing out' },
+      { t: 'p', text: "**Your devices** lists every device signed in to your account. **Remove** takes one off the list. **Sign out** on a device removes its copy of your keys." },
+      { t: 'p', text: "If a device is lost, choose **Make a new recovery key** on another device if you think the old key was stored on it; the old key stops working straight away. The lost device keeps anything it already downloaded." },
+      { t: 'p', text: "Accounts are off in a [private session](/learn/private-session)." },
+    ],
+  },
+
+  {
     slug: 'moving-work-between-tools',
     title: 'Move work from Effects, Studio and the quick tools into the Editor',
     summary: 'Every module can hand work to the Editor as real, editable layers. Learn what each button sends and what arrives on the other side.',

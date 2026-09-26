@@ -9,8 +9,8 @@ import { ensurePersistentStorage, formatBytes, storageStatus, type StorageStatus
 
 const POINTS = [
   'Your designs never leave your device. Editing, effects, boards and exports all run in this browser.',
-  'Projects are saved in this browser on this computer, and as files wherever you choose to save them. There is no cloud copy and no account.',
-  'No sign-up, no login. Open the site and start creating.',
+  'Projects are saved in this browser on this computer, and as files wherever you choose to save them. There is no cloud copy of your designs.',
+  'No sign-up needed. An account is optional: it syncs your interface settings, encrypted on this device first, so only you can read them.',
   'No tracking of your work. We only count which tools get used, anonymously, so we know what to improve. You can turn that off below.',
 ]
 const USAGE_NOTE = 'What is counted: page visits, which tools and menu commands are used, export file types, errors, device type, browser and time zone, with a random id for this browser. Never your images, file names, text or anything you type. Off automatically in a private session.'
@@ -43,7 +43,7 @@ export function PrivacyPanel({ onClose }: { onClose: () => void }) {
       <div className="p-5 space-y-5">
         <div className="flex items-start gap-3">
           <span className="w-9 h-9 rounded-xl bg-accent text-white flex items-center justify-center shrink-0"><Lock size={18} /></span>
-          <p className="text-[14px] text-void-200 leading-relaxed">Your files don't leave your browser. Edit locally, no cloud, no account, private by default.</p>
+          <p className="text-[14px] text-void-200 leading-relaxed">Your files don't leave your browser. Edit locally, no cloud, no account needed, private by default.</p>
         </div>
         <ul className="space-y-2">
           {POINTS.map(p => <li key={p} className="flex gap-2.5 text-[13px] text-void-300 leading-relaxed"><Check size={15} className="mt-0.5 shrink-0 text-emerald-400" />{p}</li>)}

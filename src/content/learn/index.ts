@@ -24,7 +24,7 @@ export const CATEGORIES: { id: LearnCategory; name: string; blurb: string }[] = 
 ]
 
 export const PATHS: { id: string; name: string; blurb: string; slugs: string[] }[] = [
-  { id: 'new', name: 'New to Voidcanvas', blurb: 'From opening the app to your first exported design.', slugs: ['what-is-voidcanvas', 'your-first-design', 'editor-tour', 'layers', 'type', 'export-for-screen', 'saving-and-your-files', 'desktop-app'] },
+  { id: 'new', name: 'New to Voidcanvas', blurb: 'From opening the app to your first exported design.', slugs: ['what-is-voidcanvas', 'your-first-design', 'editor-tour', 'layers', 'type', 'export-for-screen', 'saving-and-your-files', 'desktop-app', 'account-and-sync'] },
   { id: 'photoshop', name: 'Coming from Photoshop', blurb: 'What carries over, what is different, and where everything lives.', slugs: ['editor-tour', 'keyboard-shortcuts', 'import-psd-and-pdf', 'masks', 'adjustment-layers', 'command-palette-and-menus'] },
   { id: 'client', name: 'Client work with Studio', blurb: 'Run a job from the brief to signed-off, named files.', slugs: ['studio-overview', 'start-a-job-from-a-brief', 'references-and-palettes', 'directions-and-review', 'delivering-files', 'brand-guidelines'] },
   { id: 'print', name: 'Designing for print', blurb: 'Resolution, bleed and PDFs a printer will accept.', slugs: ['image-resolution-explained', 'designing-for-print', 'export-for-print', 'workflow-print-flyer', 'delivering-files'] },

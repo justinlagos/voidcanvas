@@ -9,6 +9,8 @@ import { CommandPalette } from './CommandPalette'
 import { BrandKitDialog, ResizeDialog, ShortcutSheet, applyBrand } from './Dialogs'
 import { BoardsPanel } from './BoardsPanel'
 import { PrivacyPanel } from './PrivacyPanel'
+import { AccountPanel } from '@/components/account/AccountPanel'
+import { Modal } from './ui'
 import { initPrivateFromSession, isPrivate } from '../io'
 import { ExportDialog } from './ExportDialog'
 import { OptionsBar } from './OptionsBar'
@@ -199,6 +201,8 @@ export function EditorShell() {
 
   const actions = useMemo(() => buildActions(), [])
   useDesktop(actions)
+  // An account is optional; if this device is signed in, settings sync starts here.
+  useEffect(() => { import('@/lib/account').then(m => m.initAccount()).catch(() => {}) }, [])
   const hotkeys = useMemo(() => {
     const m = new Map<string, () => void>()
     for (const a of Object.values(actions)) if (a.hotkey) m.set(normCombo(a.hotkey), () => { if (!a.enabled || a.enabled()) a.run() })
@@ -340,6 +344,7 @@ export function EditorShell() {
       {m === 'keys' && <ShortcutSheet onClose={close} />}
       {m === 'boards' && hasDoc && <BoardsPanel onClose={close} />}
       {m === 'privacy' && <PrivacyPanel onClose={close} />}
+      {m === 'account' && <Modal title="Account and sync" onClose={close}><AccountPanel /></Modal>}
       {m === 'export' && hasDoc && <ExportDialog onClose={close} />}
       {m === 'imageSize' && hasDoc && <ImageSizeDialog onClose={close} />}
       {m === 'canvasSize' && hasDoc && <CanvasSizeDialog onClose={close} aiFill={modal?.props?.aiFill} />}
