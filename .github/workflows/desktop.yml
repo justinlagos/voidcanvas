@@ -86,10 +86,21 @@ jobs:
           WIN_CERTS_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: |
           # electron-builder reads an empty CSC_LINK as a path, so only set signing variables that have values.
-          if [ -n "$MAC_CERTS" ]; then export CSC_LINK="$MAC_CERTS" CSC_KEY_PASSWORD="$MAC_CERTS_PASSWORD"; else export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
+          EXTRA=()
+          if [ -n "$MAC_CERTS" ]; then export CSC_LINK="$MAC_CERTS" CSC_KEY_PASSWORD="$MAC_CERTS_PASSWORD"
+          else
+            # No Apple certificate: sign ad hoc. An app with no signature at all is reported by macOS on Apple
+            # silicon as "damaged"; an ad-hoc signed one can be opened from System Settings, Privacy & Security.
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            if [ "$RUNNER_OS" = "macOS" ]; then EXTRA=(-c.mac.identity=- -c.mac.hardenedRuntime=false); fi
+          fi
           if [ -n "$WIN_CERTS" ]; then export WIN_CSC_LINK="$WIN_CERTS" WIN_CSC_KEY_PASSWORD="$WIN_CERTS_PASSWORD"; fi
           [ -n "$APPLE_ID" ] || unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
-          npx electron-builder --publish never
+          npx electron-builder --publish never "${EXTRA[@]}"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            # Fail the build if the app would show as damaged.
+            for app in dist/mac*/Voidcanvas.app; do codesign --verify --deep --strict --verbose=2 "$app"; done
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
