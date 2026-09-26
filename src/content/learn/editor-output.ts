@@ -166,7 +166,7 @@ export const articles: Article[] = [
     related: ['file-formats', 'workflow-psd-to-social', 'layers', 'troubleshooting'],
     keywords: 'import open psd photoshop pdf file upload place image drag drop paste void project missing fonts smart object layers kept',
     body: [
-      { t: 'p', text: 'You can open photos, Photoshop files, PDFs and Voidcanvas project files straight into the Editor. Everything is read inside your browser: nothing is uploaded, and your original file is never changed. This article explains what survives the trip, so you know what to check before you start editing.' },
+      { t: 'p', text: 'You can open photos, Photoshop files, PDFs and Voidcanvas project files straight into the Editor. Everything is read inside your browser: nothing is uploaded, and opening a file never changes it. (A .void you open stays linked to its file, so pressing Ctrl+S saves your changes back to it.) This article explains what survives the trip, so you know what to check before you start editing.' },
 
       { t: 'h', text: 'Ways to bring files in' },
       { t: 'table', head: ['Method', 'What it does'], rows: [
@@ -222,10 +222,10 @@ export const articles: Article[] = [
       { t: 'h', text: 'Voidcanvas project files' },
       { t: 'p', text: 'Two file types carry a whole editable design: layers, masks, groups, swatches and board layout.' },
       { t: 'table', head: ['File', 'How to make it', 'Notes'], rows: [
-        ['.void', 'File, Download project file (.void)', 'A self-contained project file. Good for backups and for moving a design to another browser.'],
+        ['.void', 'File, Save to disk… or File, Download project file (.void)', 'A self-contained project file. Good for backups and for moving a design to another browser. Save to disk keeps the file linked, so Ctrl+S updates it in Chromium browsers.'],
         ['.void.png', 'Export dialog, Save editable file', 'A normal PNG preview of your design (up to 1600 pixels) with the full project hidden inside it. It previews anywhere; open it in Voidcanvas to get the layers back.'],
       ] },
-      { t: 'p', text: 'Opening either one creates a new copy of the design on this device. A plain PNG with no project inside shows "That PNG has no Voidcanvas project inside it."' },
+      { t: 'p', text: 'Opening either one creates a new copy of the design on this device. In Chrome, Edge and other Chromium browsers, a .void opened with File, Open or dropped on the start screen stays linked, so Ctrl+S also writes your changes back to that file. A plain PNG with no project inside shows "That PNG has no Voidcanvas project inside it."' },
 
       { t: 'h', text: 'Common problems' },
       { t: 'list', items: [

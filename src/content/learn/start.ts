@@ -117,12 +117,12 @@ export const articles: Article[] = [
   {
     slug: 'saving-and-your-files',
     title: 'Where your designs are saved and how to keep them safe',
-    summary: 'Voidcanvas saves everything inside your browser on this device. Learn how autosave, templates and versions work, what clears your work, and how to keep a backup.',
+    summary: 'Voidcanvas saves everything inside your browser on this device, and as a real file when you choose. Learn how autosave, Save to disk, templates and versions work, what clears your work, and how to keep a backup.',
     category: 'start',
     level: 'Beginner',
-    updated: '2026-09-25',
+    updated: '2026-09-26',
     related: ['templates-and-versions', 'private-session', 'troubleshooting', 'file-formats'],
-    keywords: 'save autosave indexeddb local storage backup lost work recover cloud sync where are my files delete clear storage full .void file',
+    keywords: 'save autosave indexeddb local storage backup lost work recover cloud sync where are my files delete clear storage full .void file save to disk save as folder dropbox google drive icloud protected storage',
     body: [
       { t: 'p', text: "This page explains where your work is stored, what saves it, what can wipe it, and how to keep a copy that survives. It matters most before you clear your browser, switch computers or hand a design to someone else." },
 
@@ -131,13 +131,14 @@ export const articles: Article[] = [
       { t: 'p', text: "Two consequences follow. Your work never leaves your device unless you export it. And your work is tied to this browser on this device: open Voidcanvas in a different browser, a different computer, or a different browser profile and you will not see it there." },
 
       { t: 'h', text: 'Autosave' },
-      { t: 'p', text: "The Editor saves the open design about two seconds after each change, and again whenever you switch away from the tab. You can still press {{Ctrl+S}} (File, **Save**) if you like; it shows **Saved to this device.** Studio saves jobs as you edit them." },
+      { t: 'p', text: "The Editor saves the open design about two seconds after each change, and again whenever you switch away from the tab. You can still press {{Ctrl+S}} (File, **Save**) if you like; it shows **Saved to this device.** If the design is linked to a file (see Save to disk below), {{Ctrl+S}} updates that file too and says **Saved to this device and to** the file's name. Studio saves jobs as you edit them." },
       { t: 'p', text: "If the browser or tab closes unexpectedly, the Editor start screen says **Voidcanvas closed unexpectedly last time** and offers to reopen every design that was open." },
 
       { t: 'h', text: 'Finding and managing saved designs' },
       { t: 'p', text: "The Editor start screen lists your recent designs under **Pick up where you left off**. Hover a design (or focus it with the keyboard) and open its **…** menu for:" },
       { t: 'list', items: [
         "**Export PNG**: downloads the design at full size without opening it.",
+        "**Download .void**: downloads the editable design as a .void file without opening it.",
         "**Duplicate**: makes an independent copy named with ' copy' on the end.",
         "**Delete**: removes it from this device. This cannot be undone.",
       ] },
@@ -155,16 +156,23 @@ export const articles: Article[] = [
         "Using a browser's own private or incognito window: that storage is thrown away when the window closes.",
         "Turning on a Voidcanvas [private session](/learn/private-session): nothing is written to the device while it is on.",
         "Deleting a design from its **…** menu, or the whole database with **Delete all my data**.",
-        "Some browsers may also clear storage for sites you have not visited in a while. Keeping a backup protects you either way.",
+        "Browsers can clear a site's storage when the device runs low on space, and Safari can clear it for sites you have not visited for a few weeks. Voidcanvas asks the browser to protect your designs the first time you save one. Your privacy shows whether that was granted, under **Storage on this device**. Keeping a file on disk protects you either way.",
       ] },
 
+      { t: 'h', text: 'Save to disk' },
+      { t: 'p', text: "File, **Save to disk…** ({{Ctrl+Shift+S}}) saves the design as a .void file in a folder you choose. In Chrome, Edge and other Chromium browsers on a computer, the design then stays linked to that file: every {{Ctrl+S}} writes the latest version to it, so the file on disk is always current. Designs you open with File, **Open…** or drop on the start screen stay linked to their file in the same way." },
+      { t: 'p', text: "In Safari, Firefox and on phones, Save to disk downloads a .void file instead. It is a snapshot: save again when you want a newer copy." },
+      { t: 'tip', text: "Save to a folder inside Dropbox, Google Drive, OneDrive or iCloud Drive and that service keeps the file backed up and on your other devices. Open it there with File, **Open…**." },
+      { t: 'p', text: "If the file is moved, renamed or deleted, the next {{Ctrl+S}} still saves in the browser and tells you the file could not be updated. Use **Save to disk…** again to choose a new place. The browser may ask once per visit for permission to edit the file." },
+
       { t: 'h', text: 'Keeping a backup' },
-      { t: 'p', text: "Because there is no cloud copy, the backup is a file you download. There are two editable formats:" },
+      { t: 'p', text: "Because there is no cloud copy, the backup is a file you keep. There are two editable formats:" },
       { t: 'table', head: ['Where', 'File', 'What it is'], rows: [
+        ['File, **Save to disk…** ({{Ctrl+Shift+S}})', 'name.void', 'The whole project in a folder you choose, kept up to date by Ctrl+S where the browser allows.'],
         ['Export dialog, **Save editable file (.void.png, previews as your design, keeps layers)**', 'name.void.png', 'A normal PNG preview of the design with the full editable project hidden inside. It shows as a picture in any file browser.'],
         ['File, **Download project file (.void)**', 'name.void', 'The whole project as one self-contained file.'],
       ] },
-      { t: 'p', text: "Both keep every layer, mask, group and saved selection, and fonts you added from files travel inside the design. To open one, drop it on the Editor start screen or use File, **Open…** ({{Ctrl+O}}). A .void.png file also opens this way; a plain PNG without a project inside shows **That PNG has no Voidcanvas project inside it.**" },
+      { t: 'p', text: "Both keep every layer, mask, group, board and saved selection, and fonts you added from files travel inside the design. Files saved by older versions of Voidcanvas still open. To open one, drop it on the Editor start screen or use File, **Open…** ({{Ctrl+O}}). A .void.png file also opens this way; a plain PNG without a project inside shows **That PNG has no Voidcanvas project inside it.**" },
       { t: 'tip', text: "Download a .void or .void.png of anything you would hate to lose, and keep it with your other project files. It is also how you move a design to another computer." },
 
       { t: 'h', text: 'When storage is full' },

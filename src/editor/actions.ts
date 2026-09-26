@@ -73,7 +73,9 @@ export function pasteInPlace() {
 
 // ─── Files ─────────────────────────────────────────────────────────
 
-export function openFilePicker() {
+export async function openFilePicker() {
+  const { openFromDisk } = await import('./disk')
+  if (await openFromDisk()) return
   const i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.accept = 'image/*,.psd,.pdf,.void'
   i.onchange = async () => {
     const files = Array.from(i.files ?? [])
@@ -130,7 +132,8 @@ export function buildActions(): Record<string, Action> {
     { id: 'file.new', label: 'New design…', hotkey: 'Ctrl+Alt+N', run: async () => { await saveProject().catch(() => {}); s().closeDoc() } },
     { id: 'file.open', label: 'Open…', hotkey: 'Ctrl+O', run: openFilePicker, keywords: 'psd pdf import' },
     { id: 'file.place', label: 'Place image as layer…', hotkey: 'Ctrl+Shift+P', run: placeImage, enabled: hasDoc, keywords: 'import photo' },
-    { id: 'file.save', label: 'Save', shortcut: 'Ctrl+S', run: () => saveProject().then(() => s().notify('Saved to this device.')), enabled: hasDoc },
+    { id: 'file.save', label: 'Save', shortcut: 'Ctrl+S', run: () => import('./disk').then(m => m.saveNow()), enabled: hasDoc },
+    { id: 'file.saveDisk', label: 'Save to disk…', hotkey: 'Ctrl+Shift+S', run: () => import('./disk').then(m => m.saveToDiskAs()), enabled: hasDoc, keywords: 'save as file folder backup void computer' },
     { id: 'file.version', label: 'Save a version', hotkey: 'Ctrl+Alt+S', run: () => saveVersion('Saved by you').then(ok => ok && s().notify('Version saved. Find it in File, Version history.')), enabled: hasDoc, keywords: 'snapshot backup' },
     { id: 'file.versions', label: 'Version history…', run: () => openModal('versions'), enabled: hasDoc, keywords: 'restore recover backup' },
     { id: 'file.template', label: 'Save as template', run: async () => { const st = s(); if (!st.doc) return; await saveDesign({ ...st.doc, id: uid(), name: st.doc.name + ' template' }, st.layers, st.groups, st.swatches, true); st.notify('Saved as a template. Find it on the start screen under Your templates.') }, enabled: hasDoc },
@@ -312,7 +315,7 @@ export function buildActions(): Record<string, Action> {
 }
 
 export const MENUS: { label: string; items: MenuItem[] }[] = [
-  { label: 'File', items: ['file.new', 'file.open', 'file.place', '-', 'file.save', 'file.version', 'file.versions', 'file.template', '-', 'file.export', 'file.void', 'file.resize', 'file.boards', '-', 'file.close'] },
+  { label: 'File', items: ['file.new', 'file.open', 'file.place', '-', 'file.save', 'file.saveDisk', 'file.version', 'file.versions', 'file.template', '-', 'file.export', 'file.void', 'file.resize', 'file.boards', '-', 'file.close'] },
   { label: 'Edit', items: ['edit.undo', 'edit.redo', '-', 'edit.cut', 'edit.copy', 'edit.copyMerged', 'edit.paste', 'edit.pasteInPlace', '-', 'edit.fill', 'edit.stroke', '-', 'edit.freeTransform', { label: 'Transform', items: ['edit.skew', 'edit.distort', 'edit.perspective', 'edit.warp', '-', 'edit.rotate90', 'edit.rotate180', '-', 'edit.flipH', 'edit.flipV'] }, '-', 'edit.brand', 'edit.prefs'] },
   { label: 'Image', items: [{ label: 'Adjustments', items: [...ADJ_ORDER.map(k => 'adj.' + k), '-', 'adj.lut'] }, '-', 'image.size', 'image.canvas', 'image.expand', { label: 'Image rotation', items: ['image.rot90', 'image.rot-90', 'image.rot180', '-', 'image.flipH', 'image.flipV'] }, 'image.crop', 'image.trim', '-', 'image.flatten'] },
   { label: 'Layer', items: ['layer.new', 'layer.duplicate', 'layer.delete', '-', { label: 'Layer style', items: ['layer.style', '-', ...STYLE_KINDS.map(k => 'style.' + k), '-', 'style.copy', 'style.paste', 'style.clear'] }, { label: 'Layer mask', items: ['mask.add', 'mask.hide', 'mask.fromPath', '-', 'mask.invert', 'mask.toggle', 'mask.delete'] }, { label: 'Vector mask', items: ['vmask.add', 'vmask.fromPath', 'vmask.edit', '-', 'vmask.rasterize', 'vmask.delete'] }, 'layer.clip', { label: 'Formats', items: ['formats.sync', 'formats.relay'] }, { label: 'Pathfinder', items: ['pf.unite', 'pf.minusFront', 'pf.minusBack', 'pf.intersect', 'pf.exclude', 'pf.divide', '-', 'path.expand'] }, { label: 'Path', items: ['path.outline', 'type.onPath', '-', 'path.toSel', 'path.shape', 'path.fromLayer', '-', 'path.fill', 'path.stroke', 'path.strokeTaper', '-', 'path.close', 'path.reverse', 'path.simplify', '-', 'path.opAdd', 'path.opSub', 'path.opInt', 'path.opXor', '-', 'path.copySvg', 'path.exportSvg'] }, '-', 'layer.group', 'layer.ungroup', 'layer.link', { label: 'Arrange', items: ['layer.front', 'layer.up', 'layer.down', 'layer.back'] }, { label: 'Align', items: ['align.left', 'align.hcenter', 'align.right', '-', 'align.top', 'align.vcenter', 'align.bottom', '-', 'dist.h', 'dist.v'] }, '-', 'layer.removeBg', 'layer.rasterize', 'layer.mergeDown', 'layer.mergeVisible', 'layer.stamp', 'image.flatten'] },

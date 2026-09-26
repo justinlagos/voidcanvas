@@ -23,6 +23,7 @@ export const articles: Article[] = [
         ['Ctrl+O', 'Open (images, PSD, PDF and .void files)'],
         ['Ctrl+Shift+P', 'Place image as layer'],
         ['Ctrl+S', 'Save to this device'],
+        ['Ctrl+Shift+S', 'Save to disk (a .void file in a folder you choose)'],
         ['Ctrl+Alt+S', 'Save a version'],
         ['Ctrl+E', 'Export as'],
         ['Ctrl+Alt+W', 'Close the design'],
@@ -460,6 +461,7 @@ export const articles: Article[] = [
 
       { t: 'h3', text: 'Other ways to save from the Editor' },
       { t: 'table', head: ['Command', 'Saves', 'Keeps'], rows: [
+        ['File, Save to disk… ({{Ctrl+Shift+S}})', 'A .void file in a folder you choose', 'The whole project. In Chromium browsers the design stays linked, so Ctrl+S keeps the file up to date'],
         ['File, Download project file (.void)', 'A .void file', 'The whole project in one self-contained file. Use it for backups and moving work between devices'],
         ['File, Resize for other formats', 'A ZIP of PNGs, one per format', 'Flattened pictures at each preset size'],
         ['Layer, Path, Export path as SVG', 'An .svg file', 'The current path as a vector, for Figma, Illustrator or code'],

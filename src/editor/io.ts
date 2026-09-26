@@ -2,18 +2,21 @@ import { ctx2d, makeCanvas, renderDoc, uid } from './engine'
 import { layoutFrames } from './frames'
 import { nextRev, useEditor } from './store'
 import type { Doc, Group, Layer, TextLayer } from './types'
+import { readVoid, VoidFileError, writeVoid, writeVoidPng } from './voidfile'
+import { zipFiles } from './zip'
+export { zipFiles }
 
 // ─── IndexedDB ─────────────────────────────────────────────────────
 // One local database shared by every module: Editor projects, Studio boards,
 // and an inbox used to pass work from one module to another.
 
 const DB = 'voidcanvas'
-const STORES = ['projects', 'index', 'inbox', 'boards', 'brand', 'versions', 'versionIndex', 'jobs', 'brands', 'looks'] as const
+const STORES = ['projects', 'index', 'inbox', 'boards', 'brand', 'versions', 'versionIndex', 'jobs', 'brands', 'looks', 'handles'] as const
 export type StoreName = (typeof STORES)[number]
 
 function open(): Promise<IDBDatabase> {
   return new Promise((res, rej) => {
-    const req = indexedDB.open(DB, 5)
+    const req = indexedDB.open(DB, 6)
     req.onupgradeneeded = () => { for (const s of STORES) if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s, { keyPath: 'id' }) }
     req.onsuccess = () => res(req.result)
     req.onerror = () => rej(req.error)
@@ -284,6 +287,8 @@ export async function saveDesign(doc: Doc, layers: Layer[], groups: Group[], swa
   const { stored, summary } = await storeDesign(doc, layers, groups, swatches, template)
   await idb.put('projects', stored)
   await idb.put('index', summary)
+  // Once there is work worth keeping, ask the browser not to clear it.
+  if (!PRIVATE) import('@/lib/persist').then(m => m.ensurePersistentStorage()).catch(() => {})
 }
 
 /** Build the stored form of a design (used by saves and by version snapshots). */
@@ -330,147 +335,80 @@ export async function openProject(id: string, asCopy = false): Promise<boolean> 
   return true
 }
 
-// ─── .void portable file (self-contained, no backend) ──────────────
-// A .void file is the whole project as one JSON: metadata plus every asset base64-encoded inline.
+// ─── .void files ───────────────────────────────────────────────────
+// The format lives in voidfile.ts (spec: docs/void-format.md). These functions connect it to the editor.
 
-const blobToBase64 = (b: Blob) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res((r.result as string).split(',')[1] ?? ''); r.onerror = rej; r.readAsDataURL(b) })
-const base64ToBlob = (b64: string, type = 'image/png') => { const bin = atob(b64); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); return new Blob([arr], { type }) }
+const safeName = (n: string) => (n || 'design').replace(/[^\w\- ]+/g, '').trim() || 'design'
 
-// PNG chunk tools: embed the project bundle inside a real PNG so the file previews as the design
-// everywhere (Finder, Preview, Quick Look) while still carrying the full editable project.
-const PNG_SIG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
-
-/** Insert a tEXt chunk (keyword "voidcanvas") holding `text` into `pngBytes`, before IEND. */
-function embedTextChunk(pngBytes: Uint8Array, keyword: string, text: string): Uint8Array {
-  const enc = new TextEncoder()
-  const kw = enc.encode(keyword), tx = enc.encode(text)
-  const data = new Uint8Array(kw.length + 1 + tx.length)
-  data.set(kw, 0); data[kw.length] = 0; data.set(tx, kw.length + 1)
-  const type = enc.encode('tEXt')
-  const len = data.length
-  const chunk = new Uint8Array(12 + len)
-  const dv = new DataView(chunk.buffer)
-  dv.setUint32(0, len)
-  chunk.set(type, 4); chunk.set(data, 8)
-  const crcInput = new Uint8Array(type.length + data.length)
-  crcInput.set(type, 0); crcInput.set(data, type.length)
-  dv.setUint32(8 + len, crc32(crcInput))
-  // find IEND (last 12 bytes normally) and splice before it
-  const iend = pngBytes.length - 12
-  const out = new Uint8Array(pngBytes.length + chunk.length)
-  out.set(pngBytes.subarray(0, iend), 0)
-  out.set(chunk, iend)
-  out.set(pngBytes.subarray(iend), iend + chunk.length)
-  return out
+async function previewOf(doc: Doc, layers: Layer[], groups: Group[], max: number): Promise<Blob> {
+  const k = Math.min(1, max / Math.max(doc.width, doc.height))
+  const c = makeCanvas(Math.max(1, Math.round(doc.width * k)), Math.max(1, Math.round(doc.height * k)))
+  renderDoc(c, doc, layers, { groups, scale: k, noCache: true })
+  return canvasToBlob(c, 'image/png')
 }
 
-/** Read the embedded "voidcanvas" tEXt chunk out of a PNG, if present. */
-function readTextChunk(pngBytes: Uint8Array, keyword: string): string | null {
-  for (let i = 0; i < 8; i++) if (pngBytes[i] !== PNG_SIG[i]) return null
-  const dec = new TextDecoder()
-  const u32 = (o: number) => ((pngBytes[o] << 24) | (pngBytes[o + 1] << 16) | (pngBytes[o + 2] << 8) | pngBytes[o + 3]) >>> 0
-  let off = 8
-  while (off + 8 <= pngBytes.length) {
-    const len = u32(off)
-    const type = dec.decode(pngBytes.subarray(off + 4, off + 8))
-    if (type === 'tEXt') {
-      const data = pngBytes.subarray(off + 8, off + 8 + len)
-      const zero = data.indexOf(0)
-      if (zero > 0 && dec.decode(data.subarray(0, zero)) === keyword) return dec.decode(data.subarray(zero + 1))
-    }
-    if (type === 'IEND') break
-    off += 12 + len
-  }
-  return null
-}
-
-/** Build the project bundle (metadata + base64 assets) for the current design. */
-async function buildBundle() {
+/** The open design as a .void file, ready to download or write to disk. */
+export async function buildVoidFile(): Promise<{ blob: Blob; name: string } | null> {
   const { doc, layers, groups, swatches } = useEditor.getState()
   if (!doc) return null
-  const blobs: Record<string, string> = {}
-  const meta = await Promise.all(layers.map(async (l: any) => {
-    const { canvas, mask, rev, ...rest } = l
-    if (mask) blobs[l.id + ':mask'] = await blobToBase64(await canvasToBlob(mask))
-    if (l.type === 'raster' && canvas) blobs[l.id] = await blobToBase64(await canvasToBlob(canvas))
-    return { ...rest, hasMask: !!mask }
-  }))
-  const packed = await packDoc(doc, async (k, c) => { blobs[k] = await blobToBase64(await canvasToBlob(c)) })
-  return { format: 'voidcanvas', version: 2, doc: packed, layers: meta, groups, swatches, blobs }
+  const { stored } = await storeDesign(doc, layers, groups, swatches)
+  const blob = await writeVoid(stored, { preview: await previewOf(doc, layers, groups, 512) })
+  return { blob, name: `${safeName(doc.name)}.void` }
 }
 
-/** Restore a bundle object into the editor. */
-async function loadBundle(bundle: any): Promise<boolean> {
-  if (bundle?.format !== 'voidcanvas') return false
-  const layers: Layer[] = await Promise.all((bundle.layers as any[]).map(async m => {
-    const { hasMask, ...rest } = m
-    const l: any = { ...rest, rev: nextRev(), mask: hasMask && bundle.blobs[m.id + ':mask'] ? await blobToCanvas(base64ToBlob(bundle.blobs[m.id + ':mask']), 1e6) : null }
-    if (m.type === 'raster') l.canvas = bundle.blobs[m.id] ? await blobToCanvas(base64ToBlob(bundle.blobs[m.id]), 1e6) : makeCanvas(1, 1)
-    return l as Layer
-  }))
-  const unpacked = await unpackDoc(bundle.doc, async k => (bundle.blobs[k] ? blobToCanvas(base64ToBlob(bundle.blobs[k]), 1e6) : null))
-  const doc = { ...unpacked, id: 'd' + Date.now().toString(36) }
-  if (doc.frames?.length) useEditor.getState().loadFramed(doc, layers, bundle.swatches, bundle.groups ?? [])
-  else useEditor.getState().loadProject(doc, layers, bundle.swatches, bundle.groups ?? [])
-  return true
-}
-
-/** Export the design as a PNG that previews as the artwork AND carries the full editable project inside it. */
-export async function exportVoidPng(): Promise<void> {
-  const { doc, layers, groups } = useEditor.getState()
-  if (!doc) return
-  const bundle = await buildBundle(); if (!bundle) return
-  // render the visible design at a sensible thumbnail-friendly resolution
-  const maxDim = 1600
-  const k = Math.min(1, maxDim / Math.max(doc.width, doc.height))
-  const c = makeCanvas(Math.round(doc.width * k), Math.round(doc.height * k))
-  renderDoc(c, doc, layers, { groups, scale: k, noCache: true })
-  const pngBlob = await canvasToBlob(c, 'image/png')
-  const bytes = new Uint8Array(await pngBlob.arrayBuffer())
-  const withData = embedTextChunk(bytes, 'voidcanvas', JSON.stringify(bundle))
-  downloadBlob(new Blob([withData as BlobPart], { type: 'image/png' }), `${(doc.name || 'design').replace(/[^\w\- ]+/g, '')}.void.png`)
-}
-
-/** Serialize the current design (or a stored one) to a self-contained .void file and download it. */
-export async function exportVoidFile(): Promise<void> {
+/** The open design as a .void.png: previews as the artwork and carries the full editable project inside it. */
+export async function buildVoidPng(): Promise<{ blob: Blob; name: string } | null> {
   const { doc, layers, groups, swatches } = useEditor.getState()
-  if (!doc) return
-  const blobs: Record<string, string> = {}
-  const meta = await Promise.all(layers.map(async (l: any) => {
-    const { canvas, mask, rev, ...rest } = l
-    if (mask) blobs[l.id + ':mask'] = await blobToBase64(await canvasToBlob(mask))
-    if (l.type === 'raster' && canvas) blobs[l.id] = await blobToBase64(await canvasToBlob(canvas))
-    return { ...rest, hasMask: !!mask }
-  }))
-  const packed = await packDoc(doc, async (k, c) => { blobs[k] = await blobToBase64(await canvasToBlob(c)) })
-  const bundle = { format: 'voidcanvas', version: 2, doc: packed, layers: meta, groups, swatches, blobs }
-  const json = JSON.stringify(bundle)
-  downloadBlob(new Blob([json], { type: 'application/json' }), `${(doc.name || 'design').replace(/[^\w\- ]+/g, '')}.void`)
+  if (!doc) return null
+  const { stored } = await storeDesign(doc, layers, groups, swatches)
+  const blob = await writeVoidPng(stored, await previewOf(doc, layers, groups, 1600))
+  return { blob, name: `${safeName(doc.name)}.void.png` }
 }
 
-/** Load a .void file into the editor. */
-/** Open a Voidcanvas file: either a .void JSON or a .void.png with the project embedded in a PNG chunk. */
-export async function importVoidFile(file: File): Promise<boolean> {
-  import('@/lib/analytics').then(m => m.track('doc.import', { kind: 'void', count: 1 })).catch(() => {})
+export async function exportVoidPng(): Promise<void> {
+  const f = await buildVoidPng(); if (f) downloadBlob(f.blob, f.name)
+}
+
+/** Download the open design as a .void file. */
+export async function exportVoidFile(): Promise<void> {
+  const f = await buildVoidFile(); if (f) downloadBlob(f.blob, f.name)
+}
+
+/** Download a saved design as a .void file without opening it. */
+export async function exportProjectVoid(id: string): Promise<void> {
+  const p = await idb.get<StoredProject>('projects', id); if (!p) return
+  const summary = await idb.get<ProjectSummary>('index', id)
+  const preview = summary?.thumb ? await (await fetch(summary.thumb)).blob() : undefined
+  downloadBlob(await writeVoid(p, { preview }), `${safeName(p.doc.name)}.void`)
+}
+
+/** Open .void bytes as a new design in the editor. Returns the new design's id, or null. */
+export async function openVoidBytes(bytes: Uint8Array): Promise<string | null> {
+  const ed = useEditor.getState()
   try {
-    let bundle: any = null
-    const buf = new Uint8Array(await file.arrayBuffer())
-    const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47
-    if (isPng) {
-      const text = readTextChunk(buf, 'voidcanvas')
-      if (!text) { useEditor.getState().notify('That PNG has no Voidcanvas project inside it.'); return false }
-      bundle = JSON.parse(text)
-    } else {
-      bundle = JSON.parse(new TextDecoder().decode(buf))
-    }
-    if (!(await loadBundle(bundle))) { useEditor.getState().notify('That is not a Voidcanvas file.'); return false }
-    useEditor.getState().notify('Opened your Voidcanvas file.')
-    return true
-  } catch { useEditor.getState().notify('Could not read that file.'); return false }
+    const { project, notes } = await readVoid(bytes)
+    const id = 'd' + Date.now().toString(36)
+    const { doc: d, layers } = await restoreStored({ ...project, id, groups: project.groups ?? [] } as StoredProject)
+    const doc = { ...d, id }
+    if (doc.frames?.length) ed.loadFramed(doc, layers, project.swatches, project.groups ?? [])
+    else ed.loadProject(doc, layers, project.swatches, project.groups ?? [])
+    useEditor.setState({ dirty: true })
+    ed.notify(notes.length ? notes.join(' ') : 'Opened your Voidcanvas file.')
+    return id
+  } catch (e) {
+    ed.notify(e instanceof VoidFileError ? e.message : 'Could not read that file.')
+    return null
+  }
+}
+
+/** Open a Voidcanvas file: .void (any version) or .void.png. */
+export async function importVoidFile(file: File): Promise<string | null> {
+  import('@/lib/analytics').then(m => m.track('doc.import', { kind: 'void', count: 1 })).catch(() => {})
+  return openVoidBytes(new Uint8Array(await file.arrayBuffer()))
 }
 
 export const listProjects = async () => (await idb.all<ProjectSummary>('index')).sort((a, b) => b.updatedAt - a.updatedAt)
-export async function deleteProject(id: string) { await idb.del('projects', id); await idb.del('index', id) }
+export async function deleteProject(id: string) { await idb.del('projects', id); await idb.del('index', id); await idb.del('handles', id).catch(() => {}) }
 
 /** Duplicate a stored project as a new independent copy (no editor open needed). */
 export async function duplicateProject(id: string): Promise<ProjectSummary | null> {
@@ -584,7 +522,7 @@ export async function buildFramedFromLayered(name: string, pages: LayeredPage[],
   if (palette?.length) useEditor.setState({ swatches: Array.from(new Set([...palette, ...useEditor.getState().swatches])).slice(0, 21), fg: palette[0] })
 }
 
-// ─── PDF and ZIP, written by hand to avoid shipping a library ───────
+// ─── PDF, written by hand to avoid shipping a library ──────────────
 
 const enc = new TextEncoder()
 
@@ -608,35 +546,6 @@ async function jpegToPdf(jpeg: Blob, pxW: number, pxH: number, docW: number, doc
   const xref = pos
   push(`xref\n0 6\n0000000000 65535 f \n` + [1, 2, 3, 4, 5].map(n => String(offsets[n]).padStart(10, '0') + ' 00000 n \n').join('') + `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`)
   return new Blob(parts as BlobPart[], { type: 'application/pdf' })
-}
-
-let crcTable: Uint32Array | null = null
-function crc32(d: Uint8Array) {
-  if (!crcTable) { crcTable = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcTable[n] = c } }
-  let c = 0xffffffff
-  for (let i = 0; i < d.length; i++) c = crcTable[(c ^ d[i]) & 0xff] ^ (c >>> 8)
-  return (c ^ 0xffffffff) >>> 0
-}
-
-/** Uncompressed ZIP. Images are already compressed, so storing them is the right call. */
-export async function zipFiles(files: { name: string; blob: Blob }[]): Promise<Blob> {
-  const out: Uint8Array[] = [], central: Uint8Array[] = []
-  let offset = 0
-  for (const f of files) {
-    const data = new Uint8Array(await f.blob.arrayBuffer()), name = enc.encode(f.name), crc = crc32(data)
-    const head = new DataView(new ArrayBuffer(30))
-    head.setUint32(0, 0x04034b50, true); head.setUint16(4, 20, true); head.setUint16(6, 0x0800, true)
-    head.setUint32(14, crc, true); head.setUint32(18, data.length, true); head.setUint32(22, data.length, true); head.setUint16(26, name.length, true)
-    const cen = new DataView(new ArrayBuffer(46))
-    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint16(8, 0x0800, true)
-    cen.setUint32(16, crc, true); cen.setUint32(20, data.length, true); cen.setUint32(24, data.length, true); cen.setUint16(28, name.length, true); cen.setUint32(42, offset, true)
-    out.push(new Uint8Array(head.buffer), name, data); central.push(new Uint8Array(cen.buffer), name)
-    offset += 30 + name.length + data.length
-  }
-  const size = central.reduce((n, c) => n + c.length, 0)
-  const end = new DataView(new ArrayBuffer(22))
-  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, size, true); end.setUint32(16, offset, true)
-  return new Blob([...out, ...central, new Uint8Array(end.buffer)] as BlobPart[], { type: 'application/zip' })
 }
 
 // ─── Brand kit ─────────────────────────────────────────────────────

@@ -262,7 +262,7 @@ export function EditorShell() {
       if (mod && k === 'd') { stop(); s.setSelection(null, 'Deselect'); return }
       if (mod && k === 'i' && e.shiftKey) { stop(); s.invertSelection(); return }
       if (mod && k === 'e') { stop(); setModal('export'); return }
-      if (mod && k === 's') { stop(); saveProject().then(() => s.notify('Saved to this device.')); return }
+      if (mod && k === 's') { stop(); import('../disk').then(m => m.saveNow()); return }
       if (mod && k === '0') { stop(); stageApi.fit(); return }
       if (mod && k === '1') { stop(); stageApi.zoomTo(1); return }
       if (mod && (k === '=' || k === '+')) { stop(); stageApi.zoomBy(1.25); return }

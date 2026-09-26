@@ -5,10 +5,11 @@ import { Check, Lock, Trash2, X } from 'lucide-react'
 import { initPrivateFromSession, isPrivate, listProjects, setPrivateMode, wipeEverything } from '../io'
 import { Button, Modal, focusRing } from './ui'
 import { setUsageOff, usageTurnedOff } from '@/lib/analytics'
+import { ensurePersistentStorage, formatBytes, storageStatus, type StorageStatus } from '@/lib/persist'
 
 const POINTS = [
   'Your designs never leave your device. Editing, effects, boards and exports all run in this browser.',
-  'Projects are saved only in this browser, on this computer. There is no cloud copy and no account.',
+  'Projects are saved in this browser on this computer, and as files wherever you choose to save them. There is no cloud copy and no account.',
   'No sign-up, no login. Open the site and start creating.',
   'No tracking of your work. We only count which tools get used, anonymously, so we know what to improve. You can turn that off below.',
 ]
@@ -21,6 +22,9 @@ export function PrivacyPanel({ onClose }: { onClose: () => void }) {
   const [wiped, setWiped] = useState(false)
   const [usage, setUsage] = useState(true)
   useEffect(() => { setUsage(!usageTurnedOff()) }, [])
+  const [store, setStore] = useState<StorageStatus | null>(null)
+  useEffect(() => { storageStatus().then(setStore).catch(() => {}) }, [])
+  const protect = async () => { try { localStorage.removeItem('vc-persist-asked') } catch { /* ignore */ } await ensurePersistentStorage(); setStore(await storageStatus()) }
   const toggleUsage = () => { const next = !usage; setUsageOff(!next); setUsage(next) }
   useEffect(() => { initPrivateFromSession(); setPriv(isPrivate()); listProjects().then(p => setCount(p.length)).catch(() => setCount(null)) }, [])
 
@@ -64,6 +68,19 @@ export function PrivacyPanel({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         </div>
+
+        {store && store.persisted !== null && !priv && (
+          <div className="rounded-xl border border-void-800 p-4">
+            <p className="text-[13px] font-medium">Storage on this device</p>
+            <p className="text-[12px] text-void-400 mt-0.5">
+              {store.persisted
+                ? 'Protected. The browser will not clear your saved designs to free up space.'
+                : 'Not protected yet. If the device runs low on space, or on Safari after a few weeks without a visit, the browser may clear saved designs. Use File, Save to disk for anything you need to keep.'}
+              {store.usage != null && ` Using ${formatBytes(store.usage)}.`}
+            </p>
+            {!store.persisted && <Button onClick={protect} className="mt-3">Ask the browser to keep my designs</Button>}
+          </div>
+        )}
 
         <div className="rounded-xl border border-void-800 p-4">
           <p className="text-[13px] font-medium">Clear everything on this device</p>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ImagePlus, Trash2, MoreHorizontal, Download, Copy } from 'lucide-react'
-import { deleteProject, duplicateProject, exportProjectPng, importFiles, importVoidFile, listProjects, openProject, type ProjectSummary } from '../io'
+import { deleteProject, duplicateProject, exportProjectPng, exportProjectVoid, importFiles, importVoidFile, listProjects, openProject, type ProjectSummary } from '../io'
 import { SIZE_PRESETS } from '../presets'
 import { useEditor } from '../store'
 import { useTabs } from '../tabs'
@@ -20,6 +20,7 @@ function RecentMenu({ p, onChanged }: { p: ProjectSummary; onChanged: (fn: (r: P
       {open && (
         <div className="absolute right-0 mt-1 w-40 rounded-lg bg-surface-overlay border border-white/[0.08] shadow-xl py-1 z-10 text-[12.5px]">
           <button onClick={async () => { setOpen(false); await exportProjectPng(p.id) }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-void-200 hover:bg-surface-sunken ${focusRing}`}><Download size={13} />Export PNG</button>
+          <button onClick={async () => { setOpen(false); await exportProjectVoid(p.id) }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-void-200 hover:bg-surface-sunken ${focusRing}`}><Download size={13} />Download .void</button>
           <button onClick={async () => { setOpen(false); const c = await duplicateProject(p.id); if (c) onChanged(r => [c, ...r]) }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-void-200 hover:bg-surface-sunken ${focusRing}`}><Copy size={13} />Duplicate</button>
           <button onClick={async () => { setOpen(false); if (confirm(`Delete “${p.name}”? This cannot be undone.`)) { await deleteProject(p.id); onChanged(r => r.filter(x => x.id !== p.id)) } }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-rose-400 hover:bg-surface-sunken ${focusRing}`}><Trash2 size={13} />Delete</button>
         </div>
@@ -54,6 +55,17 @@ export function StartScreen() {
   useEffect(() => { listProjects().then(setRecent).catch(() => {}) }, [])
   const start = (width: number, height: number, name?: string) => (track('doc.new', { preset: (name || 'custom').slice(0, 40), w: width, h: height }), useEditor.getState().newDoc({ width, height, background: '#ffffff', name }))
   const handleFiles = (files: File[]) => { const v = files.find(f => f.name.endsWith('.void') || f.name.endsWith('.void.png')); if (v) { importVoidFile(v); return } importFiles(files) }
+  // A .void dropped in Chromium comes with a handle, so the design stays linked to its file.
+  const dropFiles = (dt: DataTransfer) => {
+    const files = Array.from(dt.files)
+    const i = files.findIndex(f => /\.void(\.png)?$/i.test(f.name))
+    const item = i >= 0 ? Array.from(dt.items).filter(x => x.kind === 'file')[i] as any : null
+    if (item?.getAsFileSystemHandle) {
+      item.getAsFileSystemHandle().then(async (h: any) => { if (h?.kind === 'file') { const { openLinked } = await import('../disk'); await openLinked(h) } else handleFiles(files) }).catch(() => handleFiles(files))
+      return
+    }
+    handleFiles(files)
+  }
   const groups = Array.from(new Set(SIZE_PRESETS.map(p => p.group)))
 
   return (
@@ -83,9 +95,9 @@ export function StartScreen() {
 
         <input ref={file} type="file" accept="image/*,.psd,.pdf,.void" multiple hidden onChange={e => handleFiles(Array.from(e.target.files ?? []))} />
         <button
-          onClick={() => file.current?.click()}
+          onClick={async () => { const { openFromDisk } = await import('../disk'); if (!(await openFromDisk())) file.current?.click() }}
           onDragOver={e => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)}
-          onDrop={e => { e.preventDefault(); setOver(false); handleFiles(Array.from(e.dataTransfer.files)) }}
+          onDrop={e => { e.preventDefault(); setOver(false); dropFiles(e.dataTransfer) }}
           className={`mt-6 w-full flex flex-row items-center gap-4 rounded-2xl border border-dashed px-5 py-5 sm:px-6 sm:py-7 text-left transition-colors ${focusRing} ${over ? 'border-accent bg-accent/10' : 'border-void-700 hover:border-void-500 bg-void-900/40'}`}>
           <span className="w-12 h-12 rounded-xl bg-accent text-white flex items-center justify-center shrink-0"><ImagePlus size={22} /></span>
           <span>
