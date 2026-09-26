@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Package } from 'lucide-react'
+import { Check, Link2, Package } from 'lucide-react'
 import { downloadBlob, zipFiles } from '@/editor/io'
 import { colorSpecLine } from '../brand/export'
 import { fileName, slug, useJobs, type ClientBrand, type Deliverable, type Job } from '../jobs'
@@ -9,6 +9,7 @@ import { boardCanvas, boardsOf, loadDesign, toBlob, type LoadedDesign } from '..
 import { printPdf } from '../pdf'
 import { Btn, Empty, Panel, focusRing, fmtDate } from '../ui'
 import type { TabProps } from './JobView'
+import { LinkBox, SignInToShare, useCanShare } from './LinkBox'
 
 type Kind = 'png' | 'jpg' | 'webp' | 'pdf'
 const KIND_LABEL: Record<Kind, string> = { png: 'PNG', jpg: 'JPG', webp: 'WebP', pdf: 'Print PDF' }
@@ -29,9 +30,15 @@ export function DeliverTab({ job, update, toast }: TabProps) {
   const ready = rows.filter(r => r.f)
   const fileList = useMemo(() => ready.flatMap(r => r.kinds.map(k => fileName(job, r.d, version, k === 'jpg' ? 'jpg' : k))), [ready, job, version])
 
-  const build = async () => {
+  const canShare = useCanShare()
+  const [signIn, setSignIn] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const build = async (asLink = false) => {
     if (!design) return
+    if (asLink && !canShare) { setSignIn(true); return }
     const files: { name: string; blob: Blob }[] = []
+    setError(null)
     try {
       for (const { d, f, kinds } of ready) {
         setBusy(`Rendering ${d.label}…`)
@@ -48,12 +55,25 @@ export function DeliverTab({ job, update, toast }: TabProps) {
       }
       if (withBrand && brand) files.push({ name: `${slug(brand.name)}_brand-sheet.html`, blob: new Blob([brandSheet(brand)], { type: 'text/html' }) })
       files.push({ name: `${slug(job.client || 'client')}_${slug(job.name)}_delivery-note.html`, blob: new Blob([deliveryNote(job, version, files.map(f => ({ name: f.name, size: f.blob.size })), design)], { type: 'text/html' }) })
-      setBusy('Packing…')
-      downloadBlob(await zipFiles(files), `${slug(job.client || 'client')}_${slug(job.name)}_v${version}_delivery.zip`)
-      update(j => ({ status: 'delivered', deliveries: [...(j.deliveries ?? []), { at: Date.now(), files: files.map(f => f.name) }], deliverables: j.deliverables.map(x => (ready.some(r => r.d.id === x.id) ? { ...x, done: true } : x)) }))
-      toast(`Packed ${files.length} files. The job is marked delivered.`)
-    } catch (e) { console.error(e); toast('Could not build the package. Try fewer formats at once.') }
+      let link = null
+      if (asLink) {
+        setBusy('Encrypting…')
+        const { createDeliveryShare } = await import('@/lib/share')
+        const ref = await createDeliveryShare({ client: job.client, job: job.name, label: `v${version}`, notes: '', workspaceId: job.workspaceId }, files, (d, t) => setBusy(`Uploading ${Math.min(d + 1, t)} of ${t}…`))
+        link = { ...ref, at: Date.now() }
+      } else {
+        setBusy('Packing…')
+        downloadBlob(await zipFiles(files), `${slug(job.client || 'client')}_${slug(job.name)}_v${version}_delivery.zip`)
+      }
+      update(j => ({ status: 'delivered', deliveries: [...(j.deliveries ?? []), { at: Date.now(), files: files.map(f => f.name), link }], deliverables: j.deliverables.map(x => (ready.some(r => r.d.id === x.id) ? { ...x, done: true } : x)) }))
+      toast(asLink ? `Link ready with ${files.length} files. Copy it below. The job is marked delivered.` : `Packed ${files.length} files. The job is marked delivered.`)
+    } catch (e) { console.error(e); const m = (e as Error).message; if (asLink && m) setError(m); else toast('Could not build the package. Try fewer formats at once.') }
     finally { setBusy(null) }
+  }
+  const stopLink = async (at: number, id: string) => {
+    const { deleteShare } = await import('@/lib/share')
+    await deleteShare(id)
+    update(j => ({ deliveries: (j.deliveries ?? []).map(d => (d.at === at ? { ...d, link: null } : d)) }))
   }
 
   if (loading) return <p className="p-6 text-[13px] text-void-400">Loading…</p>
@@ -78,8 +98,11 @@ export function DeliverTab({ job, update, toast }: TabProps) {
             {brand && <label className="flex items-center gap-2 text-[12.5px] text-void-300 cursor-pointer"><input type="checkbox" checked={withBrand} onChange={e => setWithBrand(e.target.checked)} className="accent-[#8b7cff]" />Include {brand.name} brand sheet</label>}
             <span className="flex-1" />
             {busy && <span className="text-[12.5px] text-accent-light">{busy}</span>}
-            <Btn primary onClick={build} disabled={!ready.length || !!busy} className="!h-10"><Package size={15} />Build the package</Btn>
+            <Btn onClick={() => build(true)} disabled={!ready.length || !!busy} className="!h-10"><Link2 size={15} />Send as a link</Btn>
+            <Btn primary onClick={() => build()} disabled={!ready.length || !!busy} className="!h-10"><Package size={15} />Build the package</Btn>
           </div>
+          {error && <p role="alert" className="mt-2 text-[12px] text-rose-400">{error}</p>}
+          {signIn && !canShare && <div className="mt-4"><SignInToShare what="delivery" /></div>}
         </Panel>
         <Panel title="What goes in the zip">
           <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-[12px] font-mono text-void-300">
@@ -91,7 +114,12 @@ export function DeliverTab({ job, update, toast }: TabProps) {
         </Panel>
         {job.deliveries?.length ? (
           <Panel title="Delivered before">
-            <ul className="space-y-1 text-[12.5px]">{job.deliveries.slice().reverse().map(d => <li key={d.at} className="flex items-center gap-2"><Check size={13} className="text-emerald-400" />{fmtDate(d.at)} · {d.files.length} files</li>)}</ul>
+            <ul className="space-y-3 text-[12.5px]">{job.deliveries.slice().reverse().map(d => (
+              <li key={d.at} className="space-y-1.5">
+                <span className="flex items-center gap-2"><Check size={13} className="text-emerald-400" />{fmtDate(d.at)} · {d.files.length} files{d.link ? ' · sent as a link' : ''}</span>
+                {d.link && <div className="pl-5"><LinkBox link={d.link} onStop={() => stopLink(d.at, d.link!.id)} what="delivery" /></div>}
+              </li>
+            ))}</ul>
           </Panel>
         ) : null}
       </div>

@@ -44,6 +44,7 @@ To see a function's current SQL: `select pg_get_functiondef('public.vc_admin_das
 | `landing.nav` | Blog link in the landing header | `to` |
 | `account.signin`, `account.setup`, `account.pair`, `account.rotate`, `account.delete` | signed in / recovery key made / device approved / keys replaced / account deleted | none |
 | `team.create`, `team.invite`, `team.join`, `team.remove` | team made / invite link made / invite accepted / member removed | `role` on invite and join |
+| `share.review`, `share.delivery` | review link made / delivery link made (Studio Share) | `files` |
 
 ## Local testing
 

@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Columns2, Download, FileText, Image as ImageIcon, MessageSquarePlus, Plus, SplitSquareHorizontal, Trash2 } from 'lucide-react'
+import { Check, Columns2, Download, FileText, Image as ImageIcon, Link2, MessageSquarePlus, Plus, SplitSquareHorizontal, Trash2 } from 'lucide-react'
 import { blobToCanvas, downloadBlob, zipFiles } from '@/editor/io'
 import { uid } from '@/editor/engine'
-import { slug, type Job, type Pin, type Version } from '../jobs'
+import { slug, type Job, type Pin, type ShareLink, type Version } from '../jobs'
+import { applyShareEvents } from '../share-merge'
+import { LinkBox, SignInToShare, useCanShare } from './LinkBox'
 import { boardCanvas, boardsOf, loadDesign, toBlob } from '../render'
 import { screenPdf } from '../pdf'
 import { SCENES, bestScene, findSurface, loadScenePhoto, quadAspect, renderOnPhoto, renderScene, sceneUrl, type Finish } from '../mockups'
@@ -24,8 +26,35 @@ export function ReviewTab({ job, update, toast }: TabProps) {
   const [mode, setMode] = useState<'pins' | 'compare' | 'mockup'>('pins')
   const [busy, setBusy] = useState<string | null>(null)
   const upload = useRef<HTMLInputElement>(null)
+  const [linkOpen, setLinkOpen] = useState(false)
   const v = job.versions.find(x => x.id === vid) ?? null
   const setV = (patch: Partial<Version> | ((v: Version) => Partial<Version>)) => v && update(j => ({ versions: j.versions.map(x => (x.id === v.id ? { ...x, ...(typeof patch === 'function' ? patch(x) : patch) } : x)) }))
+
+  // Comments and decisions from review links arrive while this tab is open.
+  const latest = useRef(job); latest.current = job
+  const shared = job.versions.filter(x => x.share && Date.parse(x.share.expiresAt) > Date.now()).map(x => `${x.id}:${x.share!.id}`).join(',')
+  useEffect(() => {
+    if (!shared) return
+    let stop = false
+    const check = async () => {
+      const { eventsFor } = await import('@/lib/share')
+      for (const pair of shared.split(',')) {
+        const [versionId, shareId] = pair.split(':')
+        const cur = latest.current.versions.find(x => x.id === versionId)
+        if (!cur?.share || cur.share.id !== shareId) continue
+        try {
+          const { events } = await eventsFor(cur.share, cur.share.seen ?? 0)
+          if (stop || !events.length) continue
+          update(j => ({ versions: j.versions.map(x => (x.id === versionId ? applyShareEvents(x, events) : x)) }))
+        } catch { /* offline, or the link was stopped */ }
+      }
+    }
+    check()
+    const t = setInterval(check, 20_000)
+    const vis = () => { if (document.visibilityState === 'visible') check() }
+    document.addEventListener('visibilitychange', vis)
+    return () => { stop = true; clearInterval(t); document.removeEventListener('visibilitychange', vis) }
+  }, [shared]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const snapshot = async () => {
     setBusy('Rendering the formats…')
@@ -101,6 +130,7 @@ export function ReviewTab({ job, update, toast }: TabProps) {
               <select value={v.status} onChange={e => { const st = e.target.value as Version['status']; setV({ status: st }); if (st === 'approved') update({ status: 'review' }) }} aria-label="Version status" className={`h-8 px-2 rounded-lg bg-void-900 border border-void-800 text-[12.5px] ${focusRing}`}>
                 {Object.entries(STATUS).map(([k, s]) => <option key={k} value={k}>{s.label}</option>)}
               </select>
+              <Btn primary={!v.share} subtle={!!v.share} onClick={() => setLinkOpen(true)}><Link2 size={14} />{v.share ? 'Review link' : 'Send a review link'}</Btn>
               <Btn subtle onClick={exportPack} disabled={!!busy}><FileText size={14} />Review pack PDF</Btn>
               <Btn subtle onClick={exportWa} disabled={!!busy}><Download size={14} />WhatsApp images</Btn>
               <Btn subtle onClick={() => { if (confirm(`Delete ${v.label}?`)) { update(j => ({ versions: j.versions.filter(x => x.id !== v.id) })); setVid(null) } }}><Trash2 size={14} /></Btn>
@@ -111,7 +141,7 @@ export function ReviewTab({ job, update, toast }: TabProps) {
                   <div className="flex gap-1 px-3 pt-3 overflow-x-auto">{v.images.map((im, i) => <button key={i} onClick={() => setImg(i)} className={`h-7 px-2.5 rounded-lg text-[12px] whitespace-nowrap ${focusRing} ${img === i ? 'bg-void-700 text-white' : 'text-void-400 hover:text-white'}`}>{im.name}</button>)}</div>
                 )}
                 <div className="flex-1 min-h-0 p-3">
-                  {mode === 'pins' && v.images[img] && <PinBoard key={v.id + img} im={v.images[img]} pins={v.pins[String(img)] ?? []} onPins={pins => setV(x => ({ pins: { ...x.pins, [String(img)]: pins } }))} />}
+                  {mode === 'pins' && v.images[img] && <PinBoard key={v.id + img} im={v.images[img]} pins={v.pins[String(img)] ?? []} share={v.share} onPins={pins => setV(x => ({ pins: { ...x.pins, [String(img)]: pins } }))} />}
                   {mode === 'compare' && <Compare job={job} v={v} img={img} />}
                   {mode === 'mockup' && v.images[img] && <Mockups im={v.images[img]} name={`${slug(job.name)}_v${v.n}_${slug(v.images[img].name)}`} />}
                 </div>
@@ -121,11 +151,49 @@ export function ReviewTab({ job, update, toast }: TabProps) {
           </>
         )}
       </div>
+      {linkOpen && v && <ReviewLink job={job} v={v} setV={setV} onClose={() => setLinkOpen(false)} />}
     </div>
   )
 }
 
-function PinBoard({ im, pins, onPins }: { im: Version['images'][number]; pins: Pin[]; onPins: (p: Pin[]) => void }) {
+function ReviewLink({ job, v, setV, onClose }: { job: Job; v: Version; setV: (p: Partial<Version>) => void; onClose: () => void }) {
+  const can = useCanShare()
+  const [busy, setBusy] = useState<string | null>(null), [error, setError] = useState<string | null>(null)
+  const make = async () => {
+    setBusy('Encrypting…'); setError(null)
+    try {
+      const { createReviewShare } = await import('@/lib/share')
+      const ref = await createReviewShare({ client: job.client, job: job.name, label: v.label, notes: v.notes, workspaceId: job.workspaceId }, v.images.map(im => ({ name: im.name, blob: im.blob, w: im.w, h: im.h })), (d, t) => setBusy(`Uploading ${Math.min(d + 1, t)} of ${t}…`))
+      setV({ share: { ...ref, at: Date.now(), seen: 0 }, status: v.status === 'draft' ? 'sent' : v.status })
+    } catch (e) { setError((e as Error).message || 'Could not make the link.') } finally { setBusy(null) }
+  }
+  const stop = async () => {
+    const { deleteShare } = await import('@/lib/share')
+    await deleteShare(v.share!.id)
+    setV({ share: null })
+  }
+  return (
+    <Overlay title={`Review link for ${v.label}`} onClose={onClose}>
+      <div className="p-5 space-y-4 max-w-lg">
+        <p className="text-[12.5px] text-void-300 leading-relaxed">Your client opens the link in any browser, with no account and nothing to install. They can pin comments on the images, reply, and approve or ask for changes. Their comments appear here.</p>
+        {!v.images.length ? <p className="text-[12.5px] text-amber-200">This version has no images yet.</p>
+          : v.share ? <LinkBox link={v.share as ShareLink} onStop={stop} what="review" />
+          : !can ? <SignInToShare what="review" />
+          : (
+            <div className="space-y-2">
+              <Btn primary onClick={make} disabled={!!busy}><Link2 size={14} />{busy ?? `Make a link for ${v.images.length} image${v.images.length === 1 ? '' : 's'}`}</Btn>
+              <p className="text-[11.5px] text-void-500">The images and the notes for {v.label} are encrypted on this device first. Works for 30 days.</p>
+            </div>
+          )}
+        {error && <p role="alert" className="text-[12px] text-rose-400">{error}</p>}
+      </div>
+    </Overlay>
+  )
+}
+
+function PinBoard({ im, pins, onPins, share }: { im: Version['images'][number]; pins: Pin[]; onPins: (p: Pin[]) => void; share?: ShareLink | null }) {
+  const [reply, setReply] = useState('')
+  const post = (body: Parameters<typeof import('@/lib/share').postEventFor>[1]) => { if (share) import('@/lib/share').then(m => m.postEventFor(share, body)).catch(() => {}) }
   const url = useObjectUrl(im.blob)
   const [edit, setEdit] = useState<string | null>(null)
   const add = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -141,13 +209,22 @@ function PinBoard({ im, pins, onPins }: { im: Version['images'][number]; pins: P
         <div className="absolute inset-0 cursor-crosshair" onClick={add} title="Click to pin a comment" />
         {pins.map((p, i) => (
           <div key={p.id} className="absolute" style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}>
-            <button onClick={() => setEdit(edit === p.id ? null : p.id)} className={`-ml-3.5 -mt-3.5 w-7 h-7 rounded-full text-[12px] font-bold shadow-lg ${p.done ? 'bg-emerald-400 text-black' : 'bg-accent text-white'} ${focusRing}`}>{i + 1}</button>
+            <button onClick={() => { setEdit(edit === p.id ? null : p.id); setReply('') }} className={`-ml-3.5 -mt-3.5 w-7 h-7 rounded-full text-[12px] font-bold shadow-lg ${p.done ? 'bg-emerald-400 text-black' : 'bg-accent text-white'} ${focusRing}`}>{i + 1}</button>
             {edit === p.id && (
               <div className="absolute left-5 top-0 z-10 w-64 p-2 rounded-xl bg-[#1d1d24] border border-void-700 shadow-2xl space-y-1.5">
-                <textarea autoFocus value={p.text} onChange={e => onPins(pins.map(x => (x.id === p.id ? { ...x, text: e.target.value } : x)))} rows={3} placeholder="What the client said about this spot" className={`w-full px-2 py-1.5 rounded-lg bg-void-950 border border-void-800 text-[12.5px] resize-none ${focusRing}`} />
+                {p.shared ? (
+                  <div className="space-y-1.5 text-[12.5px]">
+                    <p><span className="font-semibold">{p.by}</span> <span className="text-void-300 whitespace-pre-wrap">{p.text}</span></p>
+                    {p.replies?.map(r => <p key={r.id} className="pl-2 border-l border-void-700"><span className="font-semibold">{r.by}</span> <span className="text-void-300 whitespace-pre-wrap">{r.text}</span></p>)}
+                    <textarea autoFocus value={reply} onChange={e => setReply(e.target.value)} rows={2} placeholder={`Reply to ${p.by}`} className={`w-full px-2 py-1.5 rounded-lg bg-void-950 border border-void-800 text-[12.5px] resize-none ${focusRing}`} />
+                  </div>
+                ) : (
+                  <textarea autoFocus value={p.text} onChange={e => onPins(pins.map(x => (x.id === p.id ? { ...x, text: e.target.value } : x)))} rows={3} placeholder="What the client said about this spot" className={`w-full px-2 py-1.5 rounded-lg bg-void-950 border border-void-800 text-[12.5px] resize-none ${focusRing}`} />
+                )}
                 <div className="flex gap-1.5 justify-end">
-                  <Btn subtle onClick={() => { onPins(pins.filter(x => x.id !== p.id)); setEdit(null) }}>Delete</Btn>
-                  <Btn onClick={() => { onPins(pins.map(x => (x.id === p.id ? { ...x, done: !x.done } : x))); setEdit(null) }}>{p.done ? 'Reopen' : 'Done'}</Btn>
+                  {p.shared && reply.trim() && <Btn onClick={() => { const r = { id: uid(), by: 'Designer', text: reply.trim(), at: Date.now(), team: true }; onPins(pins.map(x => (x.id === p.id ? { ...x, replies: [...(x.replies ?? []), r] } : x))); post({ t: 'reply', id: r.id, pin: p.id, text: r.text, by: 'Designer' }); setReply('') }}>Reply</Btn>}
+                  <Btn subtle onClick={() => { onPins(pins.filter(x => x.id !== p.id)); setEdit(null) }}>{p.shared ? 'Hide' : 'Delete'}</Btn>
+                  <Btn onClick={() => { onPins(pins.map(x => (x.id === p.id ? { ...x, done: !x.done } : x))); if (p.shared) post({ t: 'done', pin: p.id, done: !p.done, by: 'Designer' }); setEdit(null) }}>{p.done ? 'Reopen' : 'Done'}</Btn>
                 </div>
               </div>
             )}
@@ -168,6 +245,12 @@ function FeedbackSide({ v, img, setV }: { v: Version; img: number; setV: (p: Par
   const pins = v.pins[String(img)] ?? []
   return (
     <aside className="w-80 shrink-0 border-l border-void-800/60 overflow-y-auto p-4 space-y-5">
+      {v.decision && (
+        <div className={`rounded-lg px-3 py-2 text-[12.5px] ${v.decision.value === 'approved' ? 'bg-emerald-400/10 text-emerald-200' : 'bg-amber-400/10 text-amber-100'}`}>
+          <span className="font-semibold">{v.decision.by} {v.decision.value === 'approved' ? 'approved this version' : 'asked for changes'}</span> <span className="opacity-70">{fmtDate(v.decision.at)}</span>
+          {v.decision.note && <span className="block mt-0.5 whitespace-pre-wrap">{v.decision.note}</span>}
+        </div>
+      )}
       <div>
         <span className="block text-[12px] font-semibold text-void-200 mb-1.5">What changed in {v.label}</span>
         <textarea value={v.notes} onChange={e => setV({ notes: e.target.value })} rows={3} placeholder="Bigger date, logo moved top right, warmer photo." className={`w-full px-2.5 py-2 rounded-lg bg-void-950 border border-void-800 text-[12.5px] leading-relaxed resize-y ${focusRing}`} />
@@ -175,7 +258,7 @@ function FeedbackSide({ v, img, setV }: { v: Version; img: number; setV: (p: Par
       <div>
         <span className="block text-[12px] font-semibold text-void-200 mb-1.5">Pinned comments ({pins.length})</span>
         {!pins.length ? <p className="text-[12px] text-void-500">Click on the image to pin a comment where the client pointed.</p> : (
-          <ol className="space-y-1">{pins.map((p, i) => <li key={p.id} className="flex gap-2 text-[12.5px]"><span className={`w-5 h-5 shrink-0 rounded-full text-[10.5px] font-bold flex items-center justify-center ${p.done ? 'bg-emerald-400 text-black' : 'bg-accent text-white'}`}>{i + 1}</span><span className={p.done ? 'line-through text-void-500' : ''}>{p.text || 'No comment yet'}</span></li>)}</ol>
+          <ol className="space-y-1">{pins.map((p, i) => <li key={p.id} className="flex gap-2 text-[12.5px]"><span className={`w-5 h-5 shrink-0 rounded-full text-[10.5px] font-bold flex items-center justify-center ${p.done ? 'bg-emerald-400 text-black' : 'bg-accent text-white'}`}>{i + 1}</span><span className={p.done ? 'line-through text-void-500' : ''}>{p.by && <b className="font-semibold">{p.by}: </b>}{p.text || 'No comment yet'}{p.replies?.length ? <span className="text-void-500"> · {p.replies.length} repl{p.replies.length === 1 ? 'y' : 'ies'}</span> : null}</span></li>)}</ol>
         )}
       </div>
       <div>

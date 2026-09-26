@@ -177,6 +177,8 @@ export async function startTeamSync() {
   if (running) return
   running = true
   await loadTeams().catch(() => {})
+  // Expired review and delivery links: delete their files from the server.
+  import('./share').then(m => m.deleteMyShares()).catch(() => {})
   const store = await jobs()
   let t: ReturnType<typeof setTimeout> | null = null
   offs.push(store.subscribe(() => { if (t) clearTimeout(t); t = setTimeout(() => pushPending().catch(() => {}), 1500) }))

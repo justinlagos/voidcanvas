@@ -495,6 +495,7 @@ export const articles: Article[] = [
       { t: 'table', head: ['Tab', 'Export', 'File'], rows: [
         ['Directions', 'PDF', 'A PDF with one 1920 × 1080 sheet per direction'],
         ['Directions', 'WhatsApp images', 'A ZIP of 1080 × 1350 JPGs, one per direction'],
+        ['Review', 'Send a review link', 'A link the client opens in a browser to comment and approve'],
         ['Review', 'Review pack PDF', 'The version you are showing the client, as a PDF'],
         ['Review', 'WhatsApp images', 'JPGs of the version, one per image (a ZIP when there are several)'],
         ['Review, Mockups', 'Download mockup', 'A JPG of the design placed in the mockup scene'],

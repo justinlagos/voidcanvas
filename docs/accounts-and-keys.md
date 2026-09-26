@@ -67,12 +67,18 @@ without signing in. Deleting the auth user deletes everything.
 
 ## Setup still needed in the Supabase dashboard
 
-1. **Email templates**: Authentication, Email Templates. In both **Magic link** and **Confirm signup**, put the
-   code in the email, for example `<p>Your Voidcanvas sign-in code is <strong>{{ .Token }}</strong>. It works for an hour.</p>`,
-   and subject `Your Voidcanvas sign-in code`. Without `{{ .Token }}` people receive a link the app cannot use.
-2. **SMTP**: Authentication, Emails, SMTP Settings. Supabase's built-in email only sends to the project's own
-   team and a few per hour. Add a sender (Resend, Postmark, Amazon SES) with a `voidcanvas` from-address.
-3. **Rate limits**: Authentication, Rate Limits. Raise emails per hour once SMTP is in place.
+Supabase does not allow template changes on the free plan until a custom SMTP sender is set, and the email rate
+limit cannot be raised without one either. So, in this order:
+
+1. **SMTP**: Authentication, Emails, SMTP Settings. Resend is chosen (account ready). Needs a Voidcanvas sending domain
+   verified in Resend (DKIM TXT plus two CNAMEs), a sending-only API key, host `smtp.resend.com`, port 465, user
+   `resend`, the API key as password, sender name `Voidcanvas`. Supabase's built-in email only sends to the project's
+   own team, two an hour.
+2. **Email templates**: Magic link and Confirm signup: subject `Your Voidcanvas sign-in code`, body with
+   `{{ .Token }}` (for example `<p>Your Voidcanvas sign-in code is <strong>{{ .Token }}</strong></p>`). Change email
+   address: subject `Your Voidcanvas email change code`, body with `{{ .Token }}`. Without `{{ .Token }}` people get a
+   link the app cannot use.
+3. **Rate limits**: Authentication, Rate Limits. Raise emails per hour (currently 2).
 
 ## Tests
 

@@ -261,3 +261,12 @@ export async function fileId(keyRaw: Uint8Array, data: Uint8Array): Promise<stri
 
 /** Invite links carry a secret; the workspace keys travel sealed with a key made from it. */
 export const inviteKey = (secret: Uint8Array, id: string) => hkdf(secret, 'voidcanvas-invite-v1', id)
+
+/** Studio Share links carry a secret. The content key and the token the server checks are both made from it;
+ *  the server stores only a hash of the token, so it can check a caller holds the link but cannot read anything. */
+export async function shareKeys(secret: Uint8Array, id: string): Promise<{ key: Uint8Array; token: string; tokenHash: string }> {
+  const key = await hkdf(secret, 'voidcanvas-share-v1', id)
+  const token = b64u(await hkdf(secret, 'voidcanvas-share-token-v1', id))
+  const hash = new Uint8Array(await subtle().digest('SHA-256', enc.encode(token)))
+  return { key, token, tokenHash: Array.from(hash, b => b.toString(16).padStart(2, '0')).join('') }
+}

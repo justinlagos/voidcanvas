@@ -114,3 +114,21 @@ describe('sealed boxes and files', () => {
     expect((await fileId(k, data)).length).toBe(43)
   })
 })
+
+describe('share links', () => {
+  it('derives the same key and token from a link, and a hash the server can check', async () => {
+    const { shareKeys } = await import('../vault')
+    const { parseShareLink, shareUrl } = await import('../share')
+    const secret = randomBytes(16)
+    const a = await shareKeys(secret, 'abcdefghijklmnopqrstuv')
+    const b = await shareKeys(secret, 'abcdefghijklmnopqrstuv')
+    expect(a).toEqual(b)
+    expect(a.tokenHash).toMatch(/^[0-9a-f]{64}$/)
+    expect(a.token).not.toContain(Buffer.from(a.key).toString('base64url').slice(0, 10))
+    expect((await shareKeys(secret, 'another-share-id-0000')).key).not.toEqual(a.key)
+    const { b64u } = await import('../vault')
+    const url = shareUrl('abcdefghijklmnopqrstuv', b64u(secret))
+    expect(parseShareLink(url)).toEqual({ id: 'abcdefghijklmnopqrstuv', secret: b64u(secret) })
+    expect(() => parseShareLink('https://voidcanvas.netlify.app/s#abc')).toThrow(/not complete/)
+  })
+})

@@ -57,7 +57,7 @@ function FeedbackWidget({ path }: { path: string }) {
     return () => { mo.disconnect(); removeEventListener('resize', check) }
   }, [path])
   const onSite = /^\/(learn|blog|about|report-a-bug)(\/|$)/.test(path)
-  const showButton = path !== '/' && !onSite && !path.startsWith('/editor') && !open && !hasBar
+  const showButton = path !== '/' && path !== '/s' && !onSite && !path.startsWith('/editor') && !open && !hasBar
 
   const submit = async () => {
     if (!mood && !msg.trim()) return

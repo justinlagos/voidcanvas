@@ -341,6 +341,7 @@ export async function deleteAccount() {
   await freshToken()
   if (needsFreshSignIn()) throw new AccountError('For your safety, confirm it is you with a new sign-in code first.', 'reauth_needed')
   await import('./teams').then(m => m.deleteSoloWorkspaceFiles()).catch(() => {})
+  await import('./share').then(m => m.deleteMyShares(true)).catch(() => {})
   await rest('rpc/vc_delete_account', '', { method: 'POST', body: '{}' })
   import('./analytics').then(m => m.track('account.delete')).catch(() => {})
   import('./settings-sync').then(m => m.stopSettingsSync()).catch(() => {})

@@ -233,8 +233,8 @@ export const articles: Article[] = [
     summary: "Group references into two or three directions the client can choose from, present them as slides, a PDF or WhatsApp images, record their choice, then save each version you show them, pin their comments and turn their reply into a checklist.",
     category: 'studio',
     level: 'Intermediate',
-    updated: '2026-09-25',
-    related: ['references-and-palettes', 'start-a-job-from-a-brief', 'delivering-files', 'workflow-event-poster'],
+    updated: '2026-09-26',
+    related: ['references-and-palettes', 'start-a-job-from-a-brief', 'delivering-files', 'review-and-delivery-links'],
     keywords: 'directions concepts routes moodboard present pitch client feedback revisions amends comments pins versions compare before after mockup poster mockup review pack approval whatsapp',
     body: [
       { t: 'p', text: "Clients choose better between two or three clear ideas than from one design. The **Directions** tab turns references into ideas the client can pick from, and the **Review** tab keeps a record of every version you showed them and everything they said about it. Use both and you always know what was agreed." },
@@ -313,10 +313,63 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Send the round' },
       { t: 'list', items: [
+        "**Send a review link**: a link your client opens in any browser, with no account and nothing to install. They pin comments on the images, reply, and approve or ask for changes; it all appears on this version. See [Review and delivery links](/learn/review-and-delivery-links).",
         "**Review pack PDF**: a cover with the client, job, version, date and what changed, then one page per format with its pins numbered and the comments listed beside it.",
         "**WhatsApp images**: each image at 1080 px wide with a footer band naming the client, job, format, version, date and \"for review\". One image downloads on its own; several come as a zip.",
       ] },
       { t: 'tip', text: "The footer stamp on WhatsApp images means a screenshot forwarded around the client's team still says which version it is." },
+    ],
+  },
+
+  // ─── Review and delivery links ─────────────────────────────────
+  {
+    slug: 'review-and-delivery-links',
+    title: 'Send review and delivery links to clients',
+    summary: 'Send a client a link to a version. They pin comments, reply, and approve or ask for changes in their browser, with no account. Delivery links hand over the final files the same way. Everything is encrypted before it leaves your device.',
+    category: 'studio',
+    level: 'Intermediate',
+    updated: '2026-09-26',
+    related: ['directions-and-review', 'delivering-files', 'teams', 'account-and-sync'],
+    keywords: 'share link client review approve approval comments pins feedback delivery handover download send whatsapp email browser no account encrypted expire stop',
+    body: [
+      { t: 'p', text: "A review link shows your client one version of a job in their browser. They can pin comments where they want changes, reply to yours, and approve the version or ask for changes. What they do appears on the version in Studio within about 20 seconds. They need no account and install nothing." },
+      { t: 'p', text: "You need an [account](/learn/account-and-sync) on the device you send from. The images, notes and every comment are encrypted on the devices that make them, with a key that sits in the link itself. Voidcanvas stores only what it cannot read." },
+
+      { t: 'h', text: 'Send a review link' },
+      { t: 'steps', items: [
+        "Open the job's **Review** tab and choose a version (or save a new one).",
+        "Write **What changed in** the version. The client sees it at the top of the page.",
+        "Choose **Send a review link**, then **Make a link**.",
+        "Choose **Copy** and send the link any way you like: WhatsApp, email, a message.",
+      ] },
+      { t: 'p', text: "A version in **Draft** moves to **Sent**. Each version has its own link, so the client always knows which one they are looking at." },
+
+      { t: 'h', text: 'What the client does' },
+      { t: 'list', items: [
+        "Types their name, so you know who said what.",
+        "Taps the image where something should change and writes a comment. It gets a number, like the pins you add yourself.",
+        "Replies to comments, and marks them resolved.",
+        "Chooses **Approve**, or **Ask for changes** with a note.",
+      ] },
+
+      { t: 'h', text: 'What you see' },
+      { t: 'list', items: [
+        "Their pins appear on the image with their name. Open one to reply; the client sees your reply marked **Designer**. **Done** marks it resolved for them too. **Hide** removes it from your view only.",
+        "Approval sets the version to **Approved**. A request for changes sets it to **Changes asked** and adds their note to the to-do list.",
+        "Comments arrive while the Review tab is open, and when you come back to it.",
+      ] },
+
+      { t: 'h', text: 'Delivery links' },
+      { t: 'p', text: "On the **Deliver** tab, **Send as a link** builds the package and gives you a link instead of a zip. The client sees each file with its size, and can download one at a time or everything as a zip. The delivery is listed under **Delivered before** with its link." },
+      { t: 'table', head: ['Limit', 'Amount'], rows: [
+        ['One file', '50 MB'],
+        ['One link', '500 MB'],
+        ['How long a link works', '30 days'],
+      ] },
+
+      { t: 'h', text: 'Stopping a link' },
+      { t: 'p', text: "Open the link box and choose **Stop this link**. The files and comments are deleted from the server and the link stops working at once. Comments already on your version stay. After 30 days a link stops working by itself, and its files are deleted the next time you open Studio." },
+      { t: 'tip', text: "Anyone who has the link can open it, so send it only to the people who should see the work. Stop it and send a new one if it goes further than you meant." },
     ],
   },
 
@@ -351,6 +404,7 @@ export const articles: Article[] = [
         "Press **Build the package**. Studio renders each format in turn and shows its progress.",
         "Save the zip. The job is marked **Delivered**, every format in the package is ticked done, and the delivery is listed under **Delivered before** with its date and file count.",
       ] },
+      { t: 'p', text: "**Send as a link** builds the same files and gives you a link instead of a zip. The client downloads each file, or everything as a zip, from their browser. See [Review and delivery links](/learn/review-and-delivery-links)." },
       { t: 'try', label: 'Open Studio', href: '/studio' },
 
       { t: 'h', text: 'How files are named' },

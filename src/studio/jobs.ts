@@ -58,7 +58,16 @@ export interface Direction {
   body?: string
 }
 
-export interface Pin { id: string; x: number; y: number; text: string; done: boolean; at: number }
+export interface Reply { id: string; by: string; text: string; at: number; team?: boolean }
+export interface Pin {
+  id: string; x: number; y: number; text: string; done: boolean; at: number
+  /** Set when the pin came from a client through a review link. */
+  by?: string
+  shared?: boolean
+  replies?: Reply[]
+}
+/** A review or delivery link (Studio Share). The id and secret make the link; the secret never goes to a server readable. */
+export interface ShareLink { id: string; secret: string; url: string; expiresAt: string; at: number; seen?: number }
 export interface Version {
   id: string
   n: number
@@ -72,6 +81,9 @@ export interface Version {
   /** Client feedback turned into a checklist. */
   todo: { id: string; text: string; done: boolean }[]
   status: 'sent' | 'approved' | 'changes' | 'draft'
+  /** Review link for this version, and the client's latest decision through it. */
+  share?: ShareLink | null
+  decision?: { value: 'approved' | 'changes'; note: string; by: string; at: number } | null
 }
 
 export interface Job {
@@ -95,7 +107,7 @@ export interface Job {
   masterDeliverableId?: string | null
   versions: Version[]
   /** Delivery history. */
-  deliveries?: { at: number; files: string[] }[]
+  deliveries?: { at: number; files: string[]; link?: ShareLink | null }[]
   /** Shared with this team (workspace id). Synced, sealed with the team key. */
   workspaceId?: string | null
   /** Server time of the version last sent or received, and local time it was sent. */

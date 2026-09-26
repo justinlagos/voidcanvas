@@ -27,7 +27,7 @@ Tag pushes are refused from Claude sessions; releases follow the version in `des
 ## Layout
 
 - `src/editor/` Editor. `io.ts` local database and files; `voidfile.ts` the .void format; `disk.ts` files on disk.
-- `src/lib/` shared: `analytics.ts`, `vault.ts` (all encryption), `account.ts` (optional accounts), `settings-sync.ts`, `teams.ts`.
+- `src/lib/` shared: `analytics.ts`, `vault.ts` (all encryption), `account.ts` (optional accounts), `settings-sync.ts`, `teams.ts`, `share.ts` (review and delivery links).
 - `src/components/account/` account and team UI. `src/app/` routes. `src/content/learn/` Learn articles.
 - `desktop/` Electron app (serves a static export of the web app offline). `npm run build:desktop`, then `xvfb-run -a npm run e2e:desktop`.
 - `docs/` format, accounts and plans. `supabase/analytics.md` backend tables.
@@ -39,5 +39,5 @@ Tag pushes are refused from Claude sessions; releases follow the version in `des
   from accounts or teams: keys, settings and shared data are sealed on the device.
 - The browser-side Supabase key is public; every table relies on row level security. After a schema change, run
   the Supabase security advisor.
-- Test users for `e2e/accounts.mjs` and `e2e/teams.mjs` are made with SQL and deleted after the run.
+- Test users for `e2e/accounts.mjs`, `e2e/teams.mjs` and `e2e/share.mjs` are made with SQL and deleted after the run.
 - Do not add npm dependencies to the web app without a reason; features load lazily where they can.

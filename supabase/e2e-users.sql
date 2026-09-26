@@ -1,4 +1,4 @@
--- Test users for e2e/accounts.mjs and e2e/teams.mjs. Run before a test, and the delete line again after it.
+-- Test users for e2e/accounts.mjs, e2e/teams.mjs and e2e/share.mjs. Run before a test, and the delete line again after it.
 -- Set the password first in the same session: select set_config('vc.e2e_password', '<password>', false);
 delete from auth.users where email like 'e2e-%@voidcanvas.test';
 delete from public.vc_workspaces w where not exists (select 1 from public.vc_members m where m.workspace_id = w.id);

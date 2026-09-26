@@ -71,6 +71,6 @@ account deletion.
 
 ## Not yet
 
-- Studio Share (client review links) and seat billing: the next parts of step 4.
+- Seat billing: step 4c. Studio Share (review and delivery links) is in `docs/studio-share.md`.
 - Checking a member's public key out of band (safety numbers). Today the owner trusts the key the server returns.
 - Re-sealing old items with a new key after someone is removed (they stay under the old version until edited).
