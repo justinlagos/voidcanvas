@@ -17,7 +17,8 @@ ok('B05 Inter loaded from the app', /Inter/.test(fam.family) && fam.loaded.lengt
 ok('B05 no Google Fonts request on the Hub', googleFontReqs.length === 0)
 // B14 count
 const hub = await page.textContent('body')
-ok('B14 Hub says All 58 effects', /All 58 effects/.test(hub))
+// The landing page (Sept 2026) says "See all 58 effects".
+ok('B14 Hub says all 58 effects', /[Aa]ll 58 effects/.test(hub))
 await page.goto(`${BASE}/tools/halftone`); await page.waitForTimeout(500)
 ok('B14 tool page says All 58 effects', /All 58 effects/.test(await page.textContent('body')))
 

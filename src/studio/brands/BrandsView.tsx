@@ -6,6 +6,7 @@ import { FONTS, blobToCanvas, ensureFont, getBrand, saveBrand as saveKit } from 
 import { uid } from '@/editor/engine'
 import { newBrand, useJobs, type ClientBrand } from '../jobs'
 import { Btn, Empty, INPUT, Label, Panel, focusRing, isLight, useObjectUrl } from '../ui'
+import { ShareControl } from '@/components/account/ShareControl'
 
 const ROLES: ClientBrand['colors'][number]['role'][] = ['primary', 'secondary', 'accent', 'neutral', 'background', 'text']
 
@@ -17,7 +18,14 @@ export function BrandsView({ initial, onBack, onGuidelines }: { initial?: string
   useEffect(() => { if (!brands.length) load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setDraft(brands.find(b => b.id === openId) ?? null) }, [openId, brands])
   // Save as you type, gently.
-  useEffect(() => { if (!draft) return; const t = setTimeout(() => saveBrand(draft), 500); return () => clearTimeout(t) }, [draft]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Only when something changed: the stored copy coming back must not count as an edit (that looped every half second).
+  useEffect(() => {
+    if (!draft) return
+    const strip = (b: ClientBrand) => JSON.stringify({ ...b, updatedAt: 0, syncedAt: null, pushedAt: 0, logos: b.logos.map(l => ({ ...l, blob: l.blob?.size })) })
+    const stored = brands.find(b => b.id === draft.id)
+    if (stored && strip(stored) === strip(draft)) return
+    const t = setTimeout(() => saveBrand(draft), 500); return () => clearTimeout(t)
+  }, [draft]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const create = async () => { const b = newBrand(); await saveBrand(b); setOpenId(b.id) }
 
@@ -63,6 +71,7 @@ function BrandEditor({ b, set, onDelete, onUseInEditor, saved }: { b: ClientBran
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex-1 min-w-[200px]"><Label>Brand</Label><input value={b.name} onChange={e => set({ name: e.target.value })} className={`${INPUT} w-full !h-10 !text-[15px] font-semibold`} /></label>
         <label className="flex-1 min-w-[200px]"><Label>Client</Label><input value={b.client} onChange={e => set({ client: e.target.value })} className={`${INPUT} w-full !h-10`} /></label>
+        <ShareControl kind="brand" item={b} />
         <Btn onClick={onUseInEditor}>Use as the Editor brand kit</Btn>
         <Btn subtle onClick={onDelete}><Trash2 size={14} /></Btn>
       </div>

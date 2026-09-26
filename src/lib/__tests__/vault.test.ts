@@ -92,3 +92,25 @@ describe('pairing', () => {
     await expect(approvePairing(other.code, start.row, accountKey)).rejects.toThrow(/different request/)
   })
 })
+
+describe('sealed boxes and files', () => {
+  it('seals to an identity key that only its holder can open', async () => {
+    const { openIdentity, sealTo, openFrom } = await import('../vault')
+    const a = await createAccountKeys(USER)
+    const b = await createAccountKeys('other-user')
+    const id = await openIdentity(USER, a.record, a.accountKey)
+    const secret = randomBytes(32)
+    const box = await sealTo(a.record.public_key, secret, 'wskey:w1:1')
+    expect(await openFrom(id, box, 'wskey:w1:1')).toEqual(secret)
+    await expect(openFrom(await openIdentity('other-user', b.record, b.accountKey), box, 'wskey:w1:1')).rejects.toThrow()
+    await expect(openFrom(id, box, 'wskey:w1:2')).rejects.toThrow()
+  })
+  it('seals files and names them without revealing the content', async () => {
+    const { sealBytes, openBytes, fileId } = await import('../vault')
+    const k = randomBytes(32), k2 = randomBytes(32), data = randomBytes(1000)
+    expect(await openBytes(k, await sealBytes(k, data, 'file:w'), 'file:w')).toEqual(data)
+    expect(await fileId(k, data)).toBe(await fileId(k, data))
+    expect(await fileId(k, data)).not.toBe(await fileId(k2, data))
+    expect((await fileId(k, data)).length).toBe(43)
+  })
+})

@@ -12,12 +12,12 @@ export { zipFiles }
 // and an inbox used to pass work from one module to another.
 
 const DB = 'voidcanvas'
-const STORES = ['projects', 'index', 'inbox', 'boards', 'brand', 'versions', 'versionIndex', 'jobs', 'brands', 'looks', 'handles', 'account'] as const
+const STORES = ['projects', 'index', 'inbox', 'boards', 'brand', 'versions', 'versionIndex', 'jobs', 'brands', 'looks', 'handles', 'account', 'teamfiles'] as const
 export type StoreName = (typeof STORES)[number]
 
 function open(): Promise<IDBDatabase> {
   return new Promise((res, rej) => {
-    const req = indexedDB.open(DB, 7)
+    const req = indexedDB.open(DB, 8)
     req.onupgradeneeded = () => { for (const s of STORES) if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s, { keyPath: 'id' }) }
     req.onsuccess = () => res(req.result)
     req.onerror = () => rej(req.error)

@@ -10,6 +10,7 @@ import { DirectionsTab } from './DirectionsTab'
 import { FormatsTab } from './FormatsTab'
 import { ReviewTab } from './ReviewTab'
 import { DeliverTab } from './DeliverTab'
+import { ShareControl } from '@/components/account/ShareControl'
 
 export type Update = (patch: Partial<Job> | ((j: Job) => Partial<Job>)) => void
 export interface TabProps { job: Job; update: Update; toast: (m: string) => void; go: (t: TabId) => void; onBrands?: (id?: string) => void }
@@ -58,6 +59,7 @@ export function JobView({ job, onBack, onBrands }: { job: Job; onBack: () => voi
             <input aria-label="Client" value={live.client} placeholder="Client" onChange={e => update({ client: e.target.value })} className={`block w-full bg-transparent text-[12px] text-void-400 placeholder:text-void-600 rounded ${focusRing}`} />
             <input aria-label="Job name" value={live.name} onChange={e => update({ name: e.target.value })} className={`block w-full bg-transparent text-[18px] font-semibold tracking-tight rounded ${focusRing}`} />
           </div>
+          <ShareControl kind="job" item={live} />
           <span className="hidden sm:inline-flex items-center gap-1.5 text-[12px] text-void-400"><span className={`w-2 h-2 rounded-full ${live.status === 'delivered' ? 'bg-emerald-400' : live.status === 'review' ? 'bg-amber-300' : live.status === 'design' ? 'bg-accent' : 'bg-sky-400'}`} />{STATUS_LABEL[live.status]}</span>
         </div>
         {/* Steps, in the order a job runs. A tick means that step has something in it; the current one is white. */}

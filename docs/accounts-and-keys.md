@@ -76,14 +76,33 @@ without signing in. Deleting the auth user deletes everything.
 
 ## Tests
 
-- `src/lib/__tests__/vault.test.ts`: sealing, recovery, replacing the recovery key, pairing, a server swapping keys, tampered replies.
+- `src/lib/__tests__/vault.test.ts`: sealing, recovery, replacing the recovery key, pairing, a server swapping keys, tampered replies, sealed boxes, file sealing.
+- `e2e/teams.mjs` also covers replacing keys, email change and deletion (see `docs/teams.md`).
 - `e2e/accounts.mjs`: three browser contexts against the real project with a password test user (sign-in by
   code cannot be automated). Setup, wrong confirmation, anonymous read refused, ciphertext only on the server,
   pairing with QR, settings arriving on the paired device, wrong and right recovery keys, device list,
   new recovery key replacing the old, sign-out clearing the key.
 
+## Changing the email address
+
+`PUT /auth/v1/user` sends a code to the new address, and one to the current address when Supabase's "Secure email
+change" is on. The app asks for both and verifies each (`type: email_change`), then reloads the user. Needs
+`{{ .Token }}` in the Change email address template too.
+
+## Lost a device
+
+"Replace my keys" makes a new account key, identity key and recovery key (shown once, confirmed by its last group),
+replaces `vc_keys` only if it still holds the version the device started from, re-seals team keys for the new
+identity, signs out every other session (`logout?scope=others`), clears the device list and re-sends settings.
+The lost device's copy of the old key opens nothing the server still serves.
+
+## Deleting the account
+
+`vc_delete_account()` deletes the auth user and, through foreign keys, everything that belongs to them. It needs a
+sign-in from the last 10 minutes (the token's `amr` timestamps), so the app offers an emailed code first when the
+session is older. It refuses while the person is the only owner of a team with other members. Designs on devices
+are not touched.
+
 ## Not yet
 
-- Deleting an account from the app (needs a server function with the service key).
-- Rotating the account key after a device is lost (comes with Team workspace keys).
-- Email change.
+- Signing in with a passkey or Google.

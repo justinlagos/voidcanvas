@@ -257,6 +257,52 @@ export const articles: Article[] = [
       { t: 'p', text: "**Your devices** lists every device signed in to your account. **Remove** takes one off the list. **Sign out** on a device removes its copy of your keys." },
       { t: 'p', text: "If a device is lost, choose **Make a new recovery key** on another device if you think the old key was stored on it; the old key stops working straight away. The lost device keeps anything it already downloaded." },
       { t: 'p', text: "Accounts are off in a [private session](/learn/private-session)." },
+
+      { t: 'h', text: 'If a device is lost or stolen' },
+      { t: 'p', text: "On a device you still have, open **Account and sync…** and under **Lost a device?** choose **Replace my keys**. You get new account keys and a new recovery key (save it, then type its last four characters to finish), and every other device is signed out. The lost device keeps only what it already downloaded. Add your other devices again with **Add a device**." },
+
+      { t: 'h', text: 'Changing your email address' },
+      { t: 'p', text: "Under **Email address**, choose **Change**, enter the new address and choose **Send codes**. Type the code sent to the new address, and the one sent to your current address if one arrived, then choose **Change email**." },
+
+      { t: 'h', text: 'Deleting your account' },
+      { t: 'p', text: "Under **Delete account**, choose **Delete…**. If you last signed in more than 10 minutes ago, Voidcanvas first emails you a code to confirm it is you. Type DELETE and choose **Delete my account**. This removes your keys, synced settings, devices, and teams where you are the only member. Designs saved on your devices stay. If you own a team that has other members, make someone else an owner first." },
+    ],
+  },
+
+  {
+    slug: 'teams',
+    title: 'Share brands and Studio jobs with your team',
+    summary: 'Make a team, invite people by link, and share client brands and Studio jobs. Everything is encrypted on your devices with a key only the team has.',
+    category: 'start',
+    level: 'Intermediate',
+    updated: '2026-09-26',
+    related: ['account-and-sync', 'desktop-app'],
+    keywords: 'team teams workspace share sharing invite members roles owner editor reviewer agency studio collaborate brand job sync remove encrypted',
+    body: [
+      { t: 'p', text: "A team shares client brands and Studio jobs between the people you work with. You need an [account](/learn/account-and-sync) on each device. What a team shares is encrypted on your device with the team's key before it is sent; Voidcanvas stores only what it cannot read." },
+
+      { t: 'h', text: 'Making a team' },
+      { t: 'p', text: "Open Edit, **Account and sync…**. Under **Teams**, type a name and choose **Create a team**. You are its owner." },
+
+      { t: 'h', text: 'Inviting people' },
+      { t: 'p', text: "Open the team, enter the person's email, pick **Editor** or **Reviewer (free)**, and choose **Make invite link**. Copy the link and send it to them yourself. It works once, only for that email address, for 7 days. Choose **Withdraw** to cancel it." },
+      { t: 'p', text: "They open the link, sign in with that email address (or make an account), and join as soon as their device is ready. They can also paste the link under **Teams**, **Join**." },
+      { t: 'table', head: ['Role', 'Can'], rows: [
+        ['Owner', 'Everything: rename, invite, change roles, remove people, delete the team'],
+        ['Editor', 'Change shared brands and jobs, and share new ones'],
+        ['Reviewer', 'See shared brands and jobs. Free'],
+      ] },
+
+      { t: 'h', text: 'Sharing a brand or a job' },
+      { t: 'p', text: "In Studio, open a client brand or a job. Next to its name, the **Shared with** menu reads **Only me**. Pick the team. **Synced** appears when the team has the latest version. Logos, references and versions travel with it." },
+      { t: 'p', text: "Changes reach the others within about 20 seconds while Studio is open. If two people change the same item at the same moment, the team's version appears beside yours as **(their version)**, so nothing is lost; keep the one you want and delete the other." },
+      { t: 'p', text: "Choose **Only me** to take an item out of the team. It stays on your device and disappears from the others' devices." },
+
+      { t: 'h', text: 'Removing someone' },
+      { t: 'p', text: "Owners choose **Remove** next to a member. The team key is replaced straight away, so nothing shared from then on can be opened by them. They keep whatever was already on their devices." },
+
+      { t: 'h', text: 'Leaving or deleting a team' },
+      { t: 'p', text: "Members choose **Leave team**. Owners choose **Delete team**, which removes everything shared in it for every member; copies on their devices stay." },
     ],
   },
 

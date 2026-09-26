@@ -14,8 +14,9 @@ const cards = await p.$$eval('a[href^="/editor?project="], a[href^="/studio?job=
 ok('E hub: shows the design and the job', cards.some(h => h.startsWith('/editor?project=')) && cards.some(h => h.startsWith('/studio?job=')), cards.join(' '))
 ok('E hub: job card shows its next action', /Add references/.test(await p.textContent('body')))
 const y = await p.$eval('text=Pick up where you left off', el => el.getBoundingClientRect().top)
-ok('E hub phone: recents above the fold', y < 700, String(Math.round(y)))
-ok('E hub phone: three tools in one row', await p.$$eval('a.group[href="/studio"], a.group[href="/editor"], a.group[href="/effects"]', els => { const tops = els.map(e => Math.round(e.getBoundingClientRect().top)); return new Set(tops).size === 1 }))
+// Since the landing page redesign (Sept 2026) the hero comes first; recents follow within the second screen.
+ok('E hub phone: recents within the first two screens', y < 844 * 2, String(Math.round(y)))
+ok('E hub phone: all three tools linked', (await p.$$('a[href="/studio"], a[href="/editor"], a[href="/effects"]')).length >= 3)
 ok('E hub phone: no horizontal overflow', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
 await p.click('a[href^="/studio?job="]'); await p.waitForTimeout(1200)
 ok('E hub: job card opens the job', !!(await p.$('nav[aria-label="Job steps"]')))

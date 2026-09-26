@@ -209,3 +209,55 @@ export async function finishPairing(start: PairingStart, row: PairingRow): Promi
   if (!(await hmacOk(start.secret, `old|${start.id}|${jwkText(row.old_pub)}|${row.payload}`, row.payload_mac))) throw new VaultError('The reply could not be verified. Start again.')
   return open(await pairingKey(start.privateKey, row.old_pub, start.secret, start.id), row.payload, `pair:${start.id}`)
 }
+
+// ─── Identity key, sealed boxes, files ─────────────────────────────
+// A sealed box puts data where only the holder of an identity key can open it: a one-time ECDH key pair with
+// the recipient's public key, HKDF, then AES-GCM. Used to hand workspace keys to team members.
+
+/** Open this person's identity private key with their account key. */
+export async function openIdentity(userId: string, record: KeysRecord, accountKey: Uint8Array): Promise<CryptoKey> {
+  const jwk = await openJson<JsonWebKey>(accountKey, record.wrapped_identity, `identity:${userId}`)
+  return subtle().importKey('jwk', jwk, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits'])
+}
+
+async function boxKey(own: CryptoKey, peer: JsonWebKey, aad: string): Promise<Uint8Array> {
+  const peerKey = await subtle().importKey('jwk', publicJwk(peer), { name: 'ECDH', namedCurve: 'P-256' }, false, [])
+  const shared = new Uint8Array(await subtle().deriveBits({ name: 'ECDH', public: peerKey }, own, 256))
+  return hkdf(shared, 'voidcanvas-box-v1', aad)
+}
+
+export async function sealTo(recipient: JsonWebKey, data: Uint8Array, aad: string): Promise<string> {
+  const eph = await subtle().generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as CryptoKeyPair
+  const ephPub = publicJwk(await subtle().exportKey('jwk', eph.publicKey))
+  const sealed = await seal(await boxKey(eph.privateKey, recipient, aad), data, aad)
+  return `b1.${b64u(new TextEncoder().encode(JSON.stringify(ephPub)))}.${sealed}`
+}
+
+export async function openFrom(identity: CryptoKey, box: string, aad: string): Promise<Uint8Array> {
+  const [v, pub, ...rest] = box.split('.')
+  if (v !== 'b1' || !pub || !rest.length) throw new VaultError('Unknown box format')
+  const ephPub = JSON.parse(dec.decode(unb64u(pub))) as JsonWebKey
+  return open(await boxKey(identity, ephPub, aad), rest.join('.'), aad)
+}
+
+/** Binary sealing for files: 12-byte IV then ciphertext. */
+export async function sealBytes(keyRaw: Uint8Array, data: Uint8Array, aad: string): Promise<Uint8Array> {
+  const iv = randomBytes(12)
+  const ct = new Uint8Array(await subtle().encrypt({ name: 'AES-GCM', iv, additionalData: enc.encode(aad) }, await aesKey(keyRaw, ['encrypt']), data as BufferSource))
+  const out = new Uint8Array(12 + ct.length); out.set(iv); out.set(ct, 12)
+  return out
+}
+export async function openBytes(keyRaw: Uint8Array, data: Uint8Array, aad: string): Promise<Uint8Array> {
+  try {
+    return new Uint8Array(await subtle().decrypt({ name: 'AES-GCM', iv: data.subarray(0, 12) as BufferSource, additionalData: enc.encode(aad) }, await aesKey(keyRaw, ['decrypt']), data.subarray(12) as BufferSource))
+  } catch { throw new VaultError('Could not decrypt') }
+}
+
+/** A file's name on the server: a keyed hash, so the server cannot tell which file it is. */
+export async function fileId(keyRaw: Uint8Array, data: Uint8Array): Promise<string> {
+  const k = await subtle().importKey('raw', keyRaw as BufferSource, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  return b64u(new Uint8Array(await subtle().sign('HMAC', k, data as BufferSource))).slice(0, 43)
+}
+
+/** Invite links carry a secret; the workspace keys travel sealed with a key made from it. */
+export const inviteKey = (secret: Uint8Array, id: string) => hkdf(secret, 'voidcanvas-invite-v1', id)

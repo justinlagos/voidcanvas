@@ -41,6 +41,9 @@ function apply(s: Snapshot) {
   window.dispatchEvent(new CustomEvent('vc:settings-synced'))
 }
 
+/** Send this device's settings now, sealed with the current account key (after the key changes). */
+export async function pushSettingsNow() { await push(snapshot()) }
+
 /** Compare with the server: take newer settings from another device, or send ours if they changed. */
 export async function syncSettings(): Promise<'sent' | 'received' | 'same'> {
   const key = currentAccountKey(); if (!key) return 'same'

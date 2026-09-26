@@ -19,6 +19,8 @@ type View = { name: 'home' } | { name: 'job'; id: string } | { name: 'brands'; i
 export function StudioShell() {
   const { jobs, load, save, remove } = useJobs()
   const [view, setView] = useState<View>({ name: 'home' })
+  // Shared brands and jobs sync while Studio is open and the account is ready.
+  useEffect(() => { let stop = () => {}; import('@/lib/team-sync').then(m => { stop = m.syncWhenReady() }).catch(() => {}); return () => stop() }, [])
   useEffect(() => {
     load().then(() => {
       const q = new URLSearchParams(window.location.search)

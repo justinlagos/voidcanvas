@@ -5,9 +5,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Copy, Download, KeyRound, Laptop, Loader2, Lock, Smartphone } from 'lucide-react'
 import {
-  approveDevice, beginSetup, cancelDevicePairing, finishSetup, forgetDevice, initAccount, listDevices, lookUpPairing, makeNewRecoveryKey,
-  sendCode, signOut, startDevicePairing, thisDeviceId, unlockWithRecoveryKey, useAccount, verifyCode, type Device,
+  approveDevice, beginRotation, beginSetup, cancelDevicePairing, cancelRotation, confirmEmailChange, confirmWithCode, deleteAccount, finishRotation,
+  finishSetup, forgetDevice, initAccount, listDevices, lookUpPairing, makeNewRecoveryKey, needsFreshSignIn, requestEmailChange, sendCode,
+  sendConfirmCode, signOut, startDevicePairing, thisDeviceId, unlockWithRecoveryKey, useAccount, verifyCode, type Device,
 } from '@/lib/account'
+import { TeamsBox } from './TeamsBox'
 import { Button, focusRing } from '@/editor/components/ui'
 
 const input = `w-full h-10 px-3 rounded-lg bg-void-900 border border-void-700 text-[14px] ${focusRing}`
@@ -25,7 +27,7 @@ function useBusy() {
 
 const Err = ({ error }: { error: string | null }) => error ? <p role="alert" className="text-[12.5px] text-rose-400">{error}</p> : null
 
-export function AccountPanel({ approveCode }: { approveCode?: string }) {
+export function AccountPanel({ approveCode, joinLink }: { approveCode?: string; joinLink?: string }) {
   const status = useAccount(s => s.status)
   useEffect(() => { initAccount() }, [])
   return (
@@ -35,7 +37,8 @@ export function AccountPanel({ approveCode }: { approveCode?: string }) {
       {status === 'signed-out' && <SignIn />}
       {status === 'needs-setup' && <Setup />}
       {status === 'locked' && <Unlock />}
-      {status === 'ready' && <Ready approveCode={approveCode} />}
+      {status === 'ready' && <Ready approveCode={approveCode} joinLink={joinLink} />}
+      {joinLink && status !== 'ready' && status !== 'loading' && <p className={note}>Sign in with the email address the invite was sent to. When this device is ready, you join the team.</p>}
     </div>
   )
 }
@@ -199,7 +202,7 @@ function ago(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function Ready({ approveCode }: { approveCode?: string }) {
+function Ready({ approveCode, joinLink }: { approveCode?: string; joinLink?: string }) {
   const email = useAccount(s => s.email)
   const [devices, setDevices] = useState<Device[] | null>(null)
   const [syncState, setSyncState] = useState<string | null>(null)
@@ -263,6 +266,8 @@ function Ready({ approveCode }: { approveCode?: string }) {
         <p className={note}>Removing a device takes it off this list. A device keeps what it has already downloaded. If one is lost, make a new recovery key below and sign out on it when you can.</p>
       </div>
 
+      <TeamsBox joinLink={joinLink} />
+
       <div className={`${box} space-y-3`}>
         <p className="font-medium flex items-center gap-2"><KeyRound size={15} />Recovery key</p>
         {!newKey ? (
@@ -278,6 +283,97 @@ function Ready({ approveCode }: { approveCode?: string }) {
         )}
         <Err error={rec.error} />
       </div>
+      <ChangeEmail />
+      <LockOut />
+      <DeleteAccount />
     </>
+  )
+}
+
+// ─── Account settings ──────────────────────────────────────────────
+
+function ChangeEmail() {
+  const email = useAccount(s => s.email)
+  const [open, setOpen] = useState(false), [next, setNext] = useState(''), [sent, setSent] = useState(false), [codeNew, setCodeNew] = useState(''), [codeOld, setCodeOld] = useState(''), [done, setDone] = useState(false)
+  const { busy, error, run } = useBusy()
+  return (
+    <div className={`${box} space-y-3`}>
+      <div className="flex items-center justify-between gap-3"><p className="font-medium">Email address</p>{!open && <Button onClick={() => { setOpen(true); setDone(false) }}>Change</Button>}</div>
+      {done && <p className="text-emerald-400">Your account now uses {email}.</p>}
+      {open && !sent && (
+        <form className="flex flex-wrap gap-2" onSubmit={e => { e.preventDefault(); run(async () => { await requestEmailChange(next); setSent(true) }) }}>
+          <input type="email" required value={next} onChange={e => setNext(e.target.value)} placeholder="New email address" aria-label="New email address" className={`${input} flex-1 min-w-[200px]`} />
+          <Button type="submit" primary disabled={busy || !next.includes('@')}>{busy ? 'Sending…' : 'Send codes'}</Button>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+        </form>
+      )}
+      {open && sent && (
+        <form className="space-y-3" onSubmit={e => { e.preventDefault(); run(async () => { await confirmEmailChange(next, codeNew, codeOld); setOpen(false); setSent(false); setDone(true); setCodeNew(''); setCodeOld('') }) }}>
+          <p className={note}>We sent a code to <strong>{next}</strong>. If a code also arrived at <strong>{email}</strong>, enter it too; it confirms the change came from you.</p>
+          <label className="block"><span className="block text-[12px] text-void-400 mb-1">Code sent to {next}</span><input inputMode="numeric" value={codeNew} onChange={e => setCodeNew(e.target.value)} className={`${input} tracking-[0.3em] tabular-nums`} /></label>
+          <label className="block"><span className="block text-[12px] text-void-400 mb-1">Code sent to {email} (if one arrived)</span><input inputMode="numeric" value={codeOld} onChange={e => setCodeOld(e.target.value)} className={`${input} tracking-[0.3em] tabular-nums`} /></label>
+          <div className="flex gap-2"><Button type="submit" primary disabled={busy || codeNew.replace(/\s/g, '').length < 6}>{busy ? 'Checking…' : 'Change email'}</Button><Button onClick={() => { setSent(false); setOpen(false) }}>Cancel</Button></div>
+        </form>
+      )}
+      <Err error={error} />
+    </div>
+  )
+}
+
+function LockOut() {
+  const rotation = useAccount(s => s.rotation), email = useAccount(s => s.email)
+  const [last, setLast] = useState(''), [done, setDone] = useState(false)
+  const { busy, error, run } = useBusy()
+  return (
+    <div className={`${box} space-y-3`}>
+      <p className="font-medium flex items-center gap-2"><Lock size={15} />Lost a device?</p>
+      {done && <p className="text-emerald-400">Done. Your account has new keys, and every other device is signed out. Add your other devices again with Add a device.</p>}
+      {!rotation ? (
+        <>
+          <p className={note}>Replace your account keys and recovery key, and sign out everywhere else. A lost device keeps only what it already downloaded. Your other devices need to sign in and be added again.</p>
+          <Button disabled={busy} onClick={() => { if (confirm('Replace your keys and sign out every other device?')) { setDone(false); run(beginRotation) } }}>Replace my keys</Button>
+        </>
+      ) : (
+        <form className="space-y-3" onSubmit={e => { e.preventDefault(); run(async () => { await finishRotation(last); setDone(true); setLast('') }) }}>
+          <p className="text-void-200">Your new recovery key. The old one stops working when you finish. Save this one now.</p>
+          <RecoveryKeyBox recovery={rotation.recovery} email={email} />
+          <label className="block"><span className="block text-[12px] text-void-400 mb-1">Type its last 4 characters to finish</span>
+            <input value={last} onChange={e => setLast(e.target.value)} autoComplete="off" spellCheck={false} data-rotation-confirm className={`${input} font-mono uppercase w-40`} /></label>
+          <div className="flex gap-2"><Button type="submit" primary disabled={busy || last.trim().length < 4}>{busy ? 'Replacing…' : 'Finish'}</Button><Button onClick={cancelRotation}>Cancel</Button></div>
+        </form>
+      )}
+      <Err error={error} />
+    </div>
+  )
+}
+
+function DeleteAccount() {
+  const [open, setOpen] = useState(false), [sent, setSent] = useState(false), [code, setCode] = useState(''), [typed, setTyped] = useState(''), [fresh, setFresh] = useState(false)
+  const { busy, error, run } = useBusy()
+  useEffect(() => { if (open) setFresh(!needsFreshSignIn()) }, [open])
+  return (
+    <div className="rounded-xl border border-rose-900/60 p-4 space-y-3">
+      <div className="flex items-center justify-between gap-3"><p className="font-medium">Delete account</p>{!open && <Button onClick={() => setOpen(true)}>Delete…</Button>}</div>
+      {open && (
+        <>
+          <p className={note}>This deletes your account and everything it stores: keys, synced settings, devices, and teams where you are the only member. Designs saved on your devices are not touched. It cannot be undone.</p>
+          {!fresh ? (
+            !sent ? <Button disabled={busy} onClick={() => run(async () => { await sendConfirmCode(); setSent(true) })}>Email me a code to confirm it is me</Button> : (
+              <form className="flex flex-wrap gap-2" onSubmit={e => { e.preventDefault(); run(async () => { await confirmWithCode(code); setFresh(true) }) }}>
+                <input inputMode="numeric" value={code} onChange={e => setCode(e.target.value)} aria-label="Code" className={`${input} tracking-[0.3em] tabular-nums w-40`} />
+                <Button type="submit" disabled={busy || code.replace(/\s/g, '').length < 6}>Confirm</Button>
+              </form>
+            )
+          ) : (
+            <form className="flex flex-wrap gap-2 items-center" onSubmit={e => { e.preventDefault(); run(deleteAccount) }}>
+              <label className="text-[12.5px] text-void-300">Type DELETE to confirm <input value={typed} onChange={e => setTyped(e.target.value)} aria-label="Type DELETE" className={`${input} w-32 ml-2`} /></label>
+              <Button type="submit" disabled={busy || typed !== 'DELETE'} className="!bg-rose-600/90 !text-white hover:!bg-rose-600">{busy ? 'Deleting…' : 'Delete my account'}</Button>
+            </form>
+          )}
+          <Button onClick={() => { setOpen(false); setSent(false); setTyped('') }}>Cancel</Button>
+        </>
+      )}
+      <Err error={error} />
+    </div>
   )
 }

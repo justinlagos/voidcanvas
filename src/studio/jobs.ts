@@ -96,6 +96,11 @@ export interface Job {
   versions: Version[]
   /** Delivery history. */
   deliveries?: { at: number; files: string[] }[]
+  /** Shared with this team (workspace id). Synced, sealed with the team key. */
+  workspaceId?: string | null
+  /** Server time of the version last sent or received, and local time it was sent. */
+  syncedAt?: string | null
+  pushedAt?: number
 }
 
 export function newJob(partial: Partial<Job> = {}): Job {
@@ -121,6 +126,11 @@ export interface ClientBrand {
   dos: string[]
   donts: string[]
   updatedAt: number
+  /** Shared with this team (workspace id). Synced, sealed with the team key. */
+  workspaceId?: string | null
+  /** Server time of the version last sent or received, and local time it was sent. */
+  syncedAt?: string | null
+  pushedAt?: number
 }
 export function newBrand(partial: Partial<ClientBrand> = {}): ClientBrand {
   return { id: uid(), name: 'New brand', client: '', colors: [], display: 'Inter', body: 'Inter', logos: [], logoMin: 80, clearSpace: 0.5, voice: [], dos: [], donts: [], updatedAt: Date.now(), ...partial }
@@ -168,9 +178,9 @@ export const useJobs = create<JobsState>((set, get) => ({
     clearTimeout(timers.get(j.id)); pending.add(j.id)
     timers.set(j.id, setTimeout(() => { idb.put('jobs', next).catch(() => {}).finally(() => pending.delete(j.id)) }, 400))
   },
-  remove: async (id) => { await idb.del('jobs', id); await idb.del('boards', id).catch(() => {}); set({ jobs: (get().jobs ?? []).filter(j => j.id !== id) }) },
+  remove: async (id) => { const ws = (get().jobs ?? []).find(j => j.id === id)?.workspaceId; if (ws) import('@/lib/team-sync').then(m => m.removeShared('job', id, ws)).catch(() => {}); await idb.del('jobs', id); await idb.del('boards', id).catch(() => {}); set({ jobs: (get().jobs ?? []).filter(j => j.id !== id) }) },
   saveBrand: async (b) => { const next = { ...b, updatedAt: Date.now() }; await idb.put('brands', next); set({ brands: [next, ...get().brands.filter(x => x.id !== b.id)] }) },
-  removeBrand: async (id) => { await idb.del('brands', id); set({ brands: get().brands.filter(b => b.id !== id) }) },
+  removeBrand: async (id) => { const ws = get().brands.find(b => b.id === id)?.workspaceId; if (ws) import('@/lib/team-sync').then(m => m.removeShared('brand', id, ws)).catch(() => {}); await idb.del('brands', id); set({ brands: get().brands.filter(b => b.id !== id) }) },
 }))
 
 /** Save immediately (before leaving the page for the Editor). */

@@ -42,7 +42,8 @@ To see a function's current SQL: `select pg_get_functiondef('public.vc_admin_das
 | `learn.search`, `learn.search.pick` | search on /learn (first 40 characters of the query) | `q, n` / `slug` |
 | `learn.helpful` | "Was this guide useful?" | `slug, yes` |
 | `landing.nav` | Blog link in the landing header | `to` |
-| `account.signin`, `account.setup`, `account.pair` | signed in with a code / recovery key made / a device approved | none |
+| `account.signin`, `account.setup`, `account.pair`, `account.rotate`, `account.delete` | signed in / recovery key made / device approved / keys replaced / account deleted | none |
+| `team.create`, `team.invite`, `team.join`, `team.remove` | team made / invite link made / invite accepted / member removed | `role` on invite and join |
 
 ## Local testing
 
@@ -52,3 +53,7 @@ Anyone can turn it off in Your privacy. It is also off in a private session and 
 ## Accounts
 
 Tables `vc_keys`, `vc_devices`, `vc_pairings`, `vc_settings` hold encrypted keys and settings for optional accounts. See `docs/accounts-and-keys.md`.
+
+## Teams
+
+Tables `vc_workspaces`, `vc_members`, `vc_member_keys`, `vc_invites`, `vc_items` and the private Storage bucket `vc-team` (sealed files). Functions `vc_role`, `vc_create_workspace`, `vc_accept_invite`, `vc_delete_account`. See `docs/teams.md`. Test users: `supabase/e2e-users.sql`.

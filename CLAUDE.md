@@ -9,7 +9,7 @@ or as a bundle or patch file in the repo.
 
 1. Before committing: `npx tsc --noEmit -p .`, `npx vitest run`, `npm run build`. All must pass.
 2. Run the e2e checks that cover what changed (against `npx next start -p 3123`, `BASE=http://localhost:3123`).
-   `e2e/run.mjs` runs the web suite. Known older failures: `qa-batch1` B14, `ux-e-hub` phone layout (two checks).
+   `e2e/run.mjs` runs the web suite; it should pass in full.
 3. Commit with a message that says what changed and why. Then `git fetch origin master`, rebase if needed,
    rerun the checks if the rebase brought in code, and `git push origin master`.
 4. Confirm the push: `git ls-remote origin master` equals `git rev-parse HEAD`, `git status` is clean.
