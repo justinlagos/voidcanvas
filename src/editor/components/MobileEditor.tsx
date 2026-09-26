@@ -296,7 +296,7 @@ function ExportSheet({ onClose }: { onClose: () => void }) {
   const doc = useEditor(s => s.doc)
   const [scale, setScale] = useState(1)
   const name = (doc?.name || 'design').replace(/[^\w\- ]+/g, '')
-  const make = async (format: 'png' | 'jpeg' | 'pdf') => exportImage({ format, scale, quality: 0.92, transparent: format === 'png' })
+  const make = async (format: 'png' | 'jpeg' | 'pdf') => exportImage({ format, scale, quality: 0.92, transparent: false })
   const canShare = typeof navigator !== 'undefined' && !!navigator.share && !!navigator.canShare
   const share = async (format: 'png' | 'jpeg' | 'pdf') => {
     setBusy('Preparing')

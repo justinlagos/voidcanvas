@@ -1,7 +1,8 @@
 import { ctx2d, makeCanvas, renderDoc, uid } from './engine'
 import { layoutFrames } from './frames'
 import { nextRev, useEditor } from './store'
-import type { Doc, Group, Layer, TextLayer } from './types'
+import type { Doc, Frame, Group, Layer, TextLayer } from './types'
+import { boardFileName, exportBoards as boardList, pdfPageSize, uniqueNames, type ExportFormat } from './export'
 import { readVoid, VoidFileError, writeVoid, writeVoidPng } from './voidfile'
 import { zipFiles } from './zip'
 export { zipFiles }
@@ -196,40 +197,91 @@ export async function importFiles(files: File[] | Blob[], names?: string[]) {
 export interface ExportOptions { format: 'png' | 'jpeg' | 'webp' | 'pdf'; scale: number; quality: number; transparent: boolean }
 
 /** Render one artboard (frame) to its own canvas at scale. */
-export function renderFrame(frameId: string, scale = 1): HTMLCanvasElement | null {
+/** Render one board on its own, at its own size. Nothing outside the board is rendered. */
+export function renderFrame(frameId: string, scale = 1, o: { transparent?: boolean; preview?: boolean } = {}): HTMLCanvasElement | null {
   const { doc, layers, groups } = useEditor.getState()
-  const f = doc?.frames?.find(x => x.id === frameId); if (!doc || !f) return null
-  const full = makeCanvas(doc.width * scale, doc.height * scale)
-  renderDoc(full, doc, layers, { groups, scale, noCache: true, fullRes: true })
-  const out = makeCanvas(f.width * scale, f.height * scale)
-  ctx2d(out).drawImage(full, f.x * scale, f.y * scale, f.width * scale, f.height * scale, 0, 0, f.width * scale, f.height * scale)
+  if (!doc) return null
+  const f = frameId === '__doc' ? null : doc.frames?.find(x => x.id === frameId)
+  if (frameId !== '__doc' && !f) return null
+  const region = f ? { x: f.x, y: f.y, w: f.width, h: f.height } : { x: 0, y: 0, w: doc.width, h: doc.height }
+  // Layers that belong to another board are clipped to that board, so they can never show here.
+  const own = f ? layers.filter(l => !l.frameId || l.frameId === f.id) : layers
+  const out = makeCanvas(Math.max(1, Math.round(region.w * scale)), Math.max(1, Math.round(region.h * scale)))
+  renderDoc(out, doc, own, { groups, scale, noCache: true, fullRes: !o.preview, noShadow: true, transparent: !!o.transparent, region, frameRects: f ? [f] : [] })
   return out
 }
 
+/** White under the art, for formats without transparency. */
+function flatten(c: HTMLCanvasElement): HTMLCanvasElement {
+  const flat = makeCanvas(c.width, c.height); const x = ctx2d(flat)
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(c, 0, 0)
+  return flat
+}
+
+export interface BoardExport { boardIds: string[]; format: ExportFormat; scale: number; quality: number; transparent: boolean; pdfSplit?: boolean; numbered?: boolean }
+
+/**
+ * Export chosen boards. One board gives one file. Several give a zip of images, or one PDF with
+ * a page per board at each board's own size. Returns the file and its name.
+ */
+export async function exportBoards(o: BoardExport, onProgress?: (done: number, total: number) => void): Promise<{ blob: Blob; name: string }> {
+  const { doc } = useEditor.getState()
+  if (!doc) throw new Error('Nothing to export')
+  const all = boardList(doc)
+  const chosen = o.boardIds.map(id => all.find(b => b.id === id)).filter(Boolean) as Frame[]
+  if (!chosen.length) throw new Error('No boards chosen')
+  const base = doc.name.replace(/[\\/:*?"<>|]+/g, '').trim() || 'design'
+  const total = chosen.length
+  const renderOne = (b: Frame) => {
+    const c = renderFrame(b.id, o.scale, { transparent: o.transparent && (o.format === 'png' || o.format === 'webp') })
+    if (!c) throw new Error('Render failed')
+    return o.format === 'jpeg' || o.format === 'pdf' || (!o.transparent && !b.background && o.format !== 'png' && o.format !== 'webp') ? flatten(c) : c
+  }
+  const names = uniqueNames(chosen.map((b, i) => boardFileName(b, all.indexOf(b), all.length, o.format, o.scale, o.numbered !== false && total > 1)))
+  if (o.format === 'pdf' && !o.pdfSplit) {
+    const { assemble } = await import('../studio/brand-pdf')
+    const pages = []
+    for (let i = 0; i < total; i++) {
+      const b = chosen[i], c = renderOne(b), sz = pdfPageSize(b)
+      pages.push({ jpeg: new Uint8Array(await (await canvasToBlob(c, 'image/jpeg', Math.max(0.9, o.quality))).arrayBuffer()), pxW: c.width, pxH: c.height, mediaW: sz.w, mediaH: sz.h, imgX: 0, imgY: 0, imgW: sz.w, imgH: sz.h })
+      onProgress?.(i + 1, total)
+      await new Promise(r => setTimeout(r, 0))
+    }
+    const name = total === 1 ? names[0] : `${base}.pdf`
+    return { blob: await assemble(pages, false), name }
+  }
+  const files: { name: string; blob: Blob }[] = []
+  for (let i = 0; i < total; i++) {
+    const b = chosen[i], c = renderOne(b)
+    let blob: Blob
+    if (o.format === 'pdf') {
+      const { assemble } = await import('../studio/brand-pdf'), sz = pdfPageSize(b)
+      blob = await assemble([{ jpeg: new Uint8Array(await (await canvasToBlob(c, 'image/jpeg', Math.max(0.9, o.quality))).arrayBuffer()), pxW: c.width, pxH: c.height, mediaW: sz.w, mediaH: sz.h, imgX: 0, imgY: 0, imgW: sz.w, imgH: sz.h }], false)
+    } else blob = await canvasToBlob(c, `image/${o.format}`, o.format === 'png' ? undefined : o.quality)
+    files.push({ name: names[i], blob })
+    onProgress?.(i + 1, total)
+    await new Promise(r => setTimeout(r, 0))
+  }
+  if (files.length === 1) return files[0]
+  return { blob: await zipFiles(files), name: `${base}.zip` }
+}
+
+/** Every board as its own PNG in a zip. */
 export async function exportAllFrames(scale = 2): Promise<Blob> {
   const { doc } = useEditor.getState()
   if (!doc?.frames) throw new Error('No artboards')
-  const files: { name: string; blob: Blob }[] = []
-  for (const f of doc.frames) { const c = renderFrame(f.id, scale); if (c) files.push({ name: `${f.name.replace(/[^\w ]+/g, '') || 'board'}.png`, blob: await canvasToBlob(c) }) }
-  return zipFiles(files)
+  return (await exportBoards({ boardIds: doc.frames.map(f => f.id), format: 'png', scale, quality: 1, transparent: false })).blob
 }
 
-export async function exportImage(o: ExportOptions): Promise<Blob> {
-  const { doc, layers, groups } = useEditor.getState()
+/**
+ * One image of the design. A design with boards exports the active board (or the one given):
+ * the pasteboard with its gaps is never a useful picture.
+ */
+export async function exportImage(o: ExportOptions, frameId?: string | null): Promise<Blob> {
+  const { doc, activeFrameId } = useEditor.getState()
   if (!doc) throw new Error('Nothing to export')
-  const c = makeCanvas(doc.width * o.scale, doc.height * o.scale)
-  renderDoc(c, doc, layers, { groups, scale: o.scale, noCache: true, fullRes: true, transparent: o.transparent && o.format !== 'jpeg' })
-  if (o.format === 'pdf') {
-    const flat = makeCanvas(c.width, c.height); const x = ctx2d(flat)
-    x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(c, 0, 0)
-    return jpegToPdf(await canvasToBlob(flat, 'image/jpeg', Math.max(0.9, o.quality)), c.width, c.height, doc.width, doc.height)
-  }
-  if (o.format === 'jpeg' && !doc.background) {
-    const flat = makeCanvas(c.width, c.height); const x = ctx2d(flat)
-    x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(c, 0, 0)
-    return canvasToBlob(flat, 'image/jpeg', o.quality)
-  }
-  return canvasToBlob(c, `image/${o.format}`, o.quality)
+  const id = doc.frames?.length ? (frameId ?? activeFrameId ?? doc.frames[0].id) : '__doc'
+  return (await exportBoards({ boardIds: [id], format: o.format, scale: o.scale, quality: o.quality, transparent: o.transparent })).blob
 }
 
 export function downloadBlob(blob: Blob, filename: string) {
@@ -523,32 +575,6 @@ export async function buildFramedFromLayered(name: string, pages: LayeredPage[],
   useEditor.getState().loadFramed(doc, layers, undefined, [])
   useEditor.setState({ dirty: true })
   if (palette?.length) useEditor.setState({ swatches: Array.from(new Set([...palette, ...useEditor.getState().swatches])).slice(0, 21), fg: palette[0] })
-}
-
-// ─── PDF, written by hand to avoid shipping a library ──────────────
-
-const enc = new TextEncoder()
-
-/** One-page PDF holding the design as a JPEG. Large designs are assumed to be print work at 300 dpi. */
-async function jpegToPdf(jpeg: Blob, pxW: number, pxH: number, docW: number, docH: number): Promise<Blob> {
-  const dpi = Math.max(docW, docH) > 2000 ? 300 : 96
-  const w = ((docW / dpi) * 72).toFixed(2), h = ((docH / dpi) * 72).toFixed(2)
-  const img = new Uint8Array(await jpeg.arrayBuffer())
-  const content = `q ${w} 0 0 ${h} 0 0 cm /Im0 Do Q`
-  const parts: (string | Uint8Array)[] = [], offsets: number[] = []
-  let pos = 0
-  const push = (p: string | Uint8Array) => { parts.push(p); pos += typeof p === 'string' ? enc.encode(p).length : p.length }
-  const obj = (n: number, body: string) => { offsets[n] = pos; push(`${n} 0 obj\n${body}\nendobj\n`) }
-  push('%PDF-1.4\n')
-  obj(1, '<< /Type /Catalog /Pages 2 0 R >>')
-  obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>')
-  obj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${w} ${h}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`)
-  offsets[4] = pos
-  push(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pxW} /Height ${pxH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.length} >>\nstream\n`); push(img); push('\nendstream\nendobj\n')
-  obj(5, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`)
-  const xref = pos
-  push(`xref\n0 6\n0000000000 65535 f \n` + [1, 2, 3, 4, 5].map(n => String(offsets[n]).padStart(10, '0') + ' 00000 n \n').join('') + `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`)
-  return new Blob(parts as BlobPart[], { type: 'application/pdf' })
 }
 
 // ─── Brand kit ─────────────────────────────────────────────────────

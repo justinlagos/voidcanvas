@@ -715,11 +715,28 @@ export interface RenderOptions {
   noShadow?: boolean
   /** Treat this group as the root: used when a group is flattened on its own. */
   root?: string | null
+  /**
+   * Render only this part of the document, in document pixels. The target is sized to the region
+   * at the given scale. Used to export one board at its own size and to draw the visible part of
+   * the Stage at screen resolution.
+   */
+  region?: { x: number; y: number; w: number; h: number } | null
 }
 
 export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], opts: RenderOptions = {}) {
   const s = opts.scale ?? 1
-  const W = Math.max(1, Math.round(doc.width * s)), H = Math.max(1, Math.round(doc.height * s))
+  const rg = opts.region ?? null
+  const ox = rg ? rg.x : 0, oy = rg ? rg.y : 0
+  const W = Math.max(1, Math.round((rg ? rg.w : doc.width) * s)), H = Math.max(1, Math.round((rg ? rg.h : doc.height) * s))
+  /** Document space to target pixels. */
+  const base = () => new DOMMatrix().translate(-ox * s, -oy * s).scale(s, s)
+  const R = (x: number, y: number, w: number, h: number): [number, number, number, number] => [(x - ox) * s, (y - oy) * s, w * s, h * s]
+  /** Draw a document-sized canvas (a mask) into the region of the target. */
+  const drawDocSized = (ctx: CanvasRenderingContext2D, c: HTMLCanvasElement) => {
+    if (!rg) { ctx.drawImage(c, 0, 0, W, H); return }
+    const kx = c.width / doc.width, ky = c.height / doc.height
+    ctx.drawImage(c, ox * kx, oy * ky, rg.w * kx, rg.h * ky, 0, 0, W, H)
+  }
   if (target.width !== W || target.height !== H) { target.width = W; target.height = H }
   const acc = ctx2d(target, true)
   acc.setTransform(1, 0, 0, 1, 0, 0)
@@ -731,16 +748,16 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
     // Artboard mode: each frame is an opaque board floating above the canvas with a soft shadow.
     for (const f of frames) {
       if (opts.transparent) continue
-      if (opts.noShadow) { if (f.background) { acc.fillStyle = f.background; acc.fillRect(f.x * s, f.y * s, f.width * s, f.height * s) } continue }
+      if (opts.noShadow) { if (f.background) { acc.fillStyle = f.background; acc.fillRect(...R(f.x, f.y, f.width, f.height)) } continue }
       acc.save()
       acc.shadowColor = 'rgba(0,0,0,0.45)'; acc.shadowBlur = 24 * s; acc.shadowOffsetY = 4 * s
       acc.fillStyle = f.background ?? '#ffffff'
-      acc.fillRect(f.x * s, f.y * s, f.width * s, f.height * s)
+      acc.fillRect(...R(f.x, f.y, f.width, f.height))
       acc.restore()
       if (!f.background) { // transparent board: clear the fill we used only to cast the shadow, leave checker to the UI
-        acc.clearRect(f.x * s, f.y * s, f.width * s, f.height * s)
+        acc.clearRect(...R(f.x, f.y, f.width, f.height))
         acc.save(); acc.shadowColor = 'rgba(0,0,0,0.45)'; acc.shadowBlur = 24 * s; acc.shadowOffsetY = 4 * s
-        acc.strokeStyle = 'rgba(0,0,0,0.001)'; acc.lineWidth = 1; acc.strokeRect(f.x * s, f.y * s, f.width * s, f.height * s); acc.restore()
+        acc.strokeStyle = 'rgba(0,0,0,0.001)'; acc.lineWidth = 1; acc.strokeRect(...R(f.x, f.y, f.width, f.height)); acc.restore()
       }
     }
   } else if (doc.background && !opts.transparent) { acc.fillStyle = doc.background; acc.fillRect(0, 0, W, H) }
@@ -811,12 +828,12 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
         const dctx = ctx2d(draw)
         const m = liveMask(maskSrc ?? fullMask(doc), live)
         dctx.globalCompositeOperation = 'destination-in'
-        dctx.drawImage(m, 0, 0, W, H)
+        drawDocSized(dctx, m)
       }
       acc.save()
       // A filter on a board only changes that board, never the rest of the document.
       const adjFrame = l.frameId ? frameById.get(l.frameId) : undefined
-      if (adjFrame) { acc.beginPath(); acc.rect(adjFrame.x * s, adjFrame.y * s, adjFrame.width * s, adjFrame.height * s); acc.clip() }
+      if (adjFrame) { acc.beginPath(); acc.rect(...R(adjFrame.x, adjFrame.y, adjFrame.width, adjFrame.height)); acc.clip() }
       acc.globalAlpha = l.opacity
       // An adjustment replaces what is below it, so blend modes other than normal are drawn over the original.
       acc.globalCompositeOperation = l.blend
@@ -828,18 +845,18 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
       let clipBaseCanvas: HTMLCanvasElement | null = null
       if (l.clipId) {
         const base = siblings.find(x => x.id === l.clipId) ?? layers.find(x => x.id === l.clipId)
-        if (base && base.type !== 'adjustment') clipBaseCanvas = renderLayerAlpha(doc, base, s)
+        if (base && base.type !== 'adjustment') clipBaseCanvas = renderLayerAlpha(doc, base, s, rg)
       }
       const styled = hasActiveStyles(l)
       const fill = l.fillOpacity ?? 1
       const needsTemp = (l.mask && l.maskEnabled) || hasVectorMask(l) || !!live || !!clipBaseCanvas || styled
       acc.save()
       const clipF = l.frameId ? frameById.get(l.frameId) : undefined
-      if (clipF) { acc.beginPath(); acc.rect(clipF.x * s, clipF.y * s, clipF.width * s, clipF.height * s); acc.clip() }
+      if (clipF) { acc.beginPath(); acc.rect(...R(clipF.x, clipF.y, clipF.width, clipF.height)); acc.clip() }
       acc.globalAlpha = l.opacity * (styled ? 1 : fill)
       acc.globalCompositeOperation = l.blend
       acc.imageSmoothingQuality = 'high'
-      acc.setTransform(new DOMMatrix().scale(s, s).multiply(m))
+      acc.setTransform(base().multiply(m))
       if (!needsTemp) drawLayerContent(acc, l, s * Math.abs(l.scaleX))
       else {
         const { w, h } = layerSize(l, doc)
@@ -857,10 +874,10 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
         if (clipBaseCanvas || styled) {
           // Work in document space: intersect with the clip base, then draw with styles.
           acc.restore(); acc.save()
-          if (clipF) { acc.beginPath(); acc.rect(clipF.x * s, clipF.y * s, clipF.width * s, clipF.height * s); acc.clip() }
+          if (clipF) { acc.beginPath(); acc.rect(...R(clipF.x, clipF.y, clipF.width, clipF.height)); acc.clip() }
           const docTmp = makeCanvas(W, H); const dt = ctx2d(docTmp)
           dt.imageSmoothingQuality = 'high'
-          dt.setTransform(new DOMMatrix().scale(s, s).multiply(m))
+          dt.setTransform(base().multiply(m))
           dt.drawImage(tmp, 0, 0)
           dt.setTransform(1, 0, 0, 1, 0, 0)
           if (clipBaseCanvas) { dt.globalCompositeOperation = 'destination-in'; dt.drawImage(clipBaseCanvas, 0, 0) }
@@ -886,12 +903,12 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
 }
 
 /** Render a single layer's pixels onto a full document-size canvas at scale s. Used as a clip base. */
-function renderLayerAlpha(doc: Doc, layer: Layer, s: number): HTMLCanvasElement {
-  const W = Math.round(doc.width * s), H = Math.round(doc.height * s)
+function renderLayerAlpha(doc: Doc, layer: Layer, s: number, rg: RenderOptions['region'] = null): HTMLCanvasElement {
+  const W = Math.max(1, Math.round((rg ? rg.w : doc.width) * s)), H = Math.max(1, Math.round((rg ? rg.h : doc.height) * s))
   const c = makeCanvas(W, H); const x = ctx2d(c)
   if (layer.type === 'adjustment') return c // adjustments have no shape to clip to
   const m = layerMatrix(layer, doc)
-  x.save(); x.setTransform(new DOMMatrix().scale(s, s).multiply(m))
+  x.save(); x.setTransform(new DOMMatrix().translate(-(rg?.x ?? 0) * s, -(rg?.y ?? 0) * s).scale(s, s).multiply(m))
   const { w, h } = layerSize(layer, doc)
   const tmp = makeCanvas(w, h); const t = ctx2d(tmp)
   drawLayerContent(t, layer)

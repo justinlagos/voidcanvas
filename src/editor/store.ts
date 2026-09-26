@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { defaultParams, type EffectType } from '@/store/useStore'
 import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, layerBounds, layerMatrix, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
+import { boardGap, occupied, placeBeside, type Side } from './frames'
 import type { AdjustmentKind, AdjustmentLayer, Doc, Frame, Group, Layer, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
 import { useUi } from './ui-store'
 
@@ -108,7 +109,10 @@ interface EditorState {
   setGroupLocked: (groupId: string, locked: boolean) => void
   renameFrame: (id: string, name: string) => void
   setFrameSize: (id: string, width: number, height: number) => void
-  duplicateFrame: (id: string) => void
+  /** Copy a board beside itself. `empty` adds a blank board of the same size instead. */
+  duplicateFrame: (id: string, side?: Side, empty?: boolean) => void
+  /** Replace boards, layers and groups in one undoable step (Cascade, Formats). */
+  applyBoards: (doc: Doc, layers: Layer[], groups: Group[], label: string, activeFrameId?: string | null) => void
   organiseFrames: () => void
   reassignLayerFrame: (layerId: string, frameId: string | null) => void
 
@@ -195,7 +199,7 @@ export const inGroup = (l: Layer, gid: string, groups: Group[]) => groupChain(l.
 export const groupDepth = (gid: string | null | undefined, groups: Group[]) => groupChain(gid, groups).length
 
 /** Keep only groups that still hold a layer, directly or through a nested group. */
-const prune = (groups: Group[], layers: Layer[]) => {
+export const prune = (groups: Group[], layers: Layer[]) => {
   const used = new Set<string>()
   for (const l of layers) for (const g of groupChain(l.groupId, groups)) used.add(g)
   return groups.filter(g => used.has(g.id))
@@ -211,6 +215,31 @@ function historyBytes(snaps: Snapshot[]) {
 export const historyMemoryMB = (snaps: Snapshot[]) => Math.round(historyBytes(snaps) / 1048576)
 
 /** The document canvas must contain every board, or boards past its edge would not render. */
+/** A design without boards becomes a design with one board, so boards can be added beside it. */
+export function ensureFramed(doc: Doc, layers: Layer[]): { doc: Doc; layers: Layer[] } {
+  if (doc.frames?.length) return { doc, layers }
+  const f0: Frame = { id: uid(), name: doc.name, x: 0, y: 0, width: doc.width, height: doc.height, background: doc.background }
+  return { doc: { ...doc, frames: [f0], background: null }, layers: layers.map(l => ({ ...l, frameId: f0.id } as Layer)) }
+}
+
+/**
+ * Boards may be placed left of or above the others. The pasteboard starts at 0,0, so shift
+ * everything back into positive space and move the view by the same amount: nothing appears to jump.
+ */
+function settleInto(doc: Doc, layers: Layer[], view: View): { doc: Doc; layers: Layer[]; view: View } {
+  if (!doc.frames?.length) return { doc, layers, view }
+  const minX = Math.min(0, ...doc.frames.map(f => f.x)), minY = Math.min(0, ...doc.frames.map(f => f.y))
+  const dx = minX < 0 ? -Math.floor(minX) : 0, dy = minY < 0 ? -Math.floor(minY) : 0
+  if (!dx && !dy) return { doc: coverFrames(doc), layers, view }
+  const frames = doc.frames.map(f => ({ ...f, x: f.x + dx, y: f.y + dy }))
+  const guides = doc.guides ? { v: doc.guides.v.map(v => v + dx), h: doc.guides.h.map(h => h + dy) } : doc.guides
+  return {
+    doc: coverFrames({ ...doc, frames, guides, width: doc.width + dx, height: doc.height + dy }),
+    layers: layers.map(l => (l.type === 'adjustment' && !l.frameId ? l : ({ ...l, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer))),
+    view: { ...view, panX: view.panX - dx * view.zoom, panY: view.panY - dy * view.zoom },
+  }
+}
+
 function coverFrames(doc: Doc): Doc {
   if (!doc.frames?.length) return doc
   const r = Math.max(doc.width, ...doc.frames.map(f => f.x + f.width)), b = Math.max(doc.height, ...doc.frames.map(f => f.y + f.height))
@@ -301,13 +330,21 @@ export const useEditor = create<EditorState>((set, get) => ({
   setActiveFrame: (id) => set({ activeFrameId: id }),
 
   addFrame: (preset) => {
-    const { doc } = get(); if (!doc) return
-    const frames = doc.frames ?? []
-    // place the new board to the right of the widest existing one
-    const maxX = frames.length ? Math.max(...frames.map(f => f.x + f.width)) + 120 : 0
-    const f: Frame = { id: uid(), name: preset.name, x: maxX, y: 0, width: preset.width, height: preset.height, background: '#ffffff' }
-    set({ doc: coverFrames({ ...doc, frames: [...frames, f] }), activeFrameId: f.id, docRev: get().docRev + 1 })
+    const st = get(); if (!st.doc) return
+    const { doc, layers } = ensureFramed(st.doc, st.layers)
+    const frames = doc.frames!
+    // Beside the active board, in the first free spot to its right.
+    const ref = frames.find(f => f.id === st.activeFrameId) ?? frames[frames.length - 1]
+    const p = placeBeside(occupied(doc, layers), { x: ref.x, y: ref.y, w: ref.width, h: ref.height }, preset.width, preset.height, 'right', boardGap([...frames, preset]))
+    const f: Frame = { id: uid(), name: preset.name, x: p.x, y: p.y, width: preset.width, height: preset.height, background: '#ffffff' }
+    set({ doc: coverFrames({ ...doc, frames: [...frames, f] }), layers, activeFrameId: f.id, docRev: get().docRev + 1 })
     get().commit('Add board')
+  },
+
+  applyBoards: (doc, layers, groups, label, activeFrameId) => {
+    const r = settleInto(doc, layers, get().view)
+    set({ doc: r.doc, layers: r.layers, groups, view: r.view, activeFrameId: activeFrameId ?? get().activeFrameId, selectedIds: [], activeId: null, editingMask: false, docRev: get().docRev + 1, dirty: true })
+    get().commit(label)
   },
 
   removeFrame: (id) => {
@@ -381,37 +418,67 @@ export const useEditor = create<EditorState>((set, get) => ({
     get().commit('Resize board')
   },
 
-  duplicateFrame: (id) => {
+  duplicateFrame: (id, side = 'right', empty = false) => {
     const { doc, layers, groups } = get(); if (!doc?.frames) return
     const src = doc.frames.find(f => f.id === id); if (!src) return
-    const nf = { ...src, id: uid(), name: src.name + ' copy' }
-    // place the copy to the right of the widest board
-    nf.x = Math.max(...doc.frames.map(f => f.x + f.width)) + 120; nf.y = src.y
+    const taken = new Set(doc.frames.map(f => f.name))
+    const stem = src.name.replace(/ copy( \d+)?$/, '')
+    let name = `${stem} copy`; for (let n = 2; taken.has(name); n++) name = `${stem} copy ${n}`
+    const p = placeBeside(occupied(doc, layers), { x: src.x, y: src.y, w: src.width, h: src.height }, src.width, src.height, side, boardGap(doc.frames))
+    const nf: Frame = { ...src, id: uid(), name, x: p.x, y: p.y, linkedFrom: null, deliverableId: null }
     const dx = nf.x - src.x, dy = nf.y - src.y
-    const srcLayers = layers.filter(l => l.frameId === id)
-    // copy layers, remap group ids so the copy's groups are independent
+    const srcLayers = empty ? [] : layers.filter(l => l.frameId === id)
+    // Copy layers and give the copy its own groups (nested groups keep their nesting).
     const groupMap = new Map<string, string>()
-    for (const l of srcLayers) if (l.groupId && !groupMap.has(l.groupId)) groupMap.set(l.groupId, uid())
-    const copies = srcLayers.map(l => ({ ...l, id: uid(), frameId: nf.id, groupId: l.groupId ? groupMap.get(l.groupId)! : null, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer))
-    const newGroups = groups.filter(g => groupMap.has(g.id)).map(g => ({ ...g, id: groupMap.get(g.id)! }))
-    // insert copies right after the source board's layers so stacking stays sane
-    set({ doc: coverFrames({ ...doc, frames: [...doc.frames, nf] }), layers: [...layers, ...copies], groups: [...groups, ...newGroups], activeFrameId: nf.id, docRev: get().docRev + 1 })
-    get().commit('Duplicate board')
+    const byId = new Map(groups.map(g => [g.id, g]))
+    const want = (gid?: string | null) => { let g = gid ? byId.get(gid) : undefined; while (g && !groupMap.has(g.id)) { groupMap.set(g.id, uid()); g = g.parentId ? byId.get(g.parentId) : undefined } }
+    srcLayers.forEach(l => want(l.groupId))
+    const copies = srcLayers.map(l => ({ ...l, id: uid(), frameId: nf.id, srcId: undefined, groupId: l.groupId ? groupMap.get(l.groupId)! : null, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer))
+    const newGroups = groups.filter(g => groupMap.has(g.id)).map(g => ({ ...g, id: groupMap.get(g.id)!, parentId: g.parentId ? groupMap.get(g.parentId) ?? null : null }))
+    const r = settleInto({ ...doc, frames: [...doc.frames, nf] }, [...layers, ...copies], get().view)
+    set({ doc: r.doc, layers: r.layers, view: r.view, groups: [...groups, ...newGroups], activeFrameId: nf.id, docRev: get().docRev + 1 })
+    get().commit(empty ? 'Add board' : 'Duplicate board')
   },
 
   organiseFrames: () => {
     const { doc } = get(); if (!doc?.frames?.length) return
-    const gap = 120
-    const cols = Math.ceil(Math.sqrt(doc.frames.length))
-    const colW: number[] = [], rowH: number[] = []
-    doc.frames.forEach((f, i) => { const c = i % cols, r = Math.floor(i / cols); colW[c] = Math.max(colW[c] ?? 0, f.width); rowH[r] = Math.max(rowH[r] ?? 0, f.height) })
-    const xOff = [0]; for (let c = 1; c <= cols; c++) xOff[c] = xOff[c - 1] + colW[c - 1] + gap
-    const rows = Math.ceil(doc.frames.length / cols); const yOff = [0]; for (let r = 1; r <= rows; r++) yOff[r] = yOff[r - 1] + rowH[r - 1] + gap
-    // move each board and its layers by the delta
+    const frames = doc.frames
+    const gap = boardGap(frames)
+    // Each master sits on its own row with its formats in the row below, widest to tallest.
+    // Boards on their own are packed into rows of a sensible width.
+    const ids = new Set(frames.map(f => f.id))
+    const kids = (id: string) => frames.filter(f => f.linkedFrom === id).sort((a, b) => b.width / b.height - a.width / a.height)
+    const rows: Frame[][] = []
+    const loose: Frame[] = []
+    for (const f of frames) {
+      if (f.linkedFrom && ids.has(f.linkedFrom)) continue
+      const k = kids(f.id)
+      if (k.length) { rows.push([f]); rows.push(k) } else loose.push(f)
+    }
+    if (loose.length) {
+      const area = loose.reduce((a, f) => a + f.width * f.height, 0)
+      const limit = Math.max(...loose.map(f => f.width), Math.sqrt(area) * 1.8)
+      let row: Frame[] = [], w = 0
+      for (const f of loose) {
+        if (row.length && w + gap + f.width > limit) { rows.push(row); row = []; w = 0 }
+        w += (row.length ? gap : 0) + f.width; row.push(f)
+      }
+      if (row.length) rows.push(row)
+    }
     const deltas = new Map<string, { dx: number; dy: number }>()
-    const placed = doc.frames.map((f, i) => { const c = i % cols, r = Math.floor(i / cols); const nx = xOff[c], ny = yOff[r]; deltas.set(f.id, { dx: nx - f.x, dy: ny - f.y }); return { ...f, x: nx, y: ny } })
+    const placed: Frame[] = []
+    let y = 0
+    for (const row of rows) {
+      let x = 0
+      for (const f of row) { deltas.set(f.id, { dx: x - f.x, dy: y - f.y }); placed.push({ ...f, x, y }); x += f.width + gap }
+      y += Math.max(...row.map(f => f.height)) + gap * 2
+    }
+    const order = new Map(frames.map((f, i) => [f.id, i]))
+    placed.sort((a, b) => order.get(a.id)! - order.get(b.id)!)
     const layers = get().layers.map(l => { const d = l.frameId ? deltas.get(l.frameId) : null; return d ? ({ ...l, x: l.x + d.dx, y: l.y + d.dy, rev: nextRev() } as Layer) : l })
-    set({ doc: { ...doc, frames: placed, width: xOff[cols] - gap, height: yOff[rows] - gap }, layers, docRev: get().docRev + 1 })
+    const width = Math.max(...placed.map(f => f.x + f.width)), height = Math.max(...placed.map(f => f.y + f.height))
+    const loosePx = layers.some(l => !l.frameId && l.type !== 'adjustment')
+    set({ doc: { ...doc, frames: placed, width: loosePx ? Math.max(doc.width, width) : width, height: loosePx ? Math.max(doc.height, height) : height }, layers, docRev: get().docRev + 1 })
     get().commit('Organise boards')
   },
 

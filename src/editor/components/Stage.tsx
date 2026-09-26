@@ -103,6 +103,9 @@ export function Stage() {
   const badgeHits = useRef<{ id: string; x: number; y: number; w: number; h: number }[]>([])
   const overBadge = useRef<string | null>(null)
   const overClose = useRef<string | null>(null)
+  /** The + buttons around the active board: click to duplicate it on that side. */
+  const plusHits = useRef<{ id: string; side: 'right' | 'left' | 'top' | 'bottom'; x: number; y: number; r: number }[]>([])
+  const overPlus = useRef<string | null>(null)
   const snapLines = useRef<{ v: number[]; h: number[] }>({ v: [], h: [] })
   const dist = useRef<{ x: number; y: number; w: number; h: number; px: number; axis: 'h' | 'v' }[]>([])
   const ants = useRef<{ key: string; canvas: HTMLCanvasElement | null }>({ key: '', canvas: null })
@@ -110,6 +113,12 @@ export function Stage() {
   const space = useRef(false)
   const raf = useRef(0)
   const needComposite = useRef(true)
+  /** Bumped each time the low-resolution composite is redrawn; a sharp view made before that is stale. */
+  const compRev = useRef(0)
+  const compScale = useRef(1)
+  /** The visible part of the design rendered at screen resolution, made once the view settles. */
+  const sharp = useRef<{ canvas: HTMLCanvasElement; region: Rect; zoom: number; compRev: number } | null>(null)
+  const sharpTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const size = useRef({ w: 0, h: 0, dpr: 1 })
   const poly = useRef<Pt[] | null>(null)
   /** The subpath the Pen is adding to, until Enter, Esc or a close. */
@@ -173,6 +182,41 @@ export function Stage() {
 
   // ── Drawing ──────────────────────────────────────────────────────
 
+  /** The layers the Stage shows: the text being typed and the layer under free transform draw themselves. */
+  const shownLayers = () => {
+    const s = useEditor.getState(), tf = s.transform
+    return s.layers.filter(l => (l.id !== s.editingTextId || (l.type === 'text' && !!l.onPath)) && !(s.compare && l.type === 'adjustment') && !(tf && l.id === tf.layerId))
+  }
+
+  /**
+   * Once the view stops moving, render just the visible part of the design at screen resolution,
+   * so type, vectors and photos stay crisp at any zoom instead of stretching the overview.
+   */
+  const scheduleSharp = () => {
+    if (sharpTimer.current) clearTimeout(sharpTimer.current)
+    sharpTimer.current = setTimeout(() => {
+      sharpTimer.current = null
+      const s = useEditor.getState(), doc = s.doc
+      if (!doc || live.current || s.viewChannel !== 'rgb' || needComposite.current) return
+      // Void effects run over the whole design at a working size; a part of it would look different.
+      if (s.layers.some(l => l.visible && l.type === 'adjustment' && l.kind === 'voidEffect')) return
+      const { w, h, dpr } = size.current
+      const { zoom, panX, panY } = s.view
+      const k = zoom * dpr
+      if (k <= compScale.current * 1.05) { sharp.current = null; return } // the overview is already sharp enough
+      const pad = 48 / zoom
+      const x0 = Math.max(0, Math.floor(-panX / zoom - pad)), y0 = Math.max(0, Math.floor(-panY / zoom - pad))
+      const x1 = Math.min(doc.width, Math.ceil((w - panX) / zoom + pad)), y1 = Math.min(doc.height, Math.ceil((h - panY) / zoom + pad))
+      if (x1 <= x0 || y1 <= y0) return
+      const region = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+      if (region.w * region.h * k * k > 40e6) return
+      const c = sharp.current?.canvas ?? makeCanvas(1, 1)
+      try { renderDoc(c, doc, shownLayers(), { groups: s.groups, scale: k, region, noShadow: !!doc.frames?.length }) } catch { return }
+      sharp.current = { canvas: c, region, zoom, compRev: compRev.current }
+      if (!raf.current) raf.current = requestAnimationFrame(draw)
+    }, 140)
+  }
+
   const draw = useCallback(() => {
     raf.current = 0
     const s = useEditor.getState()
@@ -192,10 +236,28 @@ export function Stage() {
 
     if (needComposite.current || live.current) {
       if (!comp.current) comp.current = makeCanvas(1, 1)
-      const vs = Math.min(1, 2000 / Math.max(doc.width, doc.height))
-      const shown = s.layers.filter(l => (l.id !== s.editingTextId || (l.type === 'text' && !!l.onPath)) && !(s.compare && l.type === 'adjustment') && !(tf && l.id === tf.layerId))
-      renderDoc(comp.current, doc, shown, { groups: s.groups, scale: vs, live: live.current && live.current.mode !== 'overlay' ? live.current : null, noShadow: !!doc.frames?.length })
+      // The overview: the whole design at about screen size. Close-up detail comes from the sharp pass below.
+      const cap = Math.max(2048, Math.min(4096, Math.max(w, h) * dpr))
+      const vs = Math.min(1, cap / Math.max(doc.width, doc.height))
+      renderDoc(comp.current, doc, shownLayers(), { groups: s.groups, scale: vs, live: live.current && live.current.mode !== 'overlay' ? live.current : null, noShadow: !!doc.frames?.length })
       needComposite.current = false
+      compRev.current++
+      compScale.current = vs
+    }
+    const sh = sharp.current
+    const sharpView = s.viewChannel === 'rgb' && !live.current && sh && sh.compRev === compRev.current && sh.zoom === zoom ? sh : null
+    const drawSharp = () => {
+      if (!sharpView) return
+      const r = sharpView.region
+      vctx.imageSmoothingEnabled = true
+      vctx.drawImage(sharpView.canvas, panX + r.x * zoom, panY + r.y * zoom, r.w * zoom, r.h * zoom)
+    }
+    if (!sharpView) scheduleSharp()
+    else {
+      // Panned past the sharp area: keep showing it, and make a new one for the new view.
+      const r = sharpView.region
+      const vx0 = Math.max(0, -panX / zoom), vy0 = Math.max(0, -panY / zoom), vx1 = Math.min(doc.width, (w - panX) / zoom), vy1 = Math.min(doc.height, (h - panY) / zoom)
+      if (vx0 < r.x - 1 || vy0 < r.y - 1 || vx1 > r.x + r.w + 1 || vy1 > r.y + r.h + 1) scheduleSharp()
     }
     let shownComp = comp.current
     if (s.viewChannel !== 'rgb' && comp.current) shownComp = channelImage(comp.current)
@@ -223,9 +285,10 @@ export function Stage() {
         if (!f.background) checker(fx, fy, fw, fh)
       }
       vctx.save()
-      vctx.imageSmoothingEnabled = zoom < 3
+      vctx.imageSmoothingEnabled = zoom < 8
       vctx.imageSmoothingQuality = 'high'
       if (shownComp) vctx.drawImage(shownComp, panX, panY, dw, dh)
+      drawSharp()
       vctx.restore()
     } else {
       vctx.save()
@@ -235,9 +298,10 @@ export function Stage() {
       checker(panX, panY, dw, dh)
       vctx.save()
       vctx.beginPath(); vctx.rect(panX, panY, dw, dh); vctx.clip()
-      vctx.imageSmoothingEnabled = zoom < 3
+      vctx.imageSmoothingEnabled = zoom < 8
       vctx.imageSmoothingQuality = 'high'
       if (shownComp) vctx.drawImage(shownComp, panX, panY, dw, dh)
+      drawSharp()
       vctx.restore()
     }
 
@@ -264,7 +328,7 @@ export function Stage() {
       octx.stroke(); octx.restore()
     }
 
-    closeHits.current = []; badgeHits.current = []
+    closeHits.current = []; badgeHits.current = []; plusHits.current = []
     if (doc.frames && doc.frames.length) {
       const canClose = doc.frames.length > 1
       for (const f of doc.frames) {
@@ -311,6 +375,38 @@ export function Stage() {
           octx.lineCap = 'butt'
           // Generous target so it is easy to hit with a finger.
           closeHits.current.push({ id: f.id, x: cx - 13, y: by - 6, w: 26, h: badgeH + 12 })
+        }
+        if (on && !drag.current && (s.tool === 'move' || s.tool === 'hand') && fw >= 48 && fh >= 48) {
+          // + on each side of the active board, like Photoshop's artboards. Click duplicates the board there;
+          // Option/Alt-click adds an empty board of the same size.
+          const off = 24, r = 11
+          const badgeEnd = bx + badgeW
+          const topX = !inside && by < a.y && a.x + fw / 2 - r - 6 < badgeEnd ? Math.min(a.x + fw + off, badgeEnd + r + 12) : a.x + fw / 2
+          const spots: { side: 'right' | 'left' | 'top' | 'bottom'; x: number; y: number }[] = [
+            { side: 'top', x: topX, y: a.y - off - (inside ? 0 : 4) },
+            { side: 'right', x: a.x + fw + off, y: a.y + fh / 2 },
+            { side: 'bottom', x: a.x + fw / 2, y: a.y + fh + off },
+            { side: 'left', x: a.x - off, y: a.y + fh / 2 },
+          ]
+          for (const sp of spots) {
+            const key = `${f.id}:${sp.side}`, hot = overPlus.current === key
+            octx.fillStyle = hot ? ACCENT : 'rgba(30,30,36,0.92)'
+            octx.strokeStyle = hot ? ACCENT : 'rgba(255,255,255,0.35)'
+            octx.lineWidth = 1
+            octx.beginPath(); octx.arc(sp.x, sp.y, r, 0, Math.PI * 2); octx.fill(); octx.stroke()
+            octx.strokeStyle = '#fff'; octx.lineWidth = 1.6; octx.lineCap = 'round'
+            octx.beginPath(); octx.moveTo(sp.x - 4.5, sp.y); octx.lineTo(sp.x + 4.5, sp.y); octx.moveTo(sp.x, sp.y - 4.5); octx.lineTo(sp.x, sp.y + 4.5); octx.stroke()
+            octx.lineCap = 'butt'
+            plusHits.current.push({ id: f.id, side: sp.side, x: sp.x, y: sp.y, r: r + 5 })
+            if (hot) {
+              const tip = 'Duplicate board  ·  ⌥ empty board'
+              octx.font = `500 11px ${uiFont()}`
+              const tw = octx.measureText(tip).width + 16
+              const tx = Math.min(w - tw - 6, Math.max(6, sp.x - tw / 2)), ty = sp.side === 'bottom' ? sp.y + r + 8 : sp.y - r - 30
+              octx.fillStyle = 'rgba(20,20,24,0.96)'; octx.beginPath(); octx.roundRect(tx, ty, tw, 22, 6); octx.fill()
+              octx.fillStyle = '#fff'; octx.textBaseline = 'middle'; octx.fillText(tip, tx + 8, ty + 11.5); octx.textBaseline = 'alphabetic'
+            }
+          }
         }
       }
     }
@@ -907,6 +1003,8 @@ export function Stage() {
     const sp = local(e)
     const close = e.button === 0 && !pointers.current.size ? closeHits.current.find(r => sp.x >= r.x && sp.x <= r.x + r.w && sp.y >= r.y && sp.y <= r.y + r.h) : null
     if (close) { e.stopPropagation(); overClose.current = null; s.removeFrame(close.id); invalidate(); return }
+    const plus = e.button === 0 && !pointers.current.size ? plusHits.current.find(r => Math.hypot(sp.x - r.x, sp.y - r.y) <= r.r) : null
+    if (plus) { e.stopPropagation(); overPlus.current = null; s.duplicateFrame(plus.id, plus.side, e.altKey); invalidate(true); return }
     // Drag a board by its name badge to move it, with everything on it, anywhere on the canvas.
     const badge = e.button === 0 && !pointers.current.size && !space.current ? badgeHits.current.find(r => sp.x >= r.x && sp.x <= r.x + r.w && sp.y >= r.y && sp.y <= r.y + r.h) : null
     if (badge) {
@@ -1494,10 +1592,12 @@ export function Stage() {
     if (!drag.current && e.pointerType === 'mouse') {
       const inside = (r: { x: number; y: number; w: number; h: number }) => sp.x >= r.x && sp.x <= r.x + r.w && sp.y >= r.y && sp.y <= r.y + r.h
       const hit = closeHits.current.find(inside)?.id ?? null
-      const bhit = hit ? null : badgeHits.current.find(inside)?.id ?? null
-      if (hit !== overClose.current || bhit !== overBadge.current) {
-        overClose.current = hit; overBadge.current = bhit
-        if (wrap.current) wrap.current.style.cursor = hit ? 'pointer' : bhit ? 'grab' : cursorFor(s.tool)
+      const ph = plusHits.current.find(r => Math.hypot(sp.x - r.x, sp.y - r.y) <= r.r)
+      const phit = ph ? `${ph.id}:${ph.side}` : null
+      const bhit = hit || phit ? null : badgeHits.current.find(inside)?.id ?? null
+      if (hit !== overClose.current || bhit !== overBadge.current || phit !== overPlus.current) {
+        overClose.current = hit; overBadge.current = bhit; overPlus.current = phit
+        if (wrap.current) wrap.current.style.cursor = hit || phit ? 'pointer' : bhit ? 'grab' : cursorFor(s.tool)
         invalidate()
       }
     }

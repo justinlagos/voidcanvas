@@ -19,7 +19,7 @@ export function ResizeDialog({ onClose }: { onClose: () => void }) {
   const [working, setWorking] = useState<string | null>(null)
   const targets = SIZE_PRESETS.filter(p => picked.has(p.id) && !(p.width === doc.width && p.height === doc.height))
 
-  const build = () => { const s = useEditor.getState(); return targets.map(p => ({ p, ...resizeDesign(s.doc!, s.layers, p.width, p.height, `${s.doc!.name} (${p.label})`) })) }
+  const build = () => { const s = useEditor.getState(); return targets.map(p => ({ p, ...resizeDesign(s.doc!, s.layers, p.width, p.height, `${s.doc!.name} (${p.label})`, s.groups, s.activeFrameId) })) }
   const download = async () => {
     setWorking('Building files')
     const s = useEditor.getState()
@@ -43,7 +43,7 @@ export function ResizeDialog({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Resize for other formats" onClose={onClose} wide>
       <div className="p-5">
-        <p className="text-[13px] text-void-400 mb-4 max-w-xl">Pick the formats you need. Backgrounds stretch to fill each one, everything else keeps its place and scales to fit. Your current design is not changed.</p>
+        <p className="text-[13px] text-void-400 mb-4 max-w-xl">Pick the formats you need. Each one is laid out again: groups stay together, panels restack to suit the shape and backgrounds fill. Your current design is not changed.</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {SIZE_PRESETS.map(p => {
             const on = picked.has(p.id), k = 44 / Math.max(p.width, p.height), same = p.width === doc.width && p.height === doc.height

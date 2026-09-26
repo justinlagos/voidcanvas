@@ -1,37 +1,17 @@
-import { ctx2d, layerBounds, layerSize, makeCanvas, uid } from './engine'
-import { nextRev } from './store'
-import type { Doc, Layer } from './types'
+import { uid } from './engine'
+import { relayout } from './layout'
+import { ensureFramed } from './store'
+import type { Doc, Frame, Group, Layer } from './types'
 
 /**
- * Re-lay a design for a different format.
- * Layers that fill the page (backgrounds, full-bleed photos) are scaled to cover the new page.
- * Everything else keeps its relative position and is scaled to fit, so nothing is cropped off.
+ * Re-lay a design (or one board of it) as a new single-page design at another size. Uses the same
+ * layout as Cascade: groups stay together, panels restack to suit the shape, backgrounds cover.
  */
-export function resizeDesign(doc: Doc, layers: Layer[], width: number, height: number, name: string): { doc: Doc; layers: Layer[] } {
-  const fit = Math.min(width / doc.width, height / doc.height)
-  const cover = Math.max(width / doc.width, height / doc.height)
-  const next = layers.map(l => {
-    if (l.type === 'adjustment') {
-      if (!l.mask) return { ...l, rev: nextRev() } as Layer
-      const m = makeCanvas(width, height); ctx2d(m).drawImage(l.mask, 0, 0, width, height)
-      return { ...l, mask: m, rev: nextRev() } as Layer
-    }
-    const b = layerBounds(l, doc)
-    const k = b.w >= doc.width * 0.95 && b.h >= doc.height * 0.95 ? cover : fit
-    // The box centre is also the rotation centre, so moving the centre works for rotated layers too.
-    const cx = width / 2 + (b.x + b.w / 2 - doc.width / 2) * k
-    const cy = height / 2 + (b.y + b.h / 2 - doc.height / 2) * k
-    const out = { ...l, rev: nextRev() } as Layer
-    if (out.type === 'text') {
-      out.fontSize = Math.max(4, out.fontSize * k); out.letterSpacing *= k
-      if (out.outline) out.outline = { ...out.outline, width: out.outline.width * k }
-      if (out.shadow) out.shadow = { ...out.shadow, blur: out.shadow.blur * k, x: out.shadow.x * k, y: out.shadow.y * k }
-    } else if (out.type === 'shape') { out.w *= k; out.h *= k; out.strokeWidth *= k; out.radius *= k }
-    else if (out.type === 'raster') { out.scaleX *= k; out.scaleY *= k }
-    const s = layerSize(out, doc)
-    out.x = cx - (s.w * out.scaleX) / 2
-    out.y = cy - (s.h * out.scaleY) / 2
-    return out
-  })
-  return { doc: { ...doc, id: uid(), name, width, height }, layers: next }
+export function resizeDesign(doc: Doc, layers: Layer[], width: number, height: number, name: string, groups: Group[] = [], frameId?: string | null): { doc: Doc; layers: Layer[] } {
+  const f = ensureFramed(doc, layers)
+  const master = f.doc.frames!.find(x => x.id === frameId) ?? f.doc.frames![0]
+  const t: Frame = { id: uid(), name, x: 0, y: 0, width, height, background: master.background }
+  const r = relayout(f.layers.filter(l => l.frameId === master.id), master, t, f.doc, groups)
+  const out = r.layers.map(l => ({ ...l, frameId: null, srcId: null } as Layer))
+  return { doc: { ...doc, id: uid(), name, width, height, frames: undefined, background: master.background }, layers: out }
 }

@@ -65,8 +65,8 @@ const voidPath = OUT('roundtrip.void'); await dl.saveAs(voidPath)
 const head = fs.readFileSync(voidPath).subarray(0, 4)
 ok('download: .void is a ZIP', head[0] === 0x50 && head[1] === 0x4b)
 
-await p.keyboard.press('Control+e'); await p.waitForTimeout(500)
-const [dl2] = await Promise.all([p.waitForEvent('download'), p.click('button:has-text("Save editable file")')])
+await p.keyboard.press('Control+k'); await p.waitForTimeout(200); await p.keyboard.type('Download editable picture'); await p.waitForTimeout(300)
+const [dl2] = await Promise.all([p.waitForEvent('download'), p.keyboard.press('Enter')])
 const pngPath = OUT('roundtrip.void.png'); await dl2.saveAs(pngPath)
 ok('download: .void.png is a PNG', fs.readFileSync(pngPath)[1] === 0x50 && fs.readFileSync(pngPath).includes(Buffer.from('voId')))
 

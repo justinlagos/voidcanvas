@@ -751,17 +751,23 @@ export async function buildFormats(targets: FormatTarget[], masterId?: string | 
   layers = layers.map(l => (l.frameId === m.id && !l.role && roles.has(l.id) ? ({ ...l, role: roles.get(l.id), rev: nextRev() } as Layer) : l))
   const master = layers.filter(l => l.frameId === m.id)
   let frames = [...doc.frames!]
-  let ox = Math.max(...frames.map(f => f.x + f.width)) + 160
+  let groups = [...s.groups]
+  const L = await import('./layout'), F = await import('./frames')
+  // New formats go in a tidy row under everything that is there.
+  const fresh = targets.filter(t => !frames.some(x => x.deliverableId === t.deliverableId))
+  const spots = F.placeRowBelow(F.occupied(doc, layers), m.x, fresh.map(t => ({ width: t.width, height: t.height })), F.boardGap([m, ...fresh]))
   for (const t of targets) {
     let f = frames.find(x => x.deliverableId === t.deliverableId)
     if (f && !rebuild && f.width === t.width && f.height === t.height && layers.some(l => l.frameId === f!.id)) continue
-    if (!f) { f = { id: uid(), name: t.label, x: ox, y: m.y, width: t.width, height: t.height, background: m.background, linkedFrom: m.id, deliverableId: t.deliverableId }; frames.push(f); ox += t.width + 160 }
+    if (!f) { const p = spots[fresh.indexOf(t)]; f = { id: uid(), name: t.label, x: p.x, y: p.y, width: t.width, height: t.height, background: m.background, linkedFrom: m.id, deliverableId: t.deliverableId }; frames.push(f) }
     else { f = { ...f, width: t.width, height: t.height, linkedFrom: m.id, background: m.background }; frames = frames.map(x => (x.id === f!.id ? f! : x)) }
-    layers = layers.filter(l => l.frameId !== f!.id).concat(A.layoutByRole(master, m, f, doc, roles))
+    const g = L.regroup(L.relayout(master, m, f, doc, s.groups).layers, s.groups)
+    layers = layers.filter(l => l.frameId !== f!.id).concat(g.layers); groups = groups.concat(g.groups)
   }
   const width = Math.max(...frames.map(f => f.x + f.width)), height = Math.max(...frames.map(f => f.y + f.height))
-  s.loadFramed({ ...doc, frames, width, height }, A.orderLikeMaster(layers, m.id), undefined, s.groups)
-  useEditor.setState({ dirty: true, activeFrameId: m.id })
+  const { prune } = await import('./store')
+  const ordered = A.orderLikeMaster(layers, m.id)
+  s.applyBoards({ ...doc, frames, width, height }, ordered, prune(groups, ordered), 'Build formats', m.id)
   st().notify(`${targets.length} format${targets.length === 1 ? '' : 's'} laid out from "${m.name}". Change the master and use Update formats; each format keeps its own layout.`)
 }
 
@@ -786,7 +792,9 @@ export async function relayFormat(frameId?: string | null) {
   const m = doc.frames.find(x => x.id === f.linkedFrom); if (!m) return
   await fontsReady(s.layers)
   const A = await import('./adapt')
-  const roles = A.inferRoles(s.layers, m, doc)
-  const layers = s.layers.filter(l => l.frameId !== f.id).concat(A.layoutByRole(s.layers.filter(l => l.frameId === m.id), m, f, doc, roles))
-  useEditor.setState({ layers: A.orderLikeMaster(layers, m.id), docRev: s.docRev + 1 }); st().commit('Re-lay format')
+  const L = await import('./layout')
+  const g = L.regroup(L.relayout(s.layers.filter(l => l.frameId === m.id), m, f, doc, s.groups).layers, s.groups)
+  const layers = A.orderLikeMaster(s.layers.filter(l => l.frameId !== f.id).concat(g.layers), m.id)
+  const { prune } = await import('./store')
+  s.applyBoards({ ...doc }, layers, prune([...s.groups, ...g.groups], layers), 'Re-lay format', f.id)
 }
