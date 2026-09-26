@@ -10,7 +10,8 @@ import { useLpTheme } from './theme'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
-export const SITE_LINKS: [string, string][] = [['/learn', 'Learn'], ['/blog', 'Blog'], ['/about', 'About'], ['/report-a-bug', 'Report a bug']]
+// The desktop app does not link to its own download page.
+export const SITE_LINKS: [string, string][] = [['/learn', 'Learn'], ['/blog', 'Blog'], ...(process.env.NEXT_PUBLIC_DESKTOP ? [] : [['/download', 'Download'] as [string, string]]), ['/about', 'About'], ['/report-a-bug', 'Report a bug']]
 
 /** Header for the public content pages. Same height and ground as the landing page header. */
 export function SiteHeader() {

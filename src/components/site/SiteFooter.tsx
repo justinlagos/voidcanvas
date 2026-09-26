@@ -14,7 +14,7 @@ import { sendFeedback, track } from '@/lib/analytics'
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
 export const FOOTER_LINKS: [string, [string, string][]][] = [
-  ['Make', [['Studio', '/studio'], ['Editor', '/editor'], ['Effects', '/effects'], ['Halftone', '/tools/halftone'], ['Dither', '/tools/dither'], ['Glitch', '/tools/glitch']]],
+  ['Make', [['Studio', '/studio'], ['Editor', '/editor'], ['Effects', '/effects'], ['Halftone', '/tools/halftone'], ['Dither', '/tools/dither'], ['Glitch', '/tools/glitch'], ...(process.env.NEXT_PUBLIC_DESKTOP ? [] : [['Desktop app', '/download'] as [string, string]])]],
   ['Learn', [['All guides', '/learn'], ['Start here', '/learn/your-first-design'], ['Workflows', '/learn#workflows'], ['Shortcuts', '/learn/keyboard-shortcuts'], ['Blog', '/blog']]],
   ['Company', [['About', '/about'], ['Report a bug', '/report-a-bug'], ['Privacy', '#privacy'], ['Art Director Studio', 'https://artdirectorstudio.com']]],
 ]
