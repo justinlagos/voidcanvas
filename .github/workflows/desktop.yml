@@ -14,7 +14,7 @@ name: Desktop app
 on:
   push:
     branches: [master]
-    paths: ['desktop/package.json']
+    paths: ['desktop/package.json', '.github/workflows/desktop.yml']
   workflow_dispatch:
 
 permissions:
@@ -34,7 +34,9 @@ jobs:
         run: |
           VER=$(node -p "require('./desktop/package.json').version")
           echo "version=$VER" >> "$GITHUB_OUTPUT"
-          if [ "$GITHUB_EVENT_NAME" = "push" ] && ! gh release view "v$VER" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "release=true" >> "$GITHUB_OUTPUT"; else echo "release=false" >> "$GITHUB_OUTPUT"; fi
+          # Release unless v<version> is already published (a draft left by a failed run is finished off).
+          DRAFT=$(gh release view "v$VER" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>/dev/null || echo missing)
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$DRAFT" != "false" ]; then echo "release=true" >> "$GITHUB_OUTPUT"; else echo "release=false" >> "$GITHUB_OUTPUT"; fi
 
   build:
     needs: check
@@ -65,6 +67,8 @@ jobs:
       - name: Test the desktop app (Linux)
         if: runner.os == 'Linux'
         run: |
+          # Ubuntu 24.04 blocks the unprivileged namespaces Electron's sandbox uses; allow them on the test machine.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           npx playwright install --with-deps chromium
           xvfb-run -a node e2e/desktop.mjs
 
@@ -73,16 +77,19 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.MAC_CERTS }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CERTS != '' && 'true' || 'false' }}
+          MAC_CERTS: ${{ secrets.MAC_CERTS }}
+          MAC_CERTS_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          WIN_CERTS: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CERTS_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
           RELEASE: ${{ needs.check.outputs.release }}
         run: |
+          # electron-builder reads an empty CSC_LINK as a path, so only set signing variables that have values.
+          if [ -n "$MAC_CERTS" ]; then export CSC_LINK="$MAC_CERTS" CSC_KEY_PASSWORD="$MAC_CERTS_PASSWORD"; else export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
+          if [ -n "$WIN_CERTS" ]; then export WIN_CSC_LINK="$WIN_CERTS" WIN_CSC_KEY_PASSWORD="$WIN_CERTS_PASSWORD"; fi
+          [ -n "$APPLE_ID" ] || unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
           if [ "$RELEASE" = "true" ]; then npx electron-builder --publish always; else npx electron-builder --publish never; fi
 
       - uses: actions/upload-artifact@v4
