@@ -1,7 +1,7 @@
 {
   "name": "voidcanvas-desktop",
   "productName": "Voidcanvas",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Voidcanvas for your computer: design, edit and export, with your files on your own disk.",
   "author": {
     "name": "MotionPlay Labs Ltd",
@@ -77,7 +77,8 @@
       "oneClick": true,
       "perMachine": false,
       "include": "build/installer.nsh",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "buildUniversalInstaller": false
     },
     "mac": {
       "target": [

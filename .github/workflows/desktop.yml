@@ -1,7 +1,7 @@
 # Builds the desktop app for Windows, macOS and Linux.
-# To release: raise "version" in desktop/package.json and push to master. If there is no GitHub release
-# for that version yet, the files are built, attached to release v<version> and published; the installed
-# apps update from there. Run by hand from the Actions tab to build without releasing.
+# To release: raise "version" in desktop/package.json and push to master. If there is no published GitHub
+# release for that version yet, all three builds are collected and published as release v<version>; the
+# installed apps update from there. Run by hand from the Actions tab to build without releasing.
 #
 # Signing is optional. Add these repository secrets when the certificates exist:
 #   macOS:   MAC_CERTS (base64 .p12), MAC_CERTS_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
@@ -34,7 +34,7 @@ jobs:
         run: |
           VER=$(node -p "require('./desktop/package.json').version")
           echo "version=$VER" >> "$GITHUB_OUTPUT"
-          # Release unless v<version> is already published (a draft left by a failed run is finished off).
+          # Release unless v<version> is already published.
           DRAFT=$(gh release view "v$VER" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>/dev/null || echo missing)
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$DRAFT" != "false" ]; then echo "release=true" >> "$GITHUB_OUTPUT"; else echo "release=false" >> "$GITHUB_OUTPUT"; fi
 
@@ -84,13 +84,12 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           WIN_CERTS: ${{ secrets.WIN_CSC_LINK }}
           WIN_CERTS_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          RELEASE: ${{ needs.check.outputs.release }}
         run: |
           # electron-builder reads an empty CSC_LINK as a path, so only set signing variables that have values.
           if [ -n "$MAC_CERTS" ]; then export CSC_LINK="$MAC_CERTS" CSC_KEY_PASSWORD="$MAC_CERTS_PASSWORD"; else export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
           if [ -n "$WIN_CERTS" ]; then export WIN_CSC_LINK="$WIN_CERTS" WIN_CSC_KEY_PASSWORD="$WIN_CERTS_PASSWORD"; fi
           [ -n "$APPLE_ID" ] || unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
-          if [ "$RELEASE" = "true" ]; then npx electron-builder --publish always; else npx electron-builder --publish never; fi
+          npx electron-builder --publish never
 
       - uses: actions/upload-artifact@v4
         with:
@@ -101,16 +100,31 @@ jobs:
             desktop/dist/*.zip
             desktop/dist/*.AppImage
             desktop/dist/*.deb
-            desktop/dist/*.yml
-          if-no-files-found: ignore
+            desktop/dist/*.blockmap
+            desktop/dist/latest*.yml
+          if-no-files-found: error
 
   publish:
     needs: [check, build]
     if: needs.check.outputs.release == 'true'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: files
+          merge-multiple: true
+
       - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VER: ${{ needs.check.outputs.version }}
-        run: gh release edit "v$VER" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          REPO: ${{ github.repository }}
+        run: |
+          ls -la files
+          # Remove drafts left by earlier runs, so there is one release per version.
+          gh release list --repo "$REPO" --limit 100 --json tagName,isDraft -q '.[] | select(.isDraft) | .tagName' | while read -r t; do gh release delete "$t" --repo "$REPO" --yes || true; done
+          if gh release view "v$VER" --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload "v$VER" files/* --repo "$REPO" --clobber
+          else
+            gh release create "v$VER" files/* --repo "$REPO" --target "$GITHUB_SHA" --title "Voidcanvas $VER" --notes "Download for Windows, Mac or Linux at https://voidcanvas.netlify.app/download" --latest
+          fi
