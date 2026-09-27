@@ -165,7 +165,7 @@ export const articles: Article[] = [
     keywords: 'halftone dots portrait pop art comic newspaper screen print lpi dot size contrast recolour blend mode multiply screen threshold stipple dot matrix dither',
     guide: {
       next: ['workflow-textured-print-look', 'filters-in-the-editor'],
-      also: [{ when: 'it is going on a shirt', slug: 'halftone-for-screen-printing-and-dtf' }, { when: 'you want the full comic look', slug: 'make-a-comic-book-effect' }, { when: 'it is going on a printed poster', slug: 'prepare-a-poster-for-print' }, { when: 'you want every setting of every effect', slug: 'artistic-effects' }],
+      also: [{ when: 'it is going on a shirt', slug: 'halftone-for-screen-printing-and-dtf' }, { when: 'you want dots as a background', slug: 'make-a-halftone-gradient-background' }, { when: 'you want the full comic look', slug: 'make-a-comic-book-effect' }, { when: 'it is going on a printed poster', slug: 'prepare-a-poster-for-print' }, { when: 'you want every setting of every effect', slug: 'artistic-effects' }],
     },
     body: [
       { t: 'answer', text: 'A halftone turns a photo into dots on a grid: dark areas get large dots that merge, light areas get small ones or none. To make a good halftone portrait, start with a high-contrast black and white photo on a plain background, choose a dot size that suits where it will be seen (fine for screens, coarse for print and posters), set the contrast so the shadows fill in without swallowing the face, then recolour the dots with a blend mode. Below is a working halftone; move the sliders and watch what each one does.' },
@@ -303,7 +303,7 @@ export const articles: Article[] = [
       { t: 'list', items: [
         '**Change text:** double-click the text layer with the Type tool ({{T}}) and type. Font, size, colour, leading and tracking are in the **Character** panel. See [Add and style text](/learn/type).',
         '**Swap a photo:** place the new image as a layer ({{Ctrl+Shift+P}}), drag it into the same group as the old one, and if the old photo had a mask, copy the mask across or paint a new one. See [Masks](/learn/masks).',
-        '**Recolour a flat element:** if it is still a shape or has a colour overlay style, change the colour there. If it arrived as pixels, use a **Hue/saturation** adjustment layer clipped to it, or select it with the **Magic wand** and fill.',
+        '**Recolour a flat element:** if it is still a shape or has a colour overlay style, change the colour there. If it arrived as pixels, add a **Colour overlay** layer style to it (it recolours only that layer and stays editable), or select it with the **Magic wand** and fill.',
         '**Adjust the photo:** add adjustment layers rather than editing the pixels, so the original survives ([Adjustment layers](/learn/adjustment-layers)).',
         '**Resize for another format:** [Resize one design to every format](/learn/resize-to-every-format) adapts the layered file rather than stretching it. The workflow [Take a PSD from a colleague and adapt it for social](/learn/workflow-psd-to-social) does exactly this job end to end.',
       ] },

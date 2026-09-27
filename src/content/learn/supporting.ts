@@ -375,8 +375,8 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'How Voidcanvas handles this' },
-      { t: 'p', text: 'Voidcanvas exports RGB and says so on every print file, so the printer knows to convert with the profile for their press and paper, which gives a better result than a generic conversion in the design tool. There is no CMYK export and no soft-proofing. What you do have: **Curves** and **Levels** as adjustment layers to lift shadows for uncoated stock without touching the photo, **Ctrl+1** for the 100 per cent check, and print presets at 300 dpi so the page size is right. The brand guideline builder keeps colours in OKLCH ramps, which makes it easy to pick a printable step of a bright brand colour instead of the neon itself.' },
-      { t: 'product', text: 'Every print export states that it is RGB, the adjustment layers let you prepare a photo for a given paper without damaging it, and the 100 per cent view shows what the preview hides. Ask the printer for a proof; that part no tool replaces.', label: 'Open the Editor', href: '/editor?preset=a4' },
+      { t: 'p', text: 'Voidcanvas exports RGB only. Studio\'s print PDFs say so in the slug line under the artwork; the Editor\'s PDF does not, so write it in your note to the printer. The printer then converts with the profile for their press and paper, which gives a better result than a generic conversion in the design tool. There is no CMYK export and no soft-proofing. What you do have: **Curves** and **Levels** as adjustment layers to lift shadows for uncoated stock without touching the photo, **Ctrl+1** for the 100 per cent check, and print presets at 300 dpi so the page size is right. The brand guideline builder keeps colours in OKLCH ramps, which makes it easy to pick a printable step of a bright brand colour instead of the neon itself.' },
+      { t: 'product', text: 'Studio\'s print PDFs state that they are RGB, the adjustment layers let you prepare a photo for a given paper without damaging it, and the 100 per cent view shows what the preview hides. Ask the printer for a proof; that part no tool replaces.', label: 'Open the Editor', href: '/editor?preset=a4' },
 
       { t: 'faq', items: [
         { q: 'Can I make the print match my screen?', a: 'Not exactly, and neither can a professional studio without a calibrated monitor, a soft-proofing profile and a printed proof. You can get close: avoid out-of-gamut colours, judge the design at a sane brightness, check at 100 per cent and correct after a proof.' },
@@ -627,7 +627,7 @@ export const articles: Article[] = [
         ['Free transform', '{{Ctrl+T}}', 'Skew, distort, perspective and warp in the Edit menu.'],
         ['Layer styles', 'Drop shadow, inner shadow, glows, stroke, colour and gradient overlay, bevel', 'See [Layer styles](/learn/layer-styles).'],
         ['Tool keys', 'The same letters: V M L W C I J B S E G O P A T U H Z', 'Shift plus the key cycles the family, as in Photoshop.'],
-        ['Type with Character and Paragraph panels', 'The same', 'Google fonts, local fonts and font files. Text on a path. See [Type](/learn/type).'],
+        ['Type with Character and Paragraph panels', 'The same', 'Any Google Font by name, or a font file from your computer (.ttf, .otf, .woff, .woff2). Fonts installed on the computer are not listed; add the file. Text on a path. See [Type](/learn/type).'],
         ['Filters', 'Filter gallery, applied as editable filter layers', 'Fade, mask and stack them. See [Filters in the Editor](/learn/filters-in-the-editor).'],
         ['Artboards', 'Boards', 'See [Boards](/learn/artboards).'],
         ['History panel and before/after', 'History panel; hold {{\\}} for the before view', 'See [History and undo](/learn/history-and-undo).'],
@@ -832,7 +832,7 @@ export const articles: Article[] = [
     guide: {
       before: ['designing-for-print'],
       next: ['what-is-a-print-ready-pdf', 'prepare-a-poster-for-print'],
-      also: [{ when: 'you want to understand the whole screen-to-paper gap', slug: 'print-looks-different-from-screen' }],
+      also: [{ when: 'you want to understand the whole screen-to-paper gap', slug: 'print-looks-different-from-screen' }, { when: 'the printer asked for crop marks', slug: 'crop-marks-trim-marks-and-bleed' }],
     },
     body: [
       { t: 'answer', text: '**Send RGB and say so.** RGB is how screens make colour (light); CMYK is how presses make it (four inks). Every file is converted to CMYK before it is printed. The question is who converts: you, with a generic profile, or the printer, with the profile for their press and paper. The printer\'s conversion is usually better, and most commercial and online printers accept RGB PDFs for exactly that reason. Voidcanvas exports RGB only, so write "RGB, please convert" in the order note and ask for a proof. What you can control is the design: avoid building it on colours ink cannot reach, keep text in pure black, and check bright brand colours against a printed sample.' },
@@ -867,8 +867,8 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'How Voidcanvas handles this' },
-      { t: 'p', text: 'Every export is RGB and the print export says so, so nobody is surprised. The PDF is image-based at 300 dpi, which printers accept and convert with their own profile. There is no CMYK export, no soft proof and no profile embedding. The brand guideline builder keeps colours in OKLCH ramps, which makes it easy to pick a less saturated step for print surfaces, and the print-setup preview above shows which colours are going to move.' },
-      { t: 'product', text: 'Honest RGB output, print presets at 300 dpi, and a note in the export dialog that says what the printer needs to know. The conversion belongs with the person who owns the press.', label: 'Open the Editor', href: '/editor?preset=a4' },
+      { t: 'p', text: 'Every export is RGB. Studio\'s print PDFs say so in the slug line, with bleed and crop marks; the Editor\'s PDF does not label itself, so put RGB in the order note. Both are image-based at 300 dpi, which printers accept and convert with their own profile. There is no CMYK export, no soft proof and no profile embedding. The brand guideline builder keeps colours in OKLCH ramps, which makes it easy to pick a less saturated step for print surfaces, and the print-setup preview above shows which colours are going to move.' },
+      { t: 'product', text: 'RGB output, print presets at 300 dpi, and Studio print PDFs whose slug line tells the printer the file is RGB. The conversion belongs with the person who owns the press.', label: 'Open the Editor', href: '/editor?preset=a4' },
 
       { t: 'faq', items: [
         { q: 'Can I print an RGB file?', a: 'Yes. Home printers expect RGB, and most commercial and online printers accept RGB PDFs and convert them with their press profile. Say RGB in the order note so nobody assumes.' },
@@ -1215,7 +1215,7 @@ export const articles: Article[] = [
         ['InDesign for multi-page documents', 'Not covered', 'The Editor is single-page with boards. Brand guidelines export as a multi-page PDF from Studio, but a book or catalogue needs a layout app.'],
         ['Libraries for brand assets', 'Brand kit and the brands library', 'Colours, fonts, logos and rules per brand, loaded into any design, with checks before export.'],
         ['Actions for repeat work', 'Templates, Resize to every format, Studio formats', 'Not scripting, but it covers the common cases: same design in every size, same setup every time.'],
-        ['Adobe Fonts', 'Google Fonts, local fonts, font files', 'A font file dropped into a design travels with it.'],
+        ['Adobe Fonts', 'Google Fonts, or font files you add', 'Installed fonts are not listed; add the font file, and it is saved inside the design so it travels with it.'],
         ['Cloud documents and sync', 'Files on your device; optional encrypted account sync', 'Nothing leaves the device readable.'],
       ] },
 
@@ -1252,7 +1252,7 @@ export const articles: Article[] = [
     guide: {
       before: ['make-a-halftone-portrait'],
       next: ['filters-in-the-editor', 'artistic-effects'],
-      also: [{ when: 'you want the printed, misregistered version', slug: 'make-a-risograph-effect' }, { when: 'you want one click and a download', slug: 'effects-overview' }],
+      also: [{ when: 'you want the printed, misregistered version', slug: 'make-a-risograph-effect' }, { when: 'you want cleaner flat colour', slug: 'posterize-an-image' }, { when: 'you want one click and a download', slug: 'effects-overview' }],
     },
     body: [
       { t: 'answer', text: 'A comic book effect is three layers of printing history stacked on one photo: **flat colour** (comics were printed in a few inks, so smooth shading becomes bands), **halftone dots** where the shading was (that is how the inks made mid-tones), and **black ink lines** on top (the artist\'s line work). Make them in that order: flatten the colour with **Posterize** or **Pop Art**, add a coarse **Halftone** set to Multiply so the dots sit in the shadows, then add **Edge Detect**, inverted and set to Multiply, for the lines. A high-contrast photo on a plain background gives the best result; a face at three-quarter angle with a strong light is the classic subject.' },
@@ -1271,7 +1271,7 @@ export const articles: Article[] = [
         'Open the photo. Crop tight, and add a **Curves** adjustment layer to push the contrast: comics have no soft shadows. If the background is busy, **Layer, Remove background** and put a flat colour layer underneath.',
         'Flat colour: **Filter, Stylize, Posterize** (or **Filter, Artistic, Pop Art**). It arrives as a filter layer named after the filter. In **Filter settings** in Properties, drop Posterize to 20 to 30 levels. Every filter you add from here goes above the last.',
         'Dots: **Filter, Artistic, Halftone**. Set **Dot Size** around 50 and **Contrast** around 50. Then set the filter layer\'s blend mode to **Multiply** in the Layers panel: the white parts of the halftone vanish and the black dots sit on the flat colour. Lower the layer\'s **Opacity** to 60 to 80 per cent so the dots tint the shadows rather than covering them.',
-        'Lines: duplicate the original photo ({{Ctrl+J}}) and drag the copy to the top of the stack. Add **Filter, Stylize, Edge Detect** above it, set **Threshold** so only the strong outlines remain, then select the copy and the filter and **Layer, Merge down** to bake the lines into pixels. Add an **Invert** adjustment layer, clip it to the copy ({{Ctrl+Alt+G}}), and set the copy to **Multiply**. White becomes transparent; the lines stay black.',
+        'Lines: duplicate the original photo ({{Ctrl+J}}) and drag the copy to the top of the stack. Add **Filter, Stylize, Edge Detect** above it, set **Threshold** so only the strong outlines remain, then select the filter layer and choose **Layer, Merge down** to bake the lines into the copy. Add an **Invert** adjustment directly above the copy and **Merge down** again: Merge down applies it to that one layer only, so the lines turn black on white. Set the copy to **Multiply**. White becomes transparent; the lines stay black.',
         'Finish: a **Film Grain** filter at a low amount over everything for paper texture, and a text layer in a bold display face if you want a caption box or a sound effect. Export as PNG.',
       ] },
       { t: 'tip', text: 'For the Lichtenstein look, use Pop Art with Colour levels low and Colour blend at 100, make the halftone coarse (Dot size 70 or more) and keep the lines thick by raising the Edge Detect threshold and adding a 2 px **Stroke** layer style to the line layer.' },
@@ -1281,7 +1281,7 @@ export const articles: Article[] = [
         ['Muddy, grey result', 'Photo has low contrast; posterize levels too high', 'Curves first; fewer levels'],
         ['Dots everywhere, face lost', 'Halftone at Normal blend or 100 per cent opacity', 'Multiply, opacity 60 to 80 per cent, and a mask over the face highlights'],
         ['Lines are noise, not outlines', 'Edge Detect threshold too low', 'Raise it until only the strongest edges stay; blur the copy slightly first for smoother lines'],
-        ['White lines instead of black', 'Edge Detect not inverted', 'Invert adjustment clipped to the line layer, then Multiply'],
+        ['White lines instead of black', 'Edge Detect not inverted', 'Add an Invert adjustment above the line layer and Merge down, then Multiply'],
         ['Looks like a filter, not a comic', 'No flat background, no type', 'Cut the subject out, put it on one flat colour, add one bold word'],
       ] },
 
@@ -1318,7 +1318,7 @@ export const articles: Article[] = [
     guide: {
       before: ['make-a-halftone-portrait'],
       next: ['quick-tools', 'filters-in-the-editor'],
-      also: [{ when: 'the job is a poster rather than a shirt', slug: 'what-dpi-should-a-poster-be' }, { when: 'you want the comic version of the look', slug: 'make-a-comic-book-effect' }],
+      also: [{ when: 'the job is a poster rather than a shirt', slug: 'what-dpi-should-a-poster-be' }, { when: 'you need flat colour separations first', slug: 'posterize-an-image' }, { when: 'you want the comic version of the look', slug: 'make-a-comic-book-effect' }],
     },
     body: [
       { t: 'answer', text: '**Screen printing:** use a coarse halftone, **35 to 55 lines per inch**, matched to the mesh (mesh count at least four times the lpi: 156 mesh for 35 to 40 lpi, 230 for about 55). At 300 dpi that is a dot cell of **5.5 to 8.5 px**. Keep dots between roughly 10 and 90 per cent so the smallest ones hold on the screen and the largest do not fill in. Supply **black dots on white or transparent, one file per ink colour**, at final size, as PNG or PDF. **DTF is different:** the printer\'s RIP does its own screening, so supply full-resolution artwork with a transparent background and treat any halftone in it as a design choice with coarse dots (a 6 px cell or larger), so the RIP\'s screen does not fight yours.' },

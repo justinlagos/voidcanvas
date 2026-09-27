@@ -9,7 +9,7 @@
 | how to prepare a poster for print | informational | beginner, brand owner | none, live | How to prepare a poster for print | M | H | guide + interactive | 1 | live |
 | what is a print ready pdf | informational | beginner, marketing person | no page answers the term head on | What a print-ready PDF is, and what yours needs | M | M | explainer | 2 | live |
 | how much bleed do i need | informational | beginner | answer is inside a long page; needs a direct quick answer | How much bleed a print job needs | H | M | quick answer + calculator | 2 | live |
-| crop marks vs trim marks | informational | print designer | terminology gap | Crop marks, trim marks and bleed marks: what each one is | M | M | explainer | 3 | planned |
+| crop marks vs trim marks | informational | print designer | terminology gap | Crop marks, trim marks and bleed marks: what each one is | M | M | explainer | 3 | live |
 | why does my printed document look different than print preview | informational | beginner | the problem phrasing is unserved (SERP is Windows troubleshooting) | Why a print looks different from the screen | L | H | problem guide + interactive | 2 | live |
 | rgb vs cmyk for print | informational | beginner, marketing person | quick-answer layer | RGB or CMYK for print: what to do in an RGB-only tool | H | M | explainer | 2 | live |
 | what dpi should a poster be | informational | beginner | poster-specific answer | What dpi a poster should be, by size and viewing distance | M | M | quick answer + calculator | 2 | live |
@@ -56,7 +56,7 @@
 | photoshop alternative no subscription | commercial | freelancer | freelancer angle | Leaving Creative Cloud as a freelancer: a checklist | M | M | checklist | 3 | live |
 | photoshop shortcuts equivalent | informational | designer | comparison table | Photoshop shortcuts that work here, and the ones that differ | M | M | reference | 4 | planned |
 | best photoshop alternative for youtube thumbnails | commercial | marketing person | use-case page | Make YouTube thumbnails without Photoshop | M | M | workflow | 3 | live |
-| how to posterize in photopea | informational | designer | effect-specific landing | Posterize an image (any tool, one click here) | L | M | how-to + demo | 3 | planned |
+| how to posterize in photopea | informational | designer | effect-specific landing | Posterize an image (any tool, one click here) | L | M | how-to + demo | 3 | live |
 | photoshop for beginners | informational | beginner | concept-first course | Image editing for beginners: layers, masks and adjustments without Photoshop | H | L | course | 5 | planned |
 | photopea vs voidcanvas | commercial | designer | comparison page | Voidcanvas and Photopea compared, honestly | M | M | comparison | 5 | planned |
 | photoshop alternative for linux | commercial | designer | platform angle | A layered image editor on Linux: the desktop app | M | M | how-to | 3 | planned |
@@ -86,10 +86,10 @@
 | halftone effect for screen printing | informational | print designer | FAQ covers it; a dedicated page for printers | Halftone settings for screen printing and DTF | M | H | how-to | 2 | live |
 | halftone effect vector svg | informational | designer | honest limits page | Halftone as vector or raster: what you need for print and cut | M | L | explainer | 5 | planned |
 | what is halftone effect | informational | beginner | covered | What a halftone is | M | M | explainer | 2 | live |
-| halftone effect background | informational | designer | background recipe | Make a halftone gradient background | M | M | recipe | 3 | planned |
+| halftone effect background | informational | designer | background recipe | Make a halftone gradient background | M | M | recipe | 3 | live |
 | halftone risograph effect | informational | designer | exists as workflow | Make a risograph or screen-print look | M | H | workflow | 2 | existing |
 | halftone effect for video | informational | designer | scope note | Halftone for stills (and where video is out of scope) | M | L | note | 5 | planned |
-| halftone brush free | commercial | designer | alternative technique | You do not need halftone brushes: filter plus mask | M | M | how-to | 3 | planned |
+| halftone brush free | commercial | designer | alternative technique | You do not need halftone brushes: filter plus mask | M | M | how-to | 3 | live |
 | comic book effect | informational | designer | recipe | The comic book photo effect: halftone, posterize, outline | M | H | recipe + demo | 2 | live |
 | halftone dots after effects | navigational | motion designer | out of scope |  | H | L | skip | 5 | skip |
 
@@ -115,11 +115,11 @@
 | remove background from image free | commercial | beginner | quick answer + privacy angle | Remove a background on your device | H | H | how-to | 1 | existing |
 | photo editor that doesn't upload your photos | commercial | privacy-minded | none, live | Photo editors that do not upload your photos: how to tell | L | H | explainer | 1 | live |
 | how to retouch a photo | informational | beginner | exists | Retouch photos with the brush, heal and clone tools | H | M | guide | 2 | existing |
-| how to make a photo look professional | informational | beginner | recipe | Make a photo look professional in five moves | H | M | recipe | 3 | planned |
-| edit photos on laptop free | commercial | beginner | landing angle | Edit photos on a laptop without installing anything | M | M | how-to | 3 | planned |
+| how to make a photo look professional | informational | beginner | recipe | Make a photo look professional in five moves | H | M | recipe | 3 | live |
+| edit photos on laptop free | commercial | beginner | landing angle | Edit photos on a laptop without installing anything | M | M | how-to | 3 | live |
 | crop image into circle | informational | beginner | micro how-to | Crop an image into a circle (transparent PNG) | M | M | how-to | 3 | live |
 | crop image to passport size | informational | beginner | micro how-to | Crop a photo to passport size | M | L | how-to | 5 | planned |
-| how to refine a cutout edge | informational | designer | edge-specific | Fix the edge of a cutout: hair, fur and halos | M | M | how-to | 3 | planned |
+| how to refine a cutout edge | informational | designer | edge-specific | Fix the edge of a cutout: hair, fur and halos | M | M | how-to | 3 | live |
 | batch resize images | informational | marketing person | honest scope | Batch resize images: what a design tool can and cannot do | H | L | explainer | 5 | planned |
 | transparent png | informational | beginner | micro how-to | Make a transparent PNG | H | M | how-to | 3 | live |
 
@@ -176,12 +176,12 @@
 | what is an adjustment layer | informational | beginner | exists | Change colour and tone with adjustment layers | H | M | guide | 2 | existing |
 | how to add text to an image | informational | beginner | exists | Add and style text | H | M | guide | 2 | existing |
 | how to outline text | informational | beginner | micro how-to | Outline text so it reads on any photo | M | M | how-to | 3 | live |
-| how to use my own font | informational | designer | micro how-to | Use your own font file in a browser editor | M | M | how-to | 3 | planned |
+| how to use my own font | informational | designer | micro how-to | Use your own font file in a browser editor | M | M | how-to | 3 | live |
 | what are artboards | informational | beginner | definition | Artboards (boards) explained | M | L | explainer | 4 | existing |
 | how to align layers | informational | beginner | exists | Group, align and space layers precisely | M | M | guide | 3 | existing |
-| how to make a gradient | informational | beginner | micro how-to | Make a gradient (and make it not look like 2012) | H | M | how-to | 3 | planned |
+| how to make a gradient | informational | beginner | micro how-to | Make a gradient (and make it not look like 2012) | H | M | how-to | 3 | live |
 | how to make text on a path | informational | designer | micro how-to | Put text on a curve or a path | M | M | how-to | 3 | live |
-| how to make a drop shadow look real | informational | designer | craft note | Drop shadows that look real: distance, blur, opacity | M | M | how-to | 3 | planned |
+| how to make a drop shadow look real | informational | designer | craft note | Drop shadows that look real: distance, blur, opacity | M | M | how-to | 3 | live |
 
 ## Private, offline and browser-based (10)
 
