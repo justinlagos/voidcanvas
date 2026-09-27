@@ -78,9 +78,16 @@ to MailerLite, so tests send no email.
 | Study: paid | Study 6 · Paid, then Founding offer after 2 days |
 | Future studies | none |
 
-Segment "Study: joined, no job yet" feeds the 13 October reminder campaign. Fields: study_token, study_ref,
+Segment "Study: joined, no job yet" feeds the 13 October reminder campaign (10:00 UK). Fields: study_token, study_ref,
 study_country, invite_deadline, job_started, interview_done, payout_amount, payout_method, payment_date,
 payment_ref, check_date. Email HTML lives in `docs/research-emails/` (`python3 build.py` regenerates it).
+
+Email design: dark header with the logo (`/icon-192.png`), a label and headline per email, a five-stage progress
+bar (Applied, Selected, Joined, Complete, Paid), key details in a panel, numbered steps, one button. Signed
+"The Voidcanvas team". Greeting falls back to "Hi there" through `{$name|default('there')}`. After editing
+`build.py`, paste each file into its automation step (or the campaign, which must be unscheduled to edit).
+
+The MailerLite account is on a 14-day trial (from 27 September). Automations need a paid plan after it ends.
 
 ## Tests
 
