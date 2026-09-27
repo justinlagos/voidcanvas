@@ -18,6 +18,7 @@ import { Stage, isTyping, stageApi } from './Stage'
 import { StartScreen } from './StartScreen'
 import { TabBar } from './TabBar'
 import { useTabs } from '../tabs'
+import { SIZE_PRESETS } from '../presets'
 import { FloatingTools, TOOL_KEYS, ToolRail, cycleFamily, toggleQuickMask } from './ToolRail'
 import { MenuBar } from './MenuBar'
 import { track } from '@/lib/analytics'
@@ -117,9 +118,15 @@ export function EditorShell() {
   // Work arriving from Effects or Studio, or a saved design opened from the home screen.
   useEffect(() => {
     const q = new URLSearchParams(window.location.search)
-    const inbox = q.get('inbox'), project = q.get('project')
-    if (inbox || project) window.history.replaceState(null, '', '/editor')
+    const inbox = q.get('inbox'), project = q.get('project'), preset = q.get('preset')
+    if (inbox || project || preset) window.history.replaceState(null, '', '/editor')
     if (project) { openProject(project); return }
+    // A Learn guide or the size calculator can open the Editor straight onto a preset (/editor?preset=a5).
+    if (preset && !inbox) {
+      const p = SIZE_PRESETS.find(x => x.id === preset)
+      if (p && !useEditor.getState().doc) { track('doc.new', { preset: p.label.slice(0, 40), w: p.width, h: p.height, from: 'link' }); useEditor.getState().newDoc({ width: p.width, height: p.height, background: '#ffffff', name: p.label }) }
+      return
+    }
     if (!inbox) return
     takeHandoff(inbox).then(async h => {
       if (!h) return

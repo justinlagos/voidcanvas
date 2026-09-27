@@ -1,0 +1,2546 @@
+{
+ "count": 74,
+ "paths": [
+  {
+   "id": "new",
+   "name": "New to Voidcanvas",
+   "blurb": "From opening the app to your first exported design.",
+   "slugs": [
+    "what-is-voidcanvas",
+    "your-first-design",
+    "editor-tour",
+    "layers",
+    "type",
+    "export-for-screen",
+    "saving-and-your-files",
+    "desktop-app",
+    "account-and-sync",
+    "teams"
+   ]
+  },
+  {
+   "id": "photoshop",
+   "name": "Coming from Photoshop",
+   "blurb": "What carries over, what is different, and where everything lives.",
+   "slugs": [
+    "editor-tour",
+    "keyboard-shortcuts",
+    "import-psd-and-pdf",
+    "masks",
+    "adjustment-layers",
+    "command-palette-and-menus"
+   ]
+  },
+  {
+   "id": "client",
+   "name": "Client work with Studio",
+   "blurb": "Run a job from the brief to signed-off, named files.",
+   "slugs": [
+    "studio-overview",
+    "start-a-job-from-a-brief",
+    "references-and-palettes",
+    "directions-and-review",
+    "delivering-files",
+    "brand-guidelines"
+   ]
+  },
+  {
+   "id": "print",
+   "name": "Designing for print",
+   "blurb": "Resolution, bleed and PDFs a printer will accept.",
+   "slugs": [
+    "image-resolution-explained",
+    "designing-for-print",
+    "export-for-print",
+    "workflow-print-flyer",
+    "delivering-files"
+   ]
+  }
+ ],
+ "articles": [
+  {
+   "slug": "what-is-voidcanvas",
+   "title": "What Voidcanvas is and how its parts fit together",
+   "category": "start",
+   "level": "Beginner",
+   "words": 627,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "your-first-design",
+    "moving-work-between-tools",
+    "saving-and-your-files",
+    "privacy-and-data"
+   ],
+   "keywords": "about overview introduction modules studio editor effects free online photoshop alternative no account browser design app",
+   "headings": [
+    "One app, three modules",
+    "Which one to open first",
+    "How work moves between modules",
+    "Where your work lives",
+    "Good to know"
+   ],
+   "links": [
+    "studio-overview",
+    "your-first-design",
+    "effects-overview",
+    "moving-work-between-tools",
+    "saving-and-your-files",
+    "privacy-and-data",
+    "designing-on-a-phone",
+    "install-as-an-app"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Voidcanvas is a free design suite that runs in your browser. Studio holds the job, the Editor makes the design, Effects and the quick tools give you one-click looks, and work moves between them without leaving your device."
+  },
+  {
+   "slug": "your-first-design",
+   "title": "Make and export your first design",
+   "category": "start",
+   "level": "Beginner",
+   "words": 605,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "what-is-voidcanvas",
+    "editor-tour",
+    "export-for-screen",
+    "size-presets"
+   ],
+   "keywords": "getting started tutorial beginner first project new design quick start make a poster instagram post",
+   "headings": [
+    "1. Pick a size",
+    "2. Add a photo",
+    "3. Add a headline",
+    "4. Check it and export",
+    "Your design is already saved",
+    "Common problems"
+   ],
+   "links": [
+    "layers"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Pick a size, add a photo and a headline, and download a finished PNG. About five minutes, start to finish."
+  },
+  {
+   "slug": "saving-and-your-files",
+   "title": "Where your designs are saved and how to keep them safe",
+   "category": "start",
+   "level": "Beginner",
+   "words": 1040,
+   "minutes": 5,
+   "updated": "2026-09-26",
+   "related": [
+    "templates-and-versions",
+    "private-session",
+    "troubleshooting",
+    "file-formats"
+   ],
+   "keywords": "save autosave indexeddb local storage backup lost work recover cloud sync where are my files delete clear storage full .void file save to disk save as folder dropbox google drive icloud protected storage",
+   "headings": [
+    "Everything lives in this browser",
+    "Autosave",
+    "Finding and managing saved designs",
+    "Templates",
+    "Versions",
+    "What can wipe your work",
+    "Save to disk",
+    "Keeping a backup",
+    "When storage is full"
+   ],
+   "links": [
+    "templates-and-versions",
+    "private-session"
+   ],
+   "tries": [],
+   "summary": "Voidcanvas saves everything inside your browser on this device, and as a real file when you choose. Learn how autosave, Save to disk, templates and versions work, what clears your work, and how to keep a backup."
+  },
+  {
+   "slug": "desktop-app",
+   "title": "Use Voidcanvas as an app on your computer",
+   "category": "start",
+   "level": "Beginner",
+   "words": 404,
+   "minutes": 2,
+   "updated": "2026-09-26",
+   "related": [
+    "saving-and-your-files",
+    "file-formats",
+    "import-psd-and-pdf"
+   ],
+   "keywords": "desktop app download install windows mac linux offline folder documents dropbox google drive onedrive icloud sync open with psd double click update",
+   "headings": [
+    "Your Voidcanvas folder",
+    "Opening files",
+    "Offline",
+    "Updates",
+    "Privacy"
+   ],
+   "links": [
+    "private-session"
+   ],
+   "tries": [
+    "/download"
+   ],
+   "summary": "The desktop app is the same Voidcanvas, installed, with your designs saved as .void files in a folder you own. It works offline and opens PSDs from your file browser."
+  },
+  {
+   "slug": "account-and-sync",
+   "title": "Sign in to keep your settings the same on every device",
+   "category": "start",
+   "level": "Beginner",
+   "words": 615,
+   "minutes": 3,
+   "updated": "2026-09-26",
+   "related": [
+    "desktop-app",
+    "saving-and-your-files",
+    "private-session"
+   ],
+   "keywords": "account sign in login email code sync settings devices recovery key pair phone qr encrypted end to end lost device",
+   "headings": [
+    "Signing in",
+    "Your recovery key",
+    "Adding a device",
+    "What syncs",
+    "Devices, lost devices and signing out",
+    "If a device is lost or stolen",
+    "Changing your email address",
+    "Deleting your account"
+   ],
+   "links": [
+    "private-session"
+   ],
+   "tries": [],
+   "summary": "An account is optional. It syncs your interface settings, encrypted on your device first. Learn how signing in, the recovery key and adding a device work."
+  },
+  {
+   "slug": "teams",
+   "title": "Share brands and Studio jobs with your team",
+   "category": "start",
+   "level": "Intermediate",
+   "words": 347,
+   "minutes": 2,
+   "updated": "2026-09-26",
+   "related": [
+    "account-and-sync",
+    "desktop-app"
+   ],
+   "keywords": "team teams workspace share sharing invite members roles owner editor reviewer agency studio collaborate brand job sync remove encrypted",
+   "headings": [
+    "Making a team",
+    "Inviting people",
+    "Sharing a brand or a job",
+    "Removing someone",
+    "Leaving or deleting a team"
+   ],
+   "links": [
+    "account-and-sync"
+   ],
+   "tries": [],
+   "summary": "Make a team, invite people by link, and share client brands and Studio jobs. Everything is encrypted on your devices with a key only the team has."
+  },
+  {
+   "slug": "moving-work-between-tools",
+   "title": "Move work from Effects, Studio and the quick tools into the Editor",
+   "category": "start",
+   "level": "Beginner",
+   "words": 646,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "what-is-voidcanvas",
+    "effects-overview",
+    "quick-tools",
+    "studio-overview"
+   ],
+   "keywords": "handoff open in editor send to editor send to layer stack transfer import from effects studio live filter layer inbox",
+   "headings": [
+    "How the handoff works",
+    "From Effects",
+    "From the quick tools",
+    "From Studio",
+    "From your computer",
+    "Common problems"
+   ],
+   "links": [
+    "import-psd-and-pdf"
+   ],
+   "tries": [
+    "/effects"
+   ],
+   "summary": "Every module can hand work to the Editor as real, editable layers. Learn what each button sends and what arrives on the other side."
+  },
+  {
+   "slug": "install-as-an-app",
+   "title": "Install Voidcanvas as an app and use it offline",
+   "category": "start",
+   "level": "Beginner",
+   "words": 445,
+   "minutes": 2,
+   "updated": "2026-09-25",
+   "related": [
+    "designing-on-a-phone",
+    "browser-support",
+    "saving-and-your-files",
+    "troubleshooting"
+   ],
+   "keywords": "install pwa progressive web app add to home screen dock desktop app offline no internet standalone window",
+   "headings": [
+    "Install it",
+    "Using it offline",
+    "Opening files from your computer",
+    "Good to know"
+   ],
+   "links": [
+    "ai-on-this-device",
+    "saving-and-your-files"
+   ],
+   "tries": [],
+   "summary": "Add Voidcanvas to your dock, desktop or home screen so it opens in its own window and keeps working without a connection."
+  },
+  {
+   "slug": "designing-on-a-phone",
+   "title": "Design on a phone or tablet",
+   "category": "start",
+   "level": "Beginner",
+   "words": 648,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "your-first-design",
+    "install-as-an-app",
+    "retouching",
+    "export-for-screen"
+   ],
+   "keywords": "mobile phone iphone android tablet ipad touch gestures pinch zoom apple pencil stylus pen pressure share camera",
+   "headings": [
+    "Phone, tablet or desktop layout",
+    "The phone layout",
+    "What each mode does",
+    "Using the full tool set",
+    "Gestures",
+    "Pens and pressure",
+    "Sharing and exporting",
+    "Good to know"
+   ],
+   "links": [
+    "troubleshooting",
+    "install-as-an-app"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "On a phone the Editor becomes a thumb-first layout with five modes and short sheets. Learn the layout, the touch gestures and what works differently."
+  },
+  {
+   "slug": "editor-tour",
+   "title": "Find your way around the Editor",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 1219,
+   "minutes": 6,
+   "updated": "2026-09-25",
+   "related": [
+    "layers",
+    "workspaces-and-panels",
+    "command-palette-and-menus",
+    "designing-on-a-phone"
+   ],
+   "keywords": "layout interface ui toolbar tool bar panels dock menu status bar options bar getting started photoshop photopea",
+   "headings": [
+    "The menu bar",
+    "File tabs",
+    "The options bar",
+    "The tool rail",
+    "The canvas",
+    "Panels on the right",
+    "The status bar",
+    "Make it fit your screen",
+    "On a phone",
+    "Good to know"
+   ],
+   "links": [
+    "saving-and-your-files",
+    "colour-and-swatches",
+    "workspaces-and-panels",
+    "designing-on-a-phone",
+    "command-palette-and-menus"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "What each part of the Editor does: the menu bar, file tabs, tool rail, options bar, canvas, panels and status bar."
+  },
+  {
+   "slug": "layers",
+   "title": "Work with layers",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 1121,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "groups-align-guides",
+    "masks",
+    "blend-modes-and-opacity",
+    "editor-tour"
+   ],
+   "keywords": "layers panel stack order reorder hide show lock unlock rename duplicate copy merge flatten rasterize colour label find layer",
+   "headings": [
+    "Kinds of layer",
+    "Stacking order",
+    "Selecting layers",
+    "Hide, show and solo",
+    "Rename, duplicate and delete",
+    "Blend, opacity and locks",
+    "Merge, rasterize and flatten",
+    "Colour labels",
+    "Find a layer",
+    "More from the row and the right-click menu",
+    "On a phone"
+   ],
+   "links": [
+    "groups-align-guides",
+    "artboards",
+    "blend-modes-and-opacity",
+    "layer-styles"
+   ],
+   "tries": [],
+   "summary": "Layer kinds, stacking order, hiding, locking, renaming, duplicating, merging, colour labels and finding layers in a busy design."
+  },
+  {
+   "slug": "groups-align-guides",
+   "title": "Group, align and space layers precisely",
+   "category": "editor",
+   "level": "Intermediate",
+   "words": 914,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "layers",
+    "layout-and-composition",
+    "shapes-and-pen",
+    "artboards"
+   ],
+   "keywords": "group ungroup folder multi select align centre center distribute spacing smart guides snap snapping rulers guides grid columns nudge position x y width height",
+   "headings": [
+    "Select several layers",
+    "Groups",
+    "Align and distribute",
+    "Smart guides and snapping",
+    "Rulers and guides",
+    "Common problems"
+   ],
+   "links": [],
+   "tries": [],
+   "summary": "Select several layers, group them, align and distribute them, and use smart guides, rulers, guides and snapping to place things exactly."
+  },
+  {
+   "slug": "masks",
+   "title": "Hide and show parts of a layer with masks",
+   "category": "editor",
+   "level": "Intermediate",
+   "words": 888,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "selections",
+    "remove-background",
+    "layers",
+    "shapes-and-pen"
+   ],
+   "keywords": "mask layer mask hide reveal non-destructive clipping mask clip to below vector mask quick mask cut out blend fade",
+   "headings": [
+    "How a layer mask works",
+    "Add a mask",
+    "Paint on the mask",
+    "Mask thumbnail shortcuts",
+    "Vector masks",
+    "Clipping masks",
+    "Other ways to make a mask",
+    "Quick mask",
+    "Common problems"
+   ],
+   "links": [
+    "remove-background",
+    "selections"
+   ],
+   "tries": [],
+   "summary": "Layer masks, masks from a selection, vector masks, clipping masks and quick mask: hide parts of a layer without deleting anything."
+  },
+  {
+   "slug": "blend-modes-and-opacity",
+   "title": "Use blend modes, opacity and fill",
+   "category": "editor",
+   "level": "Intermediate",
+   "words": 649,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "layers",
+    "layer-styles",
+    "adjustment-layers",
+    "masks"
+   ],
+   "keywords": "blend mode blending multiply screen overlay soft light color burn dodge difference luminosity opacity transparency fill opacity pass through",
+   "headings": [
+    "Where to set them",
+    "Opacity or fill",
+    "The blend modes",
+    "Three recipes",
+    "Groups, styles and adjustments",
+    "Good to know"
+   ],
+   "links": [
+    "adjustment-layers"
+   ],
+   "tries": [],
+   "summary": "The 16 blend modes, what each family does, and when to use opacity, fill or a group blend."
+  },
+  {
+   "slug": "selections",
+   "title": "Select part of an image",
+   "category": "editor",
+   "level": "Intermediate",
+   "words": 837,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "masks",
+    "remove-background",
+    "retouching",
+    "ai-on-this-device"
+   ],
+   "keywords": "selection select marquee rectangle ellipse lasso polygonal magic wand tolerance object select subject feather expand contract inverse deselect colour range refine edge hair quick mask cutout",
+   "headings": [
+    "The selection tools",
+    "Add, subtract and intersect",
+    "Magic wand settings",
+    "Object select and Select subject",
+    "Feather and modify",
+    "Refine a tricky edge",
+    "Paint a selection with quick mask",
+    "Using a selection",
+    "Common problems"
+   ],
+   "links": [
+    "ai-on-this-device"
+   ],
+   "tries": [],
+   "summary": "Marquee, lasso, polygonal lasso, magic wand, object select and select subject, plus adding, subtracting, feathering and refining selections."
+  },
+  {
+   "slug": "type",
+   "title": "Add and style text",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 904,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "typography-fundamentals",
+    "brand-kit",
+    "layer-styles",
+    "shapes-and-pen"
+   ],
+   "keywords": "text type typography font google fonts upload font file otf ttf woff paragraph text box wrap leading tracking kerning letter spacing line height outline stroke shadow caps",
+   "headings": [
+    "Add text",
+    "Fonts",
+    "Character settings",
+    "Paragraph settings",
+    "Outline and shadow",
+    "Type on a path",
+    "On a phone",
+    "Common problems"
+   ],
+   "links": [
+    "privacy-and-data",
+    "layer-styles",
+    "shapes-and-pen",
+    "masks"
+   ],
+   "tries": [],
+   "summary": "Type straight onto the canvas, choose Google fonts or your own font files, and set character and paragraph options, outline and shadow."
+  },
+  {
+   "slug": "shapes-and-pen",
+   "title": "Draw shapes and paths with the Pen",
+   "category": "editor",
+   "level": "Intermediate",
+   "words": 1031,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "masks",
+    "type",
+    "groups-align-guides",
+    "colour-and-swatches"
+   ],
+   "keywords": "shape rectangle ellipse circle polygon star line pen tool bezier curve path vector anchor points direct select pathfinder unite subtract svg outline stroke rounded corners",
+   "headings": [
+    "Draw a shape",
+    "Style a shape",
+    "The Pen tools",
+    "Shape or path",
+    "Edit points with Direct select",
+    "The Paths panel",
+    "Pathfinder",
+    "Take paths elsewhere",
+    "On a phone",
+    "Common problems"
+   ],
+   "links": [],
+   "tries": [],
+   "summary": "Rectangles, ellipses, polygons, stars and lines, then the Pen, Curvature pen, Freeform pen and Direct select for custom vector shapes and paths."
+  },
+  {
+   "slug": "brand-kit",
+   "title": "Keep brand colours, fonts and logos ready",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 476,
+   "minutes": 2,
+   "updated": "2026-09-25",
+   "related": [
+    "colour-and-swatches",
+    "type",
+    "brands-library",
+    "brand-guidelines"
+   ],
+   "keywords": "brand kit brand colours fonts logos palette house style consistent on brand assets identity",
+   "headings": [
+    "Set up the brand kit",
+    "Use it while you design",
+    "Good to know"
+   ],
+   "links": [
+    "brands-library",
+    "type"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Save your brand colours, fonts and logos once, and have them ready in every design you open in the Editor."
+  },
+  {
+   "slug": "colour-and-swatches",
+   "title": "Pick, save and apply colour",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 780,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "brand-kit",
+    "colour-that-works",
+    "shapes-and-pen",
+    "blend-modes-and-opacity"
+   ],
+   "keywords": "colour color picker hex rgb hsl swatches palette eyedropper colour picker tool sample gradient paint bucket fill foreground background main colour second colour",
+   "headings": [
+    "Main and second colour",
+    "The colour picker",
+    "Swatches",
+    "The Eyedropper tool",
+    "Gradients",
+    "Paint bucket and Fill",
+    "The background colour",
+    "On a phone",
+    "Common problems"
+   ],
+   "links": [
+    "brand-kit"
+   ],
+   "tries": [],
+   "summary": "The main and second colours, the colour picker, swatches, the eyedropper, gradients, the paint bucket and Fill."
+  },
+  {
+   "slug": "adjustment-layers",
+   "title": "Change colour and tone with adjustment layers",
+   "category": "editor",
+   "level": "Intermediate",
+   "words": 1451,
+   "minutes": 7,
+   "updated": "2026-09-25",
+   "related": [
+    "filters-in-the-editor",
+    "masks",
+    "blend-modes-and-opacity",
+    "workflow-portrait-retouch"
+   ],
+   "keywords": "adjustment layer curves levels hue saturation brightness contrast exposure vibrance colour balance color balance channel mixer photo filter gradient map duotone posterize threshold invert black and white blur temperature warmth tint lut cube colour grade non-destructive",
+   "headings": [
+    "How an adjustment layer works",
+    "Add an adjustment",
+    "Tone: brightness, levels, curves and exposure",
+    "Colour adjustments",
+    "Special effects adjustments",
+    "Limit an adjustment to part of the design",
+    "Compare before and after",
+    "Good to know"
+   ],
+   "links": [
+    "masks",
+    "designing-on-a-phone"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Curves, levels, hue and saturation, exposure and the other adjustments, added as layers you can change or remove at any time without touching your pixels."
+  },
+  {
+   "slug": "filters-in-the-editor",
+   "title": "Use filters as editable layers",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 965,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "adjustment-layers",
+    "effects-overview",
+    "artistic-effects",
+    "masks"
+   ],
+   "keywords": "filter gallery effects fx halftone glitch dither film grain vignette live filter layer non-destructive stack mask fade preview export sharper",
+   "headings": [
+    "Open the filter gallery",
+    "What a filter layer does",
+    "Fade, blend and mask a filter",
+    "Stack filters",
+    "Why the export looks slightly sharper than the preview",
+    "Common problems"
+   ],
+   "links": [
+    "artistic-effects",
+    "stylise-effects",
+    "colour-effects",
+    "distortion-effects",
+    "texture-effects",
+    "blend-modes-and-opacity",
+    "masks",
+    "export-for-screen",
+    "export-for-print"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Add any of the 58 Void filters from the filter gallery as a live layer, then stack, mask and fade it. Also explains why exports look slightly sharper than the preview."
+  },
+  {
+   "slug": "layer-styles",
+   "title": "Add shadows, strokes and glows with layer styles",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 895,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "type",
+    "blend-modes-and-opacity",
+    "remove-background",
+    "layers"
+   ],
+   "keywords": "layer style fx effects drop shadow stroke outline border glow neon inner shadow colour overlay color overlay gradient overlay bevel emboss sticker fill opacity copy paste style",
+   "headings": [
+    "The eight styles",
+    "Add a style",
+    "The Layer style window",
+    "Quick presets and the Layer styles panel",
+    "Shadow straight from Properties",
+    "Reuse a style on other layers",
+    "Tips for good-looking styles",
+    "Good to know"
+   ],
+   "links": [
+    "remove-background",
+    "import-psd-and-pdf"
+   ],
+   "tries": [],
+   "summary": "Drop shadow, stroke, outer and inner glow, overlays and bevel, added as live styles that follow the layer's shape and never change its pixels."
+  },
+  {
+   "slug": "retouching",
+   "title": "Retouch photos with the brush, heal and clone tools",
+   "category": "editor",
+   "level": "Intermediate",
+   "words": 1100,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "workflow-portrait-retouch",
+    "masks",
+    "ai-on-this-device",
+    "selections"
+   ],
+   "keywords": "retouch brush eraser spot heal healing brush clone stamp dodge burn sponge blemish remove spots skin paint flow hardness opacity smoothing stabiliser stabilizer pen pressure tablet stylus",
+   "headings": [
+    "The tools and their keys",
+    "Brush settings in the options bar",
+    "Brush and Eraser",
+    "Spot heal",
+    "Clone stamp",
+    "Dodge, burn and sponge",
+    "Work non-destructively",
+    "Common problems",
+    "On a phone or tablet"
+   ],
+   "links": [
+    "ai-on-this-device",
+    "masks",
+    "history-and-undo",
+    "designing-on-a-phone"
+   ],
+   "tries": [],
+   "summary": "Paint, erase, spot heal, clone and dodge or burn, with brush size, hardness, opacity, flow, smoothing and pen pressure explained."
+  },
+  {
+   "slug": "remove-background",
+   "title": "Remove a background on your device",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 861,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "ai-on-this-device",
+    "masks",
+    "selections",
+    "export-for-screen"
+   ],
+   "keywords": "remove background background remover cutout cut out transparent png no background delete background subject person product isolate matte hair edge refine free private offline",
+   "headings": [
+    "Remove a background",
+    "Choose the right model",
+    "Why it uses a mask",
+    "Refine the edge",
+    "Export a transparent PNG",
+    "Common problems"
+   ],
+   "links": [
+    "browser-support",
+    "masks",
+    "export-for-screen",
+    "ai-on-this-device"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Cut a person or product out of a photo with a model that runs in your browser, then refine the edge and export a transparent PNG."
+  },
+  {
+   "slug": "crop-and-canvas",
+   "title": "Crop, resize, rotate and flip",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 959,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "image-resolution-explained",
+    "resize-to-every-format",
+    "ai-on-this-device",
+    "export-for-print"
+   ],
+   "keywords": "crop trim canvas size image size resize resample scale dpi resolution rotate flip mirror straighten aspect ratio square 4:5 16:9 9:16 expand extend border",
+   "headings": [
+    "Which command do I need?",
+    "Crop",
+    "Canvas size: add or remove space",
+    "Expand with AI fill",
+    "Image size: scale everything",
+    "Rotate and flip",
+    "Good to know"
+   ],
+   "links": [
+    "resize-to-every-format",
+    "remove-background",
+    "ai-on-this-device",
+    "image-resolution-explained",
+    "export-for-print"
+   ],
+   "tries": [],
+   "summary": "Crop with fixed ratios, change the canvas size without scaling, resize the whole image with resolution, and rotate or flip the canvas or a single layer."
+  },
+  {
+   "slug": "ai-on-this-device",
+   "title": "Use the AI tools that run on your device",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 1094,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "remove-background",
+    "selections",
+    "privacy-and-data",
+    "browser-support"
+   ],
+   "keywords": "ai artificial intelligence on device local offline private free no upload no credits select subject object selection remove object inpaint content aware fill generative expand outpaint model download webgpu modnet birefnet lama",
+   "headings": [
+    "The tools",
+    "The models and their downloads",
+    "Select subject",
+    "Object select",
+    "Remove object",
+    "Expand with AI fill",
+    "Speed and browsers",
+    "Common problems"
+   ],
+   "links": [
+    "remove-background",
+    "privacy-and-data",
+    "selections",
+    "retouching",
+    "crop-and-canvas",
+    "browser-support"
+   ],
+   "tries": [],
+   "summary": "Remove background, select subject, object select, remove object and expand with AI fill: what each does, which model it uses, the one-time downloads, and what never leaves your browser."
+  },
+  {
+   "slug": "artboards",
+   "title": "Work with boards (artboards)",
+   "category": "editor",
+   "level": "Intermediate",
+   "words": 880,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "resize-to-every-format",
+    "export-for-screen",
+    "layers",
+    "workflow-social-campaign"
+   ],
+   "keywords": "artboard artboards board boards frames pages multiple sizes canvas multi page layout",
+   "headings": [
+    "How boards work",
+    "Open the Boards dialog",
+    "Add a board",
+    "Move a board",
+    "Resize a board",
+    "Rename, duplicate and delete",
+    "Zoom to a board",
+    "Export boards",
+    "Good to know"
+   ],
+   "links": [
+    "resize-to-every-format",
+    "export-for-screen",
+    "import-psd-and-pdf"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Put several boards of different sizes in one design, then add, move, resize, duplicate, tidy and delete them."
+  },
+  {
+   "slug": "resize-to-every-format",
+   "title": "Resize one design to every format",
+   "category": "editor",
+   "level": "Intermediate",
+   "words": 891,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "artboards",
+    "size-presets",
+    "designing-for-social",
+    "workflow-social-campaign"
+   ],
+   "keywords": "resize resizer magic resize formats all sizes instagram story youtube linkedin x twitter header cascade variants adapt",
+   "headings": [
+    "Which method to use",
+    "The sizes on offer",
+    "Resize for other formats",
+    "Cascade to touchpoints",
+    "Keep linked boards up to date",
+    "Common problems"
+   ],
+   "links": [
+    "size-presets"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Turn one finished design into posts, stories, thumbnails and banners, as a ZIP of PNGs, as separate designs, or as linked boards."
+  },
+  {
+   "slug": "import-psd-and-pdf",
+   "title": "Open PSD, PDF and other files",
+   "category": "editor",
+   "level": "Intermediate",
+   "words": 950,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "file-formats",
+    "workflow-psd-to-social",
+    "layers",
+    "troubleshooting"
+   ],
+   "keywords": "import open psd photoshop pdf file upload place image drag drop paste void project missing fonts smart object layers kept",
+   "headings": [
+    "Ways to bring files in",
+    "Photoshop (.psd)",
+    "PDF",
+    "Voidcanvas project files",
+    "Common problems"
+   ],
+   "links": [
+    "artboards"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "What a Photoshop file keeps when you open it, how PDF pages arrive as layers, and every other way to bring work into the Editor."
+  },
+  {
+   "slug": "export-for-screen",
+   "title": "Export for screens: PNG, JPG and WebP",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 654,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "export-for-print",
+    "artboards",
+    "image-resolution-explained",
+    "file-formats"
+   ],
+   "keywords": "export download save png jpg jpeg webp transparent background clipboard copy image retina 2x scale quality share",
+   "headings": [
+    "Export in four steps",
+    "Which file type",
+    "Which size",
+    "Transparency",
+    "Copy to the clipboard",
+    "Boards and editable files",
+    "Other places to export",
+    "Good to know"
+   ],
+   "links": [
+    "export-for-print",
+    "image-resolution-explained",
+    "artboards",
+    "templates-and-versions"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Pick the right file type and size for web and social, keep or drop transparency, and copy an image straight to your clipboard."
+  },
+  {
+   "slug": "export-for-print",
+   "title": "Export for print: PDF, dpi and bleed",
+   "category": "editor",
+   "level": "Intermediate",
+   "words": 749,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "designing-for-print",
+    "workflow-print-flyer",
+    "export-for-screen",
+    "crop-and-canvas"
+   ],
+   "keywords": "print pdf 300 dpi bleed crop marks trim printer flyer poster business card cmyk resolution a4 a5",
+   "headings": [
+    "What the PDF contains",
+    "How the page size is set",
+    "Export the PDF",
+    "Add bleed yourself",
+    "What to ask your printer",
+    "Common problems"
+   ],
+   "links": [
+    "designing-for-print",
+    "brand-guideline-exports"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "How the Editor's PDF works, which sizes print at 300 dpi, how to add bleed yourself, and what to ask your printer."
+  },
+  {
+   "slug": "templates-and-versions",
+   "title": "Save templates and restore versions",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 584,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "saving-and-your-files",
+    "history-and-undo",
+    "private-session",
+    "brand-kit"
+   ],
+   "keywords": "template templates reuse layout version history versions restore recover backup snapshot older copy autosave crash",
+   "headings": [
+    "Save a design as a template",
+    "Start from a template",
+    "How saving works",
+    "When versions are made",
+    "Restore a version",
+    "Change how often versions are made",
+    "Good to know"
+   ],
+   "links": [
+    "brand-kit",
+    "saving-and-your-files",
+    "private-session",
+    "history-and-undo"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Reuse a layout as a template that never changes, and go back to earlier states of a design with version history."
+  },
+  {
+   "slug": "history-and-undo",
+   "title": "Undo, history and before and after",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 597,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "templates-and-versions",
+    "adjustment-layers",
+    "keyboard-shortcuts",
+    "workspaces-and-panels"
+   ],
+   "keywords": "undo redo history panel step back revert snapshot before after compare backslash memory steps",
+   "headings": [
+    "Undo and redo",
+    "The History panel",
+    "Snapshots",
+    "How many steps are kept",
+    "Before and after",
+    "Common problems"
+   ],
+   "links": [
+    "templates-and-versions",
+    "adjustment-layers"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Step back through your edits, jump to any point in the History panel, pin snapshots, and compare with and without adjustments."
+  },
+  {
+   "slug": "command-palette-and-menus",
+   "title": "Find any action: menus, Ctrl+K and the shortcut sheet",
+   "category": "editor",
+   "level": "Beginner",
+   "words": 563,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "keyboard-shortcuts",
+    "editor-tour",
+    "workspaces-and-panels",
+    "history-and-undo"
+   ],
+   "keywords": "command palette search actions ctrl k cmd k menu bar menus shortcuts cheat sheet question mark find command photoshop",
+   "headings": [
+    "Search every action with Ctrl+K",
+    "The menu bar",
+    "The shortcut sheet",
+    "Shortcuts worth learning first"
+   ],
+   "links": [
+    "keyboard-shortcuts"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Use the menu bar, search every command with Ctrl+K, and look up any shortcut with the ? sheet."
+  },
+  {
+   "slug": "workspaces-and-panels",
+   "title": "Arrange panels, workspaces and preferences",
+   "category": "editor",
+   "level": "Intermediate",
+   "words": 775,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "editor-tour",
+    "command-palette-and-menus",
+    "designing-on-a-phone",
+    "history-and-undo"
+   ],
+   "keywords": "panels dock workspace layout floating panel tabs reset workspace preferences settings interface size ui scale density touch mode tools toolbar",
+   "headings": [
+    "Workspaces",
+    "Dock, tabs and groups",
+    "The icon strip and floating panels",
+    "Floating tools",
+    "Save and reset your own workspace",
+    "Preferences",
+    "Touch mode",
+    "Good to know"
+   ],
+   "links": [
+    "history-and-undo",
+    "designing-on-a-phone"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Dock, tab, float and tuck panels, switch between workspaces or save your own, and set interface size, density and touch mode."
+  },
+  {
+   "slug": "studio-overview",
+   "title": "Run a client job in Studio from brief to delivery",
+   "category": "studio",
+   "level": "Beginner",
+   "words": 867,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "start-a-job-from-a-brief",
+    "directions-and-review",
+    "delivering-files",
+    "brands-library"
+   ],
+   "keywords": "studio jobs projects client work job tracker workflow pipeline brief to delivery art director status direction design review delivered",
+   "headings": [
+    "What is on the Studio home screen",
+    "The six steps of a job",
+    "Status: direction, design, review, delivered",
+    "The Next button",
+    "How Studio and the Editor pass work",
+    "Good to know"
+   ],
+   "links": [
+    "brands-library",
+    "brand-guidelines",
+    "moving-work-between-tools",
+    "saving-and-your-files"
+   ],
+   "tries": [
+    "/studio"
+   ],
+   "summary": "Studio keeps each client job in one place: the brief, references, directions, the key visual and its formats, review rounds and the final files. Here is how a job moves through it."
+  },
+  {
+   "slug": "start-a-job-from-a-brief",
+   "title": "Start a job from the client's brief",
+   "category": "studio",
+   "level": "Beginner",
+   "words": 1343,
+   "minutes": 6,
+   "updated": "2026-09-25",
+   "related": [
+    "studio-overview",
+    "references-and-palettes",
+    "directions-and-review",
+    "resize-to-every-format"
+   ],
+   "keywords": "brief reader paste brief client brief checklist must include deliverables formats sizes key visual master format build formats linked formats role in formats update formats",
+   "headings": [
+    "Paste the brief",
+    "What the reader picks out",
+    "List the formats you owe",
+    "Pick the client brand",
+    "Start the key visual",
+    "Build every format from the key visual",
+    "Common problems"
+   ],
+   "links": [
+    "brands-library",
+    "resize-to-every-format"
+   ],
+   "tries": [],
+   "summary": "Paste the brief as the client sent it. Studio reads the headline, date, venue, price, call to action, contact and must-haves, suggests the formats it mentions, and carries all of it into the key visual and every format built from it."
+  },
+  {
+   "slug": "references-and-palettes",
+   "title": "Collect references and pull palettes from them",
+   "category": "studio",
+   "level": "Beginner",
+   "words": 960,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "directions-and-review",
+    "start-a-job-from-a-brief",
+    "colour-that-works",
+    "typography-fundamentals"
+   ],
+   "keywords": "references moodboard mood board inspiration palette from image colour picker extract colours hex colour grade take the look colour match font identifier what font is this lettering composition rule of thirds",
+   "headings": [
+    "Add references",
+    "Read a reference",
+    "Identify the type style",
+    "Take the look and apply it to a photo",
+    "From references to a palette",
+    "Good to know"
+   ],
+   "links": [
+    "adjustment-layers",
+    "directions-and-review"
+   ],
+   "tries": [],
+   "summary": "Add the images the client sent and the ones you have in mind. Studio reads each for colour, light, composition, texture and lettering, gives you its palette with proportions, and lets you save its colour grade to reuse on your own photos."
+  },
+  {
+   "slug": "directions-and-review",
+   "title": "Present directions and run review rounds",
+   "category": "studio",
+   "level": "Intermediate",
+   "words": 1185,
+   "minutes": 5,
+   "updated": "2026-09-26",
+   "related": [
+    "references-and-palettes",
+    "start-a-job-from-a-brief",
+    "delivering-files",
+    "review-and-delivery-links"
+   ],
+   "keywords": "directions concepts routes moodboard present pitch client feedback revisions amends comments pins versions compare before after mockup poster mockup review pack approval whatsapp",
+   "headings": [
+    "The directions board",
+    "Shape each direction",
+    "Present directions to the client",
+    "Record the client's choice",
+    "Save a version for review",
+    "Pin comments and turn a reply into a checklist",
+    "Compare versions",
+    "Mockups",
+    "Send the round"
+   ],
+   "links": [
+    "references-and-palettes",
+    "review-and-delivery-links"
+   ],
+   "tries": [],
+   "summary": "Group references into two or three directions the client can choose from, present them as slides, a PDF or WhatsApp images, record their choice, then save each version you show them, pin their comments and turn their reply into a checklist."
+  },
+  {
+   "slug": "review-and-delivery-links",
+   "title": "Send review and delivery links to clients",
+   "category": "studio",
+   "level": "Intermediate",
+   "words": 456,
+   "minutes": 2,
+   "updated": "2026-09-26",
+   "related": [
+    "directions-and-review",
+    "delivering-files",
+    "teams",
+    "account-and-sync"
+   ],
+   "keywords": "share link client review approve approval comments pins feedback delivery handover download send whatsapp email browser no account encrypted expire stop",
+   "headings": [
+    "Send a review link",
+    "What the client does",
+    "What you see",
+    "Delivery links",
+    "Stopping a link"
+   ],
+   "links": [
+    "account-and-sync"
+   ],
+   "tries": [],
+   "summary": "Send a client a link to a version. They pin comments, reply, and approve or ask for changes in their browser, with no account. Delivery links hand over the final files the same way. Everything is encrypted before it leaves your device."
+  },
+  {
+   "slug": "delivering-files",
+   "title": "Deliver every format, named and ready for the printer",
+   "category": "studio",
+   "level": "Intermediate",
+   "words": 842,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "export-for-print",
+    "directions-and-review",
+    "start-a-job-from-a-brief",
+    "designing-for-print"
+   ],
+   "keywords": "deliver final files handover export zip package file naming version numbers print pdf bleed crop marks delivery note brand sheet artwork hand off",
+   "headings": [
+    "Before you deliver",
+    "Choose file types for each format",
+    "Build the package",
+    "How files are named",
+    "What the print PDF contains",
+    "The delivery note and brand sheet",
+    "Common problems"
+   ],
+   "links": [
+    "start-a-job-from-a-brief",
+    "review-and-delivery-links",
+    "export-for-print",
+    "designing-for-print",
+    "brands-library"
+   ],
+   "tries": [
+    "/studio"
+   ],
+   "summary": "The Deliver tab renders every format at full size in the file types you tick, names each file by client, job, format and version, adds print PDFs with bleed and crop marks, and zips it all with a delivery note."
+  },
+  {
+   "slug": "brands-library",
+   "title": "Save client brands and reuse them on every job",
+   "category": "studio",
+   "level": "Beginner",
+   "words": 708,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "brand-guidelines",
+    "brand-kit",
+    "delivering-files",
+    "building-a-brand-identity"
+   ],
+   "keywords": "client brands brand library brand memory brand colours brand fonts logos on brand off brand check brand compliance clear space minimum size voice tone",
+   "headings": [
+    "Create a brand",
+    "What a brand holds",
+    "Use a brand on a job",
+    "What the Editor checks",
+    "Load a brand into the Editor's brand kit",
+    "Brands in delivery",
+    "Good to know"
+   ],
+   "links": [
+    "brand-guidelines",
+    "brand-kit",
+    "delivering-files"
+   ],
+   "tries": [],
+   "summary": "Keep each client's colours, fonts, logos, logo rules and voice as a brand in Studio. Pick it on a job and the Editor checks the design against it, flagging off-brand colours, wrong fonts, small logos and crowded clear space."
+  },
+  {
+   "slug": "brand-guidelines",
+   "title": "Build a brand guideline with locks and new takes",
+   "category": "studio",
+   "level": "Intermediate",
+   "words": 1150,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "brand-guideline-exports",
+    "brands-library",
+    "colour-that-works",
+    "workflow-client-brand-guideline"
+   ],
+   "keywords": "brand guidelines brand book style guide identity guidelines design system colour ramps oklch wcag contrast type scale modular scale logo clear space minimum size generator",
+   "headings": [
+    "Locks and New take",
+    "Identity",
+    "Colour",
+    "Type",
+    "Checks",
+    "Pages",
+    "Your work is saved as you go",
+    "On a phone"
+   ],
+   "links": [
+    "colour-that-works",
+    "typography-fundamentals",
+    "private-session"
+   ],
+   "tries": [
+    "/studio"
+   ],
+   "summary": "The brand guideline builder turns a brand colour, a logo and a personality into a full system: colour ramps, contrast pairings, a type scale, logo rules and a paged guideline. Lock what you have decided, and New take explores everything else."
+  },
+  {
+   "slug": "brand-guideline-exports",
+   "title": "Export a brand guideline for clients, printers and developers",
+   "category": "studio",
+   "level": "Intermediate",
+   "words": 843,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "brand-guidelines",
+    "brands-library",
+    "export-for-print",
+    "workflow-client-brand-guideline"
+   ],
+   "keywords": "export brand guidelines pdf print pdf html handoff design tokens json css variables tailwind config ase adobe swatch exchange illustrator swatches developer handoff",
+   "headings": [
+    "Which export to send",
+    "Screen PDF",
+    "Print PDF",
+    "HTML handoff",
+    "Open in the Editor",
+    "Save as a client brand in Studio",
+    "Tokens for developers",
+    "Adobe swatches (.ase)",
+    "Common problems"
+   ],
+   "links": [
+    "brand-guidelines",
+    "export-for-print",
+    "artboards",
+    "brands-library"
+   ],
+   "tries": [],
+   "summary": "Every export from the brand guideline builder: a screen PDF, a print PDF with bleed and crop marks, a single-file HTML handoff, editable Editor layers, CSS, Tailwind, design tokens JSON and Adobe .ase swatches."
+  },
+  {
+   "slug": "effects-overview",
+   "title": "Use Effects to restyle a photo in one click",
+   "category": "effects",
+   "level": "Beginner",
+   "words": 1046,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "artistic-effects",
+    "quick-tools",
+    "moving-work-between-tools",
+    "filters-in-the-editor"
+   ],
+   "keywords": "photo filter image effect filters online free halftone glitch dither download full size compare before after open in editor",
+   "headings": [
+    "Load a photo",
+    "Pick an effect",
+    "Tune the settings",
+    "Compare with the original",
+    "Download",
+    "Send to the Editor",
+    "On a phone",
+    "Good to know"
+   ],
+   "links": [
+    "privacy-and-data",
+    "artistic-effects",
+    "stylise-effects",
+    "colour-effects",
+    "distortion-effects",
+    "texture-effects",
+    "filters-in-the-editor",
+    "moving-work-between-tools"
+   ],
+   "tries": [
+    "/effects"
+   ],
+   "summary": "Load a photo, pick one of 58 effects, tune its sliders, compare with the original, then download at full size or send it to the Editor as a live layer."
+  },
+  {
+   "slug": "artistic-effects",
+   "title": "Artistic effects and their settings",
+   "category": "effects",
+   "level": "Beginner",
+   "words": 1247,
+   "minutes": 6,
+   "updated": "2026-09-25",
+   "related": [
+    "effects-overview",
+    "quick-tools",
+    "workflow-textured-print-look",
+    "texture-effects"
+   ],
+   "keywords": "halftone dither ascii mosaic oil paint crosshatch stipple watercolour watercolor pencil sketch pop art warhol pointillism woodcut linocut print look drawing filter",
+   "headings": [
+    "Halftone",
+    "Dither",
+    "ASCII",
+    "Mosaic",
+    "Oil Paint",
+    "Crosshatch",
+    "Stipple",
+    "Watercolor",
+    "Pencil Sketch",
+    "Pop Art",
+    "Pointillism",
+    "Woodcut"
+   ],
+   "links": [
+    "quick-tools",
+    "workflow-textured-print-look"
+   ],
+   "tries": [
+    "/effects"
+   ],
+   "summary": "All 12 effects in the Artistic tab, from Halftone and Dither to Oil Paint and Woodcut, with what every slider does to the picture."
+  },
+  {
+   "slug": "stylise-effects",
+   "title": "Stylize effects and their settings",
+   "category": "effects",
+   "level": "Beginner",
+   "words": 1008,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "effects-overview",
+    "artistic-effects",
+    "distortion-effects"
+   ],
+   "keywords": "stylise stylize pixelate pixel art posterise posterize edge detection outline emboss threshold black and white solarise solarize kaleidoscope mirror symmetry tilt shift miniature crystallise crystallize low poly triangles",
+   "headings": [
+    "Pixelate",
+    "Posterize",
+    "Edge Detect",
+    "Emboss",
+    "Threshold",
+    "Solarize",
+    "Kaleidoscope",
+    "Mirror",
+    "Tilt Shift",
+    "Crystallize",
+    "Low Poly"
+   ],
+   "links": [],
+   "tries": [
+    "/effects"
+   ],
+   "summary": "All 11 effects in the Stylize tab: Pixelate, Posterize, Edge Detect, Emboss, Threshold, Solarize, Kaleidoscope, Mirror, Tilt Shift, Crystallize and Low Poly."
+  },
+  {
+   "slug": "colour-effects",
+   "title": "Color effects and their settings",
+   "category": "effects",
+   "level": "Beginner",
+   "words": 1082,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "effects-overview",
+    "colour-that-works",
+    "adjustment-layers",
+    "stylise-effects"
+   ],
+   "keywords": "colour color grade grading duotone two tone sepia invert negative channel mixer thermal heat map night vision infrared cyberpunk neon vintage film gradient map hue shift colour balance tint",
+   "headings": [
+    "Duotone",
+    "Sepia",
+    "Invert",
+    "Channel Mix",
+    "Thermal",
+    "Night Vision",
+    "Infrared",
+    "Cyberpunk",
+    "Vintage",
+    "Gradient Map",
+    "Hue Shift",
+    "Color Balance",
+    "Good to know"
+   ],
+   "links": [
+    "brand-kit",
+    "adjustment-layers"
+   ],
+   "tries": [
+    "/effects"
+   ],
+   "summary": "All 12 effects in the Color tab, from Duotone and Gradient Map to Thermal and Night Vision, and how to set their colours so they do what you expect."
+  },
+  {
+   "slug": "distortion-effects",
+   "title": "Distort effects and their settings",
+   "category": "effects",
+   "level": "Intermediate",
+   "words": 1135,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "effects-overview",
+    "quick-tools",
+    "stylise-effects",
+    "texture-effects"
+   ],
+   "keywords": "distortion distort glitch datamosh rgb split chromatic aberration wave ripple displace warp crt retro tv swirl twirl fisheye bulge motion blur radial zoom blur pixel sort pixel sorting slice shift",
+   "headings": [
+    "Glitch",
+    "RGB Shift",
+    "Chromatic",
+    "Wave",
+    "Displace",
+    "CRT",
+    "Swirl",
+    "Fisheye",
+    "Motion Blur",
+    "Radial Blur",
+    "Pixel Sort",
+    "Slice Shift"
+   ],
+   "links": [
+    "quick-tools"
+   ],
+   "tries": [
+    "/effects"
+   ],
+   "summary": "All 12 effects in the Distort tab, from Glitch and RGB Shift to Swirl, Fisheye and Pixel Sort, with what every slider does."
+  },
+  {
+   "slug": "texture-effects",
+   "title": "Enhance and texture effects and their settings",
+   "category": "effects",
+   "level": "Beginner",
+   "words": 958,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "effects-overview",
+    "workflow-textured-print-look",
+    "distortion-effects",
+    "artistic-effects"
+   ],
+   "keywords": "texture enhance blur soften sharpen vignette noise film grain grainy analogue scanlines bloom glow freeze icy dot matrix led lens flare light leak film burn",
+   "headings": [
+    "Blur",
+    "Sharpen",
+    "Vignette",
+    "Noise",
+    "Film Grain",
+    "Scanlines",
+    "Bloom",
+    "Freeze",
+    "Dot Matrix",
+    "Lens Flare",
+    "Film Burn"
+   ],
+   "links": [],
+   "tries": [
+    "/effects"
+   ],
+   "summary": "All 11 effects in the Enhance tab: Blur, Sharpen, Vignette, Noise, Film Grain, Scanlines, Bloom, Freeze, Dot Matrix, Lens Flare and Film Burn."
+  },
+  {
+   "slug": "quick-tools",
+   "title": "Use the Halftone, Dither and Glitch quick tools",
+   "category": "effects",
+   "level": "Beginner",
+   "words": 446,
+   "minutes": 2,
+   "updated": "2026-09-25",
+   "related": [
+    "effects-overview",
+    "artistic-effects",
+    "distortion-effects",
+    "moving-work-between-tools"
+   ],
+   "keywords": "halftone generator dither generator glitch image generator online free tool no account send to layer stack shuffle download png",
+   "headings": [
+    "The three tools",
+    "Use a quick tool",
+    "Download PNG",
+    "Send to Layer Stack",
+    "Quick tools compared with Effects",
+    "Good to know"
+   ],
+   "links": [
+    "effects-overview",
+    "artistic-effects",
+    "distortion-effects",
+    "filters-in-the-editor"
+   ],
+   "tries": [
+    "/tools/halftone"
+   ],
+   "summary": "Three single-purpose pages that load with a sample image, give you just the sliders that matter, and download a full-size PNG or send the result to the Editor."
+  },
+  {
+   "slug": "workflow-event-poster",
+   "title": "Make an event poster from a photo to a print-ready PDF",
+   "category": "workflows",
+   "level": "Intermediate",
+   "words": 1450,
+   "minutes": 7,
+   "updated": "2026-09-25",
+   "related": [
+    "remove-background",
+    "export-for-print",
+    "workflow-print-flyer",
+    "typography-fundamentals"
+   ],
+   "keywords": "gig poster concert flyer event artwork print pdf 300 dpi photo cutout text behind subject large format",
+   "headings": [
+    "You will need",
+    "Result",
+    "1. Start at the final size",
+    "2. Set margins before you place anything",
+    "3. Place the photo and fill the page",
+    "4. Cut the subject out so it can stand in front of the type",
+    "5. Tone the background down",
+    "6. Set the headline behind the subject",
+    "7. Add the details in a clear order",
+    "8. Proof it at print size",
+    "9. Export the PDF",
+    "10. Talk to the printer about bleed",
+    "Common problems"
+   ],
+   "links": [
+    "workflow-print-flyer"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Build an 18 × 24 inch event poster in the Editor: cut the subject out so it stands in front of the headline, tone the background down, set the details in order and export a 300 dpi PDF."
+  },
+  {
+   "slug": "workflow-social-campaign",
+   "title": "Turn one launch post into every social format",
+   "category": "workflows",
+   "level": "Intermediate",
+   "words": 1208,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "studio-overview",
+    "resize-to-every-format",
+    "designing-for-social",
+    "delivering-files"
+   ],
+   "keywords": "campaign instagram story reel linkedin youtube x twitter facebook whatsapp resize formats key visual master linked variants all sizes",
+   "headings": [
+    "You will need",
+    "Result",
+    "1. Start a job and paste the brief",
+    "2. List every format you owe",
+    "3. Start the key visual",
+    "4. Design the master so it can adapt",
+    "5. Build the formats",
+    "6. Finish each format by hand",
+    "7. Change once, update everywhere",
+    "8. Show the client",
+    "9. Deliver",
+    "Without a Studio job",
+    "Common problems"
+   ],
+   "links": [
+    "directions-and-review"
+   ],
+   "tries": [
+    "/studio"
+   ],
+   "summary": "Use a Studio job to design one key visual, build linked versions for every social format, keep them in step when the copy changes, and deliver a named zip."
+  },
+  {
+   "slug": "workflow-print-flyer",
+   "title": "Make an A5 flyer with bleed for the printer",
+   "category": "workflows",
+   "level": "Beginner",
+   "words": 987,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "designing-for-print",
+    "export-for-print",
+    "delivering-files",
+    "image-resolution-explained"
+   ],
+   "keywords": "a5 leaflet handbill flyer print bleed crop marks trim marks safe area 300 dpi print ready pdf printer",
+   "headings": [
+    "You will need",
+    "Result",
+    "Trim, bleed and safe area",
+    "1. Set up a job with an A5 format",
+    "2. Open the flyer in the Editor",
+    "3. Mark the safe area",
+    "4. Take backgrounds to the edge",
+    "5. Set type that prints",
+    "6. Check against the brief",
+    "7. Go back to Studio and send a proof",
+    "8. Build the print package",
+    "9. What to tell the printer",
+    "Common problems"
+   ],
+   "links": [
+    "image-resolution-explained"
+   ],
+   "tries": [
+    "/studio"
+   ],
+   "summary": "Design an A5 flyer at 300 dpi with a safe margin, then deliver it from Studio as a print PDF with 3 mm bleed, crop marks and trim and bleed boxes set."
+  },
+  {
+   "slug": "workflow-client-brand-guideline",
+   "title": "Build a brand guideline for a client, from logo to handoff",
+   "category": "workflows",
+   "level": "Intermediate",
+   "words": 1171,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "brand-guidelines",
+    "brand-guideline-exports",
+    "brands-library",
+    "building-a-brand-identity"
+   ],
+   "keywords": "brand book style guide brand manual guidelines pdf identity logo rules colour palette type scale design tokens css tailwind ase handoff",
+   "headings": [
+    "You will need",
+    "Result",
+    "1. Open the builder",
+    "2. Identity: logo and the rules around it",
+    "3. Colour: a system, not a list",
+    "4. Type: families and a scale",
+    "5. Explore with New take, then lock",
+    "6. Check before you show anyone",
+    "7. Shape the document",
+    "8. Export for everyone who will use it",
+    "9. Save it as a client brand",
+    "Common problems"
+   ],
+   "links": [
+    "colour-that-works"
+   ],
+   "tries": [
+    "/studio"
+   ],
+   "summary": "Use the brand guideline builder to go from a client's logo to a checked colour system, type scale and logo rules, then hand over PDFs, an HTML file, tokens and swatches, and save the brand for future jobs."
+  },
+  {
+   "slug": "workflow-portrait-retouch",
+   "title": "Retouch a portrait without destroying the original",
+   "category": "workflows",
+   "level": "Intermediate",
+   "words": 1059,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "retouching",
+    "masks",
+    "adjustment-layers",
+    "history-and-undo"
+   ],
+   "keywords": "portrait retouch skin blemish spot heal clone stamp dodge burn soften skin headshot non destructive curves mask",
+   "headings": [
+    "You will need",
+    "Result",
+    "How the stack works",
+    "1. Open the photo and protect it",
+    "2. Clean up blemishes with Spot heal",
+    "3. Fix edges with Clone stamp",
+    "4. Soften skin, with restraint",
+    "5. Shape the light with two masked Curves",
+    "6. Grade the colour",
+    "7. Compare and step back",
+    "8. Export",
+    "Common problems"
+   ],
+   "links": [],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Clean up skin, soften it with restraint, shape light with masked Curves and grade the colour, all on layers you can switch off, so the untouched photo is always one click away."
+  },
+  {
+   "slug": "workflow-psd-to-social",
+   "title": "Take a PSD from a colleague and adapt it for social",
+   "category": "workflows",
+   "level": "Intermediate",
+   "words": 951,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "import-psd-and-pdf",
+    "artboards",
+    "resize-to-every-format",
+    "export-for-screen"
+   ],
+   "keywords": "psd photoshop open import convert social media resize artboards fonts missing smart object layers without photoshop",
+   "headings": [
+    "You will need",
+    "Result",
+    "1. Open the PSD",
+    "2. Read the import report",
+    "3. Sort out fonts",
+    "4. Check against the original",
+    "5. Repair what came across as pixels",
+    "6. Save a version, then make the formats",
+    "7. Fit each format by hand",
+    "8. Export",
+    "Sending work back",
+    "Common problems"
+   ],
+   "links": [],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Open a Photoshop file in the browser, read what was kept and what changed, fix fonts and replaced layers, then lay it out at every social size and export."
+  },
+  {
+   "slug": "workflow-textured-print-look",
+   "title": "Make a risograph or screen-print look with Effects and the Editor",
+   "category": "workflows",
+   "level": "Intermediate",
+   "words": 1088,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "quick-tools",
+    "filters-in-the-editor",
+    "blend-modes-and-opacity",
+    "artistic-effects"
+   ],
+   "keywords": "risograph riso screen print screenprint halftone duotone overprint misregistration grain zine poster texture two colour ink paper",
+   "headings": [
+    "You will need",
+    "Result",
+    "1. Find the look in Effects",
+    "2. Choose your route into the Editor",
+    "3. Prepare the photo underneath",
+    "4. One ink on paper",
+    "5. Overprint type in a second ink",
+    "6. Knock it out of register",
+    "7. Add grain over everything",
+    "8. Check and export",
+    "Faster: the Halftone quick tool",
+    "Common problems"
+   ],
+   "links": [],
+   "tries": [
+    "/tools/halftone"
+   ],
+   "summary": "Find a halftone look in Effects, rebuild it at print size in the Editor with live filter layers, set one ink on paper with Duotone, overprint type in a second ink, and finish with grain."
+  },
+  {
+   "slug": "typography-fundamentals",
+   "title": "Set type that reads well",
+   "category": "craft",
+   "level": "Beginner",
+   "words": 1196,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "type",
+    "layout-and-composition",
+    "brand-guidelines",
+    "designing-for-social"
+   ],
+   "keywords": "typography fonts font pairing type scale line height leading letter spacing tracking kerning measure line length hierarchy readability text size",
+   "headings": [
+    "Hierarchy: decide what is read first",
+    "Pairing fonts",
+    "Size",
+    "Measure: how long a line is",
+    "Leading: space between lines",
+    "Tracking and kerning",
+    "Alignment",
+    "Do it in Voidcanvas",
+    "Common problems"
+   ],
+   "links": [
+    "type"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Hierarchy, pairing, size, measure, leading and tracking: the numbers that make text easy to read, and where to set each one in Voidcanvas."
+  },
+  {
+   "slug": "colour-that-works",
+   "title": "Choose colours that work on screen and in print",
+   "category": "craft",
+   "level": "Intermediate",
+   "words": 1187,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "brand-guidelines",
+    "colour-and-swatches",
+    "designing-for-print",
+    "references-and-palettes"
+   ],
+   "keywords": "colour color palette oklch oklab hsl ramp tints shades contrast ratio wcag accessibility aa aaa cmyk rgb srgb gamut print colour pantone accessible colours",
+   "headings": [
+    "Start with roles, not swatches",
+    "Why HSL misleads you",
+    "Build ramps",
+    "Contrast and WCAG 2.2",
+    "Screen colour and print colour",
+    "Do it in Voidcanvas",
+    "Common problems"
+   ],
+   "links": [
+    "colour-and-swatches"
+   ],
+   "tries": [
+    "/studio"
+   ],
+   "summary": "Build palettes with roles, make even ramps in OKLCH, pass WCAG 2.2 contrast, and know what happens when RGB colour goes to a printer."
+  },
+  {
+   "slug": "layout-and-composition",
+   "title": "Lay out a page with a grid, space and a clear focal point",
+   "category": "craft",
+   "level": "Beginner",
+   "words": 1002,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "groups-align-guides",
+    "typography-fundamentals",
+    "designing-for-social",
+    "designing-for-print"
+   ],
+   "keywords": "layout composition grid columns gutter margin white space negative space alignment focal point visual hierarchy reading order z pattern f pattern rule of thirds balance spacing",
+   "headings": [
+    "Start with a grid",
+    "Align to fewer edges",
+    "Space is a design element",
+    "One focal point",
+    "Control the reading order",
+    "Balance",
+    "Do it in Voidcanvas",
+    "Common problems"
+   ],
+   "links": [
+    "groups-align-guides"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Use columns, margins and a spacing scale, align to fewer edges, give the page one focal point and control the order people read in."
+  },
+  {
+   "slug": "image-resolution-explained",
+   "title": "Understand pixels, dpi and why images look soft",
+   "category": "craft",
+   "level": "Beginner",
+   "words": 888,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "designing-for-print",
+    "export-for-screen",
+    "crop-and-canvas",
+    "file-formats"
+   ],
+   "keywords": "resolution dpi ppi pixels megapixels print size blurry pixelated soft image upscale resample retina 2x file size compression jpg png webp quality",
+   "headings": [
+    "Pixels are the only real measure",
+    "The one formula",
+    "Screens and \"retina\"",
+    "Why images look soft",
+    "What makes a file big",
+    "How Voidcanvas handles resolution",
+    "Good to know"
+   ],
+   "links": [],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "How pixel dimensions, ppi and print size relate, why images blur when scaled, what makes files big, and the size limits in Voidcanvas."
+  },
+  {
+   "slug": "designing-for-print",
+   "title": "Prepare artwork a printer will accept",
+   "category": "craft",
+   "level": "Intermediate",
+   "words": 1148,
+   "minutes": 5,
+   "updated": "2026-09-25",
+   "related": [
+    "export-for-print",
+    "image-resolution-explained",
+    "colour-that-works",
+    "delivering-files"
+   ],
+   "keywords": "print ready bleed trim safe area quiet zone crop marks 3mm bleed 300 dpi cmyk rgb conversion paper stock gsm coated uncoated proof printer pdf flyer business card poster",
+   "headings": [
+    "Trim, bleed and safe area",
+    "Resolution for print",
+    "RGB and CMYK",
+    "Paper",
+    "Proofing",
+    "Print from Voidcanvas: three routes",
+    "Common problems"
+   ],
+   "links": [
+    "image-resolution-explained",
+    "colour-that-works",
+    "brand-guideline-exports"
+   ],
+   "tries": [
+    "/studio"
+   ],
+   "summary": "Trim, bleed, safe area, 300 ppi, RGB and CMYK, paper and proofs, with the honest limits of Voidcanvas print output and how to work around them."
+  },
+  {
+   "slug": "designing-for-social",
+   "title": "Design social posts that read on a phone",
+   "category": "craft",
+   "level": "Beginner",
+   "words": 862,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "resize-to-every-format",
+    "size-presets",
+    "export-for-screen",
+    "layout-and-composition"
+   ],
+   "keywords": "social media instagram post story reel youtube thumbnail linkedin banner x header facebook cover whatsapp safe zone text size phone carousel series template 1080x1350 1080x1920",
+   "headings": [
+    "Pick the format first",
+    "Safe zones",
+    "Text size for phones",
+    "One idea, every format",
+    "Design a series",
+    "Export"
+   ],
+   "links": [
+    "size-presets",
+    "resize-to-every-format"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Pick the right format, keep text out of the interface, size type for a phone held at arm's length, and design a series that holds together."
+  },
+  {
+   "slug": "building-a-brand-identity",
+   "title": "Build a brand identity from brief to rules",
+   "category": "craft",
+   "level": "Intermediate",
+   "words": 938,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "brand-guidelines",
+    "start-a-job-from-a-brief",
+    "references-and-palettes",
+    "brand-kit"
+   ],
+   "keywords": "brand identity branding logo design visual identity brand guidelines style guide brand book logo clear space minimum size wordmark logomark brand strategy moodboard directions",
+   "headings": [
+    "1. Read the brief for the problem",
+    "2. Research and directions",
+    "3. The mark",
+    "4. Rules for the mark",
+    "5. Colour and type",
+    "6. Write the rules down",
+    "Do it in Voidcanvas",
+    "Common problems"
+   ],
+   "links": [
+    "start-a-job-from-a-brief",
+    "references-and-palettes",
+    "directions-and-review",
+    "shapes-and-pen",
+    "colour-that-works",
+    "typography-fundamentals",
+    "brand-guidelines",
+    "brand-kit"
+   ],
+   "tries": [
+    "/studio"
+   ],
+   "summary": "Turn a brief into a direction, then a logo, colour, type and a set of rules someone else can follow, using Studio and the brand guideline builder."
+  },
+  {
+   "slug": "keyboard-shortcuts",
+   "title": "Every keyboard shortcut in Voidcanvas",
+   "category": "reference",
+   "level": "Beginner",
+   "words": 1622,
+   "minutes": 7,
+   "updated": "2026-09-25",
+   "related": [
+    "command-palette-and-menus",
+    "editor-tour",
+    "shapes-and-pen",
+    "designing-on-a-phone"
+   ],
+   "keywords": "hotkeys keys keyboard cheat sheet shortcuts list photoshop keys mac cmd option tool keys modifier",
+   "headings": [
+    "File",
+    "Edit",
+    "Image",
+    "Layer",
+    "Select",
+    "View",
+    "Help",
+    "Tools",
+    "Quick keys on the canvas",
+    "Modifier keys while you drag",
+    "Pen and path editing",
+    "Moving around the canvas",
+    "Editing text",
+    "Menus, dialogs and the command palette",
+    "Touch gestures",
+    "Outside the Editor",
+    "Good to know"
+   ],
+   "links": [
+    "shapes-and-pen",
+    "designing-on-a-phone"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Every shortcut in the Editor, grouped by menu, plus tool keys, modifier keys, touch gestures and the keys that work in Effects and Studio."
+  },
+  {
+   "slug": "size-presets",
+   "title": "Size presets: every format and its pixel size",
+   "category": "reference",
+   "level": "Beginner",
+   "words": 1269,
+   "minutes": 6,
+   "updated": "2026-09-25",
+   "related": [
+    "resize-to-every-format",
+    "artboards",
+    "designing-for-social",
+    "designing-for-print"
+   ],
+   "keywords": "canvas size dimensions pixels instagram size story size youtube thumbnail size a4 pixels a5 business card poster banner billboard aspect ratio formats presets",
+   "headings": [
+    "Editor presets",
+    "Where the Editor presets appear",
+    "Studio formats",
+    "Brand guideline pages",
+    "Working out print sizes",
+    "Good to know"
+   ],
+   "links": [
+    "resize-to-every-format",
+    "artboards",
+    "brand-guideline-exports",
+    "image-resolution-explained"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Every size preset in the Editor and Studio, with the exact pixel size, what it is for and how the print sizes relate to millimetres and dpi."
+  },
+  {
+   "slug": "file-formats",
+   "title": "File formats you can open and export",
+   "category": "reference",
+   "level": "Intermediate",
+   "words": 1943,
+   "minutes": 9,
+   "updated": "2026-09-25",
+   "related": [
+    "import-psd-and-pdf",
+    "export-for-screen",
+    "export-for-print",
+    "brand-guideline-exports"
+   ],
+   "keywords": "file types formats psd pdf png jpg jpeg webp gif avif svg bmp void ase css tailwind json tokens zip import export open save transparency layers",
+   "headings": [
+    "Opening files in the Editor",
+    "Opening files in Effects, quick tools and Studio",
+    "Exporting from the Editor",
+    "Exporting from Effects and quick tools",
+    "Exporting from Studio",
+    "Which format keeps what",
+    "Good to know"
+   ],
+   "links": [
+    "import-psd-and-pdf",
+    "export-for-print",
+    "brand-guideline-exports",
+    "designing-for-print"
+   ],
+   "tries": [
+    "/editor"
+   ],
+   "summary": "Every file type Voidcanvas opens and saves, across the Editor, Effects, quick tools and Studio, and exactly what each one keeps."
+  },
+  {
+   "slug": "glossary",
+   "title": "Glossary of design and Voidcanvas terms",
+   "category": "reference",
+   "level": "Beginner",
+   "words": 1880,
+   "minutes": 9,
+   "updated": "2026-09-25",
+   "related": [
+    "editor-tour",
+    "layers",
+    "masks",
+    "blend-modes-and-opacity"
+   ],
+   "keywords": "glossary definitions terms meaning what is dictionary jargon design vocabulary explain",
+   "headings": [],
+   "links": [
+    "adjustment-layers",
+    "blend-modes-and-opacity",
+    "artboards",
+    "brand-kit",
+    "command-palette-and-menus",
+    "effects-overview",
+    "history-and-undo",
+    "saving-and-your-files",
+    "layers",
+    "masks",
+    "layer-styles",
+    "private-session",
+    "selections",
+    "studio-overview",
+    "colour-and-swatches",
+    "templates-and-versions",
+    "workspaces-and-panels"
+   ],
+   "tries": [],
+   "summary": "Plain-English definitions of the design terms and product names used across Voidcanvas, from adjustment layer to workspace."
+  },
+  {
+   "slug": "privacy-and-data",
+   "title": "What Voidcanvas sends and what stays on your device",
+   "category": "help",
+   "level": "Beginner",
+   "words": 673,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "private-session",
+    "saving-and-your-files",
+    "ai-on-this-device",
+    "report-a-bug-well"
+   ],
+   "keywords": "privacy data gdpr tracking analytics telemetry cookies upload cloud what is sent do not track usage counts opt out",
+   "headings": [
+    "What never leaves your device",
+    "What does go over the network",
+    "Anonymous usage counts in detail",
+    "Turn usage counts off",
+    "Feedback and bug reports",
+    "Good to know"
+   ],
+   "links": [
+    "saving-and-your-files",
+    "private-session",
+    "report-a-bug-well"
+   ],
+   "tries": [],
+   "summary": "Your images and designs never leave your browser. Here is the complete list of what does go over the network, including the anonymous usage counts, and how to turn them off."
+  },
+  {
+   "slug": "private-session",
+   "title": "Use a private session on a shared computer",
+   "category": "help",
+   "level": "Beginner",
+   "words": 585,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "privacy-and-data",
+    "saving-and-your-files",
+    "troubleshooting"
+   ],
+   "keywords": "private session incognito shared computer public computer library school kiosk delete all my data wipe clear everything",
+   "headings": [
+    "Turn it on",
+    "What changes while it is on",
+    "Getting your work out",
+    "Delete all my data",
+    "Private session or a browser private window?"
+   ],
+   "links": [],
+   "tries": [],
+   "summary": "A private session keeps everything in memory and writes nothing to the device. Learn when to use it, what it changes, and how Delete all my data works."
+  },
+  {
+   "slug": "troubleshooting",
+   "title": "Fix common problems with fonts, exports, storage and speed",
+   "category": "help",
+   "level": "Beginner",
+   "words": 821,
+   "minutes": 4,
+   "updated": "2026-09-25",
+   "related": [
+    "browser-support",
+    "saving-and-your-files",
+    "report-a-bug-well",
+    "history-and-undo"
+   ],
+   "keywords": "problem not working help error slow laggy crash fonts missing export failed storage full cannot open psd pdf blurry fix",
+   "headings": [
+    "First, try these",
+    "Fonts",
+    "Exports",
+    "Storage",
+    "Speed and big files",
+    "Files that will not open",
+    "AI tools"
+   ],
+   "links": [
+    "report-a-bug-well",
+    "browser-support",
+    "export-for-print",
+    "private-session",
+    "import-psd-and-pdf"
+   ],
+   "tries": [],
+   "summary": "What to try when fonts look wrong, an export fails, storage is full, the Editor is slow, or a file will not open."
+  },
+  {
+   "slug": "browser-support",
+   "title": "Browsers, devices and what the AI tools need",
+   "category": "help",
+   "level": "Intermediate",
+   "words": 624,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "troubleshooting",
+    "ai-on-this-device",
+    "remove-background",
+    "install-as-an-app"
+   ],
+   "keywords": "browser support chrome safari firefox edge requirements webgpu wasm webassembly gpu device compatibility ipad android system requirements",
+   "headings": [
+    "The short version",
+    "What the app relies on",
+    "Computers, tablets and phones",
+    "The AI tools: WebGPU and WebAssembly",
+    "Good to know"
+   ],
+   "links": [
+    "designing-on-a-phone",
+    "troubleshooting",
+    "ai-on-this-device",
+    "saving-and-your-files"
+   ],
+   "tries": [],
+   "summary": "Voidcanvas runs in a modern browser on computers, tablets and phones. Here is what it relies on, and how the on-device AI tools use WebGPU and WebAssembly."
+  },
+  {
+   "slug": "report-a-bug-well",
+   "title": "Report a bug so it can be fixed",
+   "category": "help",
+   "level": "Beginner",
+   "words": 631,
+   "minutes": 3,
+   "updated": "2026-09-25",
+   "related": [
+    "troubleshooting",
+    "privacy-and-data",
+    "browser-support"
+   ],
+   "keywords": "report a bug problem issue broken not working contact support feedback crash error report help",
+   "headings": [
+    "Where to report it",
+    "Before you report",
+    "What to write",
+    "The form, field by field",
+    "What is attached, and what is not",
+    "After you send it"
+   ],
+   "links": [
+    "troubleshooting",
+    "privacy-and-data",
+    "saving-and-your-files"
+   ],
+   "tries": [
+    "/report-a-bug"
+   ],
+   "summary": "Where to report a bug from anywhere in Voidcanvas, what to write so it gets fixed quickly, and exactly what the report sends."
+  }
+ ]
+}

@@ -8,15 +8,17 @@ import { openBugReport, openFeedback, track } from '@/lib/analytics'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
-export type PathLite = { id: string; name: string; steps: { slug: string; title: string }[] }
+export type PathLite = { id: string; name: string; steps: { slug: string; title: string }[]; goal?: boolean }
 
-/** When you arrive from a learning path (?path=id), shows where you are in it and the next step. */
+/** When you arrive from a learning path (?path=id) or a goal route (?goal=id), shows where you are in it and the next step. */
 export function PathNav({ slug, paths, where }: { slug: string; paths: PathLite[]; where: 'top' | 'bottom' }) {
   const q = useSearchParams()
-  const p = paths.find(x => x.id === q.get('path') && x.steps.some(s => s.slug === slug))
+  const wantPath = q.get('path'), wantGoal = q.get('goal')
+  const p = paths.find(x => ((x.goal ? wantGoal : wantPath) === x.id) && x.steps.some(s => s.slug === slug))
   if (!p) return null
   const i = p.steps.findIndex(s => s.slug === slug)
   const next = p.steps[i + 1]
+  const link = (s: string) => `/learn/${s}?${p.goal ? 'goal' : 'path'}=${p.id}`
   if (where === 'top') return (
     <div className="mb-6 rounded-2xl border border-lp-line bg-lp-panel/60 px-4 py-3 text-[13.5px]">
       <p className="text-lp-dim"><span className="text-lp-fg font-medium">{p.name}</span> · step {i + 1} of {p.steps.length}</p>
@@ -24,11 +26,11 @@ export function PathNav({ slug, paths, where }: { slug: string; paths: PathLite[
     </div>
   )
   return next ? (
-    <Link href={`/learn/${next.slug}?path=${p.id}`} className={`mt-10 flex items-center justify-between gap-4 rounded-2xl bg-lp-btn text-lp-btn-fg px-5 py-4 hover:bg-lp-btn-hover ${focus}`}>
+    <Link href={link(next.slug)} className={`mt-10 flex items-center justify-between gap-4 rounded-2xl bg-lp-btn text-lp-btn-fg px-5 py-4 hover:bg-lp-btn-hover ${focus}`}>
       <span><span className="block text-[12.5px] opacity-70">Next in {p.name}</span><span className="block text-[16px] font-semibold">{next.title}</span></span><ArrowRight size={20} />
     </Link>
   ) : (
-    <div className="mt-10 rounded-2xl border border-lp-line bg-lp-card px-5 py-4 text-[15px] text-lp-text">You have finished <strong className="text-lp-fg">{p.name}</strong>. <Link href="/learn" className="text-lp-accent">Pick another path</Link>.</div>
+    <div className="mt-10 rounded-2xl border border-lp-line bg-lp-card px-5 py-4 text-[15px] text-lp-text">You have finished <strong className="text-lp-fg">{p.name}</strong>. <Link href={p.goal ? `/learn/do/${p.id}` : '/learn'} className="text-lp-accent">{p.goal ? 'Back to the route' : 'Pick another path'}</Link>.</div>
   )
 }
 

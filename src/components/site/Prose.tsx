@@ -1,9 +1,10 @@
 // Renders Learn and Blog content blocks. Server component: no JavaScript is shipped for the text itself.
 import Link from 'next/link'
 import { Fragment, type ReactNode } from 'react'
-import { ArrowRight, Info, Lightbulb, AlertTriangle } from 'lucide-react'
+import { ArrowRight, Check, Info, Lightbulb, AlertTriangle, Zap } from 'lucide-react'
 import type { Block } from '@/content/types'
 import { slugify } from '@/content/util'
+import { Demo } from './demos/Demo'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
@@ -115,6 +116,42 @@ export function Prose({ body }: { body: Block[] }) {
             <p key={i} className="!mt-8">
               <Link href={b.href} className={`inline-flex items-center gap-2 h-11 px-5 rounded-full bg-lp-btn text-lp-btn-fg text-[15px] font-medium hover:bg-lp-btn-hover transition-colors ${focus}`}>{b.label} <ArrowRight size={16} /></Link>
             </p>)
+          case 'answer': return (
+            <aside key={i} id="quick-answer" className="rounded-[20px] border border-[var(--lp-line)] bg-lp-card px-5 sm:px-6 py-5 [box-shadow:var(--lp-shadow-sm)]">
+              <p className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.1em] text-lp-accent"><Zap size={13} aria-hidden />Quick answer</p>
+              <p className="mt-2 text-[17px] sm:text-[18px] leading-[1.6] text-lp-fg"><Inline text={b.text} /></p>
+            </aside>)
+          case 'checklist': return (
+            <ul key={i} className="not-prose rounded-2xl border border-lp-line divide-y divide-[var(--lp-line)] text-[15.5px]">
+              {b.items.map((it, j) => <li key={j} className="flex gap-3 px-4 py-3"><span aria-hidden className="mt-[3px] w-5 h-5 shrink-0 rounded-md border border-lp-line bg-lp-panel flex items-center justify-center text-lp-accent"><Check size={12} /></span><span className="text-lp-text"><Inline text={it} /></span></li>)}
+            </ul>)
+          case 'faq': return (
+            <div key={i} className="divide-y divide-[var(--lp-line)] border-y border-lp-line">
+              {b.items.map((f, j) => {
+                const id = anchor(f.q)
+                return (
+                  <details key={j} id={id} className="group py-1">
+                    <summary className={`cursor-pointer list-none py-3 pr-8 relative text-[16.5px] font-medium text-lp-fg rounded-lg ${focus}`}>
+                      <h3 className="inline">{f.q}</h3>
+                      <span aria-hidden className="absolute right-1 top-1/2 -translate-y-1/2 text-lp-faint transition-transform group-open:rotate-45 text-[20px] leading-none">+</span>
+                    </summary>
+                    <p className="pb-4 text-[15.5px] leading-relaxed text-lp-muted"><Inline text={f.a} /></p>
+                  </details>)
+              })}
+            </div>)
+          case 'product': return (
+            <aside key={i} className="rounded-[24px] border border-lp-line bg-[linear-gradient(135deg,var(--lp-panel),var(--lp-card))] px-5 sm:px-7 py-6">
+              <p className="text-[11.5px] font-semibold uppercase tracking-[0.1em] text-lp-accent">How Voidcanvas handles this</p>
+              <p className="mt-2 text-[16px] leading-relaxed text-lp-text"><Inline text={b.text} /></p>
+              <Link href={b.href} className={`mt-4 inline-flex items-center gap-2 h-11 px-5 rounded-full bg-lp-btn text-lp-btn-fg text-[15px] font-medium hover:bg-lp-btn-hover transition-colors ${focus}`}>{b.label} <ArrowRight size={16} /></Link>
+            </aside>)
+          case 'figure': return (
+            <figure key={i} className="not-prose">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={b.src} alt={b.alt} width={b.width} height={b.height} loading="lazy" decoding="async" className="w-full h-auto rounded-[20px] border border-lp-line bg-lp-panel" />
+              {b.caption && <figcaption className="mt-2 text-[13.5px] text-lp-dim"><Inline text={b.caption} /></figcaption>}
+            </figure>)
+          case 'demo': return <div key={i} className="not-prose"><Demo kind={b.kind} effect={b.effect} caption={b.caption} before={b.before} after={b.after} alt={b.alt} /></div>
         }
       })}
     </div>
