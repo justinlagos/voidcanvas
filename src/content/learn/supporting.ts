@@ -1231,4 +1231,202 @@ export const articles: Article[] = [
       { t: 'try', label: 'Open the Editor', href: '/editor' },
     ],
   },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'make-a-comic-book-effect',
+    title: 'How to make a comic book effect from a photo',
+    seoTitle: 'Comic book effect from a photo, in the browser',
+    summary: 'A comic book look is three things stacked: flat colour, halftone dots in the shadows, and black ink lines. How each is made, why the order matters, and the recipe in the Editor with a live Pop Art example.',
+    description: 'Make a comic book effect from a photo: flatten the colour with Posterize or Pop Art, add coarse halftone dots on Multiply, and put black edge lines on top. The recipe in the Editor, with a live example.',
+    category: 'effects',
+    level: 'Beginner',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'supporting',
+    feature: 'Effects · Pop Art, Halftone, Edge Detect',
+    goals: ['design-effects'],
+    answers: ['comic book effect', 'how to make a comic book effect from a photo', 'comic effect online', 'turn a photo into a comic', 'pop art effect', 'cartoon effect photo', 'halftone comic effect', 'roy lichtenstein effect', 'comic filter free'],
+    related: ['make-a-halftone-portrait', 'artistic-effects', 'stylise-effects', 'filters-in-the-editor'],
+    keywords: 'comic book effect pop art lichtenstein halftone dots ink lines posterize edge detect cartoon photo multiply filter layers',
+    guide: {
+      before: ['make-a-halftone-portrait'],
+      next: ['filters-in-the-editor', 'artistic-effects'],
+      also: [{ when: 'you want the printed, misregistered version', slug: 'make-a-risograph-effect' }, { when: 'you want one click and a download', slug: 'effects-overview' }],
+    },
+    body: [
+      { t: 'answer', text: 'A comic book effect is three layers of printing history stacked on one photo: **flat colour** (comics were printed in a few inks, so smooth shading becomes bands), **halftone dots** where the shading was (that is how the inks made mid-tones), and **black ink lines** on top (the artist\'s line work). Make them in that order: flatten the colour with **Posterize** or **Pop Art**, add a coarse **Halftone** set to Multiply so the dots sit in the shadows, then add **Edge Detect**, inverted and set to Multiply, for the lines. A high-contrast photo on a plain background gives the best result; a face at three-quarter angle with a strong light is the classic subject.' },
+      { t: 'demo', kind: 'effect', effect: 'popart', caption: 'Pop Art bands the photo into a few flat colours from a fixed palette. It is the fastest route to the look; the recipe below adds the dots and the lines.' },
+
+      { t: 'h', text: 'The three parts' },
+      { t: 'table', head: ['Part', 'What it did on the printed page', 'Effect that makes it', 'Setting to start from'], rows: [
+        ['Flat colour', 'Comics were printed with a few inks, so skin, hair and sky were flat fills', 'Posterize (keeps the photo\'s own colours) or Pop Art (swaps in a bright palette)', 'Posterize Levels 20 to 30; Pop Art Colour levels 30 to 40, Colour blend 100'],
+        ['Dots', 'Mid-tones and shadows were screened into dots, usually one ink over another', 'Halftone', 'Dot size 40 to 60, Contrast 50; coarser for print, finer for a phone'],
+        ['Lines', 'The inker\'s black outlines', 'Edge Detect, inverted', 'Threshold 50 to 90; higher for cleaner outlines'],
+      ] },
+      { t: 'p', text: 'Each part on its own is a different effect. Posterize alone is a poster; halftone alone is newsprint; edge detect alone is a blueprint. The comic look is the stack, and the order matters because each filter works on what is below it.' },
+
+      { t: 'h', text: 'The recipe in the Editor' },
+      { t: 'steps', items: [
+        'Open the photo. Crop tight, and add a **Curves** adjustment layer to push the contrast: comics have no soft shadows. If the background is busy, **Layer, Remove background** and put a flat colour layer underneath.',
+        'Flat colour: **Filter, Stylize, Posterize** (or **Filter, Artistic, Pop Art**). It arrives as a filter layer named after the filter. In **Filter settings** in Properties, drop Posterize to 20 to 30 levels. Every filter you add from here goes above the last.',
+        'Dots: **Filter, Artistic, Halftone**. Set **Dot Size** around 50 and **Contrast** around 50. Then set the filter layer\'s blend mode to **Multiply** in the Layers panel: the white parts of the halftone vanish and the black dots sit on the flat colour. Lower the layer\'s **Opacity** to 60 to 80 per cent so the dots tint the shadows rather than covering them.',
+        'Lines: duplicate the original photo ({{Ctrl+J}}) and drag the copy to the top of the stack. Add **Filter, Stylize, Edge Detect** above it, set **Threshold** so only the strong outlines remain, then select the copy and the filter and **Layer, Merge down** to bake the lines into pixels. Add an **Invert** adjustment layer, clip it to the copy ({{Ctrl+Alt+G}}), and set the copy to **Multiply**. White becomes transparent; the lines stay black.',
+        'Finish: a **Film Grain** filter at a low amount over everything for paper texture, and a text layer in a bold display face if you want a caption box or a sound effect. Export as PNG.',
+      ] },
+      { t: 'tip', text: 'For the Lichtenstein look, use Pop Art with Colour levels low and Colour blend at 100, make the halftone coarse (Dot size 70 or more) and keep the lines thick by raising the Edge Detect threshold and adding a 2 px **Stroke** layer style to the line layer.' },
+
+      { t: 'h', text: 'Where it goes wrong' },
+      { t: 'table', head: ['Problem', 'Cause', 'Fix'], rows: [
+        ['Muddy, grey result', 'Photo has low contrast; posterize levels too high', 'Curves first; fewer levels'],
+        ['Dots everywhere, face lost', 'Halftone at Normal blend or 100 per cent opacity', 'Multiply, opacity 60 to 80 per cent, and a mask over the face highlights'],
+        ['Lines are noise, not outlines', 'Edge Detect threshold too low', 'Raise it until only the strongest edges stay; blur the copy slightly first for smoother lines'],
+        ['White lines instead of black', 'Edge Detect not inverted', 'Invert adjustment clipped to the line layer, then Multiply'],
+        ['Looks like a filter, not a comic', 'No flat background, no type', 'Cut the subject out, put it on one flat colour, add one bold word'],
+      ] },
+
+      { t: 'h', text: 'How Voidcanvas handles this' },
+      { t: 'p', text: 'Posterize, Pop Art, Halftone and Edge Detect are four of the 58 effects. In Effects you can try each alone with sliders and Compare, and Send to Editor. In the Editor they are filter layers: stackable, reorderable, maskable, with blend modes and opacity, and re-rendered sharp at export size. The example above runs the same Pop Art code as the product.' },
+      { t: 'product', text: 'Four effects, stacked as filter layers with blend modes, is the comic recipe. Start in Effects to pick your settings, then Send to Editor to build the stack.', label: 'Open Pop Art in Effects', href: '/effects?effect=popart' },
+
+      { t: 'faq', items: [
+        { q: 'Is there a one-click comic book filter?', a: 'Pop Art gets closest in one click: flat colours from a comic palette. The full look needs the dots and the lines as well, which is three filters stacked in the Editor. Ten minutes, and it looks like a comic rather than a filter.' },
+        { q: 'What photo works best?', a: 'High contrast, one strong light, a plain background, and a face or figure that fills the frame. Soft, evenly lit photos come out grey whatever you do.' },
+        { q: 'Can I print it?', a: 'Yes. Make the halftone coarse (a dot cell of at least 6 px at 300 dpi) so the dots survive the press, and export a PDF or PNG at the poster size. Halftone for screen printing and DTF has the numbers.' },
+      ] },
+      { t: 'try', label: 'Open Effects', href: '/effects?effect=popart' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'halftone-for-screen-printing-and-dtf',
+    title: 'Halftone for screen printing and DTF: the numbers',
+    seoTitle: 'Halftone for screen printing and DTF: lpi, dot size, files',
+    summary: 'The dot size that survives a screen, the relation between lines per inch and mesh count, why DTF is different, and how to get a Voidcanvas halftone to those numbers and into the right file.',
+    description: 'Halftone for screen printing: 35 to 55 lpi depending on mesh, dot cell in pixels at 300 dpi, black on white or transparent, one file per colour. For DTF, supply full-resolution artwork and let the RIP screen it.',
+    category: 'effects',
+    level: 'Intermediate',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'supporting',
+    feature: 'Halftone tool · Halftone filter',
+    goals: ['design-effects', 'prepare-for-print'],
+    answers: ['halftone for screen printing', 'halftone for dtf', 'what lpi for screen printing', 'halftone dot size for screen printing', 'screen print halftone settings', 'how to make a halftone for screen printing', 'dtf halftone', 'mesh count and lpi', 'halftone t shirt design'],
+    related: ['make-a-halftone-portrait', 'quick-tools', 'what-dpi-should-a-poster-be', 'export-for-screen'],
+    keywords: 'halftone screen printing dtf lpi lines per inch mesh count dot gain dot size pixels 300 dpi positive film black white transparent one colour per file',
+    guide: {
+      before: ['make-a-halftone-portrait'],
+      next: ['quick-tools', 'filters-in-the-editor'],
+      also: [{ when: 'the job is a poster rather than a shirt', slug: 'what-dpi-should-a-poster-be' }, { when: 'you want the comic version of the look', slug: 'make-a-comic-book-effect' }],
+    },
+    body: [
+      { t: 'answer', text: '**Screen printing:** use a coarse halftone, **35 to 55 lines per inch**, matched to the mesh (mesh count at least four times the lpi: 156 mesh for 35 to 40 lpi, 230 for about 55). At 300 dpi that is a dot cell of **5.5 to 8.5 px**. Keep dots between roughly 10 and 90 per cent so the smallest ones hold on the screen and the largest do not fill in. Supply **black dots on white or transparent, one file per ink colour**, at final size, as PNG or PDF. **DTF is different:** the printer\'s RIP does its own screening, so supply full-resolution artwork with a transparent background and treat any halftone in it as a design choice with coarse dots (a 6 px cell or larger), so the RIP\'s screen does not fight yours.' },
+      { t: 'demo', kind: 'effect', effect: 'halftone', caption: 'The same halftone code as the tool and the Editor filter. Dot size is the grid spacing; make it coarse for a screen.' },
+
+      { t: 'h', text: 'Why a screen needs coarse dots' },
+      { t: 'p', text: 'A screen is a mesh; ink passes through the open holes. A halftone dot smaller than a few mesh openings does not stay on the screen (the emulsion cannot hold it) and a dot bigger than the space around it fills in with ink spread (dot gain). So the dot grid has to be much coarser than the mesh, and the tonal range has to avoid the extremes. Newspapers print at 65 to 85 lpi on paper; shirts print at 35 to 55 lpi because the mesh is coarser and the fabric absorbs.' },
+      { t: 'table', head: ['Mesh count (threads per inch)', 'Halftone lpi', 'Dot cell at 300 dpi', 'Typical use'], rows: [
+        ['110', '25 to 28', '11 to 12 px', 'Heavy white ink underbase, very coarse art'],
+        ['156', '35 to 40', '7.5 to 8.5 px', 'General one- and two-colour shirt work'],
+        ['200', '45 to 50', '6 to 6.5 px', 'Finer detail, lighter ink deposit'],
+        ['230', '50 to 55', '5.5 to 6 px', 'Fine detail, simulated process'],
+        ['305', '60 to 65', '4.5 to 5 px', 'Very fine work; ask the printer'],
+      ] },
+      { t: 'p', text: 'The formula: dot cell in pixels = dpi ÷ lpi. At 300 dpi, 50 lpi is a 6 px cell. Ask the printer what mesh they will use; if they do not know yet, 45 lpi (a 6.7 px cell at 300 dpi) is the safe middle for most shops.' },
+
+      { t: 'h', text: 'Getting a Voidcanvas halftone to a number' },
+      { t: 'p', text: 'The **Dot Size** slider is grid spacing. In the Editor, a filter layer\'s cell is about **Dot Size ÷ 8** document pixels at a 1× export, so on a 300 dpi document: Dot Size 48 is a 6 px cell (50 lpi), 56 is 7 px (43 lpi), 64 is 8 px (37.5 lpi). In the Halftone tool the setting is scaled with the download so the result matches the preview; measure the exported file rather than trusting the slider.' },
+      { t: 'steps', items: [
+        'Set the document to the print size at 300 dpi (a 12 × 16 in shirt print area is 3600 × 4800 px). Place the photo; convert it to black and white with an adjustment layer and push **Curves** until the shadows are dark and the highlights nearly white. Screens print ink or no ink, so the photo has to be graphic already.',
+        'Add **Filter, Artistic, Halftone**. Set **Dot Size** from the table (48 to 64 for most shirts) and **Contrast** to about 50, so the darkest dots just fill their cell rather than merging into a solid.',
+        'Zoom to 100 per cent ({{Ctrl+1}}) and count: the distance between dot centres is your cell. Adjust Dot Size until it matches the lpi you agreed.',
+        'Check the extremes. Very small dots in the highlights will drop out; very large in the shadows will fill in. Use Curves under the filter to pull the tonal range in, so the smallest printed dot is around 10 per cent and the largest around 90.',
+        'One ink per file. Hide everything except the layers for that ink, export a PNG at 1×. Black is ink; white or transparent is no ink. For a two-colour job, make one halftone per colour on its own layer stack and export each separately, at the same size, so they register.',
+      ] },
+      { t: 'note', text: 'Many screen printers prefer to make the halftone themselves in their RIP from a continuous-tone greyscale file, because they know their mesh, emulsion and ink. Ask first. If they do, send a high-contrast greyscale PNG at 300 dpi and tell them the lpi you would like; skip the halftone filter entirely.' },
+
+      { t: 'h', text: 'DTF is not screen printing' },
+      { t: 'p', text: 'Direct-to-film prints CMYK plus white through an inkjet onto film, and the printer\'s RIP software converts the whole image into its own fine screen (often 55 lpi or more) before printing. If you send it an image that is already halftoned, the RIP screens your dots again, and two grids at similar angles make moiré. So for DTF:' },
+      { t: 'list', items: [
+        'Supply **full-resolution artwork with a transparent background** (PNG at 300 dpi at final size). Let the RIP do the screening; it knows the film and the powder.',
+        'If you want visible halftone dots as part of the design, make them **coarse**: a cell of 6 px or more at 300 dpi, which the RIP\'s much finer screen renders cleanly as shapes rather than fighting.',
+        'Keep the smallest solid detail above about 1 mm; very fine dots and hairlines shed powder and peel.',
+        'Transparent means no ink and no white underbase. Anything semi-transparent gets a partial white layer under it, which can look chalky on dark garments. Keep edges hard.',
+      ] },
+
+      { t: 'h', text: 'How Voidcanvas handles this' },
+      { t: 'p', text: 'The Halftone tool and the Halftone filter run the same code; the filter gives you the document-size control and the layer stack for one ink per file. Exports are PNG with transparency preserved, so a halftone on a transparent layer exports as black dots on nothing, which is what a screen positive and a DTF file both want. There is no CMYK separation and no RIP; for process work, send the printer a high-resolution RGB file and let them separate.' },
+      { t: 'product', text: 'Halftone as a filter layer at document size, Curves to control the tonal range under it, and a PNG export with transparency per ink. Enough for one- and two-colour shirt work; ask the printer before anything with more inks.', label: 'Open the Halftone tool', href: '/tools/halftone' },
+
+      { t: 'faq', items: [
+        { q: 'What lpi should I use for screen printing a t-shirt?', a: '35 to 55 lpi, matched to the mesh: about 40 lpi on 156 mesh, 50 on 230. If you do not know the mesh, 45 lpi is the safe middle. At 300 dpi that is a dot cell of about 6.7 px.' },
+        { q: 'Should I halftone my design for DTF?', a: 'Not for tonal reasons; the printer\'s RIP screens it. Send full-resolution artwork with a transparent background. Add halftone dots only as a visible design element, and make them coarse.' },
+        { q: 'Black on white or black on transparent?', a: 'Either works for a screen positive; ask the shop. Transparent is safer for DTF because white would print as white ink. In Voidcanvas, a halftone filter over a layer with transparency keeps the transparency on export.' },
+      ] },
+      { t: 'try', label: 'Open the Halftone tool', href: '/tools/halftone' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'open-a-psd-file-online-free',
+    title: 'Open a PSD file online, free, without an account',
+    seoTitle: 'Open a PSD file online free (layers kept, nothing uploaded)',
+    summary: 'Drop the PSD on the Editor and it opens with its layers, in the browser, with no account and no upload. What you see, what to check first, and how to get a PNG, JPG or PDF out.',
+    description: 'Open a PSD online for free: drop it on the Voidcanvas Editor, keep layers, groups, masks and text, read the import report, and export PNG, JPG, WebP or PDF. Nothing is uploaded; there is no account.',
+    category: 'editor',
+    level: 'Beginner',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'supporting',
+    feature: 'Editor · Import',
+    goals: ['work-with-psd'],
+    answers: ['open psd file online free', 'psd viewer online', 'how to open a psd file', 'open psd without photoshop free', 'psd opener', 'view psd file online', 'convert psd to png online free', 'psd to jpg free', 'open psd on chromebook'],
+    related: ['edit-a-psd-without-photoshop', 'import-psd-and-pdf', 'file-formats', 'export-for-screen'],
+    keywords: 'open psd online free viewer no account no upload layers convert psd to png jpg pdf chromebook browser',
+    guide: {
+      next: ['edit-a-psd-without-photoshop', 'import-psd-and-pdf'],
+      also: [{ when: 'it will not open', slug: 'psd-will-not-open' }, { when: 'you only need a PNG out', slug: 'convert-psd-to-png' }, { when: 'the file is confidential', slug: 'photo-editor-that-does-not-upload' }],
+    },
+    body: [
+      { t: 'answer', text: 'Open [the Editor](/editor) and drop the PSD on it, or press {{Ctrl+O}} and choose the file. It opens with its layers, groups, masks, text, adjustment layers and layer styles, in the browser, on any computer including a Chromebook. Nothing is uploaded and there is no account. If anything had to change to open, a report lists it. To get a flat image out, press {{Ctrl+E}} and choose PNG, JPG, WebP or PDF. The Editor does not save back to PSD; keep the original, or save a .void file to keep the layers editable here.' },
+
+      { t: 'h', text: 'Open it' },
+      { t: 'steps', items: [
+        'Go to [the Editor](/editor). On the start screen, drop the PSD onto **Open a photo**, or drag it onto an open design, or press {{Ctrl+O}} (Cmd+O on a Mac).',
+        'Wait a moment for large files. Layers appear in the Layers panel in their original order, with groups, masks, opacity and blend modes.',
+        'If a report titled **Opened** appears, read it: it lists what was **Kept**, what was **Changed so it would open** (smart objects and vector shapes become pixels, text with mixed styles becomes pixels) and what is **Not supported yet**.',
+        'If **Some fonts are missing** appears, pick a replacement for each font, keep a stand-in, or press **Add font file** to load the real one from your computer.',
+      ] },
+
+      { t: 'h', text: 'Get a file out' },
+      { t: 'table', head: ['You want', 'Do', 'Notes'], rows: [
+        ['A PNG or JPG of the whole design', '{{Ctrl+E}}, choose PNG or JPG, Download', 'PNG keeps transparency; JPG is smaller for photos'],
+        ['One layer as an image', 'Hide the others, then export', 'Or select the layer and copy it into a new design'],
+        ['A PDF to send', '{{Ctrl+E}}, PDF', 'One page, image based; 300 dpi for designs over 2000 px'],
+        ['Keep the layers editable', '{{Ctrl+S}} (saved in this browser) or {{Ctrl+Shift+S}} (a .void file on disk)', 'PSD is read, not written'],
+      ] },
+
+      { t: 'h', text: 'Limits, stated plainly' },
+      { t: 'list', items: [
+        'Layers larger than 4096 px on the long side are scaled to 4096 px.',
+        'Smart objects and vector shapes arrive as pixels. Warped text, text on a path and text with mixed styles arrive as pixels.',
+        'A few blend modes (linear burn, linear dodge, vivid light, pin light, dissolve) use the nearest match. 16-bit files open as 8-bit.',
+        'No PSD export. Deliver PNG, JPG, WebP or PDF; keep layers in a .void file.',
+      ] },
+
+      { t: 'h', text: 'How Voidcanvas handles this' },
+      { t: 'p', text: 'The PSD is read on your device; no file is sent anywhere, which is why it works offline and why a client file under NDA is safe here. The import report is deliberate: it tells you what changed before you touch anything, instead of leaving you to find out later. [How to edit a PSD without Photoshop](/learn/edit-a-psd-without-photoshop) covers what to do once it is open.' },
+      { t: 'product', text: 'Drop the file, read the report, export what you need. Free, no account, nothing uploaded, and it works on a Chromebook.', label: 'Open a PSD in the Editor', href: '/editor' },
+
+      { t: 'faq', items: [
+        { q: 'Is it really free with no account?', a: 'Yes. The Editor runs in the browser with no sign-up. An optional account exists for encrypted sync between devices; opening and editing a PSD does not need it.' },
+        { q: 'Is my PSD uploaded?', a: 'No. The file is read in your browser and never leaves your device. You can open it with the Wi-Fi off.' },
+        { q: 'Can I convert PSD to PNG here?', a: 'Yes: open the PSD, press Ctrl+E, choose PNG, Download. Hide layers first if you want only some of them.' },
+        { q: 'Does it work on a Chromebook or a phone?', a: 'Chromebook, yes, with the full Editor. Phones get the phone Editor; a large PSD may be slow on a phone, and the 4096 px cap applies.' },
+      ] },
+      { t: 'try', label: 'Open the Editor', href: '/editor' },
+    ],
+  },
 ]

@@ -29,6 +29,11 @@ const CONTROLS: Partial<Record<EffectType, Control[]>> = {
     { key: 'seed', label: 'Randomize', min: 0, max: 1000, hint: 'Which strips move.' },
   ],
   posterize: [{ key: 'intensity', label: 'Levels', min: 10, max: 100 }],
+  popart: [
+    { key: 'intensity', label: 'Colour levels', min: 10, max: 100, hint: 'Low values give three flat colours; high values up to eight.' },
+    { key: 'amount', label: 'Colour blend', min: 0, max: 100, hint: 'How much of the pop palette replaces the photo\'s own colours.' },
+  ],
+  edge: [{ key: 'threshold', label: 'Threshold', min: 0, max: 200, hint: 'Low shows every texture; high keeps only the strongest outlines.' }],
 }
 const START: Partial<Record<EffectType, Partial<EffectParams>>> = {
   halftone: { scale: 40, intensity: 60 },
@@ -36,8 +41,10 @@ const START: Partial<Record<EffectType, Partial<EffectParams>>> = {
   duotone: { color1: '#0078BF', color2: '#F4EFE6' }, // risograph blue on warm white
   glitch: { intensity: 40, scale: 30 },
   posterize: { intensity: 30 },
+  popart: { intensity: 40, amount: 100 },
+  edge: { threshold: 60 },
 }
-const SAMPLE: Partial<Record<EffectType, string>> = { halftone: '/landing/beard.jpg', dither: '/landing/beard.jpg', duotone: '/landing/red-teal.jpg', glitch: '/landing/smoke.jpg' }
+const SAMPLE: Partial<Record<EffectType, string>> = { halftone: '/landing/beard.jpg', dither: '/landing/beard.jpg', duotone: '/landing/red-teal.jpg', glitch: '/landing/smoke.jpg', popart: '/landing/beard.jpg', edge: '/landing/beard.jpg' }
 const OPEN: Partial<Record<EffectType, { label: string; href: string }>> = {
   halftone: { label: 'Open the Halftone tool', href: '/tools/halftone' },
   dither: { label: 'Open the Dither tool', href: '/tools/dither' },

@@ -23,13 +23,13 @@
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
 | why does my print look blurry | informational | beginner | none, live | Why your printed design looks blurry (and the three fixes) | L | H | problem guide + interactive | 1 | live |
-| image is blurry how to fix | informational | beginner | fix-oriented guide | How to fix a blurry image, and when you cannot | M | M | problem guide | 3 | planned |
+| image is blurry how to fix | informational | beginner | fix-oriented guide | How to fix a blurry image, and when you cannot | M | M | problem guide | 3 | live |
 | resize image without losing quality | informational | beginner | quick answer plus the maths | Resize an image without losing quality: what is possible | H | M | explainer | 3 | planned |
 | what is dpi | informational | beginner | definition entry | DPI, PPI and resolution explained in one page | H | L | explainer | 4 | existing |
 | how to check image resolution | informational | beginner | step-by-step check | How to check whether an image is big enough to print | M | M | how-to | 3 | planned |
 | facebook cover image looks blurry | informational | marketing person | platform-specific export advice | Why social images look blurry after upload, and how to export them | M | M | problem guide | 3 | planned |
 | image resolution vs size | informational | beginner | diagram | Pixel size, file size and print size are three different things | M | M | explainer + diagram | 4 | planned |
-| how to make image resolution higher | informational | beginner | honest answer | Can you increase image resolution? What upscaling does and does not do | H | M | explainer | 3 | planned |
+| how to make image resolution higher | informational | beginner | honest answer | Can you increase image resolution? What upscaling does and does not do | H | M | explainer | 3 | live |
 | dpi and print size | informational | beginner | calculator | Pixels to print size: the calculator | M | M | reference + calculator | 4 | planned |
 | image looks pixelated and blurry | informational | beginner | symptom page | Pixelated or blurry? What each look tells you about the image | M | M | problem guide | 3 | planned |
 
@@ -38,14 +38,14 @@
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
 | how to edit a psd without photoshop | informational | designer, marketing person | none, live | How to edit a PSD without Photoshop | M | H | guide | 1 | live |
-| how to open psd file for free | commercial | beginner | quick path for viewers | Open a PSD file for free, in the browser, with the layers | M | M | how-to | 2 | planned |
-| psd not opening | informational | designer | troubleshooting entry | PSD will not open: the five causes and what to ask for | L | M | troubleshooting | 3 | planned |
-| psd to png | informational | beginner | conversion how-to | Convert a PSD to PNG (with transparency) without Photoshop | M | M | how-to | 3 | planned |
+| how to open psd file for free | commercial | beginner | quick path for viewers | Open a PSD file for free, in the browser, with the layers | M | M | how-to | 2 | live |
+| psd not opening | informational | designer | troubleshooting entry | PSD will not open: the five causes and what to ask for | L | M | troubleshooting | 3 | live |
+| psd to png | informational | beginner | conversion how-to | Convert a PSD to PNG (with transparency) without Photoshop | M | M | how-to | 3 | live |
 | open psd on android | commercial | beginner | mobile angle | Open and edit a PSD on a phone or tablet | M | M | how-to | 3 | planned |
 | what is a smart object | informational | designer | definition + workaround | Smart objects outside Photoshop: what happens to them | L | M | explainer | 4 | planned |
-| psd missing fonts | informational | designer | dedicated fix page | Missing fonts in a PSD: replace them or load the file | L | M | how-to | 3 | planned |
+| psd missing fonts | informational | designer | dedicated fix page | Missing fonts in a PSD: replace them or load the file | L | M | how-to | 3 | live |
 | is psd file editable | informational | beginner | answered in the live guide | Is a PSD editable without Photoshop? | L | M | quick answer | 2 | live |
-| psd editor online free | commercial | beginner | landing angle rather than Learn | A PSD editor in the browser: what to expect | M | M | comparison | 3 | planned |
+| psd editor online free | commercial | beginner | landing angle rather than Learn | A PSD editor in the browser: what to expect | M | M | comparison | 3 | live |
 | how to convert cmyk psd to rgb | informational | print designer | colour mode note | CMYK PSDs open as RGB: what changes and how to correct it | L | L | explainer | 5 | planned |
 
 ## Photoshop alternatives and switching (10)
@@ -55,7 +55,7 @@
 | free photoshop alternative browser | commercial | designer | a migration guide instead of a listicle | Coming from Photoshop: what carries over, what is different | H | M | migration guide | 2 | live |
 | photoshop alternative no subscription | commercial | freelancer | freelancer angle | Leaving Creative Cloud as a freelancer: a checklist | M | M | checklist | 3 | live |
 | photoshop shortcuts equivalent | informational | designer | comparison table | Photoshop shortcuts that work here, and the ones that differ | M | M | reference | 4 | planned |
-| best photoshop alternative for youtube thumbnails | commercial | marketing person | use-case page | Make YouTube thumbnails without Photoshop | M | M | workflow | 3 | planned |
+| best photoshop alternative for youtube thumbnails | commercial | marketing person | use-case page | Make YouTube thumbnails without Photoshop | M | M | workflow | 3 | live |
 | how to posterize in photopea | informational | designer | effect-specific landing | Posterize an image (any tool, one click here) | L | M | how-to + demo | 3 | planned |
 | photoshop for beginners | informational | beginner | concept-first course | Image editing for beginners: layers, masks and adjustments without Photoshop | H | L | course | 5 | planned |
 | photopea vs voidcanvas | commercial | designer | comparison page | Voidcanvas and Photopea compared, honestly | M | M | comparison | 5 | planned |
@@ -83,14 +83,14 @@
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
 | how to make a halftone portrait | informational | designer | none, live | How to make a halftone portrait | M | H | guide + demo | 1 | live |
-| halftone effect for screen printing | informational | print designer | FAQ covers it; a dedicated page for printers | Halftone settings for screen printing and DTF | M | H | how-to | 2 | planned |
+| halftone effect for screen printing | informational | print designer | FAQ covers it; a dedicated page for printers | Halftone settings for screen printing and DTF | M | H | how-to | 2 | live |
 | halftone effect vector svg | informational | designer | honest limits page | Halftone as vector or raster: what you need for print and cut | M | L | explainer | 5 | planned |
 | what is halftone effect | informational | beginner | covered | What a halftone is | M | M | explainer | 2 | live |
 | halftone effect background | informational | designer | background recipe | Make a halftone gradient background | M | M | recipe | 3 | planned |
 | halftone risograph effect | informational | designer | exists as workflow | Make a risograph or screen-print look | M | H | workflow | 2 | existing |
 | halftone effect for video | informational | designer | scope note | Halftone for stills (and where video is out of scope) | M | L | note | 5 | planned |
 | halftone brush free | commercial | designer | alternative technique | You do not need halftone brushes: filter plus mask | M | M | how-to | 3 | planned |
-| comic book effect | informational | designer | recipe | The comic book photo effect: halftone, posterize, outline | M | H | recipe + demo | 2 | planned |
+| comic book effect | informational | designer | recipe | The comic book photo effect: halftone, posterize, outline | M | H | recipe + demo | 2 | live |
 | halftone dots after effects | navigational | motion designer | out of scope |  | H | L | skip | 5 | skip |
 
 ## Effects: dither, glitch, duotone, riso, vintage (10)
@@ -117,11 +117,11 @@
 | how to retouch a photo | informational | beginner | exists | Retouch photos with the brush, heal and clone tools | H | M | guide | 2 | existing |
 | how to make a photo look professional | informational | beginner | recipe | Make a photo look professional in five moves | H | M | recipe | 3 | planned |
 | edit photos on laptop free | commercial | beginner | landing angle | Edit photos on a laptop without installing anything | M | M | how-to | 3 | planned |
-| crop image into circle | informational | beginner | micro how-to | Crop an image into a circle (transparent PNG) | M | M | how-to | 3 | planned |
+| crop image into circle | informational | beginner | micro how-to | Crop an image into a circle (transparent PNG) | M | M | how-to | 3 | live |
 | crop image to passport size | informational | beginner | micro how-to | Crop a photo to passport size | M | L | how-to | 5 | planned |
 | how to refine a cutout edge | informational | designer | edge-specific | Fix the edge of a cutout: hair, fur and halos | M | M | how-to | 3 | planned |
 | batch resize images | informational | marketing person | honest scope | Batch resize images: what a design tool can and cannot do | H | L | explainer | 5 | planned |
-| transparent png | informational | beginner | micro how-to | Make a transparent PNG | H | M | how-to | 3 | planned |
+| transparent png | informational | beginner | micro how-to | Make a transparent PNG | H | M | how-to | 3 | live |
 
 ## Brand identity and consistency (10)
 
@@ -147,7 +147,7 @@
 | resize one design to multiple sizes | informational | marketing person | exists | Resize one design to every format | M | H | guide | 1 | existing |
 | how to make social media graphics | informational | beginner | exists | Design social posts that read on a phone | H | M | guide | 2 | existing |
 | how to design social media templates | informational | marketing person | series angle | Design a social template system you can reuse weekly | M | M | workflow | 3 | planned |
-| youtube thumbnail size | informational | marketing person | thumbnail page | YouTube thumbnail size and the three legibility rules | H | M | quick answer + rules | 3 | planned |
+| youtube thumbnail size | informational | marketing person | thumbnail page | YouTube thumbnail size and the three legibility rules | H | M | quick answer + rules | 3 | live |
 | linkedin banner size | informational | marketing person | banner page | LinkedIn banner size and where the photo covers it | H | L | quick answer | 4 | planned |
 | story size pixels | informational | beginner | quick answer | Story and Reel cover size | H | L | quick answer | 4 | existing |
 | carousel post design | informational | marketing person | carousel angle | Design an Instagram carousel with boards | M | M | how-to | 3 | planned |
@@ -161,7 +161,7 @@
 | design brief example | informational | freelancer, brand owner | example and template | A design brief that actually starts the job (example and template) | H | M | template | 2 | live |
 | client feedback examples | informational | freelancer | feedback-specific | Get client feedback you can act on (and record the answer) | M | M | guide | 2 | live |
 | what is handoff | informational | freelancer | definition | Design handoff: what it means and what you hand over | M | M | explainer | 3 | planned |
-| versioning explained | informational | freelancer | versioning page | File naming and versioning for design work | M | M | guide | 3 | planned |
+| versioning explained | informational | freelancer | versioning page | File naming and versioning for design work | M | M | guide | 3 | live |
 | how to present design to client | informational | freelancer | presentation angle | Present design directions so the client can decide | M | M | guide | 3 | planned |
 | mood board examples | informational | designer | exists | Collect references and pull palettes from them | H | M | guide | 3 | existing |
 | design review process | workflow | freelancer | process page | A design review process with an end | M | M | guide | 3 | planned |
@@ -175,12 +175,12 @@
 | what is a layer mask | informational | beginner | exists | Hide and show parts of a layer with masks | H | M | guide | 2 | existing |
 | what is an adjustment layer | informational | beginner | exists | Change colour and tone with adjustment layers | H | M | guide | 2 | existing |
 | how to add text to an image | informational | beginner | exists | Add and style text | H | M | guide | 2 | existing |
-| how to outline text | informational | beginner | micro how-to | Outline text so it reads on any photo | M | M | how-to | 3 | planned |
+| how to outline text | informational | beginner | micro how-to | Outline text so it reads on any photo | M | M | how-to | 3 | live |
 | how to use my own font | informational | designer | micro how-to | Use your own font file in a browser editor | M | M | how-to | 3 | planned |
 | what are artboards | informational | beginner | definition | Artboards (boards) explained | M | L | explainer | 4 | existing |
 | how to align layers | informational | beginner | exists | Group, align and space layers precisely | M | M | guide | 3 | existing |
 | how to make a gradient | informational | beginner | micro how-to | Make a gradient (and make it not look like 2012) | H | M | how-to | 3 | planned |
-| how to make text on a path | informational | designer | micro how-to | Put text on a curve or a path | M | M | how-to | 3 | planned |
+| how to make text on a path | informational | designer | micro how-to | Put text on a curve or a path | M | M | how-to | 3 | live |
 | how to make a drop shadow look real | informational | designer | craft note | Drop shadows that look real: distance, blur, opacity | M | M | how-to | 3 | planned |
 
 ## Private, offline and browser-based (10)

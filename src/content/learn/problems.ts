@@ -165,7 +165,7 @@ export const articles: Article[] = [
     keywords: 'halftone dots portrait pop art comic newspaper screen print lpi dot size contrast recolour blend mode multiply screen threshold stipple dot matrix dither',
     guide: {
       next: ['workflow-textured-print-look', 'filters-in-the-editor'],
-      also: [{ when: 'it is going on a printed poster', slug: 'prepare-a-poster-for-print' }, { when: 'you want every setting of every effect', slug: 'artistic-effects' }, { when: 'you want the coarser, random look', slug: 'stylise-effects' }],
+      also: [{ when: 'it is going on a shirt', slug: 'halftone-for-screen-printing-and-dtf' }, { when: 'you want the full comic look', slug: 'make-a-comic-book-effect' }, { when: 'it is going on a printed poster', slug: 'prepare-a-poster-for-print' }, { when: 'you want every setting of every effect', slug: 'artistic-effects' }],
     },
     body: [
       { t: 'answer', text: 'A halftone turns a photo into dots on a grid: dark areas get large dots that merge, light areas get small ones or none. To make a good halftone portrait, start with a high-contrast black and white photo on a plain background, choose a dot size that suits where it will be seen (fine for screens, coarse for print and posters), set the contrast so the shadows fill in without swallowing the face, then recolour the dots with a blend mode. Below is a working halftone; move the sliders and watch what each one does.' },
