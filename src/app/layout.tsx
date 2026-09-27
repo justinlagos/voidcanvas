@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
   icons: { icon: '/icon-192.png', apple: '/icon-192.png' },
   appleWebApp: { capable: true, title: 'Voidcanvas', statusBarStyle: 'black-translucent' },
+  // Google Search Console ownership of https://voidcanvas.app/ (URL-prefix property). The matching HTML file is
+  // public/googleffdc59042e68a284.html. Keep both; removing them un-verifies the property.
+  verification: { google: '1V_2HoMNvlXk63E33XE6M_7eE3JiNEeenfseOC4Tr3Q' },
 }
 
 export const viewport: Viewport = { themeColor: '#141416', width: 'device-width', initialScale: 1, viewportFit: 'cover' }
