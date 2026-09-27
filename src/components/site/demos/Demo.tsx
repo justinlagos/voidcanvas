@@ -11,6 +11,7 @@ const PrintSetupDemo = dynamic(() => import('./PrintSetupDemo'), { ssr: false, l
 const SizeCalculator = dynamic(() => import('./SizeCalculator'), { ssr: false, loading: Loading })
 const TypeScaleDemo = dynamic(() => import('./TypeScaleDemo'), { ssr: false, loading: Loading })
 const BeforeAfter = dynamic(() => import('./BeforeAfter'), { ssr: false, loading: Loading })
+const SafeZonesDemo = dynamic(() => import('./SafeZonesDemo'), { ssr: false, loading: Loading })
 
 export function Demo({ kind, effect, caption, before, after, alt }: { kind: DemoKind; effect?: string; caption?: string; before?: string; after?: string; alt?: string }) {
   switch (kind) {
@@ -19,5 +20,6 @@ export function Demo({ kind, effect, caption, before, after, alt }: { kind: Demo
     case 'size-calculator': return <SizeCalculator caption={caption} />
     case 'type-scale': return <TypeScaleDemo caption={caption} />
     case 'before-after': return before && after ? <BeforeAfter before={before} after={after} alt={alt} caption={caption} /> : null
+    case 'safe-zones': return <SafeZonesDemo caption={caption} />
   }
 }

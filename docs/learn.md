@@ -26,9 +26,9 @@ Articles are TypeScript data (`src/content/types.ts`). Blocks added for the prob
 | `faq` | Real questions people search for. Emits FAQPage schema. Use only when the questions are genuine. |
 | `product` | "How Voidcanvas handles this": one honest paragraph and one button. |
 | `figure` | An image from /public with alt, width and height. |
-| `demo` | An interactive example: `effect` (any effect on a sample image), `print-setup`, `size-calculator`, `type-scale`, `before-after`. Loaded only on pages that use it. |
+| `demo` | An interactive example: `effect` (any effect on a sample image), `print-setup`, `size-calculator`, `type-scale`, `before-after`, `safe-zones` (social formats with the platform's interface drawn over them). Loaded only on pages that use it. |
 
-Article fields added: `published`, `seoTitle`, `description`, `answers` (the searches it answers), `goals`, `feature`, `role` (cornerstone, supporting, reference), `guide` (before, next, also). For the 74 older guides these live in `src/content/learn/signposts.ts` and are merged in `index.ts`; new guides carry them directly (`src/content/learn/problems.ts`).
+Article fields added: `published`, `seoTitle`, `description`, `answers` (the searches it answers), `goals`, `feature`, `role` (cornerstone, supporting, reference), `guide` (before, next, also). For the 74 older guides these live in `src/content/learn/signposts.ts` and are merged in `index.ts`; new guides carry them directly (`src/content/learn/problems.ts` for cornerstones, `src/content/learn/supporting.ts` for the supporting pages).
 
 ## Search
 

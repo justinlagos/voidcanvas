@@ -9,6 +9,7 @@ export type DemoKind =
   | 'size-calculator' // mm or inches to pixels at a chosen dpi, with the presets
   | 'type-scale'    // a type scale with its ratio, base size and the resulting steps
   | 'before-after'  // a slider between two images
+  | 'safe-zones'    // social formats with the platform interface drawn over them and the safe area that is left
 
 export type Block =
   | { t: 'p'; text: string }

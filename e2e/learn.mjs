@@ -78,6 +78,17 @@ const dots = await p.$eval('canvas', c => { const x = c.getContext('2d'); const 
 ok('halftone demo: output has black dots and white paper', dots.dark > 50 && dots.light > 50, JSON.stringify(dots))
 ok('halftone demo: opens the tool', !!(await p.$('a[href="/tools/halftone"]')))
 
+// Safe zones demo switches format and links to the matching preset
+await p.goto(`${BASE}/learn/social-media-sizes-and-safe-zones`, { waitUntil: 'networkidle' })
+await p.waitForSelector('figure svg[role="img"]')
+ok('safe zones demo: story by default with two covered strips', /1080 × 1920 px/.test(await p.textContent('figure')) && (await p.$$('figure svg rect[fill="url(#sz-hatch)"]')).length === 2)
+await p.getByRole('button', { name: 'Reel cover' }).click(); await p.waitForTimeout(200)
+ok('safe zones demo: reel cover adds the right-hand column', (await p.$$('figure svg rect[fill="url(#sz-hatch)"]')).length === 3 && /900 × 1280 px/.test(await p.textContent('figure')))
+await p.getByRole('button', { name: 'YouTube thumbnail' }).click(); await p.waitForTimeout(200)
+ok('safe zones demo: preset link follows the format', !!(await p.$('figure a[href="/editor?preset=yt"]')))
+await p.getByLabel("Show the platform's interface").uncheck(); await p.waitForTimeout(100)
+ok('safe zones demo: interface can be hidden', (await p.$$('figure svg rect[fill="url(#sz-hatch)"]')).length === 0)
+
 // Existing article gets the new layer
 await p.goto(`${BASE}/learn/masks`, { waitUntil: 'networkidle' })
 ok('existing article: try banner and contextual links', /Try it in Voidcanvas/.test(await p.textContent('article')) && !!(await p.$('nav[aria-label="Where to go from here"]')))

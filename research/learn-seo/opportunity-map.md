@@ -10,7 +10,7 @@
 | what is a print ready pdf | informational | beginner, marketing person | no page answers the term head on | What a print-ready PDF is, and what yours needs | M | M | explainer | 2 | live |
 | how much bleed do i need | informational | beginner | answer is inside a long page; needs a direct quick answer | How much bleed a print job needs | H | M | quick answer + calculator | 2 | live |
 | crop marks vs trim marks | informational | print designer | terminology gap | Crop marks, trim marks and bleed marks: what each one is | M | M | explainer | 3 | planned |
-| why does my printed document look different than print preview | informational | beginner | the problem phrasing is unserved (SERP is Windows troubleshooting) | Why a print looks different from the screen | L | H | problem guide + interactive | 2 | planned |
+| why does my printed document look different than print preview | informational | beginner | the problem phrasing is unserved (SERP is Windows troubleshooting) | Why a print looks different from the screen | L | H | problem guide + interactive | 2 | live |
 | rgb vs cmyk for print | informational | beginner, marketing person | quick-answer layer | RGB or CMYK for print: what to do in an RGB-only tool | H | M | explainer | 2 | planned |
 | what dpi should a poster be | informational | beginner | poster-specific answer | What dpi a poster should be, by size and viewing distance | M | M | quick answer + calculator | 2 | planned |
 | a5 flyer size in pixels | informational | beginner | reference row exists; needs the with-bleed number and calculator | A5 flyer size in pixels, mm and inches, with bleed | M | M | reference | 4 | planned |
@@ -52,7 +52,7 @@
 
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
-| free photoshop alternative browser | commercial | designer | a migration guide instead of a listicle | Coming from Photoshop: what carries over, what is different | H | M | migration guide | 2 | planned |
+| free photoshop alternative browser | commercial | designer | a migration guide instead of a listicle | Coming from Photoshop: what carries over, what is different | H | M | migration guide | 2 | live |
 | photoshop alternative no subscription | commercial | freelancer | freelancer angle | Leaving Creative Cloud as a freelancer: a checklist | M | M | checklist | 3 | planned |
 | photoshop shortcuts equivalent | informational | designer | comparison table | Photoshop shortcuts that work here, and the ones that differ | M | M | reference | 4 | planned |
 | best photoshop alternative for youtube thumbnails | commercial | marketing person | use-case page | Make YouTube thumbnails without Photoshop | M | M | workflow | 3 | planned |
@@ -132,7 +132,7 @@
 | what to include in a brand kit | informational | brand owner | quick answer | What goes in a brand kit | H | L | quick answer | 3 | existing |
 | brand identity checklist | workflow | freelancer | checklist page | The brand identity checklist | M | M | checklist | 3 | planned |
 | logo clear space | informational | designer | section-level page | Logo clear space and minimum size: how to set the rules | M | M | explainer | 3 | planned |
-| brand colour palette generator | commercial | brand owner | builder angle | Build a brand colour palette that passes contrast | H | M | how-to | 2 | planned |
+| brand colour palette generator | commercial | brand owner | builder angle | Build a brand colour palette that passes contrast | H | M | how-to | 2 | live |
 | design tokens json | informational | developer | developer angle | Brand guidelines to design tokens, CSS and Tailwind | M | M | how-to | 3 | existing |
 | brand identity for small business | informational | brand owner | audience angle | A brand identity for a small business, in a weekend | H | M | workflow | 3 | planned |
 | brand guidelines online free | commercial | brand owner | landing angle | Make brand guidelines online, free, no account | M | M | how-to | 3 | planned |
@@ -142,7 +142,7 @@
 
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
-| social media sizes and safe zones | informational | marketing person | safe zones with a diagram | Social media sizes and safe zones (2026) | H | M | reference + diagram | 2 | planned |
+| social media sizes and safe zones | informational | marketing person | safe zones with a diagram | Social media sizes and safe zones (2026) | H | M | reference + diagram | 2 | live |
 | what is instagram post size | informational | beginner | quick answer | Instagram post size: 1080 × 1350 and why | H | L | quick answer | 4 | existing |
 | resize one design to multiple sizes | informational | marketing person | exists | Resize one design to every format | M | H | guide | 1 | existing |
 | how to make social media graphics | informational | beginner | exists | Design social posts that read on a phone | H | M | guide | 2 | existing |
@@ -158,8 +158,8 @@
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
 | how to manage client design projects | informational | freelancer | none, live | How to run a client design project (brief, directions, review, delivery) | M | H | guide | 1 | live |
-| design brief example | informational | freelancer, brand owner | example and template | A design brief that actually starts the job (example and template) | H | M | template | 2 | planned |
-| client feedback examples | informational | freelancer | feedback-specific | Get client feedback you can act on (and record the answer) | M | M | guide | 2 | planned |
+| design brief example | informational | freelancer, brand owner | example and template | A design brief that actually starts the job (example and template) | H | M | template | 2 | live |
+| client feedback examples | informational | freelancer | feedback-specific | Get client feedback you can act on (and record the answer) | M | M | guide | 2 | live |
 | what is handoff | informational | freelancer | definition | Design handoff: what it means and what you hand over | M | M | explainer | 3 | planned |
 | versioning explained | informational | freelancer | versioning page | File naming and versioning for design work | M | M | guide | 3 | planned |
 | how to present design to client | informational | freelancer | presentation angle | Present design directions so the client can decide | M | M | guide | 3 | planned |

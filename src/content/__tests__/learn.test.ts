@@ -28,11 +28,16 @@ describe('Learn content', () => {
   it('keeps meta descriptions under 160 characters', () => {
     for (const a of ARTICLES) expect(metaDescription(a.description ?? a.summary).length, a.slug).toBeLessThanOrEqual(160)
   })
-  it('points every internal link at a real guide', () => {
+  it('points every internal link at a real guide, route or topic', () => {
     const slugs = new Set(ARTICLES.map(a => a.slug))
+    const goals = new Set(GOALS.map(g => g.id))
+    const cats = new Set(ARTICLES.map(a => a.category))
     for (const a of ARTICLES) {
       const text = a.body.map(textOf).join(' ')
-      for (const m of Array.from(text.matchAll(/\]\(\/learn\/([a-z0-9-]+)/g))) expect(slugs.has(m[1]), `${a.slug} -> ${m[1]}`).toBe(true)
+      for (const m of Array.from(text.matchAll(/\]\(\/learn\/([a-z0-9-]+)(?:\/([a-z0-9-]+))?/g))) {
+        const ok = m[1] === 'do' ? goals.has(m[2]) : m[1] === 'topic' ? cats.has(m[2] as never) : slugs.has(m[1])
+        expect(ok, `${a.slug} -> ${m[0]}`).toBe(true)
+      }
     }
   })
   it('routes every goal through at least three guides', () => {
@@ -69,6 +74,14 @@ describe('Learn search', () => {
     expect(top('how to make a duotone')[0]).toBe('make-a-duotone-image')
     expect(top('dither effect')[0]).toBe('dither-effect-explained')
     expect(top('glitch effect online')[0]).toBe('glitch-effect-explained')
+    expect(top('why does my print look different than on screen')[0]).toBe('print-looks-different-from-screen')
+    expect(top('design brief example')[0]).toBe('design-brief-example')
+    expect(top('how to get client feedback on design')[0]).toBe('get-client-feedback-you-can-act-on')
+    expect(top('instagram story safe zone')[0]).toBe('social-media-sizes-and-safe-zones')
+    expect(top('social media sizes')).toContain('social-media-sizes-and-safe-zones')
+    expect(top('switching from photoshop')[0]).toBe('coming-from-photoshop')
+    expect(top('brand colour palette')).toContain('brand-colour-palette-that-passes-contrast')
+    expect(top('accessible brand colours')[0]).toBe('brand-colour-palette-that-passes-contrast')
   })
   it('returns nothing for noise', () => {
     expect(searchLearn('zzzz qqqq', index)).toEqual([])
