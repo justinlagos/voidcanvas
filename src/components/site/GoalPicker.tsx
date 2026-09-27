@@ -18,17 +18,17 @@ export function GoalPicker({ goals, index, initial }: { goals: GoalLite[]; index
   const goal = goals.find(g => g.id === id) ?? null
   const shown = more ? goals : goals.filter(g => g.primary)
   const panel = useRef<HTMLDivElement>(null)
-  // Bring the route into view when it opens below the fold, without yanking the page when it is already visible.
+  // When a route opens below the fold, scroll so the chips and the route are both in view; leave the page alone otherwise.
   useEffect(() => {
     const el = panel.current
     if (!el || !id) return
     const r = el.getBoundingClientRect()
-    if (r.top > innerHeight * 0.7 || r.top < 0) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (r.bottom > innerHeight || r.top < 0) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [id])
   const pick = (g: GoalLite) => (e: React.MouseEvent) => { e.preventDefault(); setId(g.id === id ? null : g.id); track('learn.goal', { id: g.id }) }
 
   return (
-    <div>
+    <div ref={panel} className="scroll-mt-20">
       <div role="group" aria-label="Goals" className="flex flex-wrap gap-2">
         {shown.map(g => (
           <a key={g.id} href={`/learn/do/${g.id}`} onClick={pick(g)} aria-pressed={g.id === id}
@@ -40,7 +40,7 @@ export function GoalPicker({ goals, index, initial }: { goals: GoalLite[]; index
       </div>
 
       {goal && (
-        <div ref={panel} className="mt-6 scroll-mt-20 rounded-[28px] border border-lp-line bg-lp-card p-6 sm:p-8 animate-[fadein_.25s_ease]" aria-live="polite">
+        <div className="mt-6 rounded-[28px] border border-lp-line bg-lp-card p-6 sm:p-8 animate-[fadein_.25s_ease]" aria-live="polite">
           <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-8">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-lp-accent">{goal.prompt}</p>
