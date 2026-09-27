@@ -783,7 +783,7 @@ export const articles: Article[] = [
         ['Anonymous usage counts', 'To know which tools get used and what breaks', 'Event names and small settings such as a file type or a preset name. Never images, file names, text or layer content. Off in a private session or when your browser sends Do Not Track or Global Privacy Control'],
         ['Feedback and bug reports, only when you press send', 'So you can tell us something', 'What you type, plus device and browser context'],
       ] },
-      { t: 'p', text: 'You never need an account. If you make one, it syncs interface settings and brands, encrypted on your device before they are sent, with a key only your devices have. Review and delivery links for clients are encrypted the same way, with the key in the link itself. [What Voidcanvas sends and what stays on your device](/learn/privacy-and-data) is the full list and stays current with the app.' },
+      { t: 'p', text: 'You never need an account. If you make one, it syncs interface settings, encrypted on your device before they are sent, with a key only your devices have. Teams share the client brands and jobs you choose, encrypted with the team\'s key. Review and delivery links for clients are encrypted the same way, with the key in the link itself. [What Voidcanvas sends and what stays on your device](/learn/privacy-and-data) is the full list and stays current with the app.' },
       { t: 'steps', items: [
         'Run the two tests above on Voidcanvas. Open the [Editor](/editor), load a photo, remove its background, export a PNG, then go offline and do it again.',
         'To switch off usage counts, open Help, **Your privacy**, and turn off **Share anonymous usage counts**.',

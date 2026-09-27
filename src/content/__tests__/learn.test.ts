@@ -45,7 +45,8 @@ describe('Learn content', () => {
   })
 })
 
-describe('Learn search', () => {
+// Each test runs dozens of searches over the whole index; give slower CI machines room.
+describe('Learn search', { timeout: 30000 }, () => {
   const index = learnIndex()
   const top = (q: string, n = 3) => searchLearn(q, index).slice(0, n).map(h => h.slug)
   it('understands problem phrasings through the concept map', () => {
@@ -137,6 +138,20 @@ describe('Learn search', () => {
     expect(top('how to present design to client')[0]).toBe('present-design-directions')
     expect(top('design review process')[0]).toBe('design-review-process')
     expect(top('what files to send to a client')[0]).toBe('what-files-to-deliver-to-a-client')
+    expect(top('print ready file checklist')[0]).toBe('print-handover-checklist')
+    expect(top('can i print designs from canva')[0]).toBe('print-a-design-from-a-browser-tool')
+    expect(top('open psd on android')[0]).toBe('open-and-edit-a-psd-on-a-phone')
+    expect(top('photoshop alternative for linux')[0]).toBe('photoshop-alternative-for-linux')
+    expect(top('photoshop alternative for ipad')[0]).toBe('layered-image-editing-on-an-ipad')
+    expect(top('design app for chromebook')[0]).toBe('graphic-design-on-a-chromebook')
+    expect(top('what does browser based mean')[0]).toBe('browser-based-design-tools-explained')
+    expect(top('design tool no account')[0]).toBe('design-without-an-account')
+    expect(top('share brand kit with team')[0]).toBe('share-a-brand-kit-with-your-team')
+    expect(top('brand guidelines to brand kit')[0]).toBe('brand-guidelines-to-brand-kit')
+    expect(top('flyer design ideas')[0]).toBe('flyer-design-structure')
+    expect(top('expand image with ai')[0]).toBe('expand-an-image-with-ai-fill')
+    expect(top('select subject ai')[0]).toBe('select-a-subject-automatically')
+    expect(top('is ai design private')[0]).toBe('ai-tools-that-never-see-your-image')
   })
   it('returns nothing for noise', () => {
     expect(searchLearn('zzzz qqqq', index)).toEqual([])

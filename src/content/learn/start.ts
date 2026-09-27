@@ -468,10 +468,10 @@ export const articles: Article[] = [
   {
     slug: 'privacy-and-data',
     title: 'What Voidcanvas sends and what stays on your device',
-    summary: 'Your images and designs never leave your browser. Here is the complete list of what does go over the network, including the anonymous usage counts, and how to turn them off.',
+    summary: 'Your images and designs stay on your device unless you choose a feature that shares them, and then they are encrypted first. The complete list of what goes over the network, and how to turn the usage counts off.',
     category: 'help',
     level: 'Beginner',
-    updated: '2026-09-25',
+    updated: '2026-09-27',
     related: ['private-session', 'saving-and-your-files', 'ai-on-this-device', 'report-a-bug-well'],
     keywords: 'privacy data gdpr tracking analytics telemetry cookies upload cloud what is sent do not track usage counts opt out',
     body: [
@@ -486,9 +486,18 @@ export const articles: Article[] = [
         "Studio jobs, briefs, references, brands and brand guidelines.",
         "Fonts you add from files on your computer. They are never requested from Google.",
       ] },
-      { t: 'p', text: "There is no account, no login and no cloud copy. Your work is saved in this browser only. See [Saving and your files](/learn/saving-and-your-files)." },
+      { t: 'p', text: "Your work is saved in this browser, or in files you save to disk. There is no cloud copy of your designs. See [Saving and your files](/learn/saving-and-your-files)." },
 
-      { t: 'h', text: 'What does go over the network' },
+      { t: 'h', text: 'Optional features that share, encrypted first' },
+      { t: 'p', text: "You never need an account. If you choose to use one of these, what it shares is encrypted on your device, with a key that only your devices, your team or the link holds. Voidcanvas stores only what it cannot read." },
+      { t: 'table', head: ['Feature', 'What it sends', 'Who can read it'], rows: [
+        ['[Account and sync](/learn/account-and-sync)', 'Interface settings, workspaces, recent colours and your usage-count choice. Not designs.', 'Only your signed-in devices.'],
+        ['[Teams](/learn/teams)', 'The client brands and Studio jobs you choose to share, with their logos, references and versions.', 'Only the team.'],
+        ['[Review and delivery links](/learn/review-and-delivery-links)', 'The version images, notes and comments, or the delivered files, for that one link. Deleted when you stop the link or after 30 days.', 'Only people who have the link, because the key is in it.'],
+        ['The Working Designer Study, only if you joined it through a study link', 'Timing for study jobs and a few job events (started, formats, delivered). Never designs, text, images or file names.', 'The research team.'],
+      ] },
+
+      { t: 'h', text: 'What else goes over the network' },
       { t: 'table', head: ['What', 'Why', 'What it contains'], rows: [
         ['The app itself', 'To load the pages and, once installed, update them.', 'Ordinary page requests.'],
         ['Web fonts from Google Fonts', 'So text layers can use fonts such as Inter, Poppins or Playfair Display.', 'A request for the font family by name. No text or design.'],

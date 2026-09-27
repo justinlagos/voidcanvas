@@ -15,7 +15,7 @@
 | what dpi should a poster be | informational | beginner | poster-specific answer | What dpi a poster should be, by size and viewing distance | M | M | quick answer + calculator | 2 | live |
 | a5 flyer size in pixels | informational | beginner | reference row exists; needs the with-bleed number and calculator | A5 flyer size in pixels, mm and inches, with bleed | M | M | reference | 4 | planned |
 | business card size in pixels | informational | brand owner | card-specific quick answer (the 96 dpi trap) | Business card size in pixels and how to export one that prints right | M | M | reference + fix | 4 | planned |
-| print ready file checklist | workflow | freelancer | a standalone checklist page | The print handover checklist | M | M | checklist | 3 | planned |
+| print ready file checklist | workflow | freelancer | a standalone checklist page | The print handover checklist | M | M | checklist | 3 | live |
 | poster sizes in pixels | informational | beginner | poster sizes table with bleed | Poster sizes in pixels at 150 and 300 dpi | M | M | reference | 4 | planned |
 
 ## Blurry and low resolution (10)
@@ -41,7 +41,7 @@
 | how to open psd file for free | commercial | beginner | quick path for viewers | Open a PSD file for free, in the browser, with the layers | M | M | how-to | 2 | live |
 | psd not opening | informational | designer | troubleshooting entry | PSD will not open: the five causes and what to ask for | L | M | troubleshooting | 3 | live |
 | psd to png | informational | beginner | conversion how-to | Convert a PSD to PNG (with transparency) without Photoshop | M | M | how-to | 3 | live |
-| open psd on android | commercial | beginner | mobile angle | Open and edit a PSD on a phone or tablet | M | M | how-to | 3 | planned |
+| open psd on android | commercial | beginner | mobile angle | Open and edit a PSD on a phone or tablet | M | M | how-to | 3 | live |
 | what is a smart object | informational | designer | definition + workaround | Smart objects outside Photoshop: what happens to them | L | M | explainer | 4 | planned |
 | psd missing fonts | informational | designer | dedicated fix page | Missing fonts in a PSD: replace them or load the file | L | M | how-to | 3 | live |
 | is psd file editable | informational | beginner | answered in the live guide | Is a PSD editable without Photoshop? | L | M | quick answer | 2 | live |
@@ -59,8 +59,8 @@
 | how to posterize in photopea | informational | designer | effect-specific landing | Posterize an image (any tool, one click here) | L | M | how-to + demo | 3 | live |
 | photoshop for beginners | informational | beginner | concept-first course | Image editing for beginners: layers, masks and adjustments without Photoshop | H | L | course | 5 | planned |
 | photopea vs voidcanvas | commercial | designer | comparison page | Voidcanvas and Photopea compared, honestly | M | M | comparison | 5 | planned |
-| photoshop alternative for linux | commercial | designer | platform angle | A layered image editor on Linux: the desktop app | M | M | how-to | 3 | planned |
-| photoshop alternative for ipad | commercial | designer | tablet angle | Layered image editing on an iPad, in the browser | M | M | how-to | 3 | planned |
+| photoshop alternative for linux | commercial | designer | platform angle | A layered image editor on Linux: the desktop app | M | M | how-to | 3 | live |
+| photoshop alternative for ipad | commercial | designer | tablet angle | Layered image editing on an iPad, in the browser | M | M | how-to | 3 | live |
 | what is photopea | informational | beginner | category explainer | Browser-based image editors: how they work and what to check | L | M | explainer | 4 | planned |
 
 ## Canva limits (10)
@@ -71,12 +71,12 @@
 | can i change blend mode in canva | informational | marketing person | Canva arrival angle | Blend modes explained (multiply, screen, overlay) with examples | M | M | explainer + demo | 2 | planned |
 | can i halftone in canva | informational | marketing person | covered by the live guide | How to make a halftone portrait | L | H | guide | 1 | live |
 | how to make newspaper effect in canva | informational | marketing person | recipe | The newspaper photo effect: halftone, grain and a warm tint | L | M | recipe + demo | 3 | live |
-| can i print designs from canva | informational | brand owner | tool-agnostic answer | Printing a design made in a browser tool: what the printer needs | M | M | explainer | 3 | planned |
+| can i print designs from canva | informational | brand owner | tool-agnostic answer | Printing a design made in a browser tool: what the printer needs | M | M | explainer | 3 | live |
 | what can i use instead of canva | commercial | brand owner | comparison by need, not a listicle | Instead of Canva: choose by what you need (privacy, print, layers, clients) | H | L | comparison | 5 | planned |
-| can i share brand kit on canva | informational | brand owner | team angle | Share a brand kit with your team (without a paid seat) | M | M | how-to | 3 | planned |
+| can i share brand kit on canva | informational | brand owner | team angle | Share a brand kit with your team (without a paid seat) | M | M | how-to | 3 | live |
 | how to make a risograph effect in canva | informational | designer | query-shaped front door | How to make a risograph effect (no Photoshop) | M | H | guide + demo | 2 | planned |
 | can i resize images in canva | informational | marketing person | Canva arrival | Resize one design to every size (free, no Pro plan) | M | H | how-to | 2 | planned |
-| can i upload my brand guidelines to canva | informational | brand owner | guideline-to-kit flow | From brand guidelines to a working brand kit | M | M | how-to | 3 | planned |
+| can i upload my brand guidelines to canva | informational | brand owner | guideline-to-kit flow | From brand guidelines to a working brand kit | M | M | how-to | 3 | live |
 
 ## Halftone (10)
 
@@ -188,11 +188,11 @@
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
 | offline graphic design software free | commercial | designer | answer for browser tools | Graphic design software that works offline (including in a browser) | M | M | explainer | 2 | live |
-| what does browser based mean | informational | beginner | definition with the privacy angle | Browser-based design tools: where your files actually go | L | M | explainer | 3 | planned |
-| design tool no account | commercial | privacy-minded | no-account angle | Design without an account: what you keep and what you give up | L | M | explainer | 3 | planned |
+| what does browser based mean | informational | beginner | definition with the privacy angle | Browser-based design tools: where your files actually go | L | M | explainer | 3 | live |
+| design tool no account | commercial | privacy-minded | no-account angle | Design without an account: what you keep and what you give up | L | M | explainer | 3 | live |
 | does canva upload my photos | informational | privacy-minded | how-to-check page | How to check whether a web tool uploads your images | L | H | how-to | 2 | planned |
 | private photo editor | commercial | privacy-minded | exists | Use a private session on a shared computer | L | M | guide | 3 | existing |
-| design app for chromebook | commercial | student | device angle | Graphic design on a Chromebook | M | M | how-to | 3 | planned |
+| design app for chromebook | commercial | student | device angle | Graphic design on a Chromebook | M | M | how-to | 3 | live |
 | gdpr photo editing tool | informational | professional | compliance angle | Editing client images without sending them anywhere | L | M | explainer | 4 | planned |
 | design software no internet | commercial | designer | exists | Use Voidcanvas as an app on your computer | M | M | guide | 3 | existing |
 | where are my files saved browser app | informational | beginner | exists | Where your designs are saved and how to keep them safe | L | M | guide | 3 | existing |
@@ -209,7 +209,7 @@
 | colour theory for designers | informational | beginner | exists | Choose colours that work on screen and in print | H | M | guide | 2 | existing |
 | visual hierarchy | informational | beginner | exists as section | Lay out a page with a grid, space and a clear focal point | H | M | guide | 3 | existing |
 | graphic design basics | informational | beginner | goal page | I want to learn graphic design (the route) | H | L | route | 3 | live |
-| flyer design ideas | informational | brand owner | redirect to method | Flyer design that works: structure before decoration | H | L | craft guide | 3 | planned |
+| flyer design ideas | informational | brand owner | redirect to method | Flyer design that works: structure before decoration | H | L | craft guide | 3 | live |
 | what is white space | informational | beginner | definition | White space: what it does and how much to leave | H | L | explainer | 4 | planned |
 | design terms explained | informational | beginner | exists | Glossary of design and Voidcanvas terms | M | L | reference | 4 | existing |
 
@@ -235,11 +235,11 @@
 | ai graphic design tools | commercial | beginner | position piece | AI in a design tool without losing control: on-device tools only | H | L | explainer | 5 | planned |
 | ai background removal | commercial | beginner | exists | Remove a background on your device | H | M | guide | 2 | existing |
 | ai photo editing not working | informational | beginner | redirect | When cloud AI editing fails: what runs locally | L | L | note | 5 | planned |
-| expand image with ai | informational | designer | feature page | Expand an image with AI fill (on your device) | M | M | how-to | 3 | planned |
+| expand image with ai | informational | designer | feature page | Expand an image with AI fill (on your device) | M | M | how-to | 3 | live |
 | ai poster generator | commercial | beginner | position piece | Why an AI poster generator gives you a generic poster | H | L | opinion | 5 | planned |
 | ai brand identity generator | commercial | brand owner | position piece | Brand identity generators and what to do after one | H | L | opinion | 5 | planned |
-| select subject ai | informational | designer | feature page | Select a subject automatically | M | M | how-to | 3 | planned |
+| select subject ai | informational | designer | feature page | Select a subject automatically | M | M | how-to | 3 | live |
 | ai upscale image | commercial | beginner | covered by resolution cluster | Can you increase image resolution? | H | L | explainer | 5 | planned |
 | generative fill without photoshop | informational | designer | comparison | Generative fill outside Photoshop: what runs in a browser | H | L | explainer | 5 | planned |
-| is ai design private | informational | privacy-minded | privacy angle | AI tools that never see your image | L | M | explainer | 3 | planned |
+| is ai design private | informational | privacy-minded | privacy angle | AI tools that never see your image | L | M | explainer | 3 | live |
 

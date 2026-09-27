@@ -211,8 +211,8 @@ export const articles: Article[] = [
     keywords: 'print ready pdf press ready pdf/x trimbox bleedbox crop marks embedded fonts rasterised image based 300 dpi rgb cmyk check page size document properties printer note',
     guide: {
       before: ['designing-for-print'],
-      next: ['export-for-print', 'how-much-bleed'],
-      also: [{ when: 'it is a poster', slug: 'prepare-a-poster-for-print' }, { when: 'it is a client delivery', slug: 'delivering-files' }],
+      next: ['print-handover-checklist', 'how-much-bleed'],
+      also: [{ when: 'it is a poster', slug: 'prepare-a-poster-for-print' }, { when: 'the design was made in a browser tool', slug: 'print-a-design-from-a-browser-tool' }],
     },
     body: [
       { t: 'answer', text: 'A print-ready PDF is a file the printer can send to the press without opening it to fix anything: the **page size equals the trim size plus bleed**, images are at **300 dpi at final size**, type is **embedded or rendered to pixels** so it cannot reflow, the **colour mode is known** (CMYK, or RGB with the printer converting), **crop marks** are present if the printer asked for them, and there is **one file per piece**. If your tool exports an image-based PDF, as Voidcanvas does, the type is already rendered and the questions left are size, resolution, bleed and colour. Check those four and write them in the email.' },
@@ -1130,14 +1130,14 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'Offline and private are different' },
-      { t: 'p', text: 'A tool can work offline and still upload your work the moment it reconnects. Offline tells you where the work happens; private tells you where the work goes. [Photo editors that do not upload your photos](/learn/photo-editor-that-does-not-upload) has the network test for the second question. Voidcanvas passes both: the work happens on the device, and the only thing sent when you reconnect is an anonymous usage count you can turn off.' },
+      { t: 'p', text: 'A tool can work offline and still upload your work the moment it reconnects. Offline tells you where the work happens; private tells you where the work goes. [Photo editors that do not upload your photos](/learn/photo-editor-that-does-not-upload) has the network test for the second question. Voidcanvas passes both: the work happens on the device, and by default the only thing sent when you reconnect is an anonymous usage count you can turn off. The optional sharing features (account sync, teams, review links) encrypt on the device before anything leaves.' },
 
       { t: 'h', text: 'How Voidcanvas handles this' },
       { t: 'list', items: [
         '**In the browser**, after the first visit, the home page, Editor, Studio and Effects are stored on the device; the quick tools are stored once visited. Designs live in the browser\'s storage on that device and can be saved to .void files on disk. Install it from the address bar (Chrome, Edge), **Add to Dock** (Safari) or **Add to Home Screen** (iPhone, Android) and it opens in its own window and works with no connection.',
         '**The desktop app** for Windows, macOS and Linux is the same app installed, with designs saved as .void files in a Voidcanvas folder inside Documents (or a folder of your choice, including a synced one), the 16 built-in fonts and these Learn pages on the machine, and PSD opening from the file browser.',
         '**Needs the internet once:** Google Fonts you have not used, and each AI model the first time. **Never needs it:** opening, editing, saving, exporting, PSD import, effects, the brand kit.',
-        '**Sends when online:** anonymous usage counts (off in Your privacy), and nothing else. Review and delivery links are the only features that send work anywhere, and they are sealed on the device first.',
+        '**Sends when online:** anonymous usage counts (off in Your privacy). If you choose to use them, account sync sends your settings, teams send the brands and jobs you share, and review and delivery links send that version\'s files, all encrypted on the device first. See [What Voidcanvas sends](/learn/privacy-and-data).',
       ] },
       { t: 'product', text: 'Install it as an app or use the desktop build; open the Editor once with your fonts and AI tools, and it works on a plane. Your designs stay on the device either way.', label: 'Install Voidcanvas', href: '/download' },
 
