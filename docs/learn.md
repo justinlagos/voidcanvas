@@ -13,7 +13,7 @@ SEARCH  ->  WHAT ARE YOU TRYING TO DO?  ->  ANSWER  ->  GUIDE  ->  DEEPER LEARNI
 - `/learn/do/<goal>` a route: the short answer, the guides in order with a reason each, the honest product paragraph, questions people ask. Fourteen goals in `src/content/learn/goals.ts`.
 - `/learn/topic/<category>` the eight topic pages (breadcrumb targets and complete lists).
 - `/learn/<slug>` a guide. Cornerstones open with a quick answer and close with "How Voidcanvas handles this"; every guide ends with contextual links (Before you start, Next, If…) and a Try banner when it has no product block of its own.
-- `/og/learn/<slug>`, `/og/learn/do/<goal>`, `/og/learn-hub` Open Graph images drawn with next/og as static route handlers, so the desktop export can prerender them.
+- `/og/learn/<slug>`, `/og/learn/do/<goal>`, `/og/learn-hub` Open Graph images drawn with next/og as static route handlers (`route.web.tsx`). The desktop export leaves them out through `pageExtensions` in next.config.js, because next/og cannot prerender on Windows and the offline app has no use for them.
 
 ## Content model
 

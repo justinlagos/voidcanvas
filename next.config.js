@@ -4,6 +4,9 @@ const desktop = process.env.DESKTOP === '1'
 
 const nextConfig = {
   reactStrictMode: true,
+  // Files named *.web.tsx are routes the web build serves and the desktop export leaves out: the Open Graph images
+  // under src/app/og, which next/og cannot prerender on Windows and which an offline app has no use for.
+  pageExtensions: desktop ? ['tsx', 'ts', 'jsx', 'js'] : ['web.tsx', 'tsx', 'ts', 'jsx', 'js'],
   ...(desktop ? { output: 'export', distDir: '.next-desktop', images: { unoptimized: true }, env: { NEXT_PUBLIC_DESKTOP: '1' } } : {}),
   webpack: (config) => {
     // pdfjs references an optional Node 'canvas' module we never use in the browser build.
