@@ -211,7 +211,7 @@ export const articles: Article[] = [
       { t: 'list', items: [
         '**File > Resize for other formats…** makes copies at the sizes you pick. Backgrounds stretch to fill; everything else keeps its place and scales to fit. Click **Download N as PNG** for a zip, or **Save as separate designs** to fine-tune each one. Your original is not changed.',
         '**File > Boards…**, then the **Cascade to touchpoints** tab, adds linked boards beside the current design. The **Re-sync variants** button on the master rebuilds them from it and throws away changes made on the variants, so re-sync before fine-tuning, not after.',
-        'To export boards, open **File > Export as…** and click **Each board as its own PNG (zip)**. Boards export at 2×.',
+        'To export boards, open **File > Export as…**, choose **All** under Boards to export, pick PNG and a size (1× is each board at its own size), tick **Number files in board order (01, 02…)** and press **Download N PNGs (zip)**.',
       ] },
       { t: 'p', text: 'Scaling to fit is why a banner from a portrait post looks tiny: on a 1584 × 396 LinkedIn banner the scale is set by the height, so a 1080 × 1350 post shrinks to under a third. Plan to rework the wide formats by hand either way.' },
 
@@ -417,7 +417,7 @@ export const articles: Article[] = [
         ['Download .ase', 'Other designers', 'Adobe Swatch Exchange, grouped by role, for Illustrator, Photoshop and InDesign.'],
         ['Editor', 'You, for custom edits', 'Every page as a board of real text, shape and image layers.'],
       ] },
-      { t: 'p', text: 'Open the pages in the Editor when the client needs wording the builder does not generate, such as their own voice examples. Changes made there do not flow back to the builder, so finish the system first and edit last. To export the edited pages, use **File > Export as…** and **Each board as its own PNG (zip)**.' },
+      { t: 'p', text: 'Open the pages in the Editor when the client needs wording the builder does not generate, such as their own voice examples. Changes made there do not flow back to the builder, so finish the system first and edit last. To export the edited pages, use **File > Export as…**, choose **All** under Boards to export, and pick PNG, or PDF with **One PDF** for a page per board.' },
 
       { t: 'h', text: '9. Save it as a client brand' },
       { t: 'steps', items: [
@@ -634,7 +634,7 @@ export const articles: Article[] = [
 
       { t: 'h', text: '8. Export' },
       { t: 'steps', items: [
-        'Press {{Ctrl+E}} and click **Each board as its own PNG (zip)**. Boards export at 2×, and each file is named after its board.',
+        'Press {{Ctrl+E}}, choose **All** under Boards to export, pick PNG at 1×, tick **Number files in board order (01, 02…)** and press **Download N PNGs (zip)**. Each file is named after its board.',
         'Rename the boards in **File > Boards…** first if you want tidy file names.',
       ] },
 

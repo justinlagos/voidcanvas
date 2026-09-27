@@ -455,7 +455,7 @@ export const articles: Article[] = [
         '**Leave out the background colour** appears for PNG and WebP when the design has a background colour. Tick it for a see-through background.',
         '**PDF** is one page holding the design as a high-quality JPG. Designs with a long side over 2000 px get a 300 dpi page size; smaller ones get 96 dpi. Text in the PDF cannot be selected or edited, and there is no bleed or crop marks. For print PDFs with bleed, see [Export for print](/learn/export-for-print).',
         '**Copy image** puts a PNG on your clipboard to paste into another app.',
-        '**Each board as its own PNG (zip)** appears when the design has boards. Every board is saved at 2× as a separate PNG, zipped.',
+        'With boards, **Boards to export** appears: **This board**, **All**, or a range such as 1-3, 5. Several boards download as one file each, zipped, at the size you pick, optionally numbered in board order.',
         '**Save editable file (.void.png, previews as your design, keeps layers)** saves a PNG that looks like your design in any image viewer, with the whole editable project stored inside it. The preview picture is at most 1600 px on the long side; the layers inside are full size.',
         'Download also saves a version of the design, so you can go back to exactly what you sent.',
       ] },

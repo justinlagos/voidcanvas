@@ -130,13 +130,13 @@
 | how to create brand guidelines | informational | brand owner, freelancer | exists; needs the query-shaped front door | Build a brand guideline | H | M | guide | 1 | existing |
 | brand consistency examples | informational | marketing person | none, live | How to keep a brand consistent | H | M | guide | 1 | live |
 | what to include in a brand kit | informational | brand owner | quick answer | What goes in a brand kit | H | L | quick answer | 3 | existing |
-| brand identity checklist | workflow | freelancer | checklist page | The brand identity checklist | M | M | checklist | 3 | planned |
-| logo clear space | informational | designer | section-level page | Logo clear space and minimum size: how to set the rules | M | M | explainer | 3 | planned |
+| brand identity checklist | workflow | freelancer | checklist page | The brand identity checklist | M | M | checklist | 3 | live |
+| logo clear space | informational | designer | section-level page | Logo clear space and minimum size: how to set the rules | M | M | explainer | 3 | live |
 | brand colour palette generator | commercial | brand owner | builder angle | Build a brand colour palette that passes contrast | H | M | how-to | 2 | live |
 | design tokens json | informational | developer | developer angle | Brand guidelines to design tokens, CSS and Tailwind | M | M | how-to | 3 | existing |
-| brand identity for small business | informational | brand owner | audience angle | A brand identity for a small business, in a weekend | H | M | workflow | 3 | planned |
-| brand guidelines online free | commercial | brand owner | landing angle | Make brand guidelines online, free, no account | M | M | how-to | 3 | planned |
-| font pairing for brand | informational | designer | brand angle | Font pairing for a brand: choose by personality | H | M | guide | 3 | planned |
+| brand identity for small business | informational | brand owner | audience angle | A brand identity for a small business, in a weekend | H | M | workflow | 3 | live |
+| brand guidelines online free | commercial | brand owner | landing angle | Make brand guidelines online, free, no account | M | M | how-to | 3 | live |
+| font pairing for brand | informational | designer | brand angle | Font pairing for a brand: choose by personality | H | M | guide | 3 | live |
 
 ## Social content and many formats (10)
 
@@ -146,12 +146,12 @@
 | what is instagram post size | informational | beginner | quick answer | Instagram post size: 1080 × 1350 and why | H | L | quick answer | 4 | existing |
 | resize one design to multiple sizes | informational | marketing person | exists | Resize one design to every format | M | H | guide | 1 | existing |
 | how to make social media graphics | informational | beginner | exists | Design social posts that read on a phone | H | M | guide | 2 | existing |
-| how to design social media templates | informational | marketing person | series angle | Design a social template system you can reuse weekly | M | M | workflow | 3 | planned |
+| how to design social media templates | informational | marketing person | series angle | Design a social template system you can reuse weekly | M | M | workflow | 3 | live |
 | youtube thumbnail size | informational | marketing person | thumbnail page | YouTube thumbnail size and the three legibility rules | H | M | quick answer + rules | 3 | live |
 | linkedin banner size | informational | marketing person | banner page | LinkedIn banner size and where the photo covers it | H | L | quick answer | 4 | planned |
 | story size pixels | informational | beginner | quick answer | Story and Reel cover size | H | L | quick answer | 4 | existing |
-| carousel post design | informational | marketing person | carousel angle | Design an Instagram carousel with boards | M | M | how-to | 3 | planned |
-| adapt poster to instagram | informational | designer | print-to-social angle | Adapt a poster for social without squashing it | L | M | how-to | 3 | planned |
+| carousel post design | informational | marketing person | carousel angle | Design an Instagram carousel with boards | M | M | how-to | 3 | live |
+| adapt poster to instagram | informational | designer | print-to-social angle | Adapt a poster for social without squashing it | L | M | how-to | 3 | live |
 
 ## Client work and freelancing (10)
 
@@ -160,13 +160,13 @@
 | how to manage client design projects | informational | freelancer | none, live | How to run a client design project (brief, directions, review, delivery) | M | H | guide | 1 | live |
 | design brief example | informational | freelancer, brand owner | example and template | A design brief that actually starts the job (example and template) | H | M | template | 2 | live |
 | client feedback examples | informational | freelancer | feedback-specific | Get client feedback you can act on (and record the answer) | M | M | guide | 2 | live |
-| what is handoff | informational | freelancer | definition | Design handoff: what it means and what you hand over | M | M | explainer | 3 | planned |
+| what is handoff | informational | freelancer | definition | Design handoff: what it means and what you hand over | M | M | explainer | 3 | live |
 | versioning explained | informational | freelancer | versioning page | File naming and versioning for design work | M | M | guide | 3 | live |
-| how to present design to client | informational | freelancer | presentation angle | Present design directions so the client can decide | M | M | guide | 3 | planned |
+| how to present design to client | informational | freelancer | presentation angle | Present design directions so the client can decide | M | M | guide | 3 | live |
 | mood board examples | informational | designer | exists | Collect references and pull palettes from them | H | M | guide | 3 | existing |
-| design review process | workflow | freelancer | process page | A design review process with an end | M | M | guide | 3 | planned |
+| design review process | workflow | freelancer | process page | A design review process with an end | M | M | guide | 3 | live |
 | send design proof to client | informational | freelancer | exists | Send review and delivery links to clients | M | M | how-to | 3 | existing |
-| what files to send to a client | informational | freelancer | by-job-type table | What files to deliver to a client, by job type | M | M | reference | 3 | planned |
+| what files to send to a client | informational | freelancer | by-job-type table | What files to deliver to a client, by job type | M | M | reference | 3 | live |
 
 ## Editor techniques (10)
 

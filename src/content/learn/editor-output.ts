@@ -64,7 +64,7 @@ export const articles: Article[] = [
       { t: 'p', text: 'These are also in the **View** menu. On a Mac, use Cmd where it says Ctrl.' },
 
       { t: 'h', text: 'Export boards' },
-      { t: 'p', text: 'Open **File, Export as…** ({{Ctrl+E}}). When the design has boards, the dialog adds **Each board as its own PNG (zip)**. That downloads one PNG per board, at twice the board size, named after each board. The main **Download** button exports the whole canvas with all the boards on it, which is rarely what you want for delivery. See [Export for screens](/learn/export-for-screen).' },
+      { t: 'p', text: 'Open **File, Export as…** ({{Ctrl+E}}). When the design has boards, the dialog starts with **Boards to export**: **This board**, **All**, a **Boards** field for a range such as 1-3, 5, or click the thumbnails. Pick the file type and the size (1× is each board at its own size). With more than one board, tick **Number files in board order (01, 02…)** to keep them in sequence, and the button reads **Download N PNGs (zip)**. Files are named after their boards, with the pixel size added unless the name already has it. For PDF, choose **One PDF** with a page per board, or **A PDF per board**. See [Export for screens](/learn/export-for-screen).' },
 
       { t: 'h', text: 'Good to know' },
       { t: 'list', items: [
@@ -291,7 +291,7 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Boards and editable files' },
       { t: 'list', items: [
-        'With [boards](/learn/artboards), **Each board as its own PNG (zip)** downloads one PNG per board at 2×. The main Download exports the whole canvas.',
+        'With [boards](/learn/artboards), choose which to export under **Boards to export** (this board, all, or a range). Several boards download as a zip with one file per board, at the size you pick, optionally numbered in board order.',
         '**Save editable file (.void.png, previews as your design, keeps layers)** makes a PNG that also carries your full project. Send it to someone who uses Voidcanvas, or keep it as a backup.',
       ] },
 

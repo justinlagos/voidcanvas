@@ -444,7 +444,7 @@ export const posts: Post[] = [
       { t: 'h', text: 'Getting the files out' },
       { t: 'list', items: [
         "**Resize for other formats** writes PNGs at exactly the preset size.",
-        "In the Editor's export dialog, **Each board as its own PNG (zip)** exports one PNG per board at 2×, named after the boards.",
+        "In the Editor's export dialog, choose **All** under Boards to export and the boards download as one PNG each, zipped, named after the boards, at the size you pick.",
         "Studio's **Deliver** tab renders every format in the file types you tick, including a print PDF with bleed for print formats, named client_job_format_version.",
       ] },
       { t: 'p', text: "Which to use comes down to what happens next. A personal post in three sizes: Resize. A set you want to see together: Cascade. A client campaign that will change before it ships: a Studio job. [Resize one design to every format](/learn/resize-to-every-format) and [Turn one launch post into every social format](/learn/workflow-social-campaign) have the step-by-step detail." },
