@@ -24,9 +24,9 @@ export const articles: Article[] = [
     related: ['designing-for-print', 'export-for-print', 'workflow-event-poster', 'image-resolution-explained'],
     keywords: 'poster print ready a3 a2 a1 18x24 300 dpi bleed 3mm safe area crop marks pdf cmyk rgb printer checklist poster size pixels',
     guide: {
-      before: ['image-resolution-explained'],
+      before: ['poster-design-rules', 'image-resolution-explained'],
       next: ['workflow-event-poster', 'export-for-print'],
-      also: [{ when: 'you want the terms explained in depth', slug: 'designing-for-print' }, { when: 'you want the halftone poster look', slug: 'make-a-halftone-portrait' }, { when: 'it is an A5 flyer rather than a poster', slug: 'workflow-print-flyer' }],
+      also: [{ when: 'you are not sure 300 dpi is right for the size', slug: 'what-dpi-should-a-poster-be' }, { when: 'the printer asked for CMYK', slug: 'rgb-or-cmyk-for-print' }, { when: 'you want the halftone poster look', slug: 'make-a-halftone-portrait' }, { when: 'it is an A5 flyer rather than a poster', slug: 'workflow-print-flyer' }],
     },
     body: [
       { t: 'answer', text: 'Set the document to the final poster size at **300 dpi**, add **3 mm of bleed** on every side, keep text and logos at least **5 mm inside the trim**, use photos that are at least as many pixels wide as the poster itself, and export a **PDF at final size**. Tell the printer the file is RGB and includes bleed, and ask for a proof. The rest of this page gives you the numbers, the reasons and the checks.' },
@@ -271,7 +271,7 @@ export const articles: Article[] = [
     keywords: 'psd photoshop file open edit without photoshop free online layers masks text smart object adjustment layer fonts missing export png pdf void',
     guide: {
       next: ['import-psd-and-pdf', 'workflow-psd-to-social'],
-      also: [{ when: 'you are moving off Photoshop altogether', slug: 'editor-tour' }, { when: 'the edit is mostly masks', slug: 'masks' }, { when: 'the text needs re-setting', slug: 'type' }],
+      also: [{ when: 'you are moving off Photoshop altogether', slug: 'coming-from-photoshop' }, { when: 'you are about to cancel the subscription', slug: 'leaving-creative-cloud-checklist' }, { when: 'the edit is mostly masks', slug: 'masks' }, { when: 'the text needs re-setting', slug: 'type' }],
     },
     body: [
       { t: 'answer', text: 'Yes, a PSD can be opened and edited without Photoshop. A PSD is a layered file, and several editors read it, including Voidcanvas in a browser. What carries over cleanly: pixel layers, groups, opacity, blend modes, layer masks, clipping, simple text as editable type, most adjustment layers and most layer styles. What turns into flat pixels: smart objects, vector shapes, and text with mixed styling. Open the file, read the import report, replace any missing fonts, then edit as normal. You will get PNG, JPG, WebP or PDF out; you will not get a PSD back.' },
@@ -368,7 +368,7 @@ export const articles: Article[] = [
     guide: {
       before: ['typography-fundamentals', 'layout-and-composition'],
       next: ['make-a-halftone-portrait', 'workflow-textured-print-look'],
-      also: [{ when: 'the colour is the problem', slug: 'colour-that-works' }, { when: 'it is a brand, not one piece', slug: 'building-a-brand-identity' }],
+      also: [{ when: 'the colour is the problem', slug: 'colour-that-works' }, { when: 'it is a poster', slug: 'poster-design-rules' }, { when: 'it is a brand, not one piece', slug: 'building-a-brand-identity' }],
     },
     body: [
       { t: 'answer', text: 'A design looks generic when nothing in it was decided: the layout came with the template, every element is the same size and importance, the colours are safe mid-tones, and the photo is used whole. Fix it with six decisions, in this order: set a real type scale so one thing is clearly biggest; let one colour lead and one accent answer it; crop the photo hard and give it a treatment; put everything on a grid with a single focal point and real margins; add texture from an actual process rather than a filter preset; then remove a third of what is left. Each move is below, with where to do it in Voidcanvas.' },
@@ -734,7 +734,7 @@ export const articles: Article[] = [
     keywords: 'privacy upload server on device local browser network tab devtools offline test nda client photos confidential gdpr private session no account no cloud',
     guide: {
       next: ['privacy-and-data', 'ai-on-this-device'],
-      also: [{ when: 'you share a computer', slug: 'private-session' }, { when: 'you want it to work with no connection at all', slug: 'install-as-an-app' }, { when: 'you want to know where the files are kept', slug: 'saving-and-your-files' }],
+      also: [{ when: 'you share a computer', slug: 'private-session' }, { when: 'you want it to work with no connection at all', slug: 'offline-design-software' }, { when: 'you want to know where the files are kept', slug: 'saving-and-your-files' }],
     },
     body: [
       { t: 'answer', text: '"Online photo editor" says where the app came from, not where your photo goes. Most web editors send the image to their servers to process it; a few do the work inside your browser and send nothing. You can tell in two minutes: open the browser\'s developer tools on the Network tab, load a photo into the editor and apply an edit, and look for a request roughly the size of your photo leaving the page. Then switch the browser to offline and try the same edit. A tool that keeps working offline and sends nothing the size of your image is processing on your device. Voidcanvas is built that way, and the exact list of what it does send is below.' },

@@ -27,7 +27,7 @@ The existing guides already carrying cornerstone weight, now signposted as such:
 
 ## Tier 2: supporting high-intent pages (41 in the map)
 
-Live so far: what a print-ready PDF is, how much bleed, dithering explained, the glitch effect explained, how to make a duotone image, why a print looks different from the screen, a design brief example and template, get client feedback you can act on, social media sizes and safe zones (with a live view of every format), coming from Photoshop, and a brand colour palette that passes contrast. The Canva-arrival phrasings ("can I clipping mask in Canva", "can I change blend mode in Canva", "can I resize images in Canva") were added as answers on the technique guides rather than as new pages.
+Live so far: what a print-ready PDF is, how much bleed, dithering explained, the glitch effect explained, how to make a duotone image, why a print looks different from the screen, a design brief example and template, get client feedback you can act on, social media sizes and safe zones (with a live view of every format), coming from Photoshop, a brand colour palette that passes contrast, what dpi a poster should be (with the table from A4 to A0), RGB or CMYK for print, poster design rules, design a poster with no photo, offline design software (including the browser apps that work offline), and the leaving Creative Cloud checklist. The Canva-arrival phrasings ("can I clipping mask in Canva", "can I change blend mode in Canva", "can I resize images in Canva") were added as answers on the technique guides rather than as new pages.
 
 Build order, by cluster, each linking up to its cornerstone:
 

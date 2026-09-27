@@ -11,8 +11,8 @@
 | how much bleed do i need | informational | beginner | answer is inside a long page; needs a direct quick answer | How much bleed a print job needs | H | M | quick answer + calculator | 2 | live |
 | crop marks vs trim marks | informational | print designer | terminology gap | Crop marks, trim marks and bleed marks: what each one is | M | M | explainer | 3 | planned |
 | why does my printed document look different than print preview | informational | beginner | the problem phrasing is unserved (SERP is Windows troubleshooting) | Why a print looks different from the screen | L | H | problem guide + interactive | 2 | live |
-| rgb vs cmyk for print | informational | beginner, marketing person | quick-answer layer | RGB or CMYK for print: what to do in an RGB-only tool | H | M | explainer | 2 | planned |
-| what dpi should a poster be | informational | beginner | poster-specific answer | What dpi a poster should be, by size and viewing distance | M | M | quick answer + calculator | 2 | planned |
+| rgb vs cmyk for print | informational | beginner, marketing person | quick-answer layer | RGB or CMYK for print: what to do in an RGB-only tool | H | M | explainer | 2 | live |
+| what dpi should a poster be | informational | beginner | poster-specific answer | What dpi a poster should be, by size and viewing distance | M | M | quick answer + calculator | 2 | live |
 | a5 flyer size in pixels | informational | beginner | reference row exists; needs the with-bleed number and calculator | A5 flyer size in pixels, mm and inches, with bleed | M | M | reference | 4 | planned |
 | business card size in pixels | informational | brand owner | card-specific quick answer (the 96 dpi trap) | Business card size in pixels and how to export one that prints right | M | M | reference + fix | 4 | planned |
 | print ready file checklist | workflow | freelancer | a standalone checklist page | The print handover checklist | M | M | checklist | 3 | planned |
@@ -53,7 +53,7 @@
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
 | free photoshop alternative browser | commercial | designer | a migration guide instead of a listicle | Coming from Photoshop: what carries over, what is different | H | M | migration guide | 2 | live |
-| photoshop alternative no subscription | commercial | freelancer | freelancer angle | Leaving Creative Cloud as a freelancer: a checklist | M | M | checklist | 3 | planned |
+| photoshop alternative no subscription | commercial | freelancer | freelancer angle | Leaving Creative Cloud as a freelancer: a checklist | M | M | checklist | 3 | live |
 | photoshop shortcuts equivalent | informational | designer | comparison table | Photoshop shortcuts that work here, and the ones that differ | M | M | reference | 4 | planned |
 | best photoshop alternative for youtube thumbnails | commercial | marketing person | use-case page | Make YouTube thumbnails without Photoshop | M | M | workflow | 3 | planned |
 | how to posterize in photopea | informational | designer | effect-specific landing | Posterize an image (any tool, one click here) | L | M | how-to + demo | 3 | planned |
@@ -187,7 +187,7 @@
 
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
-| offline graphic design software free | commercial | designer | answer for browser tools | Graphic design software that works offline (including in a browser) | M | M | explainer | 2 | planned |
+| offline graphic design software free | commercial | designer | answer for browser tools | Graphic design software that works offline (including in a browser) | M | M | explainer | 2 | live |
 | what does browser based mean | informational | beginner | definition with the privacy angle | Browser-based design tools: where your files actually go | L | M | explainer | 3 | planned |
 | design tool no account | commercial | privacy-minded | no-account angle | Design without an account: what you keep and what you give up | L | M | explainer | 3 | planned |
 | does canva upload my photos | informational | privacy-minded | how-to-check page | How to check whether a web tool uploads your images | L | H | how-to | 2 | planned |
@@ -203,8 +203,8 @@
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
 | how to make my design look less generic | informational | beginner | none, live | How to make a design look less generic | L | H | guide + demo | 1 | live |
-| poster design rules | informational | beginner | poster-specific | Poster design rules that hold up | M | M | craft guide | 2 | planned |
-| poster design without image | informational | beginner | type-only poster | Design a poster with no photo | L | H | craft guide | 2 | planned |
+| poster design rules | informational | beginner | poster-specific | Poster design rules that hold up | M | M | craft guide | 2 | live |
+| poster design without image | informational | beginner | type-only poster | Design a poster with no photo | L | H | craft guide | 2 | live |
 | how to pair fonts | informational | beginner | exists as section | Set type that reads well | H | M | guide | 2 | existing |
 | colour theory for designers | informational | beginner | exists | Choose colours that work on screen and in print | H | M | guide | 2 | existing |
 | visual hierarchy | informational | beginner | exists as section | Lay out a page with a grid, space and a clear focal point | H | M | guide | 3 | existing |

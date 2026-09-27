@@ -747,4 +747,488 @@ export const articles: Article[] = [
       { t: 'try', label: 'Open Studio', href: '/studio' },
     ],
   },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'what-dpi-should-a-poster-be',
+    title: 'What dpi a poster should be, by size and viewing distance',
+    seoTitle: 'What dpi should a poster be? By size and viewing distance',
+    summary: 'Not always 300. The right number depends on how far away people stand, and a big poster at 300 dpi is a file nobody needs. The table for every common size at 150 and 300 dpi, the limits that matter, and a calculator.',
+    description: 'A poster read at arm\'s length needs 300 dpi; one read from a metre or two is fine at 150; banners and billboards need less. The pixel sizes for A3 to A0 and 18 × 24 in at both, with a calculator.',
+    category: 'craft',
+    level: 'Beginner',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'supporting',
+    feature: 'Editor · Print presets',
+    goals: ['prepare-for-print', 'make-a-poster'],
+    answers: ['what dpi should a poster be', 'poster dpi', 'what resolution for a poster', 'a3 poster size in pixels', 'a2 poster size in pixels', 'a1 poster size in pixels', 'a0 in pixels 300 dpi', 'poster sizes in pixels', 'is 150 dpi ok for a poster', 'is 72 dpi ok for printing'],
+    related: ['image-resolution-explained', 'prepare-a-poster-for-print', 'printed-design-looks-blurry', 'size-presets'],
+    keywords: 'poster dpi ppi resolution a3 a2 a1 a0 pixels 150 300 viewing distance banner billboard 4096 cap export limit',
+    guide: {
+      before: ['image-resolution-explained'],
+      next: ['prepare-a-poster-for-print', 'how-much-bleed'],
+      also: [{ when: 'the last print came back soft', slug: 'printed-design-looks-blurry' }, { when: 'you need every other size too', slug: 'size-presets' }],
+    },
+    body: [
+      { t: 'answer', text: 'Match the dpi to the viewing distance. **300 dpi** for anything read at arm\'s length (flyers, A4 and A3 posters on a notice board). **150 dpi** for posters read from a metre or two (A2, A1, A0 on a wall, 18 × 24 in and larger). **100 dpi or less** for banners and billboards, and ask the printer. The number is pixels divided by inches, so an A2 poster at 150 dpi is 2480 × 3508 px, which is the same file as an A4 at 300. Above about A2, 300 dpi makes a very large file that adds nothing you can see from where people stand.' },
+      { t: 'demo', kind: 'size-calculator', caption: 'Type the poster size in mm or inches, pick the dpi, and read the pixel size. The presets open the Editor at that size.' },
+
+      { t: 'h', text: 'The table' },
+      { t: 'table', head: ['Size', 'mm', 'At 150 dpi', 'At 300 dpi', 'Read from'], rows: [
+        ['A4', '210 × 297', '1240 × 1754', '2480 × 3508', 'Arm\'s length: use 300'],
+        ['A3', '297 × 420', '1754 × 2480', '3508 × 4961', 'Close: use 300'],
+        ['A2', '420 × 594', '2480 × 3508', '4961 × 7016', 'A metre or so: 150 to 300'],
+        ['A1', '594 × 841', '3508 × 4967', '7016 × 9933', 'Across a room: 150'],
+        ['A0', '841 × 1189', '4967 × 7022', '9933 × 14043', 'Across a room: 150 or less'],
+        ['18 × 24 in', '457 × 610', '2700 × 3600', '5400 × 7200', 'A metre or so: either'],
+        ['24 × 36 in', '610 × 914', '3600 × 5400', '7200 × 10800', 'Across a room: 150'],
+      ] },
+      { t: 'p', text: 'The formula: pixels = inches × dpi, and inches = mm ÷ 25.4. So A3 at 300 dpi is 297 ÷ 25.4 × 300 = 3508 px wide. Round up, never down.' },
+
+      { t: 'h', text: 'Why distance decides' },
+      { t: 'p', text: 'The eye resolves about one minute of arc. At 30 cm that is roughly 300 dots per inch, which is why 300 became the print standard: at reading distance you cannot see the dots. At a metre you resolve about a third of that, so 150 dpi looks as sharp from a metre as 300 does from 30 cm. At three metres, 100 dpi is plenty. A billboard is often printed at 10 to 20 dpi and looks fine from the road. Printing a wall poster at 300 dpi is not wrong; it is a file four times bigger than it needs to be, which is slower to export, slower to upload, and more likely to hit a limit somewhere.' },
+      { t: 'note', text: 'The dpi that matters is the photo\'s dpi at final size, not the document\'s. A 1200 px wide photo stretched across an A2 poster is 72 dpi however the document is set up. [Why your printed design looks blurry](/learn/printed-design-looks-blurry) has the one-minute check.' },
+
+      { t: 'h', text: 'Limits worth knowing' },
+      { t: 'list', items: [
+        '**Imported photos are capped at 4096 px** on the long side in the Editor. That is A3 at about 248 dpi, A2 at 175, A1 at 124, all measured on the long side, all fine from their viewing distance. It also means a photo cannot make an A0 poster sharp close up, whatever you do.',
+        '**Exports are capped at about 67 million pixels.** A1 at 300 dpi is just over that and A0 at 300 is double it; the Editor scales such an export down to fit. Both sizes are right at 150 dpi anyway.',
+        '**Text and shapes are vector** and are drawn sharp at whatever size you export. Only photos and painted layers have a dpi.',
+        '**Very large canvases are slow.** Above 8000 px on a side the browser warns you. Work at 150 dpi for big posters and everything is quicker.',
+      ] },
+
+      { t: 'h', text: 'How Voidcanvas handles this' },
+      { t: 'p', text: 'The Editor\'s print presets are A4 and A5 at 300 dpi and Poster 18 × 24 in at 300 dpi (5400 × 7200). For any other size, use the calculator above and enter the pixel size as a custom canvas on the start screen. Any design over 2000 px on its long side exports as a PDF at 300 dpi; a poster made at 150 dpi therefore comes out at half the physical size on the PDF page, so tell the printer the intended size, or export a PNG and state the size in millimetres. Studio\'s poster format is 2700 × 3600, which is 18 × 24 in at 150 dpi, and its delivery PDF carries the size in mm with bleed and crop marks.' },
+      { t: 'product', text: 'Print presets at 300 dpi, a custom size for everything else, the Image size dialog showing the print size at any dpi, and the 4096 px import cap stated rather than hidden.', label: 'Start a poster', href: '/editor?preset=poster' },
+
+      { t: 'faq', items: [
+        { q: 'Is 150 dpi good enough for a poster?', a: 'Yes for anything read from a metre or more: A2 and larger, 18 × 24 in and larger. Use 300 for A3 and smaller, which people read up close.' },
+        { q: 'Is 72 dpi OK for printing?', a: 'Only for very large formats seen from far away (banners, billboards). For a poster it prints soft. Check the photo\'s pixel size, not the number in the file: a 3000 px wide file labelled 72 dpi is the same image as one labelled 300.' },
+        { q: 'What size is an A3 poster in pixels?', a: '3508 × 4961 px at 300 dpi, 1754 × 2480 at 150 dpi.' },
+        { q: 'Should I add bleed to those numbers?', a: 'If the printer asks for it, yes: 3 mm on each side is 36 px at 300 dpi and 18 px at 150 dpi. See How much bleed a print job needs.' },
+      ] },
+      { t: 'try', label: 'Open the Editor', href: '/editor?preset=poster' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'rgb-or-cmyk-for-print',
+    title: 'RGB or CMYK for print: what to do in an RGB-only tool',
+    seoTitle: 'RGB or CMYK for print? What to do in an RGB-only tool',
+    summary: 'Printers press in CMYK; most design tools, including this one, work in RGB. What the difference is, why sending RGB is usually right, what to say to the printer, and the three things to change in the design so the conversion goes well.',
+    description: 'Send RGB and say so. Most printers convert with the profile for their press, which beats a generic conversion. What CMYK means, the colours that shift, pure black for text, and what to do when a printer insists on CMYK.',
+    category: 'craft',
+    level: 'Beginner',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'supporting',
+    feature: 'Editor · Print PDF',
+    goals: ['prepare-for-print'],
+    answers: ['rgb or cmyk for print', 'rgb vs cmyk', 'do i need cmyk for printing', 'what is cmyk', 'my printer wants cmyk', 'convert rgb to cmyk', 'can i print an rgb file', 'why does cmyk look dull', 'rich black vs pure black'],
+    related: ['print-looks-different-from-screen', 'designing-for-print', 'what-is-a-print-ready-pdf', 'colour-that-works'],
+    keywords: 'rgb cmyk print convert gamut profile printer ink pure black rich black text conversion rgb only tool proof',
+    guide: {
+      before: ['designing-for-print'],
+      next: ['what-is-a-print-ready-pdf', 'prepare-a-poster-for-print'],
+      also: [{ when: 'you want to understand the whole screen-to-paper gap', slug: 'print-looks-different-from-screen' }],
+    },
+    body: [
+      { t: 'answer', text: '**Send RGB and say so.** RGB is how screens make colour (light); CMYK is how presses make it (four inks). Every file is converted to CMYK before it is printed. The question is who converts: you, with a generic profile, or the printer, with the profile for their press and paper. The printer\'s conversion is usually better, and most commercial and online printers accept RGB PDFs for exactly that reason. Voidcanvas exports RGB only, so write "RGB, please convert" in the order note and ask for a proof. What you can control is the design: avoid building it on colours ink cannot reach, keep text in pure black, and check bright brand colours against a printed sample.' },
+      { t: 'demo', kind: 'print-setup', caption: 'Switch to the CMYK preview to see the direction of the change. Bright blues, greens and pinks lose the most. It is a simulation, not your printer\'s profile.' },
+
+      { t: 'h', text: 'What the two are' },
+      { t: 'table', head: ['', 'RGB', 'CMYK'], rows: [
+        ['Made of', 'Red, green and blue light, added together', 'Cyan, magenta, yellow and black ink, layered on paper'],
+        ['Used by', 'Screens, cameras, the web, most design tools', 'Presses and most professional printers'],
+        ['Range of colours', 'Wider, especially bright and saturated colours', 'Narrower; bright blues, greens, oranges and pinks are out of reach'],
+        ['White', 'All three at full', 'The paper; no ink'],
+        ['Black', 'All three at zero', 'Black ink alone (pure black) or black plus colour (rich black)'],
+        ['In a file', 'Three numbers per pixel, or a hex code', 'Four percentages per colour, plus a profile that describes the press'],
+      ] },
+      { t: 'p', text: 'There is no single CMYK. A conversion depends on a profile (the press, the ink set and the paper), so "convert to CMYK" without a profile is a guess. That is why the printer, who knows the profile, is the better place for it.' },
+
+      { t: 'h', text: 'What to change in the design' },
+      { t: 'list', items: [
+        '**Do not build on a neon.** Bright saturated colours shift most. Use them small; use a slightly deeper version of the colour for large surfaces.',
+        '**Text in pure black.** RGB black (#000000) converts to a mix of all four inks in a generic conversion, which looks fuzzy on small type if the plates are a fraction out. Ask the printer to keep text as 100 per cent K; most do this by default for black text.',
+        '**Large black areas as rich black.** Black ink alone prints as a dark grey on big areas. Printers add cyan and magenta to deepen it. Say "rich black for large areas" in the note and let them set the mix.',
+        '**Check light tints.** Very pale colours (a 3 per cent tint) can disappear or come out patchy. Keep tints above about 8 per cent.',
+        '**Look at a printed sample** of the brand colour before a big run. A proof answers what no preview can.',
+      ] },
+
+      { t: 'h', text: 'When the printer says CMYK only' },
+      { t: 'p', text: 'Some printers, especially trade printers with automated preflight, reject RGB files. Three ways through, in order of preference:' },
+      { t: 'steps', items: [
+        'Ask. "I can supply RGB; can you convert with your profile?" Most will, and a note in the order form is usually enough.',
+        'Have them convert as a paid prepress step. Small fee, correct profile.',
+        'Convert it yourself in a tool that exports CMYK PDFs (a desktop layout or vector app), choosing the profile the printer names, usually a coated or uncoated FOGRA or SWOP profile. Open the exported RGB PDF or PNG there, place it on a page of the right size, and export as PDF/X. Expect the on-screen colours to look duller after conversion; that is the preview being honest.',
+      ] },
+
+      { t: 'h', text: 'How Voidcanvas handles this' },
+      { t: 'p', text: 'Every export is RGB and the print export says so, so nobody is surprised. The PDF is image-based at 300 dpi, which printers accept and convert with their own profile. There is no CMYK export, no soft proof and no profile embedding. The brand guideline builder keeps colours in OKLCH ramps, which makes it easy to pick a less saturated step for print surfaces, and the print-setup preview above shows which colours are going to move.' },
+      { t: 'product', text: 'Honest RGB output, print presets at 300 dpi, and a note in the export dialog that says what the printer needs to know. The conversion belongs with the person who owns the press.', label: 'Open the Editor', href: '/editor?preset=a4' },
+
+      { t: 'faq', items: [
+        { q: 'Can I print an RGB file?', a: 'Yes. Home printers expect RGB, and most commercial and online printers accept RGB PDFs and convert them with their press profile. Say RGB in the order note so nobody assumes.' },
+        { q: 'Why does CMYK look dull on screen?', a: 'The screen is showing you a simulation of what ink can do. Ink reflects light; a screen emits it. The dullness is the truth about paper, not a fault in the file.' },
+        { q: 'Should I design in CMYK from the start?', a: 'Only if the tool and the printer both support a specific profile and you have a calibrated screen. Otherwise design in RGB, avoid out-of-gamut colours, and proof.' },
+      ] },
+      { t: 'try', label: 'Open the Editor', href: '/editor' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'poster-design-rules',
+    title: 'Poster design rules that work from across a room',
+    seoTitle: 'Poster design rules: 9 that work from across a room',
+    summary: 'A poster is read in three seconds from three metres. Nine rules that follow from that, with the numbers: how big the type must be, how many sizes to use, where the details go, and the two tests to run before you export.',
+    description: 'Nine poster design rules with numbers: one message, type big enough for the distance, three sizes, one focal point, margins, two colours plus a neutral, details in reading order, the squint and phone tests, and the right dpi.',
+    category: 'craft',
+    level: 'Beginner',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'supporting',
+    feature: 'Editor · Guides, Character panel',
+    goals: ['make-a-poster', 'learn-design'],
+    answers: ['poster design rules', 'poster design tips', 'how to design a poster', 'poster design principles', 'how big should text be on a poster', 'poster text size', 'what makes a good poster', 'poster layout tips', 'poster design for beginners'],
+    related: ['layout-and-composition', 'typography-fundamentals', 'prepare-a-poster-for-print', 'workflow-event-poster'],
+    keywords: 'poster design rules tips principles hierarchy focal point type size distance legibility margins colour reading order squint test event poster',
+    guide: {
+      before: ['layout-and-composition', 'typography-fundamentals'],
+      next: ['design-a-poster-with-no-photo', 'prepare-a-poster-for-print'],
+      also: [{ when: 'you want the whole job step by step', slug: 'workflow-event-poster' }, { when: 'it still looks like a template', slug: 'make-your-design-look-less-generic' }],
+    },
+    body: [
+      { t: 'answer', text: 'A poster is seen from a distance, for a few seconds, by someone who was not looking for it. Everything follows from that. **One message**, not three. **Type sized for the distance**: capitals about 10 mm tall for every 3 m the reader stands away, and the headline two to three times that. **Three sizes** of type, each clearly bigger than the next. **One focal point** that wins by a wide margin. **Margins** and a grid so it looks placed, not dropped. **Two colours and a neutral.** **Details in reading order**: what, when, where, how to get in. Then two tests: squint at it, and shrink it to the size of your phone. If the headline and the date survive both, it works.' },
+
+      { t: 'h', text: '1. One message' },
+      { t: 'p', text: 'Decide the one thing a passer-by should take away, and make that the headline. Everything else is detail. A poster that also explains the organisation, lists six sponsors at the same size and adds a slogan has three headlines and no message. If the client insists on more, the answer is two posters.' },
+
+      { t: 'h', text: '2. Size type for the distance' },
+      { t: 'p', text: 'A signage rule of thumb: for comfortable reading, capital letters need about **10 mm of height for every 3 m** between reader and poster, and to be noticed rather than merely readable, double it. A poster on a corridor wall is read from 2 to 3 m; one across a street from 10 m or more.' },
+      { t: 'table', head: ['Read from', 'Smallest details (cap height)', 'Headline (cap height)', 'On an A3 at 300 dpi'], rows: [
+        ['1 m (notice board, up close)', '4 mm', '15 mm and up', 'details 47 px, headline 180 px+'],
+        ['3 m (corridor, shop window)', '10 mm', '30 mm and up', 'details 118 px, headline 350 px+'],
+        ['10 m (across a street)', '35 mm', '100 mm and up', 'A3 is too small; use A1 or larger'],
+      ] },
+      { t: 'p', text: 'Cap height is roughly 70 per cent of the point size for most fonts, so a 10 mm capital is about a 14 mm (40 pt) setting. In the Editor, set sizes in the **Character** panel in pixels: at 300 dpi, 1 mm is 11.8 px. The Properties slider stops at 600 px; the Character panel does not.' },
+
+      { t: 'h', text: '3. Three sizes, clearly different' },
+      { t: 'p', text: 'Headline, facts, small print. Each level at least 1.5 times the next, and the headline usually three times the facts. Four sizes is the maximum; more and the hierarchy dissolves. One type family with a range of weights is always safe; a display face for the headline over a plain sans for the facts is the classic poster pairing. Pick sizes from a scale rather than by eye:' },
+      { t: 'demo', kind: 'type-scale', caption: 'A steep ratio (1.5 or 1.618) suits posters: few steps, big jumps. Set the base to the small print size and read the headline size off the top.' },
+
+      { t: 'h', text: '4. One focal point' },
+      { t: 'p', text: 'One element wins: the headline, or the image, never both. Make it win by a wide margin, two to three times the size of the next thing, or the only thing in colour, or the only thing with space around it. A poster with two equal things has a tie, and the reader walks past a tie.' },
+
+      { t: 'h', text: '5. Margins and a grid' },
+      { t: 'p', text: 'Keep everything at least 5 per cent of the short side away from the edge (15 mm on A3, 25 mm on 18 × 24 in). Printers trim with a small tolerance, frames cover edges, and a margin makes the design look placed. Inside the margin, align to two or three edges, not seven. The Editor\'s **View, Guides, New guide layout…** has a **Safe margins** preset; set the margin in pixels and snap to it.' },
+
+      { t: 'h', text: '6. Two colours and a neutral' },
+      { t: 'p', text: 'A background, a type colour and one accent is a complete poster palette. Contrast between the type and what is behind it matters more than the colours themselves: dark on light or light on dark, at 4.5:1 or better, because posters are read in bad light. Bright saturated colours print duller than they look on screen, so put the neon in the accent, not the background. [Colour that works](/learn/colour-that-works) has the system.' },
+
+      { t: 'h', text: '7. Details in reading order' },
+      { t: 'p', text: 'After the headline the eye wants: **what** it is, **when**, **where**, **how much** and **how to get in**. Put them in that order, top to bottom or in one block, in the second size, aligned to one edge. Logos go at the bottom in a row, aligned along their base, each no taller than the small print is wide. A QR code is a detail: 25 mm minimum for a 1 m scan, with quiet space around it.' },
+
+      { t: 'h', text: '8. The two tests' },
+      { t: 'list', items: [
+        '**Squint.** Blur your eyes (or add a Black and white adjustment layer and step back). What still stands out is the real focal point. If it is the sponsor strip, fix the tone.',
+        '**Phone size.** Zoom out until the poster is the size of your phone screen. If you can still read the headline and the date, it works from across a street. If not, the type is too small or the contrast too low.',
+        'Then **100 per cent** ({{Ctrl+1}}) to check the photo and the smallest type at print scale, because the phone test hides softness.',
+      ] },
+
+      { t: 'h', text: '9. The right resolution' },
+      { t: 'p', text: '300 dpi for A3 and smaller, 150 dpi for A2 and larger, and the photo\'s own pixels checked at final size. [What dpi a poster should be](/learn/what-dpi-should-a-poster-be) has the table; [How to prepare a poster for print](/learn/prepare-a-poster-for-print) has the export.' },
+
+      { t: 'h', text: 'Common mistakes' },
+      { t: 'table', head: ['Mistake', 'What it looks like', 'Fix'], rows: [
+        ['Everything the same size', 'A wall of text; nothing to read first', 'Three sizes, headline 3× the facts'],
+        ['Centred everything', 'Ragged edges everywhere, no line to follow', 'Align to one left edge, or centre only the headline'],
+        ['Type over a busy photo', 'Half the letters vanish', 'Tone the photo down under the type, or put the type on a flat band'],
+        ['Too many fonts', 'Looks like a ransom note', 'One family, or two with different jobs'],
+        ['Small text at the edge', 'Cut off or hidden by the frame', 'Safe margin, and nothing important in the bottom 5 per cent'],
+        ['Neon background', 'Prints muddy', 'Neutral or dark background, neon as accent'],
+      ] },
+
+      { t: 'checklist', items: [
+        'One message; the headline says it.',
+        'Headline capitals at least 30 mm for a 3 m read; details at least 10 mm.',
+        'Three type sizes, each at least 1.5× the next.',
+        'One focal point; the squint test agrees.',
+        'Safe margin on all sides; two or three alignment edges.',
+        'Two colours and a neutral; type contrast 4.5:1 or better.',
+        'What, when, where, price, how to get in, in that order.',
+        'Passes the phone-size test; checked at 100 per cent.',
+        '300 dpi at A3 and below, 150 above; photo pixels checked at final size.',
+      ] },
+
+      { t: 'h', text: 'How Voidcanvas handles this' },
+      { t: 'p', text: 'Print presets at 300 dpi, a Safe margins guide layout that snaps, the Character panel for headline sizes beyond the slider, adjustment layers to tone a photo down under type, **Ctrl+1** for the print-scale check and a one-page PDF at 300 dpi. The event poster workflow applies all nine rules to one real job.' },
+      { t: 'product', text: 'Start from the poster preset, drop in the Safe margins guides, and the rest is the nine rules. The workflow linked below walks a real event poster through them.', label: 'Start a poster', href: '/editor?preset=poster' },
+
+      { t: 'faq', items: [
+        { q: 'How big should text be on a poster?', a: 'For a 3 m read, capitals at least 10 mm tall for details and 30 mm or more for the headline; double those to be noticed rather than merely legible. At 300 dpi, 10 mm is about 118 px.' },
+        { q: 'How many fonts should a poster use?', a: 'One family with a range of weights, or two with different jobs (a display face for the headline, a plain face for the facts). Never three.' },
+        { q: 'What size should a poster be?', a: 'A3 for notice boards and shop windows read up close, A2 or A1 for walls and read from a few metres, A0 or larger across a street. The bigger the poster, the further away it is read and the lower the dpi it needs.' },
+      ] },
+      { t: 'try', label: 'Open the Editor', href: '/editor?preset=poster' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'design-a-poster-with-no-photo',
+    title: 'Design a poster with no photo',
+    seoTitle: 'How to design a poster with no photo (type, shape, colour)',
+    summary: 'No image is not a problem; it is a brief. Five ways to make a poster from type, shape, colour and texture alone, each with the Editor steps, and the rules that stop a type-only poster looking empty.',
+    description: 'Five ways to design a poster without a photo: type as the image, shape blocks, a gradient field with grain, a pattern built from one element, and type on a path. Editor steps for each and the mistakes to avoid.',
+    category: 'craft',
+    level: 'Beginner',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'supporting',
+    feature: 'Editor · Type, Shapes, Gradient, Filter layers',
+    goals: ['make-a-poster', 'learn-design'],
+    answers: ['design a poster with no photo', 'poster without images', 'typography poster', 'text only poster design', 'how to make a poster with just text', 'poster design without pictures', 'type based poster', 'minimalist poster design'],
+    related: ['poster-design-rules', 'typography-fundamentals', 'shapes-and-pen', 'type'],
+    keywords: 'poster no photo text only typography poster shapes gradient grain pattern text on a path minimalist swiss style colour field',
+    guide: {
+      before: ['poster-design-rules'],
+      next: ['prepare-a-poster-for-print', 'make-your-design-look-less-generic'],
+      also: [{ when: 'you want a printed texture over it', slug: 'make-a-risograph-effect' }, { when: 'you do have a photo', slug: 'workflow-event-poster' }],
+    },
+    body: [
+      { t: 'answer', text: 'Make the type the image. Most of the posters people remember are words, colour and a shape, not a photograph. Five approaches that work every time: **the headline as the picture** (one word so big it touches the edges), **shape blocks** (two or three flat shapes that carry the composition), **a colour field with grain** (a gradient, texture and small type), **a pattern from one element** (a word or shape repeated until it becomes texture), and **type on a path** (a circle or curve that gives flat words movement). Pick one. Keep the palette to two colours and a neutral, keep the details small and aligned, and leave real empty space; a type poster fails by being timid, not by being plain.' },
+
+      { t: 'h', text: 'Before you start' },
+      { t: 'list', items: [
+        'Open the poster at its final size: [A4](/editor?preset=a4) or the [18 × 24 in poster](/editor?preset=poster) preset, or a custom size from [the dpi table](/learn/what-dpi-should-a-poster-be).',
+        'Add guides: **View, Guides, New guide layout…**, the **Safe margins** preset, margin about 5 per cent of the short side. Keep **Snap** on.',
+        'Choose the palette first: a background, a type colour with 4.5:1 contrast on it, and one accent. Set them as the main and second colours so every new shape and text arrives in the right colour.',
+        'Write the words down: the headline (one to three words), the facts in reading order, the small print. A type poster is edited on paper before it is designed.',
+      ] },
+
+      { t: 'h', text: '1. The headline is the picture' },
+      { t: 'p', text: 'One word or a short phrase, so large it runs to the margins or off the edge. The letters become shapes; their counters and the gaps between them become the composition. Works best with a heavy or condensed face and one colour.' },
+      { t: 'steps', items: [
+        'Press **T**, click, type the word. Open the **Character** panel (Window menu) and set the size in pixels: on a 2480 px wide A4, start at 700 px and adjust. The Properties slider stops at 600; the Character panel does not.',
+        'Tighten **Tracking** to slightly negative so the word reads as one block, and set **Leading** below the size if it wraps to two lines.',
+        'Let the word touch or cross the edge on one side only. Cropping a letter is fine; cropping two sides looks like a mistake.',
+        'Put the facts in the second size in the space the word leaves, aligned to one of its edges.',
+      ] },
+
+      { t: 'h', text: '2. Shape blocks' },
+      { t: 'p', text: 'Two or three flat shapes, a circle and a rectangle say, in the accent and the type colour, arranged so they overlap or touch. The shapes hold the composition; the type sits in or against them. This is the Swiss-poster move and it has never stopped working.' },
+      { t: 'steps', items: [
+        'Press **U** for the Shape tool. Drag a rectangle from one edge past the middle. Hold Shift and drag a circle. A click without dragging drops a 300 px shape you can resize.',
+        'In Properties, set **Fill** to the accent for one and the type colour for the other. Remove the outline. Set the circle\'s **Opacity** to about 85 per cent so the overlap shows a third tone.',
+        'Select both and use **Layer, Pathfinder** (Minus front, Intersect, Divide) if you want one shape cut by the other.',
+        'Set the headline across the boundary between shape and background, in the colour that contrasts with both, or in white with a subtle **Layer style** stroke.',
+      ] },
+
+      { t: 'h', text: '3. A colour field with grain' },
+      { t: 'p', text: 'A gradient from the background colour to a deeper or warmer version of itself, a film grain filter on top so it prints as texture rather than banding, and small type set with a lot of space. Quiet, expensive-looking, and quick.' },
+      { t: 'steps', items: [
+        'Add a new layer ({{Ctrl+Shift+N}}). Set the main colour to the light end and the second colour to the dark end. Press **G** and drag from one corner to the other; a longer drag gives a softer blend.',
+        'Choose **Filter, Enhance, Film Grain**, or pick it in **Filter, Filter gallery…**. It arrives as a filter layer above the gradient. Set Amount low, 15 to 25, and Grain Size small. Grain breaks up gradient banding, which is the thing that makes a printed gradient look cheap.',
+        'Set the headline in the second colour or white, medium size, with the facts far below it in a small size. Resist filling the space.',
+        'For a printed feel, add **Filter, Enhance, Vignette** at low strength, or the riso treatment linked below.',
+      ] },
+
+      { t: 'h', text: '4. A pattern from one element' },
+      { t: 'p', text: 'Repeat the word, a number, a shape or the date across the page until it reads as texture, then set the real headline once, clearly, over the top or in a gap.' },
+      { t: 'steps', items: [
+        'Make the element: a text layer or a shape in the accent colour at about 15 per cent opacity, or in a tint of the background.',
+        'Duplicate it ({{Ctrl+J}}) and nudge with Shift plus an arrow key (10 px steps) to place the second copy exactly. Select both, duplicate again, and the spacing doubles. Six or seven duplications fill a page.',
+        'Select all the copies and **Layer, Group** ({{Ctrl+G}}) them, so they move as one and the group can be masked to the margins.',
+        'Set the headline over the pattern in the full type colour, larger than the pattern element, or leave a clear band for it.',
+      ] },
+
+      { t: 'h', text: '5. Type on a path' },
+      { t: 'p', text: 'Words around a circle, along an arc or up the side of the page give a flat layout movement, and they need no image to feel designed. Works for names, dates, and repeated phrases.' },
+      { t: 'steps', items: [
+        'Draw the path: a circle with the Shape tool (Shift-drag, then untick Fill in Properties), or a curve with the **Curvature pen** ({{Shift+P}} until you reach it) in **Path** mode.',
+        'With the Type tool, click on the shape\'s outline or the selected path. The text flows along it. Properties then has **Start along the path**, **Lift off the path** and **Flip side**.',
+        'Set the tracking a little wider than usual; letters on a curve crowd on the inside.',
+        'Put the headline in the centre of the circle or across the curve, straight, so the poster has one straight thing to anchor the eye.',
+      ] },
+
+      { t: 'h', text: 'Why type posters look empty, and the fix' },
+      { t: 'table', head: ['Problem', 'Cause', 'Fix'], rows: [
+        ['It looks unfinished', 'Everything is medium sized and centred', 'Make one thing huge or one thing tiny. Extremes are what read as intent.'],
+        ['It looks like a Word document', 'Default sizes, default spacing, a white background', 'Colour the background. Set the headline in the Character panel at a size that scares you a little.'],
+        ['Banding in the gradient', 'Smooth gradient, no texture, JPG export', 'Film grain at low amount; export PNG or PDF.'],
+        ['The words fight', 'Two headlines', 'One message. Demote the other to the facts size.'],
+        ['It looks cheap in print', 'Neon background, thin light type', 'Neutral or deep background, the neon as an accent, weight in the headline.'],
+      ] },
+
+      { t: 'h', text: 'How Voidcanvas handles this' },
+      { t: 'p', text: 'Everything above is in the Editor: text set in pixels in the Character panel with tracking and leading, shape layers with Pathfinder, the Gradient tool and Gradient overlay style, filter layers for grain and vignette that re-render sharp at export size, type on a path from any shape or pen path, and guides that snap. Export a PDF at 300 dpi when it is done, or send it through Studio for bleed and crop marks.' },
+      { t: 'product', text: 'Text, shapes and filters are all vector or re-rendered at export, so a type-only poster is sharp at any size. Start from the poster preset and try approach 1 first; it takes ten minutes.', label: 'Start a poster', href: '/editor?preset=poster' },
+
+      { t: 'faq', items: [
+        { q: 'Can a poster be just text?', a: 'Yes, and many of the best are. The type has to do the work the photo would have done: one huge element for the eye to land on, and real empty space around it.' },
+        { q: 'What font should I use for a text-only poster?', a: 'A heavy or condensed sans for the headline if the message is loud, a serif display face if it is formal, and one plain family for the facts. Never more than two families.' },
+        { q: 'Where do I get textures without stock images?', a: 'Make them: film grain and noise filters, a halftone or dither filter on a gradient, or a pattern built from your own type. They print well and belong to the design.' },
+      ] },
+      { t: 'try', label: 'Open the Editor', href: '/editor?preset=poster' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'offline-design-software',
+    title: 'Offline design software, including the browser apps that work offline',
+    seoTitle: 'Offline design software (and which browser apps work offline)',
+    summary: 'What "offline" has to mean for a design tool, the three kinds of software and how each behaves without a connection, a one-minute test you can run on any of them, and what to do before a flight.',
+    description: 'Offline design software explained: installed apps, browser apps that install and cache themselves, and web apps that need a connection. A one-minute test, what to prepare before you lose signal, and how Voidcanvas behaves offline.',
+    category: 'start',
+    level: 'Beginner',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'supporting',
+    feature: 'Install as an app · Desktop app',
+    goals: ['private-and-offline'],
+    answers: ['offline design software', 'design software that works offline', 'graphic design software offline free', 'can i use a browser design tool offline', 'offline photo editor', 'design app that works without internet', 'does voidcanvas work offline', 'offline design app for laptop', 'design software for a plane'],
+    related: ['install-as-an-app', 'desktop-app', 'saving-and-your-files', 'photo-editor-that-does-not-upload'],
+    keywords: 'offline design software no internet browser app pwa install desktop app fonts ai models cache test airplane mode chromebook linux',
+    guide: {
+      before: ['photo-editor-that-does-not-upload'],
+      next: ['install-as-an-app', 'desktop-app'],
+      also: [{ when: 'you want to know where your files are', slug: 'saving-and-your-files' }, { when: 'you are on a Chromebook or an unusual browser', slug: 'browser-support' }],
+    },
+    body: [
+      { t: 'answer', text: 'A design tool works offline when it can **open, edit, save and export** with no connection, not just show you the last screen. Three kinds of software behave three ways. **Installed desktop apps** (GIMP, Inkscape, Krita, Scribus, Affinity, and the Voidcanvas desktop app) work offline by nature; files live on your disk. **Browser apps that install themselves** keep a copy of the app on your device after the first visit and keep working when the connection drops; Voidcanvas is one, and after one visit the Editor, Studio and Effects run offline with your designs stored in the browser. **Web apps that need a connection** load their editor and your files from a server each time, so they stop or go read-only without one. The test below tells you which kind you have in one minute.' },
+
+      { t: 'h', text: 'The one-minute test' },
+      { t: 'steps', items: [
+        'Open the tool and open one of your designs while you are online.',
+        'Turn Wi-Fi off (or airplane mode on).',
+        'Reload the page or restart the app. If it does not come back, it needs a connection to load.',
+        'Open a different design, add a text layer, save, and export a PNG. If any of those fails or hangs, it needs a connection for that step.',
+        'Turn Wi-Fi back on. A tool that syncs quietly when it reconnects, without losing what you did, has passed.',
+      ] },
+
+      { t: 'h', text: 'The three kinds' },
+      { t: 'table', head: ['Kind', 'Examples', 'Offline', 'Where files are', 'Watch for'], rows: [
+        ['Installed desktop app', 'GIMP, Inkscape, Krita, Scribus, Affinity, Voidcanvas desktop', 'Everything', 'Your disk', 'Fonts you have not installed; cloud features inside the app'],
+        ['Browser app that installs', 'Voidcanvas (install from the address bar or Add to Dock)', 'Everything after the first visit, with the exceptions below', 'The browser\'s storage on that device, plus .void files you save to disk', 'Web fonts never used before; AI models not yet downloaded; clearing site data deletes the designs'],
+        ['Web app that needs a connection', 'Most cloud design tools', 'Little or nothing; some show recent files read-only', 'Their servers', 'A dropped connection mid-edit; anything you did not export before the signal went'],
+      ] },
+      { t: 'p', text: 'The middle kind is the one people do not expect. A browser app can register a service worker that stores the whole app on the device and serves it from there, connection or not. It is still "in the browser", but the browser is now the runtime, not a window onto a server. Whether a given tool does this is what the test tells you.' },
+
+      { t: 'h', text: 'What needs the internet the first time' },
+      { t: 'p', text: 'Even offline-capable tools fetch a few things once. Prepare them before you go:' },
+      { t: 'checklist', items: [
+        'Open the app once and open the parts you use (in Voidcanvas: the Editor, Studio, Effects and any quick tool). They are stored on the device from then on.',
+        'Use every font you plan to use. Web fonts load once and are kept; a font you have never used will not load offline. The 16 fonts built into Voidcanvas are always available.',
+        'Run each AI tool once (Remove background, Select subject, Expand with AI fill). Each downloads its model the first time, then runs on the device.',
+        'Save a .void file of anything important to disk, or install the desktop app so designs are files in a folder you own.',
+        'Export a PNG of the current state of the job, in case you need to send it from a phone.',
+      ] },
+
+      { t: 'h', text: 'Offline and private are different' },
+      { t: 'p', text: 'A tool can work offline and still upload your work the moment it reconnects. Offline tells you where the work happens; private tells you where the work goes. [Photo editors that do not upload your photos](/learn/photo-editor-that-does-not-upload) has the network test for the second question. Voidcanvas passes both: the work happens on the device, and the only thing sent when you reconnect is an anonymous usage count you can turn off.' },
+
+      { t: 'h', text: 'How Voidcanvas handles this' },
+      { t: 'list', items: [
+        '**In the browser**, after the first visit, the home page, Editor, Studio and Effects are stored on the device; the quick tools are stored once visited. Designs live in the browser\'s storage on that device and can be saved to .void files on disk. Install it from the address bar (Chrome, Edge), **Add to Dock** (Safari) or **Add to Home Screen** (iPhone, Android) and it opens in its own window and works with no connection.',
+        '**The desktop app** for Windows, macOS and Linux is the same app installed, with designs saved as .void files in a Voidcanvas folder inside Documents (or a folder of your choice, including a synced one), the 16 built-in fonts and these Learn pages on the machine, and PSD opening from the file browser.',
+        '**Needs the internet once:** Google Fonts you have not used, and each AI model the first time. **Never needs it:** opening, editing, saving, exporting, PSD import, effects, the brand kit.',
+        '**Sends when online:** anonymous usage counts (off in Your privacy), and nothing else. Review and delivery links are the only features that send work anywhere, and they are sealed on the device first.',
+      ] },
+      { t: 'product', text: 'Install it as an app or use the desktop build; open the Editor once with your fonts and AI tools, and it works on a plane. Your designs stay on the device either way.', label: 'Install Voidcanvas', href: '/download' },
+
+      { t: 'faq', items: [
+        { q: 'Can a browser-based design tool work offline?', a: 'Yes, if it installs a service worker that stores the app on your device and keeps your files there too. Not every web tool does. Reload it with Wi-Fi off; if it comes back and lets you save and export, it does.' },
+        { q: 'Does Voidcanvas work offline?', a: 'Yes, after one visit. The Editor, Studio and Effects are stored on the device, designs are kept in the browser or as .void files, and the desktop app needs no connection at all. Fonts you have never used and AI models you have never run need the internet once.' },
+        { q: 'What free design software works offline on a laptop?', a: 'Installed: GIMP and Krita for raster, Inkscape for vector, Scribus for layout, all free. Browser-installed: Voidcanvas, free and with no account. The best choice depends on the job; a layered image editor and a page-layout tool are different things.' },
+        { q: 'Will I lose my designs if I clear my browser?', a: 'Designs in browser storage are deleted with the site\'s data. Keep a .void file of anything that matters, or use the desktop app, where every design is a file in your Documents folder.' },
+      ] },
+      { t: 'try', label: 'Download the desktop app', href: '/download' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'leaving-creative-cloud-checklist',
+    title: 'Leaving Creative Cloud as a designer: the checklist',
+    seoTitle: 'Leaving Creative Cloud: the checklist before you cancel',
+    summary: 'What stops working the day the subscription ends, what to export while you still can, which files still open afterwards, and an honest map of what a browser editor covers and what it does not.',
+    description: 'Before you cancel Creative Cloud: fonts deactivate, apps stop opening, libraries go. What to export (PSDs, fonts list, swatches, vectors, brand assets), what still opens later, and what a browser editor does and does not replace.',
+    category: 'editor',
+    level: 'Beginner',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'supporting',
+    feature: 'Editor · PSD import',
+    goals: ['leave-photoshop'],
+    answers: ['leaving creative cloud checklist', 'cancel adobe subscription designer', 'what happens to my files if i cancel creative cloud', 'photoshop alternative no subscription', 'can i open psd files after cancelling adobe', 'what to do before cancelling creative cloud', 'adobe fonts after cancelling', 'photoshop replacement for freelancers'],
+    related: ['coming-from-photoshop', 'edit-a-psd-without-photoshop', 'file-formats', 'import-psd-and-pdf'],
+    keywords: 'leaving creative cloud cancel adobe subscription checklist fonts deactivate psd ai indd libraries swatches ase export before cancelling freelancer',
+    guide: {
+      before: ['coming-from-photoshop'],
+      next: ['edit-a-psd-without-photoshop', 'file-formats'],
+      also: [{ when: 'your work is mostly client jobs', slug: 'run-a-client-design-project' }, { when: 'you want the brand assets somewhere useful', slug: 'brand-kit' }],
+    },
+    body: [
+      { t: 'answer', text: 'Your files are yours; the apps and the fonts are not. The day the subscription ends, the apps stop opening (after any grace period) and every font activated through Adobe Fonts deactivates, which means any design using one will substitute a fallback wherever you open it. Before you cancel: **make a list of the fonts you actually use and license or replace them**, **export vector work as SVG or PDF** (AI files do not open in most other tools), **flatten or export anything that depends on smart objects, actions or plug-ins**, **export libraries and swatches**, and **keep the PSDs**, which open in other editors with their layers. Then check the honest map below of what a browser editor replaces and what it does not, because one or two jobs may still need a desktop tool.' },
+
+      { t: 'h', text: 'What stops on the day' },
+      { t: 'table', head: ['Thing', 'What happens', 'Do first'], rows: [
+        ['The apps', 'Stop opening once the plan ends', 'Finish or export anything mid-job'],
+        ['Adobe Fonts', 'Deactivate on every machine; documents fall back to another font', 'List the fonts you use; license, or pick Google Fonts equivalents, and test them in the files that matter'],
+        ['Libraries (colours, styles, assets)', 'No longer accessible in the apps', 'Export swatches as .ase and save assets as SVG or PNG'],
+        ['Cloud documents', 'Read-only, then removed after the retention period', 'Download every cloud document as a local file'],
+        ['Your local files', 'Untouched', 'Nothing; they are files'],
+      ] },
+
+      { t: 'h', text: 'Which files still open afterwards' },
+      { t: 'table', head: ['Format', 'Opens elsewhere', 'What to do before cancelling'], rows: [
+        ['PSD', 'Yes, in most layered editors, including the Voidcanvas Editor: layers, groups, masks, text, adjustments and styles, with smart objects and vector shapes as pixels', 'Rasterise smart objects you need to keep editable, or keep their source files. Make sure the fonts used are files you own.'],
+        ['AI (Illustrator)', 'Rarely as editable vectors', 'Export every AI file you care about as SVG (editable) and PDF (exact). Keep the AI file too.'],
+        ['INDD (InDesign)', 'Almost nowhere', 'Export IDML (for Affinity Publisher or Scribus) and a PDF of each document. Package the fonts and links.'],
+        ['PDF', 'Everywhere', 'Nothing. The Voidcanvas Editor opens PDFs as layers.'],
+        ['Lightroom catalogue', 'Only in Lightroom', 'Export the photos with edits applied, and the catalogue as XMP sidecars if you want the edit data.'],
+        ['XD, After Effects, Premiere projects', 'Not in Voidcanvas; specialised tools exist', 'Export finished assets and, where offered, an interchange format.'],
+      ] },
+
+      { t: 'h', text: 'The checklist' },
+      { t: 'checklist', items: [
+        'Fonts: a list of every typeface in current client work; each one licensed as a file you own, or replaced with a Google Font and the files updated and re-exported.',
+        'Every AI file exported as SVG and PDF; every INDD as IDML and PDF with fonts and links packaged.',
+        'Smart objects you still need editable: rasterised in a copy, or their source files saved next to the PSD.',
+        'Actions and scripts you rely on: written down as steps, and an equivalent found (templates, a brand kit, batch resize) or accepted as manual.',
+        'Libraries: swatches as .ase, logos as SVG and PNG, text styles noted.',
+        'Cloud documents downloaded; the Creative Cloud Files folder copied somewhere ordinary.',
+        'One CMYK-critical job identified, if you have one, and a plan for it (printer converts, or a desktop layout app for that job).',
+        'A trial run: open your three most important PSDs in the new tool and read the import report before the plan ends, while you can still fix things in Photoshop.',
+      ] },
+
+      { t: 'h', text: 'What a browser editor covers, honestly' },
+      { t: 'table', head: ['You used', 'In Voidcanvas', 'Notes'], rows: [
+        ['Photoshop for layered design, retouching, type, export', 'The Editor', 'Layers, masks, adjustment layers, selections, retouching, layer styles, type, PSD import. See Coming from Photoshop for the full map.'],
+        ['Photoshop for CMYK prepress, soft proofing, Camera Raw', 'Not covered', 'RGB export only; printers convert. For raw processing use a raw developer and bring in the result.'],
+        ['Illustrator for logos and icons', 'Partly', 'Shape layers, the Pen tools, Pathfinder and SVG export cover simple vector work. Complex illustration wants a vector app (Inkscape, Affinity).'],
+        ['InDesign for multi-page documents', 'Not covered', 'The Editor is single-page with boards. Brand guidelines export as a multi-page PDF from Studio, but a book or catalogue needs a layout app.'],
+        ['Libraries for brand assets', 'Brand kit and the brands library', 'Colours, fonts, logos and rules per brand, loaded into any design, with checks before export.'],
+        ['Actions for repeat work', 'Templates, Resize to every format, Studio formats', 'Not scripting, but it covers the common cases: same design in every size, same setup every time.'],
+        ['Adobe Fonts', 'Google Fonts, local fonts, font files', 'A font file dropped into a design travels with it.'],
+        ['Cloud documents and sync', 'Files on your device; optional encrypted account sync', 'Nothing leaves the device readable.'],
+      ] },
+
+      { t: 'h', text: 'How Voidcanvas handles the move' },
+      { t: 'p', text: 'Open a PSD and the Editor reports what carried over and what it had to render as pixels, so you know before you start. Fonts missing from a PSD are listed and can be replaced or loaded from a file. The tool keys and most shortcuts are Photoshop\'s. There is no subscription, no account requirement and no cloud library: designs are in the browser on your device or as .void files on disk, and the desktop app keeps them in a folder you choose. What it does not do is on the table above rather than in a footnote.' },
+      { t: 'product', text: 'Open your three most important PSDs in the Editor before the plan ends and read the import reports. That tells you, for your files, whether the move works.', label: 'Open a PSD in the Editor', href: '/editor' },
+
+      { t: 'faq', items: [
+        { q: 'Can I still open my PSD files after cancelling?', a: 'Yes. A PSD is a file on your disk and it opens in other layered editors. In the Voidcanvas Editor, layers, groups, masks, text, adjustments and styles come through; smart objects and vector shapes arrive as pixels, with a report of what changed.' },
+        { q: 'What happens to Adobe Fonts when I cancel?', a: 'They deactivate on every machine. Documents that use them fall back to another font wherever they are opened next. List the fonts in your current work and license or replace each one before the plan ends.' },
+        { q: 'Is a browser editor enough for a freelance designer?', a: 'For layered design, retouching, type, social and print export, yes. For CMYK prepress, raw processing, complex vector illustration and multi-page layout, no; keep or find a desktop tool for those jobs. Most freelancers have one such job a year and can plan around it.' },
+      ] },
+      { t: 'try', label: 'Open the Editor', href: '/editor' },
+    ],
+  },
 ]

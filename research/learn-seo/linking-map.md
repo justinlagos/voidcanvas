@@ -7,12 +7,15 @@ Generated from the content graph on 2026-09-27 by `linking-map.mjs`. Every guide
 ### /learn/do/make-a-poster: I want to make a poster
 
 1. [How to prepare a poster for print](/learn/prepare-a-poster-for-print) · The whole job in one page: size, resolution, bleed, colour, export and the printer checklist.
-2. [Make an event poster from a photo to a print-ready PDF](/learn/workflow-event-poster) · The same job done step by step in the Editor, from a photo to a print-ready PDF.
-3. [Lay out a page with a grid, space and a clear focal point](/learn/layout-and-composition) · Why one focal point and a grid make a poster read from across a room.
-4. [Set type that reads well](/learn/typography-fundamentals) · Hierarchy, size and spacing: the difference between a poster and a notice.
-5. [How to make a halftone portrait](/learn/make-a-halftone-portrait) · The classic gig-poster treatment, with a live example.
-6. [Why your printed design looks blurry](/learn/printed-design-looks-blurry) · The check to run before it goes to the printer.
-7. [Export for print: PDF, dpi and bleed](/learn/export-for-print) · Exactly what the Editor puts in a PDF and how the page size is decided.
+2. [Poster design rules that work from across a room](/learn/poster-design-rules) · Nine rules with numbers: type size for the distance, three sizes, one focal point, the two tests.
+3. [Design a poster with no photo](/learn/design-a-poster-with-no-photo) · Five ways to make a poster from type, shape and colour when there is no image.
+4. [Make an event poster from a photo to a print-ready PDF](/learn/workflow-event-poster) · The same job done step by step in the Editor, from a photo to a print-ready PDF.
+5. [Lay out a page with a grid, space and a clear focal point](/learn/layout-and-composition) · Why one focal point and a grid make a poster read from across a room.
+6. [Set type that reads well](/learn/typography-fundamentals) · Hierarchy, size and spacing: the difference between a poster and a notice.
+7. [How to make a halftone portrait](/learn/make-a-halftone-portrait) · The classic gig-poster treatment, with a live example.
+8. [Why your printed design looks blurry](/learn/printed-design-looks-blurry) · The check to run before it goes to the printer.
+9. [What dpi a poster should be, by size and viewing distance](/learn/what-dpi-should-a-poster-be) · The dpi by size and viewing distance, with the pixel table.
+10. [Export for print: PDF, dpi and bleed](/learn/export-for-print) · Exactly what the Editor puts in a PDF and how the page size is decided.
 
 ### /learn/do/prepare-for-print: I want to prepare something for print
 
@@ -21,11 +24,13 @@ Generated from the content graph on 2026-09-27 by `linking-map.mjs`. Every guide
 3. [What a print-ready PDF is, and what yours needs](/learn/what-is-a-print-ready-pdf) · What the printer checks, and the one-line note to send with the file.
 4. [Why your printed design looks blurry](/learn/printed-design-looks-blurry) · The three reasons a print comes back soft, a one-minute check, and the fix for each.
 5. [Understand pixels, dpi and why images look soft](/learn/image-resolution-explained) · Pixels, dpi and print size, properly, so the check above makes sense.
-6. [Export for print: PDF, dpi and bleed](/learn/export-for-print) · How the Editor builds its PDF, which presets print at 300 dpi and how to add bleed yourself.
-7. [Make an A5 flyer with bleed for the printer](/learn/workflow-print-flyer) · An A5 flyer with bleed, done from start to handover.
-8. [Why a print looks different from the screen](/learn/print-looks-different-from-screen) · The four reasons a print never matches the monitor, and which you can plan for.
-9. [Choose colours that work on screen and in print](/learn/colour-that-works) · What happens to bright RGB colours on press and how to plan for it.
-10. [Deliver every format, named and ready for the printer](/learn/delivering-files) · Naming, versioning and the delivery list when the job is for a client.
+6. [What dpi a poster should be, by size and viewing distance](/learn/what-dpi-should-a-poster-be) · When 150 dpi is right, when 300 is, and the pixel sizes from A4 to A0.
+7. [Export for print: PDF, dpi and bleed](/learn/export-for-print) · How the Editor builds its PDF, which presets print at 300 dpi and how to add bleed yourself.
+8. [Make an A5 flyer with bleed for the printer](/learn/workflow-print-flyer) · An A5 flyer with bleed, done from start to handover.
+9. [Why a print looks different from the screen](/learn/print-looks-different-from-screen) · The four reasons a print never matches the monitor, and which you can plan for.
+10. [RGB or CMYK for print: what to do in an RGB-only tool](/learn/rgb-or-cmyk-for-print) · Send RGB and say so: why, what to change in the design, and what to do when a printer insists on CMYK.
+11. [Choose colours that work on screen and in print](/learn/colour-that-works) · What happens to bright RGB colours on press and how to plan for it.
+12. [Deliver every format, named and ready for the printer](/learn/delivering-files) · Naming, versioning and the delivery list when the job is for a client.
 
 ### /learn/do/edit-a-photo: I want to edit a photo
 
@@ -112,30 +117,33 @@ Generated from the content graph on 2026-09-27 by `linking-map.mjs`. Every guide
 3. [Choose colours that work on screen and in print](/learn/colour-that-works) · Palettes, contrast and colour on screen versus print.
 4. [Understand pixels, dpi and why images look soft](/learn/image-resolution-explained) · Pixels, dpi and why images look soft.
 5. [How to make a design look less generic](/learn/make-your-design-look-less-generic) · The moves that separate a template from a design.
-6. [Make and export your first design](/learn/your-first-design) · Make and export a first design in five minutes.
-7. [Make an A5 flyer with bleed for the printer](/learn/workflow-print-flyer) · Apply all of it to one finished flyer.
-8. [Glossary of design and Voidcanvas terms](/learn/glossary) · Every term, in plain English.
+6. [Poster design rules that work from across a room](/learn/poster-design-rules) · All of it applied to the one format everyone makes first.
+7. [Make and export your first design](/learn/your-first-design) · Make and export a first design in five minutes.
+8. [Make an A5 flyer with bleed for the printer](/learn/workflow-print-flyer) · Apply all of it to one finished flyer.
+9. [Glossary of design and Voidcanvas terms](/learn/glossary) · Every term, in plain English.
 
 ### /learn/do/leave-photoshop: I want to work without Photoshop
 
 1. [Coming from Photoshop: what carries over, what is different](/learn/coming-from-photoshop) · The migration guide: what carries over, what is different, and the three shortcuts that change.
-2. [How to edit a PSD without Photoshop](/learn/edit-a-psd-without-photoshop) · Start with your own files: what survives the move.
-3. [Find your way around the Editor](/learn/editor-tour) · Where the tools, panels and menus are.
-4. [Every keyboard shortcut in Voidcanvas](/learn/keyboard-shortcuts) · Most shortcuts are the ones you know.
-5. [Hide and show parts of a layer with masks](/learn/masks) · Layer, vector, clipping and quick masks.
-6. [Change colour and tone with adjustment layers](/learn/adjustment-layers) · Curves, levels, hue and saturation as layers.
-7. [Find any action: menus, Ctrl+K and the shortcut sheet](/learn/command-palette-and-menus) · Find any action by name with Ctrl+K.
-8. [File formats you can open and export](/learn/file-formats) · What you can open and export.
+2. [Leaving Creative Cloud as a designer: the checklist](/learn/leaving-creative-cloud-checklist) · What stops on the day, what to export first, and what a browser editor does not replace.
+3. [How to edit a PSD without Photoshop](/learn/edit-a-psd-without-photoshop) · Start with your own files: what survives the move.
+4. [Find your way around the Editor](/learn/editor-tour) · Where the tools, panels and menus are.
+5. [Every keyboard shortcut in Voidcanvas](/learn/keyboard-shortcuts) · Most shortcuts are the ones you know.
+6. [Hide and show parts of a layer with masks](/learn/masks) · Layer, vector, clipping and quick masks.
+7. [Change colour and tone with adjustment layers](/learn/adjustment-layers) · Curves, levels, hue and saturation as layers.
+8. [Find any action: menus, Ctrl+K and the shortcut sheet](/learn/command-palette-and-menus) · Find any action by name with Ctrl+K.
+9. [File formats you can open and export](/learn/file-formats) · What you can open and export.
 
 ### /learn/do/private-and-offline: I want to design without uploading anything
 
 1. [Photo editors that do not upload your photos: how to tell](/learn/photo-editor-that-does-not-upload) · What "private" means for a web editor and a two-minute test you can run on any tool.
 2. [What Voidcanvas sends and what stays on your device](/learn/privacy-and-data) · Exactly what Voidcanvas sends and what never leaves your device.
-3. [Install Voidcanvas as an app and use it offline](/learn/install-as-an-app) · Install to the home screen or dock and use it offline.
-4. [Use Voidcanvas as an app on your computer](/learn/desktop-app) · The desktop app for Windows, macOS and Linux.
-5. [Where your designs are saved and how to keep them safe](/learn/saving-and-your-files) · Where designs live and how to back them up.
-6. [Use a private session on a shared computer](/learn/private-session) · A private session on a shared computer.
-7. [Use the AI tools that run on your device](/learn/ai-on-this-device) · The AI tools, and why they run locally.
+3. [Offline design software, including the browser apps that work offline](/learn/offline-design-software) · The three kinds of software, the one-minute offline test, and what to prepare before a flight.
+4. [Install Voidcanvas as an app and use it offline](/learn/install-as-an-app) · Install to the home screen or dock and use it offline.
+5. [Use Voidcanvas as an app on your computer](/learn/desktop-app) · The desktop app for Windows, macOS and Linux.
+6. [Where your designs are saved and how to keep them safe](/learn/saving-and-your-files) · Where designs live and how to back them up.
+7. [Use a private session on a shared computer](/learn/private-session) · A private session on a shared computer.
+8. [Use the AI tools that run on your device](/learn/ai-on-this-device) · The AI tools, and why they run locally.
 
 ### /learn/do/work-faster: I want to work faster
 
@@ -154,7 +162,7 @@ A cornerstone answers the head query and links down; supporting pages answer one
 
 Links down to: [layers](/learn/layers), [keyboard-shortcuts](/learn/keyboard-shortcuts), [coming-from-photoshop](/learn/coming-from-photoshop), [designing-on-a-phone](/learn/designing-on-a-phone), [workspaces-and-panels](/learn/workspaces-and-panels), [command-palette-and-menus](/learn/command-palette-and-menus)
 
-Linked from: what-is-voidcanvas (if), your-first-design (also useful), designing-on-a-phone (before), layers (also useful), command-palette-and-menus (also useful), workspaces-and-panels (also useful), workspaces-and-panels (before), edit-a-psd-without-photoshop (if), coming-from-photoshop (body), coming-from-photoshop (also useful), coming-from-photoshop (next), keyboard-shortcuts (also useful), glossary (also useful)
+Linked from: what-is-voidcanvas (if), your-first-design (also useful), designing-on-a-phone (before), layers (also useful), command-palette-and-menus (also useful), workspaces-and-panels (also useful), workspaces-and-panels (before), coming-from-photoshop (body), coming-from-photoshop (also useful), coming-from-photoshop (next), keyboard-shortcuts (also useful), glossary (also useful)
 
 ### Work with layers (/learn/layers)
 
@@ -172,7 +180,7 @@ Linked from: layers (also useful), layers (next), blend-modes-and-opacity (also 
 
 Links down to: [typography-fundamentals](/learn/typography-fundamentals), [import-psd-and-pdf](/learn/import-psd-and-pdf), [brand-kit](/learn/brand-kit), [layer-styles](/learn/layer-styles), [shapes-and-pen](/learn/shapes-and-pen)
 
-Linked from: your-first-design (next), shapes-and-pen (also useful), brand-kit (body), brand-kit (also useful), layer-styles (also useful), layer-styles (before), edit-a-psd-without-photoshop (body), edit-a-psd-without-photoshop (if), coming-from-photoshop (body), typography-fundamentals (body), typography-fundamentals (also useful), typography-fundamentals (next)
+Linked from: your-first-design (next), shapes-and-pen (also useful), brand-kit (body), brand-kit (also useful), layer-styles (also useful), layer-styles (before), edit-a-psd-without-photoshop (body), edit-a-psd-without-photoshop (if), coming-from-photoshop (body), typography-fundamentals (body), typography-fundamentals (also useful), typography-fundamentals (next), design-a-poster-with-no-photo (also useful)
 
 ### Change colour and tone with adjustment layers (/learn/adjustment-layers)
 
@@ -202,13 +210,13 @@ Linked from: crop-and-canvas (body), crop-and-canvas (also useful), artboards (b
 
 Links down to: [layers](/learn/layers), [workflow-psd-to-social](/learn/workflow-psd-to-social), [file-formats](/learn/file-formats), [troubleshooting](/learn/troubleshooting)
 
-Linked from: desktop-app (also useful), moving-work-between-tools (body), layers (if), type (if), layer-styles (body), artboards (body), edit-a-psd-without-photoshop (also useful), edit-a-psd-without-photoshop (next), workflow-psd-to-social (also useful), file-formats (body), file-formats (also useful), troubleshooting (body)
+Linked from: desktop-app (also useful), moving-work-between-tools (body), layers (if), type (if), layer-styles (body), artboards (body), edit-a-psd-without-photoshop (also useful), edit-a-psd-without-photoshop (next), leaving-creative-cloud-checklist (also useful), workflow-psd-to-social (also useful), file-formats (body), file-formats (also useful), troubleshooting (body)
 
 ### How to edit a PSD without Photoshop (/learn/edit-a-psd-without-photoshop)
 
-Links down to: [import-psd-and-pdf](/learn/import-psd-and-pdf), [workflow-psd-to-social](/learn/workflow-psd-to-social), [editor-tour](/learn/editor-tour), [masks](/learn/masks), [type](/learn/type), [layers](/learn/layers), [file-formats](/learn/file-formats)
+Links down to: [import-psd-and-pdf](/learn/import-psd-and-pdf), [workflow-psd-to-social](/learn/workflow-psd-to-social), [coming-from-photoshop](/learn/coming-from-photoshop), [leaving-creative-cloud-checklist](/learn/leaving-creative-cloud-checklist), [masks](/learn/masks), [type](/learn/type), [layers](/learn/layers), [file-formats](/learn/file-formats)
 
-Linked from: import-psd-and-pdf (before), coming-from-photoshop (body), coming-from-photoshop (also useful), coming-from-photoshop (before), workflow-psd-to-social (before)
+Linked from: import-psd-and-pdf (before), coming-from-photoshop (body), coming-from-photoshop (also useful), coming-from-photoshop (before), leaving-creative-cloud-checklist (also useful), leaving-creative-cloud-checklist (next), workflow-psd-to-social (before)
 
 ### Run a client job in Studio from brief to delivery (/learn/studio-overview)
 
@@ -226,7 +234,7 @@ Linked from: brand-kit (also useful), studio-overview (body), brands-library (bo
 
 Links down to: [studio-overview](/learn/studio-overview), [start-a-job-from-a-brief](/learn/start-a-job-from-a-brief), [workflow-client-brand-guideline](/learn/workflow-client-brand-guideline), [review-and-delivery-links](/learn/review-and-delivery-links), [delivering-files](/learn/delivering-files), [directions-and-review](/learn/directions-and-review)
 
-Linked from: studio-overview (before), design-brief-example (also useful), design-brief-example (before), get-client-feedback-you-can-act-on (also useful), get-client-feedback-you-can-act-on (before)
+Linked from: leaving-creative-cloud-checklist (if), studio-overview (before), design-brief-example (also useful), design-brief-example (before), get-client-feedback-you-can-act-on (also useful), get-client-feedback-you-can-act-on (before)
 
 ### How to keep a brand consistent (/learn/keep-a-brand-consistent)
 
@@ -250,37 +258,37 @@ Linked from: effects-overview (next), artistic-effects (if), quick-tools (before
 
 Links down to: [workflow-textured-print-look](/learn/workflow-textured-print-look), [blend-modes-and-opacity](/learn/blend-modes-and-opacity), [designing-for-print](/learn/designing-for-print), [colour-effects](/learn/colour-effects), [make-a-halftone-portrait](/learn/make-a-halftone-portrait)
 
-Linked from: make-a-duotone-image (also useful), make-a-duotone-image (next), workflow-textured-print-look (before)
+Linked from: make-a-duotone-image (also useful), make-a-duotone-image (next), workflow-textured-print-look (before), design-a-poster-with-no-photo (if)
 
 ### Set type that reads well (/learn/typography-fundamentals)
 
-Links down to: [layout-and-composition](/learn/layout-and-composition), [type](/learn/type), [brand-guidelines](/learn/brand-guidelines), [designing-for-social](/learn/designing-for-social)
+Links down to: [layout-and-composition](/learn/layout-and-composition), [type](/learn/type), [poster-design-rules](/learn/poster-design-rules), [brand-guidelines](/learn/brand-guidelines), [designing-for-social](/learn/designing-for-social)
 
-Linked from: type (also useful), type (next), references-and-palettes (also useful), brand-guidelines (body), brand-guidelines (if), workflow-event-poster (also useful), layout-and-composition (also useful), layout-and-composition (before), building-a-brand-identity (body), prepare-a-poster-for-print (body), make-your-design-look-less-generic (body), make-your-design-look-less-generic (also useful), make-your-design-look-less-generic (before), glossary (next)
+Linked from: type (also useful), type (next), references-and-palettes (also useful), brand-guidelines (body), brand-guidelines (if), workflow-event-poster (also useful), layout-and-composition (also useful), layout-and-composition (before), building-a-brand-identity (body), prepare-a-poster-for-print (body), make-your-design-look-less-generic (body), make-your-design-look-less-generic (also useful), make-your-design-look-less-generic (before), poster-design-rules (also useful), poster-design-rules (before), design-a-poster-with-no-photo (also useful), glossary (next)
 
 ### Choose colours that work on screen and in print (/learn/colour-that-works)
 
 Links down to: [brand-colour-palette-that-passes-contrast](/learn/brand-colour-palette-that-passes-contrast), [brand-guidelines](/learn/brand-guidelines), [print-looks-different-from-screen](/learn/print-looks-different-from-screen), [colour-and-swatches](/learn/colour-and-swatches), [designing-for-print](/learn/designing-for-print), [references-and-palettes](/learn/references-and-palettes)
 
-Linked from: colour-and-swatches (also useful), colour-and-swatches (next), references-and-palettes (also useful), references-and-palettes (if), brand-guidelines (body), brand-guidelines (also useful), keep-a-brand-consistent (if), brand-colour-palette-that-passes-contrast (also useful), brand-colour-palette-that-passes-contrast (before), colour-effects (also useful), make-a-duotone-image (also useful), make-a-duotone-image (if), workflow-client-brand-guideline (body), designing-for-print (body), designing-for-print (also useful), building-a-brand-identity (body), building-a-brand-identity (next), prepare-a-poster-for-print (body), make-your-design-look-less-generic (body), make-your-design-look-less-generic (also useful), make-your-design-look-less-generic (if), print-looks-different-from-screen (also useful), print-looks-different-from-screen (next)
+Linked from: colour-and-swatches (also useful), colour-and-swatches (next), references-and-palettes (also useful), references-and-palettes (if), brand-guidelines (body), brand-guidelines (also useful), keep-a-brand-consistent (if), brand-colour-palette-that-passes-contrast (also useful), brand-colour-palette-that-passes-contrast (before), colour-effects (also useful), make-a-duotone-image (also useful), make-a-duotone-image (if), workflow-client-brand-guideline (body), designing-for-print (body), designing-for-print (also useful), building-a-brand-identity (body), building-a-brand-identity (next), prepare-a-poster-for-print (body), make-your-design-look-less-generic (body), make-your-design-look-less-generic (also useful), make-your-design-look-less-generic (if), print-looks-different-from-screen (also useful), print-looks-different-from-screen (next), rgb-or-cmyk-for-print (also useful), poster-design-rules (body)
 
 ### Lay out a page with a grid, space and a clear focal point (/learn/layout-and-composition)
 
-Links down to: [make-your-design-look-less-generic](/learn/make-your-design-look-less-generic), [groups-align-guides](/learn/groups-align-guides), [typography-fundamentals](/learn/typography-fundamentals), [designing-for-social](/learn/designing-for-social), [designing-for-print](/learn/designing-for-print)
+Links down to: [poster-design-rules](/learn/poster-design-rules), [make-your-design-look-less-generic](/learn/make-your-design-look-less-generic), [groups-align-guides](/learn/groups-align-guides), [typography-fundamentals](/learn/typography-fundamentals), [designing-for-social](/learn/designing-for-social), [designing-for-print](/learn/designing-for-print)
 
-Linked from: groups-align-guides (also useful), groups-align-guides (next), typography-fundamentals (also useful), typography-fundamentals (next), designing-for-social (also useful), make-your-design-look-less-generic (body), make-your-design-look-less-generic (also useful), make-your-design-look-less-generic (before)
+Linked from: groups-align-guides (also useful), groups-align-guides (next), typography-fundamentals (also useful), typography-fundamentals (next), designing-for-social (also useful), make-your-design-look-less-generic (body), make-your-design-look-less-generic (also useful), make-your-design-look-less-generic (before), poster-design-rules (also useful), poster-design-rules (before)
 
 ### Understand pixels, dpi and why images look soft (/learn/image-resolution-explained)
 
-Links down to: [printed-design-looks-blurry](/learn/printed-design-looks-blurry), [designing-for-print](/learn/designing-for-print), [prepare-a-poster-for-print](/learn/prepare-a-poster-for-print), [crop-and-canvas](/learn/crop-and-canvas), [export-for-screen](/learn/export-for-screen), [file-formats](/learn/file-formats)
+Links down to: [printed-design-looks-blurry](/learn/printed-design-looks-blurry), [designing-for-print](/learn/designing-for-print), [what-dpi-should-a-poster-be](/learn/what-dpi-should-a-poster-be), [crop-and-canvas](/learn/crop-and-canvas), [export-for-screen](/learn/export-for-screen), [file-formats](/learn/file-formats)
 
-Linked from: crop-and-canvas (body), crop-and-canvas (also useful), crop-and-canvas (next), export-for-screen (body), export-for-screen (also useful), export-for-screen (before), workflow-print-flyer (body), workflow-print-flyer (also useful), designing-for-print (body), designing-for-print (also useful), designing-for-print (before), prepare-a-poster-for-print (body), prepare-a-poster-for-print (also useful), prepare-a-poster-for-print (before), printed-design-looks-blurry (body), printed-design-looks-blurry (also useful), printed-design-looks-blurry (before), size-presets (body)
+Linked from: crop-and-canvas (body), crop-and-canvas (also useful), crop-and-canvas (next), export-for-screen (body), export-for-screen (also useful), export-for-screen (before), workflow-print-flyer (body), workflow-print-flyer (also useful), designing-for-print (body), designing-for-print (also useful), designing-for-print (before), prepare-a-poster-for-print (body), prepare-a-poster-for-print (also useful), prepare-a-poster-for-print (before), printed-design-looks-blurry (body), printed-design-looks-blurry (also useful), printed-design-looks-blurry (before), what-dpi-should-a-poster-be (also useful), what-dpi-should-a-poster-be (before), size-presets (body)
 
 ### Prepare artwork a printer will accept (/learn/designing-for-print)
 
 Links down to: [export-for-print](/learn/export-for-print), [workflow-print-flyer](/learn/workflow-print-flyer), [prepare-a-poster-for-print](/learn/prepare-a-poster-for-print), [print-looks-different-from-screen](/learn/print-looks-different-from-screen), [delivering-files](/learn/delivering-files), [glossary](/learn/glossary), [image-resolution-explained](/learn/image-resolution-explained), [colour-that-works](/learn/colour-that-works)
 
-Linked from: export-for-print (body), export-for-print (also useful), export-for-print (before), coming-from-photoshop (body), delivering-files (body), delivering-files (also useful), delivering-files (before), make-a-risograph-effect (if), workflow-print-flyer (also useful), workflow-print-flyer (before), workflow-textured-print-look (if), colour-that-works (also useful), layout-and-composition (also useful), image-resolution-explained (also useful), image-resolution-explained (next), prepare-a-poster-for-print (also useful), prepare-a-poster-for-print (if), what-is-a-print-ready-pdf (also useful), what-is-a-print-ready-pdf (before), how-much-bleed (also useful), how-much-bleed (before), print-looks-different-from-screen (also useful), print-looks-different-from-screen (before), size-presets (also useful), size-presets (next), file-formats (body)
+Linked from: export-for-print (body), export-for-print (also useful), export-for-print (before), coming-from-photoshop (body), delivering-files (body), delivering-files (also useful), delivering-files (before), make-a-risograph-effect (if), workflow-print-flyer (also useful), workflow-print-flyer (before), workflow-textured-print-look (if), colour-that-works (also useful), layout-and-composition (also useful), image-resolution-explained (also useful), image-resolution-explained (next), prepare-a-poster-for-print (also useful), what-is-a-print-ready-pdf (also useful), what-is-a-print-ready-pdf (before), how-much-bleed (also useful), how-much-bleed (before), print-looks-different-from-screen (also useful), print-looks-different-from-screen (before), rgb-or-cmyk-for-print (also useful), rgb-or-cmyk-for-print (before), size-presets (also useful), size-presets (next), file-formats (body)
 
 ### Design social posts that read on a phone (/learn/designing-for-social)
 
@@ -296,21 +304,21 @@ Linked from: brand-kit (before), brands-library (also useful), brand-guidelines 
 
 ### How to prepare a poster for print (/learn/prepare-a-poster-for-print)
 
-Links down to: [workflow-event-poster](/learn/workflow-event-poster), [export-for-print](/learn/export-for-print), [designing-for-print](/learn/designing-for-print), [make-a-halftone-portrait](/learn/make-a-halftone-portrait), [workflow-print-flyer](/learn/workflow-print-flyer), [image-resolution-explained](/learn/image-resolution-explained)
+Links down to: [workflow-event-poster](/learn/workflow-event-poster), [export-for-print](/learn/export-for-print), [what-dpi-should-a-poster-be](/learn/what-dpi-should-a-poster-be), [rgb-or-cmyk-for-print](/learn/rgb-or-cmyk-for-print), [make-a-halftone-portrait](/learn/make-a-halftone-portrait), [workflow-print-flyer](/learn/workflow-print-flyer), [designing-for-print](/learn/designing-for-print), [image-resolution-explained](/learn/image-resolution-explained)
 
-Linked from: export-for-print (if), make-a-halftone-portrait (if), workflow-event-poster (before), image-resolution-explained (if), designing-for-print (if), printed-design-looks-blurry (also useful), printed-design-looks-blurry (next), what-is-a-print-ready-pdf (also useful), what-is-a-print-ready-pdf (if), how-much-bleed (also useful), how-much-bleed (if), print-looks-different-from-screen (also useful), print-looks-different-from-screen (next)
+Linked from: export-for-print (if), make-a-halftone-portrait (if), workflow-event-poster (before), designing-for-print (if), printed-design-looks-blurry (also useful), printed-design-looks-blurry (next), what-is-a-print-ready-pdf (also useful), what-is-a-print-ready-pdf (if), how-much-bleed (also useful), how-much-bleed (if), print-looks-different-from-screen (also useful), print-looks-different-from-screen (next), what-dpi-should-a-poster-be (also useful), what-dpi-should-a-poster-be (next), rgb-or-cmyk-for-print (next), poster-design-rules (body), poster-design-rules (also useful), poster-design-rules (next), design-a-poster-with-no-photo (next)
 
 ### How to make a design look less generic (/learn/make-your-design-look-less-generic)
 
-Links down to: [make-a-halftone-portrait](/learn/make-a-halftone-portrait), [workflow-textured-print-look](/learn/workflow-textured-print-look), [colour-that-works](/learn/colour-that-works), [building-a-brand-identity](/learn/building-a-brand-identity), [typography-fundamentals](/learn/typography-fundamentals), [layout-and-composition](/learn/layout-and-composition)
+Links down to: [make-a-halftone-portrait](/learn/make-a-halftone-portrait), [workflow-textured-print-look](/learn/workflow-textured-print-look), [colour-that-works](/learn/colour-that-works), [poster-design-rules](/learn/poster-design-rules), [building-a-brand-identity](/learn/building-a-brand-identity), [typography-fundamentals](/learn/typography-fundamentals), [layout-and-composition](/learn/layout-and-composition)
 
-Linked from: layout-and-composition (next)
+Linked from: layout-and-composition (next), poster-design-rules (if), design-a-poster-with-no-photo (next)
 
 ### Why your printed design looks blurry (/learn/printed-design-looks-blurry)
 
 Links down to: [prepare-a-poster-for-print](/learn/prepare-a-poster-for-print), [export-for-print](/learn/export-for-print), [crop-and-canvas](/learn/crop-and-canvas), [export-for-screen](/learn/export-for-screen), [image-resolution-explained](/learn/image-resolution-explained)
 
-Linked from: image-resolution-explained (next), how-much-bleed (if), print-looks-different-from-screen (also useful), print-looks-different-from-screen (if)
+Linked from: image-resolution-explained (next), how-much-bleed (if), print-looks-different-from-screen (also useful), print-looks-different-from-screen (if), what-dpi-should-a-poster-be (body), what-dpi-should-a-poster-be (also useful), what-dpi-should-a-poster-be (if)
 
 ### What Voidcanvas sends and what stays on your device (/learn/privacy-and-data)
 
@@ -320,9 +328,9 @@ Linked from: what-is-voidcanvas (body), what-is-voidcanvas (also useful), what-i
 
 ### Photo editors that do not upload your photos: how to tell (/learn/photo-editor-that-does-not-upload)
 
-Links down to: [privacy-and-data](/learn/privacy-and-data), [ai-on-this-device](/learn/ai-on-this-device), [private-session](/learn/private-session), [install-as-an-app](/learn/install-as-an-app), [saving-and-your-files](/learn/saving-and-your-files)
+Links down to: [privacy-and-data](/learn/privacy-and-data), [ai-on-this-device](/learn/ai-on-this-device), [private-session](/learn/private-session), [offline-design-software](/learn/offline-design-software), [saving-and-your-files](/learn/saving-and-your-files), [install-as-an-app](/learn/install-as-an-app)
 
-Linked from: privacy-and-data (before)
+Linked from: offline-design-software (body), offline-design-software (also useful), offline-design-software (before), privacy-and-data (before)
 
 ## Contextual links per guide
 
@@ -331,12 +339,13 @@ Linked from: privacy-and-data (before)
 | what-is-voidcanvas |  | your-first-design | you are coming from Photoshop: editor-tour; you want to know what is sent: privacy-and-data; a term is new to you: glossary |
 | your-first-design |  | layers, type | you want to save it properly: saving-and-your-files |
 | saving-and-your-files |  | templates-and-versions | you use more than one computer: account-and-sync; you want a file on disk: desktop-app |
-| desktop-app | install-as-an-app | saving-and-your-files |  |
+| desktop-app | offline-design-software, install-as-an-app | saving-and-your-files |  |
 | account-and-sync | privacy-and-data | teams |  |
 | teams | account-and-sync, brands-library | review-and-delivery-links |  |
 | moving-work-between-tools |  | effects-overview, studio-overview |  |
-| install-as-an-app |  | desktop-app | you design on a phone: designing-on-a-phone |
+| install-as-an-app | offline-design-software | desktop-app | you design on a phone: designing-on-a-phone |
 | designing-on-a-phone | editor-tour | install-as-an-app |  |
+| offline-design-software | photo-editor-that-does-not-upload | install-as-an-app, desktop-app | you want to know where your files are: saving-and-your-files; you are on a Chromebook or an unusual browser: browser-support |
 | editor-tour |  | layers, keyboard-shortcuts | you know Photoshop and want the differences: coming-from-photoshop; you are on a phone: designing-on-a-phone |
 | layers |  | groups-align-guides, masks | you opened a PSD: import-psd-and-pdf |
 | groups-align-guides | layers | layout-and-composition |  |
@@ -358,13 +367,14 @@ Linked from: privacy-and-data (before)
 | resize-to-every-format | designing-for-social | workflow-social-campaign | you want them side by side: artboards |
 | import-psd-and-pdf | edit-a-psd-without-photoshop | layers, workflow-psd-to-social | you want the full format list: file-formats |
 | export-for-screen | image-resolution-explained | export-for-print |  |
-| export-for-print | designing-for-print | workflow-print-flyer | you are making a poster: prepare-a-poster-for-print |
+| export-for-print | designing-for-print | workflow-print-flyer | you are making a poster: prepare-a-poster-for-print; the printer asked for CMYK: rgb-or-cmyk-for-print |
 | templates-and-versions | saving-and-your-files | history-and-undo |  |
 | history-and-undo |  | templates-and-versions |  |
 | command-palette-and-menus |  | keyboard-shortcuts |  |
 | workspaces-and-panels | editor-tour |  |  |
-| edit-a-psd-without-photoshop |  | import-psd-and-pdf, workflow-psd-to-social | you are moving off Photoshop altogether: editor-tour; the edit is mostly masks: masks; the text needs re-setting: type |
+| edit-a-psd-without-photoshop |  | import-psd-and-pdf, workflow-psd-to-social | you are moving off Photoshop altogether: coming-from-photoshop; you are about to cancel the subscription: leaving-creative-cloud-checklist; the edit is mostly masks: masks; the text needs re-setting: type |
 | coming-from-photoshop | edit-a-psd-without-photoshop | editor-tour, keyboard-shortcuts | you want to know what is sent anywhere: privacy-and-data; you work on a phone or tablet too: designing-on-a-phone |
+| leaving-creative-cloud-checklist | coming-from-photoshop | edit-a-psd-without-photoshop, file-formats | your work is mostly client jobs: run-a-client-design-project; you want the brand assets somewhere useful: brand-kit |
 | studio-overview | run-a-client-design-project | start-a-job-from-a-brief | the job is a brand: workflow-client-brand-guideline |
 | start-a-job-from-a-brief | design-brief-example, studio-overview | references-and-palettes, directions-and-review |  |
 | references-and-palettes |  | directions-and-review | you are building the palette properly: colour-that-works |
@@ -391,27 +401,31 @@ Linked from: privacy-and-data (before)
 | make-a-duotone-image | effects-overview | make-a-risograph-effect, colour-effects | you want dots as well as two colours: make-a-halftone-portrait; you are choosing brand colours: colour-that-works |
 | dither-effect-explained | make-a-halftone-portrait | quick-tools, glitch-effect-explained | you want dots on a grid instead: make-a-halftone-portrait; you want blocky pixels rather than a pattern: stylise-effects |
 | glitch-effect-explained | effects-overview | distortion-effects, quick-tools | you want the old-screen texture too: texture-effects; it is for a YouTube thumbnail: size-presets |
-| workflow-event-poster | prepare-a-poster-for-print | export-for-print | you want the halftone treatment: make-a-halftone-portrait |
+| workflow-event-poster | poster-design-rules, prepare-a-poster-for-print | export-for-print | you have no photo: design-a-poster-with-no-photo; you want the halftone treatment: make-a-halftone-portrait |
 | workflow-social-campaign | designing-for-social | resize-to-every-format |  |
 | workflow-print-flyer | designing-for-print | delivering-files |  |
 | workflow-client-brand-guideline | building-a-brand-identity | brand-guideline-exports |  |
 | workflow-portrait-retouch | retouching | export-for-screen |  |
 | workflow-psd-to-social | edit-a-psd-without-photoshop | resize-to-every-format |  |
 | workflow-textured-print-look | make-a-risograph-effect, make-a-halftone-portrait | blend-modes-and-opacity | it is going to a printer: designing-for-print |
-| typography-fundamentals |  | layout-and-composition, type | you are setting a brand scale: brand-guidelines |
+| typography-fundamentals |  | layout-and-composition, type | you are making a poster: poster-design-rules; you are setting a brand scale: brand-guidelines |
 | colour-that-works |  | brand-colour-palette-that-passes-contrast, brand-guidelines | the job is going to print: print-looks-different-from-screen |
-| layout-and-composition | typography-fundamentals | make-your-design-look-less-generic, groups-align-guides |  |
-| image-resolution-explained |  | printed-design-looks-blurry, designing-for-print | you are making a poster: prepare-a-poster-for-print; the photo needs cropping or resizing: crop-and-canvas |
+| layout-and-composition | typography-fundamentals | poster-design-rules, make-your-design-look-less-generic | you want the Editor mechanics: groups-align-guides |
+| image-resolution-explained |  | printed-design-looks-blurry, designing-for-print | you are making a poster: what-dpi-should-a-poster-be; the photo needs cropping or resizing: crop-and-canvas |
 | designing-for-print | image-resolution-explained | export-for-print, workflow-print-flyer | you are making a poster: prepare-a-poster-for-print; the last print came back dull or dark: print-looks-different-from-screen; it is a client job: delivering-files; the printer uses a term you do not know: glossary |
 | designing-for-social |  | social-media-sizes-and-safe-zones, resize-to-every-format, workflow-social-campaign | you need the sizes: size-presets |
 | building-a-brand-identity |  | brand-guidelines, colour-that-works | it is a client job: workflow-client-brand-guideline |
-| prepare-a-poster-for-print | image-resolution-explained | workflow-event-poster, export-for-print | you want the terms explained in depth: designing-for-print; you want the halftone poster look: make-a-halftone-portrait; it is an A5 flyer rather than a poster: workflow-print-flyer |
-| make-your-design-look-less-generic | typography-fundamentals, layout-and-composition | make-a-halftone-portrait, workflow-textured-print-look | the colour is the problem: colour-that-works; it is a brand, not one piece: building-a-brand-identity |
+| prepare-a-poster-for-print | poster-design-rules, image-resolution-explained | workflow-event-poster, export-for-print | you are not sure 300 dpi is right for the size: what-dpi-should-a-poster-be; the printer asked for CMYK: rgb-or-cmyk-for-print; you want the halftone poster look: make-a-halftone-portrait; it is an A5 flyer rather than a poster: workflow-print-flyer |
+| make-your-design-look-less-generic | typography-fundamentals, layout-and-composition | make-a-halftone-portrait, workflow-textured-print-look | the colour is the problem: colour-that-works; it is a poster: poster-design-rules; it is a brand, not one piece: building-a-brand-identity |
 | printed-design-looks-blurry | image-resolution-explained | prepare-a-poster-for-print, export-for-print | the photo itself is the problem: crop-and-canvas; the design is going to social, not print: export-for-screen |
 | what-is-a-print-ready-pdf | designing-for-print | export-for-print, how-much-bleed | it is a poster: prepare-a-poster-for-print; it is a client delivery: delivering-files |
 | how-much-bleed | designing-for-print | export-for-print, what-is-a-print-ready-pdf | it is a poster: prepare-a-poster-for-print; you want to see what a missing bleed looks like: printed-design-looks-blurry |
 | print-looks-different-from-screen | designing-for-print | colour-that-works, prepare-a-poster-for-print | it is soft as well as dull: printed-design-looks-blurry; you want a PDF the printer accepts first time: what-is-a-print-ready-pdf |
 | social-media-sizes-and-safe-zones | designing-for-social | resize-to-every-format, size-presets | you want one design in every size: resize-to-every-format; you are setting up a series: workflow-social-campaign |
+| what-dpi-should-a-poster-be | image-resolution-explained | prepare-a-poster-for-print, how-much-bleed | the last print came back soft: printed-design-looks-blurry; you need every other size too: size-presets |
+| rgb-or-cmyk-for-print | designing-for-print | what-is-a-print-ready-pdf, prepare-a-poster-for-print | you want to understand the whole screen-to-paper gap: print-looks-different-from-screen |
+| poster-design-rules | layout-and-composition, typography-fundamentals | design-a-poster-with-no-photo, prepare-a-poster-for-print | you want the whole job step by step: workflow-event-poster; it still looks like a template: make-your-design-look-less-generic |
+| design-a-poster-with-no-photo | poster-design-rules | prepare-a-poster-for-print, make-your-design-look-less-generic | you want a printed texture over it: make-a-risograph-effect; you do have a photo: workflow-event-poster |
 | keyboard-shortcuts | coming-from-photoshop | command-palette-and-menus |  |
 | size-presets |  | social-media-sizes-and-safe-zones, designing-for-print |  |
 | file-formats |  | export-for-screen, export-for-print |  |
@@ -421,116 +435,122 @@ Linked from: privacy-and-data (before)
 | troubleshooting |  | report-a-bug-well, browser-support |  |
 | browser-support |  | troubleshooting |  |
 | report-a-bug-well | troubleshooting |  |  |
-| photo-editor-that-does-not-upload |  | privacy-and-data, ai-on-this-device | you share a computer: private-session; you want it to work with no connection at all: install-as-an-app; you want to know where the files are kept: saving-and-your-files |
+| photo-editor-that-does-not-upload |  | privacy-and-data, ai-on-this-device | you share a computer: private-session; you want it to work with no connection at all: offline-design-software; you want to know where the files are kept: saving-and-your-files |
 
 ## Inbound links per guide
 
 | Guide | Inbound | From |
 |---|---|---|
 | what-is-voidcanvas | 2 | your-first-design (also useful), moving-work-between-tools (also useful) |
+| leaving-creative-cloud-checklist | 2 | edit-a-psd-without-photoshop (if), route:leave-photoshop (route) |
 | design-brief-example | 2 | start-a-job-from-a-brief (before), route:client-project (route) |
 | get-client-feedback-you-can-act-on | 2 | directions-and-review (before), route:client-project (route) |
 | make-a-duotone-image | 2 | colour-effects (before), route:design-effects (route) |
-| make-your-design-look-less-generic | 2 | layout-and-composition (next), route:learn-design (route) |
 | teams | 3 | account-and-sync (next), review-and-delivery-links (also useful), brands-library (next) |
-| coming-from-photoshop | 3 | editor-tour (if), keyboard-shortcuts (before), route:leave-photoshop (route) |
 | brand-colour-palette-that-passes-contrast | 3 | brand-guidelines (if), colour-that-works (next), route:build-a-brand (route) |
 | dither-effect-explained | 3 | quick-tools (if), glitch-effect-explained (also useful), route:design-effects (route) |
 | glitch-effect-explained | 3 | quick-tools (if), dither-effect-explained (next), route:design-effects (route) |
-| workflow-event-poster | 3 | prepare-a-poster-for-print (also useful), prepare-a-poster-for-print (next), route:make-a-poster (route) |
-| how-much-bleed | 3 | what-is-a-print-ready-pdf (also useful), what-is-a-print-ready-pdf (next), route:prepare-for-print (route) |
+| rgb-or-cmyk-for-print | 3 | export-for-print (if), prepare-a-poster-for-print (if), route:prepare-for-print (route) |
+| design-a-poster-with-no-photo | 3 | workflow-event-poster (if), poster-design-rules (next), route:make-a-poster (route) |
 | glossary | 3 | what-is-voidcanvas (if), designing-for-print (if), route:learn-design (route) |
-| photo-editor-that-does-not-upload | 3 | privacy-and-data (before), route:edit-a-photo (route), route:private-and-offline (route) |
+| offline-design-software | 4 | desktop-app (before), install-as-an-app (before), photo-editor-that-does-not-upload (if), route:private-and-offline (route) |
 | keep-a-brand-consistent | 4 | brand-guidelines (next), brand-colour-palette-that-passes-contrast (also useful), brand-colour-palette-that-passes-contrast (next), route:build-a-brand (route) |
-| make-a-risograph-effect | 4 | make-a-duotone-image (also useful), make-a-duotone-image (next), workflow-textured-print-look (before), route:design-effects (route) |
 | workflow-portrait-retouch | 4 | adjustment-layers (also useful), retouching (also useful), retouching (next), route:edit-a-photo (route) |
+| make-your-design-look-less-generic | 4 | layout-and-composition (next), poster-design-rules (if), design-a-poster-with-no-photo (next), route:learn-design (route) |
+| how-much-bleed | 4 | what-is-a-print-ready-pdf (also useful), what-is-a-print-ready-pdf (next), what-dpi-should-a-poster-be (next), route:prepare-for-print (route) |
 | social-media-sizes-and-safe-zones | 4 | designing-for-social (next), size-presets (next), route:social-content (route), route:many-formats (route) |
 | your-first-design | 5 | what-is-voidcanvas (body), what-is-voidcanvas (also useful), what-is-voidcanvas (next), designing-on-a-phone (also useful), route:learn-design (route) |
-| what-is-a-print-ready-pdf | 5 | how-much-bleed (also useful), how-much-bleed (next), print-looks-different-from-screen (body), print-looks-different-from-screen (if), route:prepare-for-print (route) |
-| print-looks-different-from-screen | 5 | brand-colour-palette-that-passes-contrast (body), brand-colour-palette-that-passes-contrast (if), colour-that-works (if), designing-for-print (if), route:prepare-for-print (route) |
+| make-a-risograph-effect | 5 | make-a-duotone-image (also useful), make-a-duotone-image (next), workflow-textured-print-look (before), design-a-poster-with-no-photo (if), route:design-effects (route) |
 | report-a-bug-well | 5 | privacy-and-data (body), privacy-and-data (also useful), troubleshooting (body), troubleshooting (also useful), troubleshooting (next) |
-| desktop-app | 6 | saving-and-your-files (if), account-and-sync (also useful), teams (also useful), install-as-an-app (next), photo-editor-that-does-not-upload (body), route:private-and-offline (route) |
 | account-and-sync | 6 | saving-and-your-files (if), teams (body), teams (also useful), teams (before), review-and-delivery-links (body), review-and-delivery-links (also useful) |
 | moving-work-between-tools | 6 | what-is-voidcanvas (body), what-is-voidcanvas (also useful), studio-overview (body), effects-overview (body), effects-overview (also useful), quick-tools (also useful) |
 | colour-and-swatches | 6 | editor-tour (body), shapes-and-pen (also useful), brand-kit (also useful), colour-that-works (body), colour-that-works (also useful), glossary (body) |
 | workspaces-and-panels | 6 | editor-tour (body), editor-tour (also useful), history-and-undo (also useful), command-palette-and-menus (also useful), glossary (body), route:work-faster (route) |
-| run-a-client-design-project | 6 | studio-overview (before), design-brief-example (also useful), design-brief-example (before), get-client-feedback-you-can-act-on (also useful), get-client-feedback-you-can-act-on (before), route:client-project (route) |
+| coming-from-photoshop | 6 | editor-tour (if), edit-a-psd-without-photoshop (if), leaving-creative-cloud-checklist (also useful), leaving-creative-cloud-checklist (before), keyboard-shortcuts (before), route:leave-photoshop (route) |
 | texture-effects | 6 | filters-in-the-editor (body), effects-overview (body), artistic-effects (also useful), distortion-effects (also useful), glitch-effect-explained (also useful), glitch-effect-explained (if) |
+| workflow-event-poster | 6 | prepare-a-poster-for-print (also useful), prepare-a-poster-for-print (next), poster-design-rules (also useful), poster-design-rules (if), design-a-poster-with-no-photo (if), route:make-a-poster (route) |
 | workflow-psd-to-social | 6 | import-psd-and-pdf (also useful), import-psd-and-pdf (next), edit-a-psd-without-photoshop (body), edit-a-psd-without-photoshop (also useful), edit-a-psd-without-photoshop (next), route:work-with-psd (route) |
-| printed-design-looks-blurry | 6 | image-resolution-explained (next), how-much-bleed (if), print-looks-different-from-screen (also useful), print-looks-different-from-screen (if), route:make-a-poster (route), route:prepare-for-print (route) |
-| groups-align-guides | 7 | layers (body), layers (also useful), layers (next), shapes-and-pen (also useful), layout-and-composition (body), layout-and-composition (also useful), layout-and-composition (next) |
+| what-dpi-should-a-poster-be | 6 | image-resolution-explained (if), prepare-a-poster-for-print (if), poster-design-rules (body), design-a-poster-with-no-photo (body), route:make-a-poster (route), route:prepare-for-print (route) |
+| photo-editor-that-does-not-upload | 6 | offline-design-software (body), offline-design-software (also useful), offline-design-software (before), privacy-and-data (before), route:edit-a-photo (route), route:private-and-offline (route) |
+| groups-align-guides | 7 | layers (body), layers (also useful), layers (next), shapes-and-pen (also useful), layout-and-composition (body), layout-and-composition (also useful), layout-and-composition (if) |
 | retouching | 7 | designing-on-a-phone (also useful), selections (also useful), adjustment-layers (next), ai-on-this-device (body), workflow-portrait-retouch (also useful), workflow-portrait-retouch (before), route:edit-a-photo (route) |
 | crop-and-canvas | 7 | ai-on-this-device (body), export-for-print (also useful), image-resolution-explained (also useful), image-resolution-explained (if), printed-design-looks-blurry (also useful), printed-design-looks-blurry (if), route:edit-a-photo (route) |
-| edit-a-psd-without-photoshop | 7 | import-psd-and-pdf (before), coming-from-photoshop (body), coming-from-photoshop (also useful), coming-from-photoshop (before), workflow-psd-to-social (before), route:work-with-psd (route), route:leave-photoshop (route) |
+| run-a-client-design-project | 7 | leaving-creative-cloud-checklist (if), studio-overview (before), design-brief-example (also useful), design-brief-example (before), get-client-feedback-you-can-act-on (also useful), get-client-feedback-you-can-act-on (before), route:client-project (route) |
 | stylise-effects | 7 | filters-in-the-editor (body), effects-overview (body), colour-effects (also useful), distortion-effects (also useful), make-a-halftone-portrait (if), dither-effect-explained (also useful), dither-effect-explained (if) |
 | colour-effects | 7 | filters-in-the-editor (body), effects-overview (body), make-a-risograph-effect (also useful), make-a-risograph-effect (if), make-a-duotone-image (also useful), make-a-duotone-image (next), route:design-effects (route) |
 | workflow-client-brand-guideline | 7 | studio-overview (if), brand-guidelines (also useful), brand-guideline-exports (also useful), run-a-client-design-project (if), keep-a-brand-consistent (if), building-a-brand-identity (if), route:build-a-brand (route) |
-| shapes-and-pen | 8 | groups-align-guides (also useful), masks (also useful), type (body), type (also useful), colour-and-swatches (also useful), building-a-brand-identity (body), keyboard-shortcuts (body), keyboard-shortcuts (also useful) |
+| what-is-a-print-ready-pdf | 7 | how-much-bleed (also useful), how-much-bleed (next), print-looks-different-from-screen (body), print-looks-different-from-screen (if), rgb-or-cmyk-for-print (also useful), rgb-or-cmyk-for-print (next), route:prepare-for-print (route) |
+| print-looks-different-from-screen | 7 | brand-colour-palette-that-passes-contrast (body), brand-colour-palette-that-passes-contrast (if), colour-that-works (if), designing-for-print (if), rgb-or-cmyk-for-print (also useful), rgb-or-cmyk-for-print (if), route:prepare-for-print (route) |
+| desktop-app | 8 | saving-and-your-files (if), account-and-sync (also useful), teams (also useful), install-as-an-app (next), offline-design-software (also useful), offline-design-software (next), photo-editor-that-does-not-upload (body), route:private-and-offline (route) |
 | layer-styles | 8 | layers (body), blend-modes-and-opacity (also useful), blend-modes-and-opacity (next), type (body), type (also useful), shapes-and-pen (next), coming-from-photoshop (body), glossary (body) |
 | command-palette-and-menus | 8 | editor-tour (body), editor-tour (also useful), workspaces-and-panels (also useful), keyboard-shortcuts (also useful), keyboard-shortcuts (next), glossary (body), route:leave-photoshop (route), route:work-faster (route) |
 | references-and-palettes | 8 | start-a-job-from-a-brief (also useful), start-a-job-from-a-brief (next), directions-and-review (body), directions-and-review (also useful), colour-that-works (also useful), building-a-brand-identity (body), building-a-brand-identity (also useful), route:client-project (route) |
 | workflow-social-campaign | 8 | artboards (also useful), resize-to-every-format (also useful), resize-to-every-format (next), designing-for-social (next), social-media-sizes-and-safe-zones (also useful), social-media-sizes-and-safe-zones (if), route:social-content (route), route:many-formats (route) |
 | workflow-print-flyer | 8 | export-for-print (also useful), export-for-print (next), workflow-event-poster (body), workflow-event-poster (also useful), designing-for-print (next), prepare-a-poster-for-print (if), route:prepare-for-print (route), route:learn-design (route) |
-| browser-support | 8 | install-as-an-app (also useful), remove-background (body), ai-on-this-device (body), ai-on-this-device (also useful), troubleshooting (body), troubleshooting (also useful), troubleshooting (next), report-a-bug-well (also useful) |
+| shapes-and-pen | 9 | groups-align-guides (also useful), masks (also useful), type (body), type (also useful), colour-and-swatches (also useful), building-a-brand-identity (body), design-a-poster-with-no-photo (also useful), keyboard-shortcuts (body), … |
 | templates-and-versions | 9 | saving-and-your-files (body), saving-and-your-files (also useful), saving-and-your-files (next), export-for-screen (body), history-and-undo (body), history-and-undo (also useful), history-and-undo (next), glossary (body), … |
-| install-as-an-app | 10 | what-is-voidcanvas (body), desktop-app (before), designing-on-a-phone (body), designing-on-a-phone (also useful), designing-on-a-phone (next), browser-support (also useful), photo-editor-that-does-not-upload (body), photo-editor-that-does-not-upload (also useful), … |
+| edit-a-psd-without-photoshop | 9 | import-psd-and-pdf (before), coming-from-photoshop (body), coming-from-photoshop (also useful), coming-from-photoshop (before), leaving-creative-cloud-checklist (also useful), leaving-creative-cloud-checklist (next), workflow-psd-to-social (before), route:work-with-psd (route), … |
+| printed-design-looks-blurry | 9 | image-resolution-explained (next), how-much-bleed (if), print-looks-different-from-screen (also useful), print-looks-different-from-screen (if), what-dpi-should-a-poster-be (body), what-dpi-should-a-poster-be (also useful), what-dpi-should-a-poster-be (if), route:make-a-poster (route), … |
+| poster-design-rules | 9 | workflow-event-poster (before), typography-fundamentals (if), layout-and-composition (next), prepare-a-poster-for-print (before), make-your-design-look-less-generic (if), design-a-poster-with-no-photo (also useful), design-a-poster-with-no-photo (before), route:make-a-poster (route), … |
+| browser-support | 9 | install-as-an-app (also useful), offline-design-software (if), remove-background (body), ai-on-this-device (body), ai-on-this-device (also useful), troubleshooting (body), troubleshooting (also useful), troubleshooting (next), … |
 | selections | 10 | masks (body), masks (also useful), masks (before), retouching (also useful), remove-background (also useful), remove-background (if), ai-on-this-device (body), ai-on-this-device (also useful), … |
 | review-and-delivery-links | 10 | teams (next), directions-and-review (body), directions-and-review (also useful), directions-and-review (next), delivering-files (body), delivering-files (if), run-a-client-design-project (if), get-client-feedback-you-can-act-on (also useful), … |
 | distortion-effects | 10 | filters-in-the-editor (body), effects-overview (body), stylise-effects (also useful), texture-effects (also useful), quick-tools (body), quick-tools (also useful), glitch-effect-explained (body), glitch-effect-explained (also useful), … |
-| layout-and-composition | 10 | groups-align-guides (also useful), groups-align-guides (next), typography-fundamentals (also useful), typography-fundamentals (next), designing-for-social (also useful), make-your-design-look-less-generic (body), make-your-design-look-less-generic (also useful), make-your-design-look-less-generic (before), … |
 | building-a-brand-identity | 10 | brand-kit (before), brands-library (also useful), brand-guidelines (before), keep-a-brand-consistent (before), design-brief-example (if), brand-colour-palette-that-passes-contrast (also useful), workflow-client-brand-guideline (also useful), workflow-client-brand-guideline (before), … |
 | keyboard-shortcuts | 10 | editor-tour (next), history-and-undo (also useful), command-palette-and-menus (body), command-palette-and-menus (also useful), command-palette-and-menus (next), coming-from-photoshop (body), coming-from-photoshop (also useful), coming-from-photoshop (next), … |
-| file-formats | 10 | saving-and-your-files (also useful), desktop-app (also useful), import-psd-and-pdf (also useful), import-psd-and-pdf (if), export-for-screen (also useful), edit-a-psd-without-photoshop (also useful), coming-from-photoshop (also useful), image-resolution-explained (also useful), … |
+| install-as-an-app | 11 | what-is-voidcanvas (body), desktop-app (before), designing-on-a-phone (body), designing-on-a-phone (also useful), designing-on-a-phone (next), offline-design-software (also useful), offline-design-software (next), browser-support (also useful), … |
 | filters-in-the-editor | 11 | adjustment-layers (also useful), coming-from-photoshop (body), effects-overview (body), effects-overview (also useful), effects-overview (next), quick-tools (body), make-a-halftone-portrait (also useful), make-a-halftone-portrait (next), … |
 | history-and-undo | 11 | retouching (body), templates-and-versions (body), templates-and-versions (also useful), templates-and-versions (next), command-palette-and-menus (also useful), workspaces-and-panels (body), workspaces-and-panels (also useful), coming-from-photoshop (body), … |
 | studio-overview | 11 | what-is-voidcanvas (body), moving-work-between-tools (also useful), moving-work-between-tools (next), start-a-job-from-a-brief (also useful), start-a-job-from-a-brief (before), run-a-client-design-project (also useful), run-a-client-design-project (next), design-brief-example (also useful), … |
 | brand-guideline-exports | 11 | export-for-print (body), brand-guidelines (also useful), brand-guidelines (next), keep-a-brand-consistent (body), workflow-client-brand-guideline (also useful), workflow-client-brand-guideline (next), designing-for-print (body), size-presets (body), … |
 | troubleshooting | 11 | saving-and-your-files (also useful), install-as-an-app (also useful), designing-on-a-phone (body), import-psd-and-pdf (also useful), private-session (also useful), browser-support (body), browser-support (also useful), browser-support (next), … |
-| type | 12 | your-first-design (next), shapes-and-pen (also useful), brand-kit (body), brand-kit (also useful), layer-styles (also useful), layer-styles (before), edit-a-psd-without-photoshop (body), edit-a-psd-without-photoshop (if), … |
+| layout-and-composition | 12 | groups-align-guides (also useful), groups-align-guides (next), typography-fundamentals (also useful), typography-fundamentals (next), designing-for-social (also useful), make-your-design-look-less-generic (body), make-your-design-look-less-generic (also useful), make-your-design-look-less-generic (before), … |
 | designing-for-social | 12 | resize-to-every-format (also useful), resize-to-every-format (before), workflow-social-campaign (also useful), workflow-social-campaign (before), typography-fundamentals (also useful), layout-and-composition (also useful), social-media-sizes-and-safe-zones (body), social-media-sizes-and-safe-zones (also useful), … |
-| size-presets | 12 | your-first-design (also useful), resize-to-every-format (body), resize-to-every-format (also useful), glitch-effect-explained (if), designing-for-social (body), designing-for-social (also useful), designing-for-social (if), social-media-sizes-and-safe-zones (body), … |
-| import-psd-and-pdf | 13 | desktop-app (also useful), moving-work-between-tools (body), layers (if), type (if), layer-styles (body), artboards (body), edit-a-psd-without-photoshop (also useful), edit-a-psd-without-photoshop (next), … |
+| file-formats | 12 | saving-and-your-files (also useful), desktop-app (also useful), import-psd-and-pdf (also useful), import-psd-and-pdf (if), export-for-screen (also useful), edit-a-psd-without-photoshop (also useful), coming-from-photoshop (also useful), leaving-creative-cloud-checklist (also useful), … |
+| editor-tour | 13 | what-is-voidcanvas (if), your-first-design (also useful), designing-on-a-phone (before), layers (also useful), command-palette-and-menus (also useful), workspaces-and-panels (also useful), workspaces-and-panels (before), coming-from-photoshop (body), … |
+| type | 13 | your-first-design (next), shapes-and-pen (also useful), brand-kit (body), brand-kit (also useful), layer-styles (also useful), layer-styles (before), edit-a-psd-without-photoshop (body), edit-a-psd-without-photoshop (if), … |
 | artistic-effects | 13 | filters-in-the-editor (body), filters-in-the-editor (also useful), effects-overview (body), effects-overview (also useful), stylise-effects (also useful), texture-effects (also useful), quick-tools (body), quick-tools (also useful), … |
 | designing-on-a-phone | 14 | what-is-voidcanvas (body), install-as-an-app (also useful), install-as-an-app (if), editor-tour (body), editor-tour (also useful), editor-tour (if), adjustment-layers (body), retouching (body), … |
-| editor-tour | 14 | what-is-voidcanvas (if), your-first-design (also useful), designing-on-a-phone (before), layers (also useful), command-palette-and-menus (also useful), workspaces-and-panels (also useful), workspaces-and-panels (before), edit-a-psd-without-photoshop (if), … |
+| import-psd-and-pdf | 14 | desktop-app (also useful), moving-work-between-tools (body), layers (if), type (if), layer-styles (body), artboards (body), edit-a-psd-without-photoshop (also useful), edit-a-psd-without-photoshop (next), … |
 | start-a-job-from-a-brief | 14 | studio-overview (also useful), studio-overview (next), references-and-palettes (also useful), directions-and-review (also useful), delivering-files (body), delivering-files (also useful), run-a-client-design-project (body), run-a-client-design-project (also useful), … |
 | quick-tools | 14 | moving-work-between-tools (also useful), effects-overview (also useful), artistic-effects (body), artistic-effects (also useful), distortion-effects (body), distortion-effects (also useful), distortion-effects (if), make-a-halftone-portrait (also useful), … |
 | workflow-textured-print-look | 14 | blend-modes-and-opacity (next), artistic-effects (body), artistic-effects (also useful), texture-effects (also useful), texture-effects (next), make-a-halftone-portrait (also useful), make-a-halftone-portrait (next), make-a-risograph-effect (body), … |
-| prepare-a-poster-for-print | 14 | export-for-print (if), make-a-halftone-portrait (if), workflow-event-poster (before), image-resolution-explained (if), designing-for-print (if), printed-design-looks-blurry (also useful), printed-design-looks-blurry (next), what-is-a-print-ready-pdf (also useful), … |
+| size-presets | 14 | your-first-design (also useful), resize-to-every-format (body), resize-to-every-format (also useful), glitch-effect-explained (if), designing-for-social (body), designing-for-social (also useful), designing-for-social (if), social-media-sizes-and-safe-zones (body), … |
 | blend-modes-and-opacity | 15 | layers (body), layers (also useful), colour-and-swatches (also useful), adjustment-layers (also useful), filters-in-the-editor (body), layer-styles (also useful), layer-styles (next), make-a-halftone-portrait (body), … |
 | remove-background | 15 | masks (body), masks (also useful), masks (if), selections (also useful), selections (next), layer-styles (body), layer-styles (also useful), crop-and-canvas (body), … |
 | artboards | 15 | layers (body), groups-align-guides (also useful), resize-to-every-format (also useful), resize-to-every-format (if), import-psd-and-pdf (body), export-for-screen (body), export-for-screen (also useful), coming-from-photoshop (body), … |
 | brands-library | 15 | teams (before), brand-kit (body), brand-kit (also useful), brand-kit (next), studio-overview (body), studio-overview (also useful), start-a-job-from-a-brief (body), delivering-files (body), … |
 | ai-on-this-device | 17 | install-as-an-app (body), selections (body), selections (also useful), retouching (body), retouching (also useful), remove-background (body), remove-background (also useful), remove-background (if), … |
-| typography-fundamentals | 17 | type (also useful), type (next), references-and-palettes (also useful), brand-guidelines (body), brand-guidelines (if), workflow-event-poster (also useful), layout-and-composition (also useful), layout-and-composition (before), … |
 | private-session | 17 | saving-and-your-files (body), saving-and-your-files (also useful), desktop-app (body), account-and-sync (body), account-and-sync (also useful), templates-and-versions (body), templates-and-versions (also useful), brand-guidelines (body), … |
 | adjustment-layers | 18 | masks (next), blend-modes-and-opacity (body), blend-modes-and-opacity (also useful), filters-in-the-editor (also useful), retouching (if), history-and-undo (body), history-and-undo (also useful), edit-a-psd-without-photoshop (body), … |
 | export-for-screen | 18 | your-first-design (also useful), designing-on-a-phone (also useful), filters-in-the-editor (body), remove-background (body), remove-background (also useful), remove-background (next), artboards (body), artboards (also useful), … |
 | directions-and-review | 19 | studio-overview (also useful), start-a-job-from-a-brief (also useful), start-a-job-from-a-brief (next), references-and-palettes (body), references-and-palettes (also useful), references-and-palettes (next), review-and-delivery-links (also useful), review-and-delivery-links (before), … |
 | make-a-halftone-portrait | 19 | effects-overview (next), artistic-effects (if), quick-tools (before), make-a-risograph-effect (body), make-a-risograph-effect (also useful), make-a-risograph-effect (before), make-a-duotone-image (if), dither-effect-explained (also useful), … |
-| image-resolution-explained | 20 | crop-and-canvas (body), crop-and-canvas (also useful), crop-and-canvas (next), export-for-screen (body), export-for-screen (also useful), export-for-screen (before), workflow-print-flyer (body), workflow-print-flyer (also useful), … |
+| typography-fundamentals | 20 | type (also useful), type (next), references-and-palettes (also useful), brand-guidelines (body), brand-guidelines (if), workflow-event-poster (also useful), layout-and-composition (also useful), layout-and-composition (before), … |
+| prepare-a-poster-for-print | 20 | export-for-print (if), make-a-halftone-portrait (if), workflow-event-poster (before), designing-for-print (if), printed-design-looks-blurry (also useful), printed-design-looks-blurry (next), what-is-a-print-ready-pdf (also useful), what-is-a-print-ready-pdf (if), … |
 | privacy-and-data | 20 | what-is-voidcanvas (body), what-is-voidcanvas (also useful), what-is-voidcanvas (if), account-and-sync (before), type (body), ai-on-this-device (body), ai-on-this-device (also useful), ai-on-this-device (before), … |
 | layers | 21 | your-first-design (body), your-first-design (next), editor-tour (also useful), editor-tour (next), groups-align-guides (also useful), groups-align-guides (before), masks (also useful), masks (before), … |
-| brand-kit | 22 | type (also useful), colour-and-swatches (body), colour-and-swatches (also useful), templates-and-versions (body), templates-and-versions (also useful), brands-library (body), brands-library (also useful), brands-library (next), … |
 | delivering-files | 22 | studio-overview (also useful), directions-and-review (also useful), directions-and-review (next), review-and-delivery-links (also useful), review-and-delivery-links (next), brands-library (body), brands-library (also useful), brand-guideline-exports (next), … |
 | brand-guidelines | 22 | brand-kit (also useful), studio-overview (body), brands-library (body), brands-library (also useful), brands-library (before), brand-guideline-exports (body), brand-guideline-exports (also useful), brand-guideline-exports (before), … |
-| saving-and-your-files | 23 | what-is-voidcanvas (body), what-is-voidcanvas (also useful), your-first-design (if), desktop-app (also useful), desktop-app (next), account-and-sync (also useful), install-as-an-app (body), install-as-an-app (also useful), … |
+| image-resolution-explained | 22 | crop-and-canvas (body), crop-and-canvas (also useful), crop-and-canvas (next), export-for-screen (body), export-for-screen (also useful), export-for-screen (before), workflow-print-flyer (body), workflow-print-flyer (also useful), … |
+| brand-kit | 23 | type (also useful), colour-and-swatches (body), colour-and-swatches (also useful), templates-and-versions (body), templates-and-versions (also useful), leaving-creative-cloud-checklist (if), brands-library (body), brands-library (also useful), … |
 | effects-overview | 23 | what-is-voidcanvas (body), moving-work-between-tools (also useful), moving-work-between-tools (next), adjustment-layers (if), filters-in-the-editor (also useful), filters-in-the-editor (before), artistic-effects (also useful), artistic-effects (before), … |
+| saving-and-your-files | 25 | what-is-voidcanvas (body), what-is-voidcanvas (also useful), your-first-design (if), desktop-app (also useful), desktop-app (next), account-and-sync (also useful), install-as-an-app (body), install-as-an-app (also useful), … |
 | masks | 26 | layers (also useful), layers (next), blend-modes-and-opacity (also useful), selections (also useful), selections (next), type (body), shapes-and-pen (also useful), adjustment-layers (body), … |
 | resize-to-every-format | 26 | crop-and-canvas (body), crop-and-canvas (also useful), artboards (body), artboards (also useful), artboards (next), edit-a-psd-without-photoshop (body), start-a-job-from-a-brief (body), start-a-job-from-a-brief (also useful), … |
-| colour-that-works | 26 | colour-and-swatches (also useful), colour-and-swatches (next), references-and-palettes (also useful), references-and-palettes (if), brand-guidelines (body), brand-guidelines (also useful), keep-a-brand-consistent (if), brand-colour-palette-that-passes-contrast (also useful), … |
-| designing-for-print | 27 | export-for-print (body), export-for-print (also useful), export-for-print (before), coming-from-photoshop (body), delivering-files (body), delivering-files (also useful), delivering-files (before), make-a-risograph-effect (if), … |
+| colour-that-works | 28 | colour-and-swatches (also useful), colour-and-swatches (next), references-and-palettes (also useful), references-and-palettes (if), brand-guidelines (body), brand-guidelines (also useful), keep-a-brand-consistent (if), brand-colour-palette-that-passes-contrast (also useful), … |
+| designing-for-print | 28 | export-for-print (body), export-for-print (also useful), export-for-print (before), coming-from-photoshop (body), delivering-files (body), delivering-files (also useful), delivering-files (before), make-a-risograph-effect (if), … |
 | export-for-print | 33 | filters-in-the-editor (body), crop-and-canvas (body), crop-and-canvas (also useful), crop-and-canvas (if), export-for-screen (body), export-for-screen (also useful), export-for-screen (next), edit-a-psd-without-photoshop (body), … |
 
 ## Orphans: none
 
 ## Topic pages
 
-- /learn/topic/start: Start here (9 guides)
-- /learn/topic/editor: Editor (28 guides)
+- /learn/topic/start: Start here (10 guides)
+- /learn/topic/editor: Editor (29 guides)
 - /learn/topic/studio: Studio (14 guides)
 - /learn/topic/effects: Effects (12 guides)
 - /learn/topic/workflows: Workflows (7 guides)
-- /learn/topic/craft: Design craft (14 guides)
+- /learn/topic/craft: Design craft (18 guides)
 - /learn/topic/reference: Reference (4 guides)
 - /learn/topic/help: Help and privacy (6 guides)
