@@ -151,6 +151,7 @@ export function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
           <span className="w-7 h-7 bg-white rounded-md flex items-center justify-center text-void-950 font-bold text-sm shrink-0">V</span>
           <h1 className="text-[15px] font-semibold truncate">Analytics</h1>
+          <a href="/admin/research" className={`text-[12.5px] text-void-400 hover:text-white rounded ${focus}`}>Study</a>
           <div className="ml-auto flex items-center gap-1 rounded-lg bg-void-900 p-0.5 border border-void-800">
             {PERIODS.map(p => <button key={p.d} onClick={() => pick(p.d)} aria-pressed={days === p.d} className={`px-2 sm:px-2.5 h-7 rounded-md text-[12px] ${focus} ${days === p.d ? 'bg-void-700 text-white' : 'text-void-400 hover:text-white'}`}><span className="sm:hidden">{p.s}</span><span className="hidden sm:inline whitespace-nowrap">{p.l}</span></button>)}
           </div>

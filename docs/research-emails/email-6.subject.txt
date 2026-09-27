@@ -1,0 +1,2 @@
+Your study payment has been sent
+Reference {$payment_ref}.

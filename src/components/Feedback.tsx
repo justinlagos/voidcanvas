@@ -56,7 +56,7 @@ function FeedbackWidget({ path }: { path: string }) {
     check(); const mo = new MutationObserver(check); mo.observe(document.body, { childList: true, subtree: true }); addEventListener('resize', check)
     return () => { mo.disconnect(); removeEventListener('resize', check) }
   }, [path])
-  const onSite = /^\/(learn|blog|about|report-a-bug)(\/|$)/.test(path)
+  const onSite = /^\/(learn|blog|about|report-a-bug|research|founding|founding-terms)(\/|$)/.test(path)
   const showButton = path !== '/' && path !== '/s' && !onSite && !path.startsWith('/editor') && !open && !hasBar
 
   const submit = async () => {

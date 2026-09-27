@@ -10,6 +10,8 @@ import { printPdf } from '../pdf'
 import { Btn, Empty, Panel, focusRing, fmtDate } from '../ui'
 import type { TabProps } from './JobView'
 import { LinkBox, SignInToShare, useCanShare } from './LinkBox'
+import { clearActiveStudyJob, jobActiveSeconds, studyEvent, studyToken, type StudyView } from '@/lib/research'
+import { ClosingForm } from '@/components/research/ClosingForm'
 
 type Kind = 'png' | 'jpg' | 'webp' | 'pdf'
 const KIND_LABEL: Record<Kind, string> = { png: 'PNG', jpg: 'JPG', webp: 'WebP', pdf: 'Print PDF' }
@@ -33,6 +35,8 @@ export function DeliverTab({ job, update, toast }: TabProps) {
   const canShare = useCanShare()
   const [signIn, setSignIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [closing, setClosing] = useState<{ token: string; formats: number } | null>(null)
+  const [closed, setClosed] = useState<StudyView | null>(null)
 
   const build = async (asLink = false) => {
     if (!design) return
@@ -65,6 +69,14 @@ export function DeliverTab({ job, update, toast }: TabProps) {
         setBusy('Packing…')
         downloadBlob(await zipFiles(files), `${slug(job.client || 'client')}_${slug(job.name)}_v${version}_delivery.zip`)
       }
+      // Research mode: the delivery package ends the timed part of a study job, then the three closing questions follow.
+      const token = studyToken()
+      if (token) {
+        studyEvent('job.deliver', { job: job.id, formats: ready.length, activeSeconds: jobActiveSeconds(job.id), link: asLink })
+        clearActiveStudyJob()
+        studyEvent('closing.shown', { job: job.id })
+        setClosed(null); setClosing({ token, formats: ready.length })
+      }
       update(j => ({ status: 'delivered', deliveries: [...(j.deliveries ?? []), { at: Date.now(), files: files.map(f => f.name), link }], deliverables: j.deliverables.map(x => (ready.some(r => r.d.id === x.id) ? { ...x, done: true } : x)) }))
       toast(asLink ? `Link ready with ${files.length} files. Copy it below. The job is marked delivered.` : `Packed ${files.length} files. The job is marked delivered.`)
     } catch (e) { console.error(e); const m = (e as Error).message; if (asLink && m) setError(m); else toast('Could not build the package. Try fewer formats at once.') }
@@ -80,6 +92,24 @@ export function DeliverTab({ job, update, toast }: TabProps) {
   if (!design) return <div className="p-6 max-w-3xl mx-auto"><Empty title="Nothing to deliver yet">Design the key visual and build its formats first. Every format you owe is rendered at full size, named properly and zipped here, with print PDFs set up for the printer.</Empty></div>
   return (
     <div className="h-full overflow-y-auto">
+      {closing && (
+        <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" role="dialog" aria-modal="true" aria-labelledby="study-closing-title">
+          <div className="lp w-full max-w-[620px] max-h-[90dvh] overflow-y-auto rounded-[24px] bg-lp-bg text-lp-text border border-lp-line p-5 sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[12.5px] font-semibold text-lp-accent">Working Designer Study</p>
+                <h2 id="study-closing-title" className="mt-1 text-[22px] font-semibold tracking-tight text-lp-fg">{closed ? 'Thank you' : 'Three questions to finish'}</h2>
+              </div>
+              <button onClick={() => setClosing(null)} className="text-[13px] text-lp-dim hover:text-lp-fg underline underline-offset-2">{closed ? 'Close' : 'Answer later'}</button>
+            </div>
+            <div className="mt-5">
+              {closed
+                ? <p className="text-[15px] leading-relaxed text-lp-muted">{closed.status === 'complete' ? 'That completes your part of the study. We have emailed you a link to confirm your payout details.' : 'Your answers are saved. '}{' '}<a href={`/research/me?p=${closing.token}`} target="_blank" rel="noopener" className="text-lp-accent underline underline-offset-2">Open your study page</a></p>
+                : <ClosingForm token={closing.token} job={job.id} formats={closing.formats} onDone={setClosed} tone="app" />}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-5">
         <Panel title={`Package v${version}`} action={<span className="text-[11.5px] text-void-500">{ready.length} of {job.deliverables.length} formats ready</span>}>
           <div className="rounded-xl border border-void-800 overflow-hidden divide-y divide-void-800">

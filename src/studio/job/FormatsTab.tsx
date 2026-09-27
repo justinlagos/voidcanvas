@@ -11,6 +11,7 @@ import { flushJob, useJobs, type Deliverable, type Job } from '../jobs'
 import { boardCanvas, boardsOf, loadDesign, thumbUrl, type LoadedDesign } from '../render'
 import { Btn, Empty, Panel, focusRing } from '../ui'
 import type { TabProps } from './JobView'
+import { setActiveStudyJob, studyEvent } from '@/lib/research'
 
 /** The job's look, from the chosen direction, else the brand, else nothing. */
 export function jobStyle(job: Job) {
@@ -62,6 +63,7 @@ export function FormatsTab({ job, update, toast, go }: TabProps) {
   const targets = (ds: Deliverable[]) => ds.map(d => ({ deliverableId: d.id, label: d.label, width: d.width, height: d.height }))
 
   const start = async () => {
+    studyEvent('job.start', { job: job.id })
     const md = job.deliverables.find(d => d.id === masterDel)
     const size = md ? { width: md.width, height: md.height } : { width: 1080, height: 1350 }
     const docId = uid()
@@ -69,7 +71,11 @@ export function FormatsTab({ job, update, toast, go }: TabProps) {
     await go2({ ...base, name: `${job.name} key visual`, size, palette: style.palette, ...(style.fonts ? { fonts: style.fonts } : {}), job: { id: job.id, brandId: job.brandId ?? null, docId } })
   }
   const open = () => go2({ ...base, openProject: job.designId! })
-  const build = (ds: Deliverable[], rebuild = false) => go2({ ...base, openProject: job.designId!, formats: targets(ds), rebuildFormats: rebuild, masterDeliverableId: masterDelId })
+  const build = (ds: Deliverable[], rebuild = false) => {
+    // Research mode: building formats is where the timed part of a study job begins.
+    setActiveStudyJob(job.id); studyEvent('job.formats', { job: job.id, count: ds.length, rebuild })
+    return go2({ ...base, openProject: job.designId!, formats: targets(ds), rebuildFormats: rebuild, masterDeliverableId: masterDelId })
+  }
   const sync = () => go2({ ...base, openProject: job.designId!, syncFormats: true })
 
   if (!job.designId) {

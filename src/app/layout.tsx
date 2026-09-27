@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Pwa } from '@/components/Pwa'
 import { Analytics } from '@/components/Feedback'
+import { StudyMode } from '@/components/research/StudyMode'
 import './globals.css'
 
 // Fonts ship with the app (self-hosted by next/font), so nothing is fetched from Google at runtime.
@@ -29,7 +30,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
-      <body className="font-sans antialiased">{children}<Pwa /><Analytics /></body>
+      <body className="font-sans antialiased">{children}<Pwa /><Analytics /><StudyMode /></body>
     </html>
   )
 }

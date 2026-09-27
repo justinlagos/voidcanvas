@@ -19,5 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/download`, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${base}/about`, changeFrequency: 'monthly', priority: 0.4 },
     { url: `${base}/report-a-bug`, changeFrequency: 'yearly', priority: 0.3 },
+    { url: `${base}/research`, changeFrequency: 'weekly', priority: 0.6 },
+    ...['information', 'terms', 'privacy'].map(d => ({ url: `${base}/research/${d}`, changeFrequency: 'monthly' as const, priority: 0.3 })),
   ]
 }
