@@ -26,7 +26,7 @@ ok('learn search: PSD question routes to the route and the guide', hits[0] === '
 hits = await search('I want to learn graphic design')
 ok('learn search: learner gets the learn route first', hits[0] === '/learn/do/learn-design', hits.slice(0, 3).join(' '))
 hits = await search('how do I manage a client design project')
-ok('learn search: freelancer finds Studio', hits.includes('/learn/do/client-project') && hits.includes('/learn/studio-overview'), hits.slice(0, 4).join(' '))
+ok('learn search: freelancer finds the process guide and Studio', hits.includes('/learn/do/client-project') && hits.includes('/learn/run-a-client-design-project'), hits.slice(0, 4).join(' '))
 hits = await search('how do I create a consistent brand')
 ok('learn search: brand owner finds the brand route', hits.includes('/learn/do/build-a-brand'), hits.slice(0, 4).join(' '))
 hits = await search('zzqx plorf')

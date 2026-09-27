@@ -22,7 +22,7 @@
 
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
-| why does my print look blurry | informational | beginner | title and quick answer for the problem phrasing | Why your printed design looks blurry (and the three fixes) | L | H | problem guide | 2 | planned |
+| why does my print look blurry | informational | beginner | none, live | Why your printed design looks blurry (and the three fixes) | L | H | problem guide + interactive | 1 | live |
 | image is blurry how to fix | informational | beginner | fix-oriented guide | How to fix a blurry image, and when you cannot | M | M | problem guide | 3 | planned |
 | resize image without losing quality | informational | beginner | quick answer plus the maths | Resize an image without losing quality: what is possible | H | M | explainer | 3 | planned |
 | what is dpi | informational | beginner | definition entry | DPI, PPI and resolution explained in one page | H | L | explainer | 4 | existing |
@@ -100,7 +100,7 @@
 | dither effect online | commercial | designer | explainer for the tool | Dithering explained: threshold, patterns and when to use it | M | M | explainer + demo | 2 | planned |
 | glitch effect online free | commercial | designer | explainer | The glitch effect: slices, offset and RGB shift explained | M | M | explainer + demo | 2 | planned |
 | how to make a duotone | informational | designer | query-shaped guide with demo | How to make a duotone image (and pick the two colours) | M | H | guide + demo | 2 | planned |
-| how to make a risograph effect | informational | designer | query-shaped front door | How to make a risograph effect | M | H | guide + demo | 2 | planned |
+| how to make a risograph effect | informational | designer | none, live | How to make a risograph effect | M | H | guide + demo | 1 | live |
 | vintage photo effect | informational | beginner | recipe | The vintage photo effect: fade, grain, warmth, vignette | H | M | recipe + demo | 3 | planned |
 | photo to sketch | informational | beginner | query-shaped | Turn a photo into a pencil sketch | H | M | how-to + demo | 3 | planned |
 | pixel sort | informational | designer | definition | What pixel sorting is and how to use it | L | M | explainer + demo | 3 | planned |
@@ -113,7 +113,7 @@
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
 | remove background from image free | commercial | beginner | quick answer + privacy angle | Remove a background on your device | H | H | how-to | 1 | existing |
-| photo editor that doesn't upload your photos | commercial | privacy-minded | a page that explains how to check | Photo editors that do not upload your photos: how to tell | L | H | explainer | 2 | planned |
+| photo editor that doesn't upload your photos | commercial | privacy-minded | none, live | Photo editors that do not upload your photos: how to tell | L | H | explainer | 1 | live |
 | how to retouch a photo | informational | beginner | exists | Retouch photos with the brush, heal and clone tools | H | M | guide | 2 | existing |
 | how to make a photo look professional | informational | beginner | recipe | Make a photo look professional in five moves | H | M | recipe | 3 | planned |
 | edit photos on laptop free | commercial | beginner | landing angle | Edit photos on a laptop without installing anything | M | M | how-to | 3 | planned |
@@ -128,7 +128,7 @@
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
 | how to create brand guidelines | informational | brand owner, freelancer | exists; needs the query-shaped front door | Build a brand guideline | H | M | guide | 1 | existing |
-| brand consistency examples | informational | marketing person | practical angle vs marketing blogs | Brand consistency in practice: one kit, one master, every format | H | M | guide | 2 | planned |
+| brand consistency examples | informational | marketing person | none, live | How to keep a brand consistent | H | M | guide | 1 | live |
 | what to include in a brand kit | informational | brand owner | quick answer | What goes in a brand kit | H | L | quick answer | 3 | existing |
 | brand identity checklist | workflow | freelancer | checklist page | The brand identity checklist | M | M | checklist | 3 | planned |
 | logo clear space | informational | designer | section-level page | Logo clear space and minimum size: how to set the rules | M | M | explainer | 3 | planned |
@@ -157,7 +157,7 @@
 
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
-| how to manage client design projects | informational | freelancer | query-shaped front door | How to run a client design project (brief, directions, review, delivery) | M | H | guide | 1 | planned |
+| how to manage client design projects | informational | freelancer | none, live | How to run a client design project (brief, directions, review, delivery) | M | H | guide | 1 | live |
 | design brief example | informational | freelancer, brand owner | example and template | A design brief that actually starts the job (example and template) | H | M | template | 2 | planned |
 | client feedback examples | informational | freelancer | feedback-specific | Get client feedback you can act on (and record the answer) | M | M | guide | 2 | planned |
 | what is handoff | informational | freelancer | definition | Design handoff: what it means and what you hand over | M | M | explainer | 3 | planned |

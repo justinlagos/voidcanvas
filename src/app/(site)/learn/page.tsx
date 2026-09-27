@@ -20,11 +20,11 @@ const PROBLEMS: { q: string; slug: string }[] = [
   { q: 'How do I prepare a poster for print?', slug: 'prepare-a-poster-for-print' },
   { q: 'How do I make a halftone portrait?', slug: 'make-a-halftone-portrait' },
   { q: 'How do I edit a PSD without Photoshop?', slug: 'edit-a-psd-without-photoshop' },
-  { q: 'Why does my print look blurry?', slug: 'image-resolution-explained' },
+  { q: 'Why does my print look blurry?', slug: 'printed-design-looks-blurry' },
   { q: 'Why does my design look generic?', slug: 'make-your-design-look-less-generic' },
   { q: 'How do I remove a background without uploading the photo?', slug: 'remove-background' },
   { q: 'How do I get one design into every social size?', slug: 'resize-to-every-format' },
-  { q: 'How do I keep a brand consistent?', slug: 'brand-guidelines' },
+  { q: 'How do I keep a brand consistent?', slug: 'keep-a-brand-consistent' },
 ]
 
 const TOOLS: { name: string; blurb: string; href: string; icon: typeof Layers; slugs: string[]; open: string }[] = [

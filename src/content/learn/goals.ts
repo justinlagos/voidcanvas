@@ -27,6 +27,7 @@ export const GOALS: Goal[] = [
       { slug: 'layout-and-composition', why: 'Why one focal point and a grid make a poster read from across a room.' },
       { slug: 'typography-fundamentals', why: 'Hierarchy, size and spacing: the difference between a poster and a notice.' },
       { slug: 'make-a-halftone-portrait', why: 'The classic gig-poster treatment, with a live example.' },
+      { slug: 'printed-design-looks-blurry', why: 'The check to run before it goes to the printer.' },
       { slug: 'export-for-print', why: 'Exactly what the Editor puts in a PDF and how the page size is decided.' },
     ],
     queries: ['how to design a good poster', 'poster design for beginners', 'how to make a poster for print', 'poster size for printing', 'poster design without photo', 'how to make a gig poster', 'a3 poster design', 'poster design ideas', 'how to make a poster online free'],
@@ -42,7 +43,8 @@ export const GOALS: Goal[] = [
     answer: 'Work at 300 dpi at the final physical size, add the bleed your printer asks for (usually 3 mm), keep text 5 mm inside the trim, and export a PDF. Ask the printer whether they accept RGB and convert it themselves; most do. The guides below explain each of those words and show the numbers for every common size.',
     steps: [
       { slug: 'designing-for-print', why: 'The terms a printer will use and the numbers they expect.' },
-      { slug: 'image-resolution-explained', why: 'Why a design that looks sharp on screen prints soft, and how to check before you send it.' },
+      { slug: 'printed-design-looks-blurry', why: 'The three reasons a print comes back soft, a one-minute check, and the fix for each.' },
+      { slug: 'image-resolution-explained', why: 'Pixels, dpi and print size, properly, so the check above makes sense.' },
       { slug: 'export-for-print', why: 'How the Editor builds its PDF, which presets print at 300 dpi and how to add bleed yourself.' },
       { slug: 'workflow-print-flyer', why: 'An A5 flyer with bleed, done from start to handover.' },
       { slug: 'colour-that-works', why: 'What happens to bright RGB colours on press and how to plan for it.' },
@@ -66,6 +68,7 @@ export const GOALS: Goal[] = [
       { slug: 'workflow-portrait-retouch', why: 'A portrait taken through the whole process.' },
       { slug: 'crop-and-canvas', why: 'Crop, resize, rotate and flip, and what each does to the pixels.' },
       { slug: 'export-for-screen', why: 'PNG, JPG or WebP, and which to pick for what.' },
+      { slug: 'photo-editor-that-does-not-upload', why: 'How to check that an online editor is not sending your photos anywhere.' },
     ],
     queries: ['how to edit photos', 'photo editing for beginners', 'free photo editor online no upload', 'remove background from image free', 'how to retouch a photo', 'photo editor without watermark', 'edit photos on laptop free', 'photo editor that doesn\'t upload your photos', 'how to make a photo look professional'],
     product: { text: 'The Editor is a layered image editor with adjustment layers, masks, heal and clone, and on-device background removal. Nothing is uploaded: the model downloads once and runs in your browser.', label: 'Open a photo in the Editor', href: '/editor' },
@@ -79,6 +82,7 @@ export const GOALS: Goal[] = [
     answer: 'A brand you can keep consistent is a small set of decisions written down: one or two typefaces with a scale, a colour system with contrast checked, logo clear space and minimum size, and examples of the rules applied. Build the system before the first poster, not after the third. The guides below do it in that order.',
     steps: [
       { slug: 'building-a-brand-identity', why: 'From brief to logo, colour, type and rules: the thinking before the tools.' },
+      { slug: 'keep-a-brand-consistent', why: 'Why brands drift and the system that stops it: one kit, one master, a check before export.' },
       { slug: 'brand-guidelines', why: 'Build the guideline itself, with locks for the parts the client has approved.' },
       { slug: 'colour-that-works', why: 'Palettes and ramps that hold up on screen and on paper.' },
       { slug: 'typography-fundamentals', why: 'Choose and pair type, and set a scale the whole brand shares.' },
@@ -128,6 +132,7 @@ export const GOALS: Goal[] = [
     answer: 'Most print and retro effects come down to a handful of moves: reduce tone to dots or a pattern (halftone, dither), limit the colours (duotone, posterize), then add the imperfection of the medium (grain, misregistration, a slice or a shift). Do the effect on a copy, at the output size, and keep the original layer underneath.',
     steps: [
       { slug: 'make-a-halftone-portrait', why: 'The most searched effect, with a working halftone on the page.' },
+      { slug: 'make-a-risograph-effect', why: 'What makes riso look like riso, and the five moves that fake it, with a live duotone.' },
       { slug: 'effects-overview', why: 'How Effects works: load, pick, tune, compare, export, send to the Editor.' },
       { slug: 'quick-tools', why: 'Halftone, Dither and Glitch as single-purpose tools with a download.' },
       { slug: 'workflow-textured-print-look', why: 'A risograph or screen-print look, built in Effects and finished in the Editor.' },
@@ -144,7 +149,8 @@ export const GOALS: Goal[] = [
     blurb: 'Brief, directions, review rounds and named files, without the chaos.',
     answer: 'A client job goes wrong in the gaps: an unclear brief, directions presented without a decision, feedback lost in email, and files named final_v3_FINAL. Fix the process: read the brief into formats and deadlines, present two or three directions and record the answer, run review rounds with a version each, and deliver a named package. Studio is built around exactly those four stages.',
     steps: [
-      { slug: 'studio-overview', why: 'How a job moves: direction, design, review, delivered.' },
+      { slug: 'run-a-client-design-project', why: 'The four-stage process, what each stage must produce, and where projects go wrong.' },
+      { slug: 'studio-overview', why: 'How a job moves through Studio: direction, design, review, delivered.' },
       { slug: 'start-a-job-from-a-brief', why: 'Paste the brief; get formats, deadlines and a starting design.' },
       { slug: 'references-and-palettes', why: 'Reference boards and palettes pulled from them, kept with the job.' },
       { slug: 'directions-and-review', why: 'Present directions, record the client\'s answer, run review rounds.' },
@@ -207,7 +213,8 @@ export const GOALS: Goal[] = [
     blurb: 'What is sent, what is not, and how to work with no connection at all.',
     answer: 'A browser tool can be private if it does the work on your device and says exactly what it sends. Voidcanvas keeps designs in the browser\'s own storage, runs its AI models locally, and sends only anonymous usage counts you can turn off. Install it as an app or use the desktop build and it works with no connection.',
     steps: [
-      { slug: 'privacy-and-data', why: 'Exactly what is and is not sent.' },
+      { slug: 'photo-editor-that-does-not-upload', why: 'What "private" means for a web editor and a two-minute test you can run on any tool.' },
+      { slug: 'privacy-and-data', why: 'Exactly what Voidcanvas sends and what never leaves your device.' },
       { slug: 'install-as-an-app', why: 'Install to the home screen or dock and use it offline.' },
       { slug: 'desktop-app', why: 'The desktop app for Windows, macOS and Linux.' },
       { slug: 'saving-and-your-files', why: 'Where designs live and how to back them up.' },

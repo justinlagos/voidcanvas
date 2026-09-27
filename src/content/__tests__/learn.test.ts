@@ -53,8 +53,11 @@ describe('Learn search', () => {
     expect(top('I want to learn graphic design', 5)).toContain('typography-fundamentals')
     expect(top('how do I edit a psd without photoshop')[0]).toBe('edit-a-psd-without-photoshop')
     expect(top('how do I create a halftone effect')[0]).toBe('make-a-halftone-portrait')
-    expect(top('how do I manage a client design project', 5)).toContain('studio-overview')
-    expect(top('how do I create a consistent brand', 5)).toContain('brand-guidelines')
+    expect(top('how do I manage a client design project')[0]).toBe('run-a-client-design-project')
+    expect(top('how do I create a consistent brand', 5)).toContain('keep-a-brand-consistent')
+    expect(top('why does my print look blurry')[0]).toBe('printed-design-looks-blurry')
+    expect(top('how to make a risograph effect')[0]).toBe('make-a-risograph-effect')
+    expect(top("photo editor that doesn't upload your photos")[0]).toBe('photo-editor-that-does-not-upload')
   })
   it('matches by exact feature and reference terms', () => {
     expect(top('instagram post size')).toContain('size-presets')

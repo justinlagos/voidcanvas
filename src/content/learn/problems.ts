@@ -444,4 +444,442 @@ export const articles: Article[] = [
       { t: 'try', label: 'Open the Editor', href: '/editor' },
     ],
   },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'printed-design-looks-blurry',
+    title: 'Why your printed design looks blurry',
+    seoTitle: 'Why your printed design looks blurry (and the three fixes)',
+    summary: 'A design that looked sharp on screen came back soft from the printer. There are three causes, a one-minute way to find which one you have, and a fix for each. With a live comparison at print scale.',
+    description: 'Printed design blurry? Three causes: an enlarged photo, a document set up at screen size, or a lossy export. How to check pixel size against print size in a minute, and what fixes each one.',
+    category: 'craft',
+    level: 'Beginner',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'cornerstone',
+    feature: 'Editor · Image size and print presets',
+    goals: ['prepare-for-print', 'make-a-poster', 'edit-a-photo'],
+    answers: ['why does my print look blurry', 'why does my printed design look blurry', 'printed image blurry', 'why is my poster blurry when printed', 'design looks pixelated when printed', 'image looks fine on screen but prints blurry', 'how to check if an image is high resolution enough to print', 'print came out soft', 'blurry flyer print'],
+    related: ['image-resolution-explained', 'prepare-a-poster-for-print', 'crop-and-canvas', 'export-for-print'],
+    keywords: 'blurry print pixelated soft resolution dpi ppi upscaled photo screen size 72 dpi jpg compression check 100 per cent image size',
+    guide: {
+      before: ['image-resolution-explained'],
+      next: ['prepare-a-poster-for-print', 'export-for-print'],
+      also: [{ when: 'the photo itself is the problem', slug: 'crop-and-canvas' }, { when: 'the design is going to social, not print', slug: 'export-for-screen' }],
+    },
+    body: [
+      { t: 'answer', text: 'A print looks blurry for one of three reasons: a **photo was enlarged** past what its pixels can support, the **document was set up at screen size** (1080 px, 1920 px, 72 dpi) and then printed much larger, or the file was **exported small or as a heavy JPG**. Check in one minute: divide the design\'s pixel width by its printed width in inches. Under 150 and everything prints soft; 300 is what a printer wants for anything read up close. Then fix the cause: replace or shrink the photo, rebuild at the print size, or export a PDF or PNG at full size.' },
+      { t: 'p', text: 'The frustrating part is that the screen never warned you. A monitor shows about 100 pixels per inch and a phone hides the rest, so a 1080 px image looks perfect at any zoom until it meets 300 dots per inch of ink. This page is the diagnosis and the three repairs, in the order that saves the most time.' },
+
+      { t: 'h', text: 'See it at print scale' },
+      { t: 'p', text: 'The close-up below is a 30 mm square of a poster as the press would see it. Switch the resolution to 72 dpi, which is what a design made at screen size amounts to, and watch the type and the small print go soft. That is what came back from the printer.' },
+      { t: 'demo', kind: 'print-setup', caption: 'Simulated at print scale. The whole poster on the left always looks fine at this size, which is exactly why the problem is invisible until it is printed.' },
+
+      { t: 'h', text: 'The one-minute check' },
+      { t: 'steps', items: [
+        'Find the pixel size of the design (in Voidcanvas, **Image, Image size…**, or the status bar). Write down the width, for example 1080.',
+        'Find the printed width in inches. A4 is 8.27 in wide, A3 is 11.7 in, A5 is 5.83 in, a US letter is 8.5 in. Divide millimetres by 25.4 if you only have those.',
+        'Divide pixels by inches. 1080 ÷ 11.7 = 92. That is the effective resolution in pixels per inch.',
+        'Read the result: **300 or more** prints sharp at reading distance. **150 to 300** is fine for a poster on a wall. **Under 150** prints soft, and under 100 prints visibly blurry with jagged text.',
+        'Do the same for the biggest photo in the design: its pixel width divided by the width it covers on paper. A 1200 px photo across an A4 page is 145 ppi; the same photo across a quarter of the page is 580 ppi and perfectly fine.',
+      ] },
+      { t: 'tip', text: 'Zoom to 100 per cent ({{Ctrl+1}} in the Editor; Cmd+1 on a Mac) and look at an edge in the photo. At 100 per cent one image pixel is one screen pixel, which is close to how paper will treat it at 300 dpi. If it is soft here, it is soft on paper.' },
+
+      { t: 'h', text: 'Cause 1: a photo enlarged past its pixels' },
+      { t: 'p', text: 'This is the most common one. The design itself was set up correctly at 300 dpi, but a photo saved from the web, a WhatsApp forward or a screenshot was dragged in and scaled up to fill the space. Enlarging invents pixels by blending neighbours; it never adds detail. Everything else on the page is crisp and the photo is mush, which is the giveaway.' },
+      { t: 'list', items: [
+        '**Fix: get the original.** Ask for the photo as it came off the camera or phone. A modern phone photo is 3000 to 4000 px wide and covers an A4 page at 300 dpi with room to spare. A WhatsApp forward has been shrunk to about 1200 px; ask for it sent as a document instead.',
+        '**Fix: use less of it.** If no better file exists, place the photo smaller so its pixels are dense enough, and let colour or type carry the rest of the page.',
+        '**Fix: make it a treatment.** A coarse [halftone](/learn/make-a-halftone-portrait), a duotone or a heavy crop turns low resolution into a style. Nobody asks whether a halftone was sharp.',
+        '**Does not fix it: upscaling.** Enlarging in software, including with AI, smooths the softness and can invent detail that was never there. It can rescue a small shortfall for a poster read from a distance; it cannot make a 600 px web image into a flyer photo.',
+      ] },
+
+      { t: 'h', text: 'Cause 2: the document was set up at screen size' },
+      { t: 'p', text: 'The design was made as a 1080 × 1350 social post, or a 1920 × 1080 slide, and then sent to print as an A4 flyer. Here everything is soft, text included, because the whole file has a quarter of the pixels the page needs. This also happens when a "72 dpi" document is set to the right size in inches but the pixel count was never raised.' },
+      { t: 'list', items: [
+        '**Fix: rebuild at the print size.** Start a new document at the print preset (A4 flyer is 2480 × 3508 px, A5 is 1748 × 2480, the 18 × 24 in poster is 5400 × 7200) and bring the layers across. Text and shapes drawn in the application are redrawn sharp at any size, so only the photos need attention, and see cause 1 for those.',
+        '**Do not scale the finished design up.** Scaling a flat export enlarges every pixel; scaling the layered design keeps the type sharp but not the photos. Rebuilding sounds slower and is faster.',
+        '**Check the dpi note is not fooling you.** The dpi stored in a file is a label, not detail. A 1080 px file at 300 dpi prints at 3.6 inches wide, sharp. The same file forced to A4 is 92 dpi. Only the pixels are real; [Image resolution explained](/learn/image-resolution-explained) covers this properly.',
+      ] },
+
+      { t: 'h', text: 'Cause 3: the export lost it' },
+      { t: 'p', text: 'The document and photos were fine and the export threw the quality away: a JPG at low quality, a PNG exported at half size, a screenshot of the design, or a PDF made by a tool that downsampled the images. Type with soft, dirty edges and blocky patches in flat colour are the signs; blurry photos alone are not.' },
+      { t: 'list', items: [
+        '**Fix: export at 1× or larger, as PNG or PDF.** JPG compression is designed for photos and eats sharp edges first. For anything with type, PNG or a PDF at final size.',
+        '**Fix: never send a screenshot or a phone photo of the design.** Both are resampled to the screen. Work from the source file.',
+        '**Fix: check the PDF page size.** A PDF that opens at the wrong physical size will be scaled by the printer, and scaling up softens it. The page should equal the trim size plus bleed.',
+      ] },
+
+      { t: 'h', text: 'How Voidcanvas handles this' },
+      { t: 'list', items: [
+        '**Image size…** ({{Ctrl+Alt+I}}) shows the design\'s pixel size, roughly how many MB each layer takes, and what it prints at in centimetres at the **Resolution** you enter. Type 300 and read the print size; if it is smaller than the paper, you have cause 2.',
+        'The **print presets** (A4 flyer, A5 flyer, Poster 18 × 24 in, Business card) are at 300 dpi, and a **Custom size** takes up to 8000 px a side.',
+        '**Photos over 4096 px on their longest side are scaled to 4096 when imported.** That is enough for A4 at 300 dpi and A3 at about 248 dpi. For a photo that has to fill A2 or larger at full resolution, split it or accept 150 dpi, which is normal for posters read from a distance.',
+        'Text and shapes are redrawn at export size, so a 2× or 3× export of type is crisp; photos are resampled and cannot gain detail.',
+        '**Export as…** ({{Ctrl+E}}) offers PNG, JPG, WebP and PDF at 0.5×, 1×, 2× and 3×. For print, PDF at 1× from a print-size document, or PNG at 1×.',
+      ] },
+      { t: 'product', text: 'The Image size dialog answers the one-minute check for you, the presets are at 300 dpi, and the PDF export is sized at 300 dpi for anything over 2000 px. All in the browser, with the file on your device.', label: 'Check a design in the Editor', href: '/editor' },
+
+      { t: 'h', text: 'Before you send it again' },
+      { t: 'checklist', items: [
+        'Pixel width ÷ printed inches is 300 or more (150 for a poster on a wall).',
+        'Every photo checked at 100 per cent; none enlarged past about 120 per cent.',
+        'The document was built at the print size, not scaled up from a screen size.',
+        'Exported as PDF or PNG at 1× or larger; no JPG for anything with type.',
+        'The PDF page size equals trim plus bleed, and the printer knows the file is RGB.',
+      ] },
+
+      { t: 'faq', items: [
+        { q: 'Can I fix a blurry print by changing the dpi to 300?', a: 'No. Changing the dpi value changes the size the file prints at, not the amount of detail. A 1080 px wide file at 300 dpi prints sharp at 3.6 inches and soft at A4 whatever the label says. You need more pixels, which means a bigger original photo or a document built at the print size.' },
+        { q: 'What resolution does a print need?', a: '300 pixels per inch at the final printed size for flyers, cards and anything read in the hand. 150 to 300 for posters read from a metre or two. Large-format printers often accept 100 to 150 for banners and ask for their own figure for billboards.' },
+        { q: 'Why does the design look fine on my screen?', a: 'A screen shows roughly 100 pixels per inch and zooms the design to fit, so a 1080 px file always looks sharp there. Paper at 300 dpi needs three times the pixels per inch. Zooming to 100 per cent is the closest a screen gets to showing you the truth.' },
+        { q: 'Will an AI upscaler fix it?', a: 'It can smooth a small shortfall for a poster seen from a distance. It invents detail rather than recovering it, so faces, text and logos can come out wrong. Get the original file first, and upscale only when there is no other option.' },
+      ] },
+      { t: 'try', label: 'Open the Editor', href: '/editor' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'run-a-client-design-project',
+    title: 'How to run a client design project',
+    seoTitle: 'How to run a client design project (brief to delivery)',
+    summary: 'A four-stage process for client work that does not end in final_final_v3: a brief that becomes a checklist, two or three directions with a recorded decision, numbered review rounds with pinned feedback, and a named delivery package.',
+    description: 'Run a client design project in four stages: brief, directions, review, delivery. What each stage produces, where projects go wrong, how many options and rounds, and how Studio runs the same process.',
+    category: 'studio',
+    level: 'Beginner',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'cornerstone',
+    feature: 'Studio',
+    goals: ['client-project'],
+    answers: ['how to manage a client design project', 'how to manage design clients as a freelancer', 'client design process', 'freelance graphic design workflow', 'design project workflow', 'how many design options to show a client', 'how many revision rounds', 'how to handle client feedback on design', 'design project management for freelancers'],
+    related: ['studio-overview', 'start-a-job-from-a-brief', 'directions-and-review', 'delivering-files'],
+    keywords: 'client project freelance workflow brief directions review rounds revisions feedback approval delivery handover file naming versions process',
+    guide: {
+      next: ['studio-overview', 'start-a-job-from-a-brief'],
+      also: [{ when: 'the job is a brand identity', slug: 'workflow-client-brand-guideline' }, { when: 'you want the client to comment without an account', slug: 'review-and-delivery-links' }, { when: 'you are at the delivery stage now', slug: 'delivering-files' }],
+    },
+    body: [
+      { t: 'answer', text: 'Run every client job through the same four stages and make each one produce something you can point to. **Brief**: turn the client\'s words into a checklist and a list of deliverables with dates. **Directions**: show two or three distinct ideas, not one design, and record which they chose. **Review**: number every version, pin every comment to the place it refers to, and turn their reply into a to-do list before you touch the file. **Delivery**: hand over every format at full size, named consistently, with a note that says what is in the box. Most client problems are one of these stages skipped.' },
+      { t: 'p', text: 'Design goes wrong in the gaps between the work: the brief that lived in three WhatsApp messages, the option the client "sort of liked", the feedback that arrived as a voice note, the file called final_v3_FINAL. None of that is design skill. It is process, and the process below is the smallest one that closes the gaps. You can run it with a notebook and folders; the last section shows how Studio runs it for you.' },
+
+      { t: 'h', text: 'Stage 1: the brief becomes a checklist' },
+      { t: 'p', text: 'Take whatever the client sent, in their words, and pull out two lists before you design anything. The first is **what must appear**: headline, date, time, venue, price, contacts, sponsor logos, the thing they said twice. The second is **what you owe**: every format (Instagram post, story, A3 poster) with its size and its due date. Send both lists back in one message: "Here is what I read; tell me what is missing." That message is the cheapest correction you will ever make.' },
+      { t: 'list', items: [
+        'Keep the client\'s original text. When a detail is disputed later, the brief settles it.',
+        'Put deadlines against formats, not against the job. The story is needed Friday; the poster can wait for the printer.',
+        'Ask for the brand assets now: logo files, fonts, colours, any guideline. Do not start with a logo screenshot.',
+        'If they have no brief, write one from a ten-minute call and send it for a yes. [Start a job from the client\'s brief](/learn/start-a-job-from-a-brief) shows what a good one contains.',
+      ] },
+
+      { t: 'h', text: 'Stage 2: directions, and a decision' },
+      { t: 'p', text: 'Clients choose better between two or three clear ideas than they react to one finished design. A direction is not a full design: it is a mood board with a sentence, a palette, a type pairing and a handful of references, presented as a page. Three is the right number. One gives them nothing to compare; four means you have not decided either.' },
+      { t: 'list', items: [
+        'Name each direction and give it one line: "Night heat: warm neon on deep indigo, big condensed type, grain."',
+        'Make the three different in kind, not in shade. If two directions share a palette, merge them.',
+        'Present them in one sitting, in order, and ask for a choice at the end of the meeting. A choice by email a week later is usually no choice.',
+        '**Record the decision** in writing, with the date, before you design. "You chose B" in a message is enough, and it ends the "we never agreed that" conversation before it starts.',
+      ] },
+      { t: 'p', text: '[Present directions and run review rounds](/learn/directions-and-review) covers the board, the presentation and how the choice carries into the design.' },
+
+      { t: 'h', text: 'Stage 3: review rounds with a record' },
+      { t: 'p', text: 'Every time you show the client something, it gets a number: v1, v2, v3. Every comment is pinned to the place on the design it refers to, and every reply from the client is turned into a checklist before you open the file. That checklist is what you tick off, and it is what you send back: "Changes in v3: 1, 2, 3." The client sees their words became work, and neither of you re-litigates the last round.' },
+      { t: 'table', head: ['Problem', 'Cause', 'Rule'], rows: [
+        ['Endless rounds', 'No agreed number', 'Two rounds of changes are in the price. Say so in the quote, not in round three.'],
+        ['Feedback from five people', 'No single voice', 'One person collects and sends the feedback. You reply to that person.'],
+        ['"Make it pop"', 'A feeling, not a change', 'Ask what they would compare it to, or offer two concrete moves and let them pick.'],
+        ['Changes to approved things', 'Approval was verbal', 'Set the version to Approved in writing. Later changes start a new version, and a new round.'],
+        ['The wrong version got printed', 'Files named by feeling', 'Version numbers on every file and every message, so v3 is v3 everywhere.'],
+      ] },
+      { t: 'p', text: 'Show work in context when you can. A poster on a wall or a post on a phone screen gets a faster, calmer decision than a flat rectangle on white.' },
+
+      { t: 'h', text: 'Stage 4: a delivery they can use without you' },
+      { t: 'p', text: 'Delivery is one package, built from the approved version, containing every format at full size in the file types each one needs: PNG and JPG for screens, a print PDF with bleed and crop marks for the printer. Name every file the same way, **client_job_format_version**, so the folder sorts itself and the version number matches the round that was approved. Include a short note: what each file is for, the pixel and paper sizes, the fonts used, and what to tell the printer. A client who can find the right file in six months without emailing you is the best marketing you will get.' },
+      { t: 'p', text: '[Deliver every format, named and ready for the printer](/learn/delivering-files) has the naming scheme, the print PDF details and the delivery note.' },
+
+      { t: 'h', text: 'How to do it in Voidcanvas' },
+      { t: 'p', text: 'Studio is built around exactly these four stages. A job has six tabs in the order the work happens, a **Next** bar that names the one thing to do, and a status (Direction, Design, Review, Delivered) that moves forward on its own.' },
+      { t: 'steps', items: [
+        '**Brief tab.** Press **Start a job** and paste the client\'s words. Studio reads the headline, date, time, venue, price, contacts and must-haves into a checklist the Editor keeps, and lists the formats the brief names under **The brief mentions**. Add due dates per format and pick the client\'s brand.',
+        '**References and Directions tabs.** Drop in references, then sort them into **Direction A, B and C** frames with a name, a line, a palette and a type pairing each. **Present** shows them full screen; **PDF** and **WhatsApp images** send them. When the client picks, press **Client chose this one**: the job moves to Design and that palette and type seed the design.',
+        '**Key visual tab.** **Start key visual in the Editor** opens a design at the master format with the brief as a checklist in the **Brief** panel, then **Build N missing formats** lays out every other size from it.',
+        '**Review tab.** **New version from the design** saves v1, v2, v3. Drop pins where the client pointed, paste their message into **Client\'s reply** and press **Turn into a checklist**. Set the version to **Sent**, **Changes asked** or **Approved**. **Compare** and **Mockups** put the work in context. **Send a review link** lets the client pin comments and approve in their browser with no account (you need one; the images and comments are encrypted with a key that lives in the link).',
+        '**Deliver tab.** Tick the file types per format and press **Build the package**. Every file is named client_job_format_version, print PDFs carry 3 mm bleed, crop marks and a slug line, and a delivery note lists what is in the zip. **Send as a link** gives the client a download page instead.',
+      ] },
+      { t: 'product', text: 'Studio keeps the brief, the directions, the decision, every version and every comment with the job, on your device, and builds the delivery from the version that was approved. The Editor is one click away at every stage.', label: 'Start a job in Studio', href: '/studio' },
+
+      { t: 'h', text: 'Common mistakes' },
+      { t: 'list', items: [
+        '**Designing from the first message.** Send the two lists back first. Ten minutes now saves a round later.',
+        '**One option, polished.** They cannot say what they want until they see what they do not. Show three directions before one design.',
+        '**Feedback in your head.** If it is not written down and numbered, it will come back.',
+        '**Delivering the working file.** Deliver finished formats and a note. Send editable files only when the contract says so, and say what tool opens them.',
+        '**No end.** Set the number of rounds, mark the approved version, and call the job delivered. Anything after that is a new job.',
+      ] },
+
+      { t: 'faq', items: [
+        { q: 'How many design options should I show a client?', a: 'Two or three directions, presented together, different in kind rather than shade. One design gives them nothing to compare; more than three means the decision has been pushed to them.' },
+        { q: 'How many rounds of revisions are normal?', a: 'Two rounds of changes after the first version is the usual freelance quote. Put the number in the quote, mark the approved version in writing, and treat changes after approval as a new round or a new job.' },
+        { q: 'What files should I deliver to a client?', a: 'Every format at full size in the file types it needs: PNG and JPG for screens, a print PDF with bleed and crop marks for the printer, all named the same way with the version number, plus a short note listing what each file is for, the sizes and the fonts used.' },
+        { q: 'How do I get usable feedback instead of "make it pop"?', a: 'Ask them to point at the place and say what they would compare it to, offer two concrete moves and let them pick, and turn every reply into a numbered checklist you send back with the next version.' },
+      ] },
+      { t: 'try', label: 'Open Studio', href: '/studio' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'make-a-risograph-effect',
+    title: 'How to make a risograph effect',
+    seoTitle: 'How to make a risograph effect (no Photoshop, live example)',
+    summary: 'What makes a risograph print look the way it does, the five moves that fake it in any layered editor (limited inks, halftone, translucent overprint, misregistration, grain), the classic ink pairs, and the route in Voidcanvas with a live duotone to start from.',
+    description: 'Make a risograph effect from a photo: two flat inks, a halftone, translucent overprint, a small misregistration and grain. The five moves in any editor, riso colour pairs, and the browser route.',
+    category: 'effects',
+    level: 'Intermediate',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'cornerstone',
+    feature: 'Effects · Halftone, Duotone, Film Grain',
+    goals: ['design-effects', 'make-a-poster'],
+    answers: ['how to make a risograph effect', 'risograph effect online', 'riso effect without photoshop', 'how to make a riso print look', 'risograph texture', 'misregistration effect', 'how to make a risograph effect in canva', 'riso colours', 'screen print effect from a photo'],
+    related: ['workflow-textured-print-look', 'make-a-halftone-portrait', 'colour-effects', 'blend-modes-and-opacity'],
+    keywords: 'risograph riso effect print look two colour inks fluorescent pink blue overprint multiply misregistration offset halftone grain paper texture zine poster',
+    guide: {
+      before: ['make-a-halftone-portrait'],
+      next: ['workflow-textured-print-look', 'blend-modes-and-opacity'],
+      also: [{ when: 'it is going to a real printer', slug: 'designing-for-print' }, { when: 'you want every effect and its settings', slug: 'colour-effects' }],
+    },
+    body: [
+      { t: 'answer', text: 'A risograph look is five things stacked: **two or three flat ink colours** instead of full colour, tone made of **visible dots** (a halftone), inks that **darken where they overlap** because they are translucent, layers slightly **out of register**, and **grain** with the paper showing through. To fake it from a photo: convert the photo to a halftone, map it to one ink on a paper colour with a duotone, set type and shapes in a second ink on Multiply, nudge one ink a few pixels off, and lay a light grain over everything. Start with the duotone below; the full recipe follows.' },
+      { t: 'demo', kind: 'effect', effect: 'duotone', caption: 'Duotone is the ink-on-paper step: shadows become the ink, highlights become the paper. Try a fluorescent pink shadow on a warm off-white, or a deep blue on cream. The halftone, overprint and grain come next.' },
+
+      { t: 'h', text: 'What makes a riso look like a riso' },
+      { t: 'p', text: 'A risograph is a stencil duplicator: one drum per ink, one pass per colour, soy-based ink pushed through a master onto uncoated paper. Every quirk of the look comes from that mechanism, which is why filters that add "riso texture" to a full-colour photo never convince.' },
+      { t: 'table', head: ['Quality', 'Where it comes from', 'How to fake it'], rows: [
+        ['Few, flat colours', 'One drum per ink; most prints are one to three colours', 'Duotone (one ink plus paper), then a second ink for type and shapes'],
+        ['Visible dots in the photo', 'The master screens the image into dots', 'Halftone before the duotone, coarse enough to see'],
+        ['Darker colour where inks cross', 'Inks are translucent, so overprints mix', 'Multiply blend mode on every ink layer'],
+        ['Slight misalignment', 'Each pass is fed separately; registration drifts', 'Duplicate a layer in the other ink and nudge it 3 to 6 px'],
+        ['Grain and speckle', 'Ink on uncoated paper, uneven coverage', 'Film grain at low opacity over the whole design'],
+        ['Warm, not white', 'Paper stock is usually cream or coloured', 'Set the duotone highlight to an off-white or the paper colour'],
+      ] },
+
+      { t: 'h', text: 'Pick the inks' },
+      { t: 'p', text: 'Real riso inks are a fixed set, and the recognisable pairs are recognisable because they are those inks. Working from the classics keeps the result honest.' },
+      { t: 'table', head: ['Pair', 'Ink 1', 'Ink 2', 'Paper', 'Feels'], rows: [
+        ['The classic', 'Fluorescent pink #FF48B0', 'Blue #0078BF', 'Warm white #F4EFE6', 'Zines, gig posters. Overprint goes purple.'],
+        ['Warm', 'Red #FF665E', 'Teal #00838A', 'Cream #F6F0DC', 'Food, summer, markets. Overprint goes dark brown.'],
+        ['Cool', 'Federal blue #3D5588', 'Yellow #FFE800', 'White #F7F7F2', 'Editorial, posters. Overprint goes green.'],
+        ['Quiet', 'Black #000000', 'Orange #FF6C2F', 'Kraft #D9C4A3', 'One ink plus a spot colour on brown paper.'],
+      ] },
+      { t: 'p', text: 'One ink carries the photo; the other carries type and shapes. The paper colour is the lightest thing on the page, so nothing should be pure white.' },
+
+      { t: 'h', text: 'The five moves, in any layered editor' },
+      { t: 'steps', items: [
+        '**Prepare the photo.** Crop tight, convert to black and white, and push the contrast so the highlights go nearly white and the shadows nearly black. Flat photos make grey, muddy dots.',
+        '**Halftone it.** Turn the tone into dots at the size you will see it: fine for a screen, coarser for a poster (0.5 to 1 mm dots on paper). [How to make a halftone portrait](/learn/make-a-halftone-portrait) has the sizes.',
+        '**Ink it.** Map the halftone to one ink on the paper colour with a duotone: shadows to the ink, highlights to the paper. This is the layer the whole design sits on.',
+        '**Overprint the second ink.** Set the headline, shapes or a second image in the other ink and set that layer to Multiply. Where it crosses the first ink, the two darken into a third colour, exactly as translucent inks do.',
+        '**Knock it out of register, then add grain.** Duplicate a type or shape layer, recolour the copy in the first ink, keep it on Multiply and nudge it 3 to 6 px. Finish with a light film grain over the whole stack so the photo, the ink and the type share one texture.',
+      ] },
+      { t: 'warn', text: 'Keep the offset small. At 300 dpi, 6 px is half a millimetre: enough to read as printed, not enough to read as a mistake. Two or three misregistered elements are plenty; misregister everything and it looks broken rather than printed.' },
+
+      { t: 'h', text: 'How to do it in Voidcanvas' },
+      { t: 'h3', text: 'Quick: one image, no type' },
+      { t: 'steps', items: [
+        'Open [Effects](/effects) and drop in the photo. In the **Effects** panel choose **Artistic**, then **Halftone**, and set **Dot Size** and **Contrast** under **Parameters**.',
+        'Press **Open in Editor**. The photo arrives with the halftone as a live filter layer.',
+        'Choose **Filter, Colour, Duotone**, above the Halftone layer, and set **Shadow Color** to your ink and **Highlight Color** to your paper colour.',
+        'Choose **Filter, Enhance, Film Grain**, keep **Amount** low, and lower the layer\'s **Opacity** if it is too strong. Export as PNG.',
+      ] },
+      { t: 'h3', text: 'Full: a poster with type in two inks' },
+      { t: 'p', text: 'The complete recipe at print size, with the second ink on Multiply, the duplicate nudged out of register, the grain over everything and a PDF at the end, is the workflow [Make a risograph or screen-print look with Effects and the Editor](/learn/workflow-textured-print-look). It uses the same five moves with every menu named.' },
+      { t: 'product', text: 'Halftone, Duotone, Film Grain and RGB Shift are live filter layers in the Editor, so every part of the look stays adjustable, and the Effects page lets you find the settings first on a preview. It runs in the browser and the photo stays on your device.', label: 'Open Effects', href: '/effects' },
+
+      { t: 'h', text: 'Common mistakes' },
+      { t: 'list', items: [
+        '**Full-colour photo with grain on top.** That is a filter, not a riso. Reduce to one ink first.',
+        '**Pure white paper.** Set the duotone highlight to cream or off-white; white kills the print feel.',
+        '**Inks on Normal.** Without Multiply the overlap does not darken and the second ink looks pasted on.',
+        '**Everything misregistered.** One or two elements, a few pixels. More reads as an error.',
+        '**Halftone too fine for print.** Dots that vanish on screen also vanish on paper, and the image goes solid.',
+      ] },
+
+      { t: 'faq', items: [
+        { q: 'Does this make files for a real risograph printer?', a: 'No. A riso printer needs one greyscale file per ink (the separations). This recipe makes the look in one flat file for screens or ordinary printing. To print on a real riso, ask the print shop how they want the separations and build each ink as its own black-and-white layer.' },
+        { q: 'What colours are risograph inks?', a: 'A fixed set from the manufacturer, of which the best known are fluorescent pink, blue, red, teal, green, yellow, federal blue, orange and black. The pairs in the table above use their approximate hex values.' },
+        { q: 'Risograph or screen print: is the effect different?', a: 'They share dots, flat inks, overprint and misregistration. Screen prints tend to have cleaner, more solid ink and coarser dots; riso has more speckle, more paper showing through and a softer edge. Raise the grain and lower the ink opacity slightly for riso; lower the grain and use a coarser halftone for screen print.' },
+      ] },
+      { t: 'try', label: 'Open Effects', href: '/effects' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'photo-editor-that-does-not-upload',
+    title: 'Photo editors that do not upload your photos: how to tell',
+    seoTitle: 'Photo editors that don\'t upload your photos: how to check',
+    summary: 'What "online" and "private" actually mean for an image editor, a two-minute test that shows whether a web tool sends your photo to a server, what a privacy page should say, and exactly what Voidcanvas does and does not send.',
+    description: 'How to check whether an online photo editor uploads your images: the network test, the offline test, and what a privacy page must say. Plus the exact list of what Voidcanvas sends.',
+    category: 'help',
+    level: 'Beginner',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'cornerstone',
+    feature: 'Privacy · On-device processing',
+    goals: ['private-and-offline', 'edit-a-photo'],
+    answers: ['photo editor that doesn\'t upload your photos', 'private photo editor', 'does an online photo editor upload my photos', 'photo editor no upload', 'how to check if a website uploads my image', 'secure photo editor for client work', 'image editor that works offline in the browser', 'edit photos without uploading them', 'is my photo sent to a server'],
+    related: ['privacy-and-data', 'ai-on-this-device', 'private-session', 'install-as-an-app'],
+    keywords: 'privacy upload server on device local browser network tab devtools offline test nda client photos confidential gdpr private session no account no cloud',
+    guide: {
+      next: ['privacy-and-data', 'ai-on-this-device'],
+      also: [{ when: 'you share a computer', slug: 'private-session' }, { when: 'you want it to work with no connection at all', slug: 'install-as-an-app' }, { when: 'you want to know where the files are kept', slug: 'saving-and-your-files' }],
+    },
+    body: [
+      { t: 'answer', text: '"Online photo editor" says where the app came from, not where your photo goes. Most web editors send the image to their servers to process it; a few do the work inside your browser and send nothing. You can tell in two minutes: open the browser\'s developer tools on the Network tab, load a photo into the editor and apply an edit, and look for a request roughly the size of your photo leaving the page. Then switch the browser to offline and try the same edit. A tool that keeps working offline and sends nothing the size of your image is processing on your device. Voidcanvas is built that way, and the exact list of what it does send is below.' },
+
+      { t: 'h', text: 'Three things "private" can mean' },
+      { t: 'table', head: ['Claim', 'What it usually means', 'What to check'], rows: [
+        ['"Your photos are safe" or "encrypted in transit"', 'The photo is uploaded, over HTTPS, and processed on their server', 'The privacy policy: how long they keep it, who processes it, whether it trains a model'],
+        ['"We delete your files after 24 hours"', 'The photo is uploaded and stored for a while', 'Whether "delete" includes backups and logs; usually not stated'],
+        ['"Processed in your browser" or "on your device"', 'The pixels never leave your computer; only the app code is downloaded', 'The network test below. If it is true, the test shows nothing leaving'],
+      ] },
+      { t: 'p', text: 'Only the third is private in the sense most people mean. It matters when the photo is a client\'s unreleased product, a person who did not consent to a cloud upload, a medical or legal document, or simply yours.' },
+
+      { t: 'h', text: 'The two-minute test' },
+      { t: 'h3', text: 'Test 1: watch the network' },
+      { t: 'steps', items: [
+        'Open the editor in Chrome, Edge or Firefox. Press **F12** (or Cmd+Option+I on a Mac) and choose the **Network** tab. Clear the list with the clear button, and tick the option to preserve or persist the log if it is offered.',
+        'Load a photo into the editor. Watch the list. A request that **sends** data (POST or PUT) with a size close to your photo\'s file size means the photo went up. Downloads of scripts, fonts and images from the tool\'s own domain are the app loading, not your photo leaving.',
+        'Apply an edit: a filter, a background removal, a resize. Watch again. If the edit triggers a send and then a download of a new image, the processing happened on a server.',
+        'Sort by size if the list is long. Your photo is usually the largest thing that leaves, and it is easy to spot.',
+      ] },
+      { t: 'h3', text: 'Test 2: pull the plug' },
+      { t: 'steps', items: [
+        'With the editor open and a photo loaded, set the Network tab\'s throttling menu to **Offline**, or switch off Wi-Fi.',
+        'Apply the same edit. A tool that processes on your device carries on. One that needs a server fails, spins, or says it cannot connect.',
+        'Export the result. Local tools export offline too.',
+      ] },
+      { t: 'note', text: 'A few things legitimately load from the network even in a local tool: the app itself, web fonts, and any on-device AI model the first time it is used. These are downloads of the tool\'s own files, not uploads of yours. They are also why a brand-new local tool may need a connection once before working offline.' },
+
+      { t: 'h', text: 'What a privacy page should tell you' },
+      { t: 'checklist', items: [
+        'Whether image data is sent to a server at all, in plain words.',
+        'What is sent and why, as a list, including analytics and crash reports.',
+        'Whether any third party processes images (AI providers, CDNs that store uploads).',
+        'Whether anything is used to train models.',
+        'How to turn analytics off, and whether the browser\'s Do Not Track or Global Privacy Control signals are honoured.',
+        'Where your files are stored (their servers, your browser, your disk) and how to delete everything.',
+      ] },
+      { t: 'p', text: 'A page that talks only about cookies, or only about "security", has not answered the question.' },
+
+      { t: 'h', text: 'What Voidcanvas sends, and what it never sends' },
+      { t: 'p', text: 'Editing, effects, the AI tools, Studio and every export run inside your browser. These never leave your device: your images, photos, PSDs and PDFs; your designs, layers and text; file and design names; Studio jobs, briefs, references, brands and brand guidelines; fonts you add from files.' },
+      { t: 'table', head: ['What goes over the network', 'Why', 'What it contains'], rows: [
+        ['The app itself', 'To load the pages and, once installed, update them', 'Ordinary page requests'],
+        ['Web fonts from Google Fonts', 'So text layers can use fonts such as Inter or Playfair Display', 'A request for the font family by name. No text, no design'],
+        ['AI model files, first use only', 'Remove background, Select subject, Object select, Remove object and Expand with AI fill run on your device and need their model downloaded once', 'A download of the model from public hosts (jsDelivr and Hugging Face). Your image is not sent'],
+        ['Anonymous usage counts', 'To know which tools get used and what breaks', 'Event names and small settings such as a file type or a preset name. Never images, file names, text or layer content. Off in a private session or when your browser sends Do Not Track or Global Privacy Control'],
+        ['Feedback and bug reports, only when you press send', 'So you can tell us something', 'What you type, plus device and browser context'],
+      ] },
+      { t: 'p', text: 'You never need an account. If you make one, it syncs interface settings and brands, encrypted on your device before they are sent, with a key only your devices have. Review and delivery links for clients are encrypted the same way, with the key in the link itself. [What Voidcanvas sends and what stays on your device](/learn/privacy-and-data) is the full list and stays current with the app.' },
+      { t: 'steps', items: [
+        'Run the two tests above on Voidcanvas. Open the [Editor](/editor), load a photo, remove its background, export a PNG, then go offline and do it again.',
+        'To switch off usage counts, open Help, **Your privacy**, and turn off **Share anonymous usage counts**.',
+        'On a shared computer, start a [private session](/learn/private-session): nothing is written to this browser and **Delete all my data** clears everything Voidcanvas stored.',
+        'To work with no connection at all, [install it as an app](/learn/install-as-an-app) or use the [desktop app](/learn/desktop-app).',
+      ] },
+      { t: 'product', text: 'Voidcanvas does the work on your device and lists every request it makes. No account is required, the AI models download once and run locally, and a private session leaves nothing behind.', label: 'Open the Editor', href: '/editor' },
+
+      { t: 'faq', items: [
+        { q: 'Does an online photo editor upload my photos?', a: 'Most do: the image is sent to their server, processed there and sent back. Some process entirely in your browser. The only reliable way to know is to watch the Network tab while you load a photo and apply an edit, and to see whether the edit still works offline.' },
+        { q: 'Is HTTPS enough to make an upload private?', a: 'HTTPS protects the photo on the way to the server. Once there, the service has it, and what happens next depends on their retention, staff access, third-party processors and training policies. "Encrypted in transit" is not the same as "never uploaded".' },
+        { q: 'Why does a local tool still need the internet the first time?', a: 'To download the app, its fonts and any AI model it uses. Those are the tool\'s own files coming down, not your images going up. After that first load, a local tool works offline.' },
+        { q: 'Can I use Voidcanvas for client work under an NDA?', a: 'The images, designs, briefs and brands stay on your device, and the list of what is sent is published. Read it, run the two tests yourself, and switch off usage counts if your agreement requires it. For the strictest cases, use the desktop app offline.' },
+      ] },
+      { t: 'try', label: 'Read what is sent', href: '/learn/privacy-and-data' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  {
+    slug: 'keep-a-brand-consistent',
+    title: 'How to keep a brand consistent',
+    seoTitle: 'How to keep a brand consistent across every design',
+    summary: 'Brands drift because there is no single source of truth and every post is rebuilt by hand. The fix is mechanical: one kit with roles, one master per campaign, every format derived from it, a check before export, and a guideline other people can follow.',
+    description: 'Keep branding consistent across social, print and web: one brand kit with colour roles, two fonts and logo rules, one master design per campaign, formats derived not redrawn, and a check before export.',
+    category: 'studio',
+    level: 'Beginner',
+    updated: '2026-09-27',
+    published: '2026-09-27',
+    role: 'cornerstone',
+    feature: 'Brand kit · Brands library · Resize to every format',
+    goals: ['build-a-brand', 'social-content', 'client-project'],
+    answers: ['how to keep branding consistent', 'brand consistency', 'why is brand consistency important', 'how to keep social media posts consistent', 'brand consistency across platforms', 'consistent branding for small business', 'how to make sure designs are on brand', 'brand consistency checklist', 'how to keep brand colours consistent'],
+    related: ['brand-kit', 'brands-library', 'resize-to-every-format', 'brand-guidelines'],
+    keywords: 'brand consistency consistent branding brand kit colours roles fonts logo minimum size clear space master design formats templates guideline check off brand',
+    guide: {
+      before: ['building-a-brand-identity'],
+      next: ['brand-kit', 'brands-library', 'resize-to-every-format'],
+      also: [{ when: 'you need a document others will follow', slug: 'brand-guidelines' }, { when: 'you want the numbers behind the palette and the type', slug: 'colour-that-works' }, { when: 'it is a client brand', slug: 'workflow-client-brand-guideline' }],
+    },
+    body: [
+      { t: 'answer', text: 'A brand stays consistent when nobody has to remember it. Put the brand in one place the tools read from: **colours with roles** (primary, accent, background, text), **two fonts** with a scale, and **logo files with a minimum size and clear space**. Design **one master per campaign** and derive every other format from it instead of redrawing each one. **Check before you export**: off-brand colours, wrong fonts, a logo too small or crowded. Write the rules down once as a guideline so the next person, or you in six months, gets the same result. Consistency is a system, not discipline.' },
+      { t: 'p', text: 'Every brand drifts the same way. The hex code gets retyped from memory and comes out a shade off. Someone picks a "close enough" font on a phone. The logo is stretched into a corner at 40 px. The story is rebuilt from scratch and loses the grid the post had. None of these is a taste problem; each is a step where a person had to reconstruct the brand by hand. Remove the reconstruction and the drift stops.' },
+
+      { t: 'h', text: 'Why brands drift' },
+      { t: 'table', head: ['Symptom', 'Cause', 'Fix'], rows: [
+        ['Five slightly different blues', 'Colours typed from memory or eyedropped from JPGs', 'One kit with named colours; pick, never type'],
+        ['Headlines in three fonts', 'The font was not installed where the post was made', 'Two fonts, loaded by the tool, the first one the default for new text'],
+        ['Logo squashed, tiny or jammed in a corner', 'No rule for size and space', 'Minimum size and clear space, checked automatically'],
+        ['Post, story and banner look like three brands', 'Each one rebuilt by hand', 'One master, every format derived from it'],
+        ['New designer, new brand', 'The rules live in someone\'s head', 'A guideline with the numbers, exported for people and for code'],
+      ] },
+
+      { t: 'h', text: '1. One kit, with roles' },
+      { t: 'p', text: 'A brand kit is not a mood board; it is the few assets every design reaches for, stored where the tool can offer them. Give each colour a **role** rather than a name: primary, secondary, accent, neutral, background, text. Roles make decisions for you (text goes in the text colour, the button is the accent) and they survive a rebrand: change the accent once and every design that used "accent" follows. Two fonts, a headline face and a text face, are enough; the first becomes the default so new text starts on brand. Add the logo files in the versions you actually use, on light and on dark, and set two numbers: the smallest width it may appear at and the clear space around it as a fraction of its height.' },
+
+      { t: 'h', text: '2. One master, every format derived' },
+      { t: 'p', text: 'The post, the story, the banner and the poster for one campaign should be one design in several shapes, not four designs. Make the most demanding format first (usually the tallest social size or the print piece), get it right, and then adapt it to the rest: reflow the layout for each ratio, keep the logo in its corner and the text in its safe zone, and change nothing that does not have to change. When the copy changes, change it on the master and push it to the formats; do not edit five files. [Resize one design to every format](/learn/resize-to-every-format) covers the mechanics and the layer roles that make a wide banner and a tall story each get a sensible layout.' },
+
+      { t: 'h', text: '3. A check before you export' },
+      { t: 'p', text: 'Consistency fails at the last minute, so the check belongs at the last minute. Before any export, look for four things: a colour on text or shapes that is not a brand colour, a font that is not one of the two, a logo below the minimum size, and anything sitting inside the logo\'s clear space. In a tool with a brand attached this can be automatic; by hand it is a thirty-second scan of the layers.' },
+
+      { t: 'h', text: '4. Rules other people can follow' },
+      { t: 'p', text: 'You will not be the only person making things for this brand. A guideline is the kit plus the reasons and the numbers: the palette with roles and contrast checked, the type scale, the logo rules with examples, and what to do and not do. Export it in the forms people use: a PDF for the client and the printer, a web page, and tokens (CSS, Tailwind, JSON) for the developers so the website uses the same values as the poster. [Build a brand guideline](/learn/brand-guidelines) and [Export a brand guideline](/learn/brand-guideline-exports) cover the builder and every export.' },
+
+      { t: 'h', text: 'How to do it in Voidcanvas' },
+      { t: 'h3', text: 'Your own brand: the Editor\'s brand kit' },
+      { t: 'steps', items: [
+        'Open **Edit, Brand kit…**. Under **Colours**, add each brand colour; under **Fonts**, switch on your headline font first and your text font second (the first becomes the default for new text); under **Logos**, add PNG or SVG files with transparent backgrounds.',
+        'In every design, brand colours sit first in the swatches, the **Brand kit** panel applies a colour or a font to the selected layer in one click, and your logos appear under **Your logos** in the **Add** menu. [Brand kit](/learn/brand-kit) has the details.',
+      ] },
+      { t: 'h3', text: 'Client brands: Studio\'s brands library, with checks' },
+      { t: 'steps', items: [
+        'In Studio, press **Client brands**, then **New brand**. Enter each colour with a role (primary, secondary, accent, neutral, background or text), a **Headlines** and a **Text** font, logo files marked **On light** or **On dark**, the **Smallest size** (in px on a 1080 px wide design, so one rule covers every format) and the **Clear space** as a share of the logo\'s height.',
+        'Or build the brand in the **Brand guideline builder** and press **Save as a client brand in Studio** on its Export tab, which fills all of this in.',
+        'On a job\'s **Brief** tab choose the brand under **Which brand is this for?**. The key visual opens with its colours and fonts, and the Editor\'s **Brief** panel shows **On brand** or a list to fix: off-brand colours (**Fix** moves every layer using that colour to the nearest brand colour), fonts that are not the brand\'s (**Fix** sets headlines and text), logos under the minimum size, and layers inside the clear space (**Select** jumps to them). Name your logo layers with the word logo and the checks work without setup.',
+        'Build every format from the master on the **Key visual** tab and push later changes with **Update formats from the master**. Delivery can include a brand sheet with each colour\'s role, hex, RGB and approximate CMYK, the fonts and the logo rules.',
+      ] },
+      { t: 'product', text: 'The brand kit puts the colours, fonts and logos where you pick rather than type them; the brands library holds one brand per client and checks every design against it before you export; Resize and Cascade derive every format from one master; and the guideline builder exports the rules for people and for code.', label: 'Open Studio', href: '/studio' },
+
+      { t: 'h', text: 'Common mistakes' },
+      { t: 'list', items: [
+        '**Too many colours in the kit.** Five with roles beats fifteen without. Tints can be made from the five.',
+        '**Brand colours only in the guideline PDF.** If the tool cannot offer them, they will be retyped. Load them into the kit.',
+        '**A logo rule with no number.** "Give it room" is not a rule. Half the logo\'s height on every side is.',
+        '**Templates that are really finished posts.** A template should carry the grid, the type styles and the logo position, and nothing that changes per post.',
+        '**Checking by eye at thumbnail size.** A shade off is invisible at 200 px. Check the values, or let the tool check them.',
+      ] },
+
+      { t: 'faq', items: [
+        { q: 'Why is brand consistency important?', a: 'Recognition compounds. Every post, poster and page that looks like the last one adds to the same memory in the audience; every one that drifts starts a new one. It also makes work faster, because nobody decides the colour of a button twice.' },
+        { q: 'How do I keep social media posts consistent?', a: 'One kit the tool offers, one master per campaign with the other sizes derived from it, and a template that carries the grid and type styles but no content. Check colours and fonts against the kit before export rather than by eye.' },
+        { q: 'What should a brand kit contain?', a: 'Colours with roles, two fonts (headline and text), logo files for light and dark backgrounds, the logo\'s minimum size and clear space. Everything else belongs in the guideline.' },
+        { q: 'How do I share a brand with a team?', a: 'Load it into a place everyone works from. In Voidcanvas, Studio brands and jobs can be shared with a team, and the guideline exports tokens for developers so the website matches the design.' },
+      ] },
+      { t: 'try', label: 'Open Studio', href: '/studio' },
+    ],
+  },
 ]

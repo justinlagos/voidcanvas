@@ -32,7 +32,7 @@ const CONTROLS: Partial<Record<EffectType, Control[]>> = {
 const START: Partial<Record<EffectType, Partial<EffectParams>>> = {
   halftone: { scale: 40, intensity: 60 },
   dither: { threshold: 50 },
-  duotone: { color1: '#1b1464', color2: '#ffb347' },
+  duotone: { color1: '#0078BF', color2: '#F4EFE6' }, // risograph blue on warm white
   glitch: { intensity: 40, scale: 30 },
   posterize: { intensity: 30 },
 }

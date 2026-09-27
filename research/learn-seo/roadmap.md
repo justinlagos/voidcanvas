@@ -17,11 +17,11 @@ Ranked from the research in this folder: `autocomplete-annotated.csv` (what peop
 | How to edit a PSD without Photoshop | live | 3 | 3 | 3 | 3 | 2 | 3 | Every ranking page is a listicle; nobody walks a file through; the import report is a real differentiator. |
 | How to make a halftone portrait | live | 3 | 2 | 3 | 3 | 2 | 3 | Photoshop tutorials everywhere; a working halftone on the page plus the tool beats them. |
 | How to make a design look less generic | live | 3 | 2 | 2 | 3 | 3 | 2 | SERP has drifted to AI UI; the graphic-design intent is open; craft authority. |
-| Why your printed design looks blurry | planned | 3 | 3 | 3 | 3 | 3 | 2 | SERP is inkjet troubleshooting; the design-side answer is unserved; retitles the resolution guide. |
-| How to run a client design project | planned | 3 | 3 | 3 | 2 | 2 | 3 | Advice lists rank; a concrete four-stage process with a tool is the better answer; Studio is the product. |
-| How to make a risograph effect | planned | 3 | 1 | 3 | 3 | 2 | 3 | Photoshop plus paid texture packs rank; the workflow exists and needs the query-shaped front door and a demo. |
-| Photo editors that do not upload your photos | planned | 2 | 2 | 3 | 3 | 3 | 3 | Mixed SERP, nobody explains how to check; it is the product's core promise. |
-| Brand consistency in practice | planned | 2 | 2 | 3 | 2 | 2 | 3 | Marketing blogs rank; the mechanical answer (kit, master, formats) is ours. |
+| Why your printed design looks blurry | live | 3 | 3 | 3 | 3 | 3 | 2 | SERP is inkjet troubleshooting; the design-side answer is unserved; retitles the resolution guide. |
+| How to run a client design project | live | 3 | 3 | 3 | 2 | 2 | 3 | Advice lists rank; a concrete four-stage process with a tool is the better answer; Studio is the product. |
+| How to make a risograph effect | live | 3 | 1 | 3 | 3 | 2 | 3 | Photoshop plus paid texture packs rank; the workflow exists and needs the query-shaped front door and a demo. |
+| Photo editors that do not upload your photos | live | 2 | 2 | 3 | 3 | 3 | 3 | Mixed SERP, nobody explains how to check; it is the product's core promise. |
+| Brand consistency in practice | live | 2 | 2 | 3 | 2 | 2 | 3 | Marketing blogs rank; the mechanical answer (kit, master, formats) is ours. |
 
 The existing guides already carrying cornerstone weight, now signposted as such: designing-for-print, image-resolution-explained, building-a-brand-identity, brand-guidelines, import-psd-and-pdf, remove-background, resize-to-every-format, studio-overview, effects-overview, typography-fundamentals, colour-that-works, layout-and-composition, designing-for-social, editor-tour, layers, masks, adjustment-layers, retouching, type, privacy-and-data, workflow-textured-print-look.
 
