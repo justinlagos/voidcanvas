@@ -19,7 +19,7 @@ ok('learn hub: og:image set', (await p.getAttribute('meta[property="og:image"]',
 const search = async (q) => { await p.fill('#learn-q', ''); await p.fill('#learn-q', q); await p.waitForTimeout(250); return p.$$eval('#learn-hits a', els => els.map(e => e.getAttribute('href'))) }
 let hits = await search('blurry image')
 const guides = hits.filter(h => !h.startsWith('/learn/do/'))
-ok('learn search: "blurry image" offers the photo route, then the fix, then the resolution guide', hits[0] === '/learn/do/edit-a-photo' && guides[0] === '/learn/fix-a-blurry-image' && guides.slice(0, 2).includes('/learn/image-resolution-explained'), hits.slice(0, 3).join(' '))
+ok('learn search: "blurry image" offers the photo route, then the fix, with the resolution guide close behind', hits[0] === '/learn/do/edit-a-photo' && guides[0] === '/learn/fix-a-blurry-image' && guides.slice(0, 3).includes('/learn/image-resolution-explained'), hits.slice(0, 3).join(' '))
 hits = await search('photoshop masks')
 ok('learn search: "photoshop masks" finds masks', hits.includes('/learn/masks'), hits.slice(0, 3).join(' '))
 hits = await search('how do I edit a psd without photoshop')

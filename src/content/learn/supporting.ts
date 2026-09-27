@@ -144,7 +144,7 @@ export const articles: Article[] = [
     guide: {
       before: ['effects-overview'],
       next: ['distortion-effects', 'quick-tools'],
-      also: [{ when: 'you want the old-screen texture too', slug: 'texture-effects' }, { when: 'it is for a YouTube thumbnail', slug: 'size-presets' }],
+      also: [{ when: 'you want pixel sorting instead', slug: 'pixel-sorting-explained' }, { when: 'you want the old-screen texture too', slug: 'make-a-crt-effect' }, { when: 'it is for a YouTube thumbnail', slug: 'youtube-thumbnail-size' }],
     },
     body: [
       { t: 'answer', text: 'A glitch effect cuts the image into horizontal strips and slides some of them sideways, the way a corrupted video frame tears. Three controls: **Offset** is how far the strips move, **Slice height** is how tall they are, and **Randomize** picks which strips move. About three strips in ten shift; the rest stay put, which is what keeps the picture readable. Add an **RGB shift** for the colour fringe and **scanlines** or **CRT** for the screen, and stop before the face disappears. Try it below, then the same tool with a download.' },

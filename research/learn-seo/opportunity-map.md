@@ -24,14 +24,14 @@
 |---|---|---|---|---|---|---|---|---|---|
 | why does my print look blurry | informational | beginner | none, live | Why your printed design looks blurry (and the three fixes) | L | H | problem guide + interactive | 1 | live |
 | image is blurry how to fix | informational | beginner | fix-oriented guide | How to fix a blurry image, and when you cannot | M | M | problem guide | 3 | live |
-| resize image without losing quality | informational | beginner | quick answer plus the maths | Resize an image without losing quality: what is possible | H | M | explainer | 3 | planned |
+| resize image without losing quality | informational | beginner | quick answer plus the maths | Resize an image without losing quality: what is possible | H | M | explainer | 3 | live |
 | what is dpi | informational | beginner | definition entry | DPI, PPI and resolution explained in one page | H | L | explainer | 4 | existing |
-| how to check image resolution | informational | beginner | step-by-step check | How to check whether an image is big enough to print | M | M | how-to | 3 | planned |
-| facebook cover image looks blurry | informational | marketing person | platform-specific export advice | Why social images look blurry after upload, and how to export them | M | M | problem guide | 3 | planned |
+| how to check image resolution | informational | beginner | step-by-step check | How to check whether an image is big enough to print | M | M | how-to | 3 | live |
+| facebook cover image looks blurry | informational | marketing person | platform-specific export advice | Why social images look blurry after upload, and how to export them | M | M | problem guide | 3 | live |
 | image resolution vs size | informational | beginner | diagram | Pixel size, file size and print size are three different things | M | M | explainer + diagram | 4 | planned |
 | how to make image resolution higher | informational | beginner | honest answer | Can you increase image resolution? What upscaling does and does not do | H | M | explainer | 3 | live |
 | dpi and print size | informational | beginner | calculator | Pixels to print size: the calculator | M | M | reference + calculator | 4 | planned |
-| image looks pixelated and blurry | informational | beginner | symptom page | Pixelated or blurry? What each look tells you about the image | M | M | problem guide | 3 | planned |
+| image looks pixelated and blurry | informational | beginner | symptom page | Pixelated or blurry? What each look tells you about the image | M | M | problem guide | 3 | live |
 
 ## PSD without Photoshop (10)
 
@@ -70,7 +70,7 @@
 | can i clipping mask in canva | informational | marketing person | technique page written for people arriving from Canva | Clipping masks: the technique Canva hides, done properly | L | H | how-to | 2 | planned |
 | can i change blend mode in canva | informational | marketing person | Canva arrival angle | Blend modes explained (multiply, screen, overlay) with examples | M | M | explainer + demo | 2 | planned |
 | can i halftone in canva | informational | marketing person | covered by the live guide | How to make a halftone portrait | L | H | guide | 1 | live |
-| how to make newspaper effect in canva | informational | marketing person | recipe | The newspaper photo effect: halftone, grain and a warm tint | L | M | recipe + demo | 3 | planned |
+| how to make newspaper effect in canva | informational | marketing person | recipe | The newspaper photo effect: halftone, grain and a warm tint | L | M | recipe + demo | 3 | live |
 | can i print designs from canva | informational | brand owner | tool-agnostic answer | Printing a design made in a browser tool: what the printer needs | M | M | explainer | 3 | planned |
 | what can i use instead of canva | commercial | brand owner | comparison by need, not a listicle | Instead of Canva: choose by what you need (privacy, print, layers, clients) | H | L | comparison | 5 | planned |
 | can i share brand kit on canva | informational | brand owner | team angle | Share a brand kit with your team (without a paid seat) | M | M | how-to | 3 | planned |
@@ -101,12 +101,12 @@
 | glitch effect online free | commercial | designer | explainer | The glitch effect: slices, offset and RGB shift explained | M | M | explainer + demo | 2 | live |
 | how to make a duotone | informational | designer | query-shaped guide with demo | How to make a duotone image (and pick the two colours) | M | H | guide + demo | 2 | live |
 | how to make a risograph effect | informational | designer | none, live | How to make a risograph effect | M | H | guide + demo | 1 | live |
-| vintage photo effect | informational | beginner | recipe | The vintage photo effect: fade, grain, warmth, vignette | H | M | recipe + demo | 3 | planned |
-| photo to sketch | informational | beginner | query-shaped | Turn a photo into a pencil sketch | H | M | how-to + demo | 3 | planned |
-| pixel sort | informational | designer | definition | What pixel sorting is and how to use it | L | M | explainer + demo | 3 | planned |
+| vintage photo effect | informational | beginner | recipe | The vintage photo effect: fade, grain, warmth, vignette | H | M | recipe + demo | 3 | live |
+| photo to sketch | informational | beginner | query-shaped | Turn a photo into a pencil sketch | H | M | how-to + demo | 3 | live |
+| pixel sort | informational | designer | definition | What pixel sorting is and how to use it | L | M | explainer + demo | 3 | live |
 | screen print effect | informational | designer | exists | Make a risograph or screen-print look | M | H | workflow | 2 | existing |
-| film grain effect | informational | designer | recipe | Add film grain that looks like film | M | M | how-to + demo | 3 | planned |
-| crt effect | informational | designer | recipe | The CRT and scanline look | M | M | recipe + demo | 3 | planned |
+| film grain effect | informational | designer | recipe | Add film grain that looks like film | M | M | how-to + demo | 3 | live |
+| crt effect | informational | designer | recipe | The CRT and scanline look | M | M | recipe + demo | 3 | live |
 
 ## Photo editing and background removal (10)
 

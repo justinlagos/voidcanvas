@@ -34,6 +34,18 @@ const CONTROLS: Partial<Record<EffectType, Control[]>> = {
     { key: 'amount', label: 'Colour blend', min: 0, max: 100, hint: 'How much of the pop palette replaces the photo\'s own colours.' },
   ],
   edge: [{ key: 'threshold', label: 'Threshold', min: 0, max: 200, hint: 'Low shows every texture; high keeps only the strongest outlines.' }],
+  vintage: [{ key: 'intensity', label: 'Intensity', min: 10, max: 100, hint: 'Fade, warmth and dark corners together. Higher looks older.' }],
+  sketch: [{ key: 'intensity', label: 'Line strength', min: 10, max: 100, hint: 'Low gives a light outline; high brings in texture and heavy lines.' }],
+  pixelSort: [{ key: 'threshold', label: 'Brightness threshold', min: 0, max: 100, hint: 'Only pixels brighter than this are sorted. Lower means longer streaks.' }],
+  grain: [
+    { key: 'amount', label: 'Amount', min: 0, max: 100, hint: 'How strong the grain is. Film is usually 10 to 30.' },
+    { key: 'scale', label: 'Grain size', min: 10, max: 100, hint: 'Fine grain reads as fast film; coarse as pushed film or print.' },
+    { key: 'seed', label: 'Randomize', min: 0, max: 1000, hint: 'A new grain pattern with the same strength.' },
+  ],
+  crt: [
+    { key: 'intensity', label: 'Barrel distortion', min: 0, max: 100, hint: 'How much the screen bulges. 0 keeps it flat.' },
+    { key: 'scale', label: 'Scanline gap', min: 10, max: 100, hint: 'Low gives dense lines; high spaces them out.' },
+  ],
 }
 const START: Partial<Record<EffectType, Partial<EffectParams>>> = {
   halftone: { scale: 40, intensity: 60 },
@@ -43,8 +55,13 @@ const START: Partial<Record<EffectType, Partial<EffectParams>>> = {
   posterize: { intensity: 30 },
   popart: { intensity: 40, amount: 100 },
   edge: { threshold: 60 },
+  vintage: { intensity: 60 },
+  sketch: { intensity: 50 },
+  pixelSort: { threshold: 55 },
+  grain: { amount: 30, scale: 30, seed: 500 },
+  crt: { intensity: 40, scale: 30 },
 }
-const SAMPLE: Partial<Record<EffectType, string>> = { halftone: '/landing/beard.jpg', dither: '/landing/beard.jpg', duotone: '/landing/red-teal.jpg', glitch: '/landing/smoke.jpg', popart: '/landing/beard.jpg', edge: '/landing/beard.jpg' }
+const SAMPLE: Partial<Record<EffectType, string>> = { halftone: '/landing/beard.jpg', dither: '/landing/beard.jpg', duotone: '/landing/red-teal.jpg', glitch: '/landing/smoke.jpg', popart: '/landing/beard.jpg', edge: '/landing/beard.jpg', vintage: '/landing/latte.jpg', sketch: '/landing/beard.jpg', pixelSort: '/landing/smoke.jpg', grain: '/landing/beanie.jpg', crt: '/landing/pink.jpg' }
 const OPEN: Partial<Record<EffectType, { label: string; href: string }>> = {
   halftone: { label: 'Open the Halftone tool', href: '/tools/halftone' },
   dither: { label: 'Open the Dither tool', href: '/tools/dither' },
