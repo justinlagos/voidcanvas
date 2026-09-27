@@ -2,7 +2,7 @@
 // Scoring, per query word (stop words removed, light stemming):
 //   whole phrase in the guide's answers  +24    whole phrase in the title  +18
 //   word in title +10   word in answers +8   word in summary +4   word in headings/keywords +3
-//   a related concept (concepts.ts) in title +5, answers +4, summary +2, terms +1.5
+//   a related concept (concepts.ts) in title +5, answers +4, summary +2, terms +1.5;  word in the slug +3
 // A guide needs at least half the query words (or their concepts) to match. Cornerstones get a small bonus.
 import type { LearnEntry, GoalLite } from './index'
 import { STOP, related, stem } from './concepts'
@@ -36,8 +36,11 @@ export function searchLearn(q: string, index: LearnEntry[], limit = 8): Hit[] {
     const bump = (w: Hit['why'], rank: number) => { const order = ['answers', 'title', 'summary', 'terms', 'concept']; if (order.indexOf(w) < order.indexOf(why) || rank === 0) why = w }
     if (phrase.length > 6 && a.answers.includes(phrase)) { score += 24; bump('answers', 0) }
     else if (phrase.length > 6 && title.includes(phrase)) { score += 18; bump('title', 0) }
+    const slugWords = a.slug.split('-')
     for (const w of words) {
       let best = 0
+      // A word in the slug names the page's subject (how-much-bleed, make-a-duotone-image), so it outranks a passing mention in another title.
+      if (slugWords.includes(w) || (stem(w).length > 3 && slugWords.some(x => x.startsWith(stem(w))))) score += 3
       if (hasWord(title, w)) { best = 10; bump('title', 1) }
       else if (hasWord(a.answers, w)) { best = 8; bump('answers', 1) }
       else if (hasWord(summary, w)) { best = 4; bump('summary', 1) }

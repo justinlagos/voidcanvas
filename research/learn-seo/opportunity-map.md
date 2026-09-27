@@ -7,8 +7,8 @@
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
 | how to prepare a poster for print | informational | beginner, brand owner | none, live | How to prepare a poster for print | M | H | guide + interactive | 1 | live |
-| what is a print ready pdf | informational | beginner, marketing person | no page answers the term head on | What a print-ready PDF is (and what yours needs) | M | M | explainer | 2 | planned |
-| how much bleed do i need | informational | beginner | answer is inside a long page; needs a direct quick answer | How much bleed a print job needs (and how many pixels that is) | H | M | quick answer + calculator | 2 | planned |
+| what is a print ready pdf | informational | beginner, marketing person | no page answers the term head on | What a print-ready PDF is, and what yours needs | M | M | explainer | 2 | live |
+| how much bleed do i need | informational | beginner | answer is inside a long page; needs a direct quick answer | How much bleed a print job needs | H | M | quick answer + calculator | 2 | live |
 | crop marks vs trim marks | informational | print designer | terminology gap | Crop marks, trim marks and bleed marks: what each one is | M | M | explainer | 3 | planned |
 | why does my printed document look different than print preview | informational | beginner | the problem phrasing is unserved (SERP is Windows troubleshooting) | Why a print looks different from the screen | L | H | problem guide + interactive | 2 | planned |
 | rgb vs cmyk for print | informational | beginner, marketing person | quick-answer layer | RGB or CMYK for print: what to do in an RGB-only tool | H | M | explainer | 2 | planned |
@@ -97,9 +97,9 @@
 
 | Query | Intent | Audience | Gap | Suggested title | Competition | Opportunity | Type | Tier | Status |
 |---|---|---|---|---|---|---|---|---|---|
-| dither effect online | commercial | designer | explainer for the tool | Dithering explained: threshold, patterns and when to use it | M | M | explainer + demo | 2 | planned |
-| glitch effect online free | commercial | designer | explainer | The glitch effect: slices, offset and RGB shift explained | M | M | explainer + demo | 2 | planned |
-| how to make a duotone | informational | designer | query-shaped guide with demo | How to make a duotone image (and pick the two colours) | M | H | guide + demo | 2 | planned |
+| dither effect online | commercial | designer | explainer for the tool | Dithering explained: threshold, patterns and when to use it | M | M | explainer + demo | 2 | live |
+| glitch effect online free | commercial | designer | explainer | The glitch effect: slices, offset and RGB shift explained | M | M | explainer + demo | 2 | live |
+| how to make a duotone | informational | designer | query-shaped guide with demo | How to make a duotone image (and pick the two colours) | M | H | guide + demo | 2 | live |
 | how to make a risograph effect | informational | designer | none, live | How to make a risograph effect | M | H | guide + demo | 1 | live |
 | vintage photo effect | informational | beginner | recipe | The vintage photo effect: fade, grain, warmth, vignette | H | M | recipe + demo | 3 | planned |
 | photo to sketch | informational | beginner | query-shaped | Turn a photo into a pencil sketch | H | M | how-to + demo | 3 | planned |

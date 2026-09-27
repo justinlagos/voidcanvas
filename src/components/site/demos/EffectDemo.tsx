@@ -24,8 +24,9 @@ const CONTROLS: Partial<Record<EffectType, Control[]>> = {
     { key: 'color2', label: 'Highlights', type: 'color' },
   ],
   glitch: [
-    { key: 'intensity', label: 'Offset', min: 10, max: 100 },
-    { key: 'scale', label: 'Slice height', min: 5, max: 100 },
+    { key: 'intensity', label: 'Offset', min: 10, max: 100, hint: 'How far the shifted strips move.' },
+    { key: 'scale', label: 'Slice height', min: 5, max: 100, hint: 'Thin strips read as noise; tall ones as broken blocks.' },
+    { key: 'seed', label: 'Randomize', min: 0, max: 1000, hint: 'Which strips move.' },
   ],
   posterize: [{ key: 'intensity', label: 'Levels', min: 10, max: 100 }],
 }

@@ -45,7 +45,7 @@ describe('Learn search', () => {
   const top = (q: string, n = 3) => searchLearn(q, index).slice(0, n).map(h => h.slug)
   it('understands problem phrasings through the concept map', () => {
     expect(top('blurry image')).toContain('image-resolution-explained')
-    expect(top('my print came out blurry')).toContain('image-resolution-explained')
+    expect(top('my print came out blurry')[0]).toBe('printed-design-looks-blurry')
     expect(top('photoshop masks')).toContain('masks')
   })
   it('answers the five persona searches', () => {
@@ -63,7 +63,12 @@ describe('Learn search', () => {
     expect(top('instagram post size')).toContain('size-presets')
     expect(top('keyboard shortcuts')[0]).toBe('keyboard-shortcuts')
     expect(top('remove background')[0]).toBe('remove-background')
-    expect(top('bleed')).toContain('designing-for-print')
+    expect(top('bleed')).toContain('how-much-bleed')
+    expect(top('how much bleed do i need')[0]).toBe('how-much-bleed')
+    expect(top('what is a print ready pdf')[0]).toBe('what-is-a-print-ready-pdf')
+    expect(top('how to make a duotone')[0]).toBe('make-a-duotone-image')
+    expect(top('dither effect')[0]).toBe('dither-effect-explained')
+    expect(top('glitch effect online')[0]).toBe('glitch-effect-explained')
   })
   it('returns nothing for noise', () => {
     expect(searchLearn('zzzz qqqq', index)).toEqual([])

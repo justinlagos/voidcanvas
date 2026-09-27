@@ -10,6 +10,7 @@ import { articles as workflows } from './workflows'
 import { articles as craft } from './craft'
 import { articles as reference } from './reference'
 import { articles as problems } from './problems'
+import { articles as supporting } from './supporting'
 import { SIGNPOSTS } from './signposts'
 import { GOALS, type Goal } from './goals'
 
@@ -35,7 +36,7 @@ export const PATHS: { id: string; name: string; blurb: string; slugs: string[] }
 ]
 
 const ORDER = CATEGORIES.map(c => c.id)
-const RAW: Article[] = [...start, ...editorCore, ...editorImage, ...editorOutput, ...studio, ...effects, ...workflows, ...craft, ...reference, ...problems]
+const RAW: Article[] = [...start, ...editorCore, ...editorImage, ...editorOutput, ...studio, ...effects, ...workflows, ...craft, ...reference, ...problems, ...supporting]
 /** Every article, with its signposts merged in. Fields set on the article itself win. */
 export const ARTICLES: Article[] = RAW.map(a => ({ ...(SIGNPOSTS[a.slug] ?? {}), ...a }))
   .sort((a, b) => ORDER.indexOf(a.category) - ORDER.indexOf(b.category))

@@ -43,6 +43,8 @@ export const GOALS: Goal[] = [
     answer: 'Work at 300 dpi at the final physical size, add the bleed your printer asks for (usually 3 mm), keep text 5 mm inside the trim, and export a PDF. Ask the printer whether they accept RGB and convert it themselves; most do. The guides below explain each of those words and show the numbers for every common size.',
     steps: [
       { slug: 'designing-for-print', why: 'The terms a printer will use and the numbers they expect.' },
+      { slug: 'how-much-bleed', why: 'The bleed to add, in millimetres and pixels, and how to add it to a design built without one.' },
+      { slug: 'what-is-a-print-ready-pdf', why: 'What the printer checks, and the one-line note to send with the file.' },
       { slug: 'printed-design-looks-blurry', why: 'The three reasons a print comes back soft, a one-minute check, and the fix for each.' },
       { slug: 'image-resolution-explained', why: 'Pixels, dpi and print size, properly, so the check above makes sense.' },
       { slug: 'export-for-print', why: 'How the Editor builds its PDF, which presets print at 300 dpi and how to add bleed yourself.' },
@@ -133,8 +135,11 @@ export const GOALS: Goal[] = [
     steps: [
       { slug: 'make-a-halftone-portrait', why: 'The most searched effect, with a working halftone on the page.' },
       { slug: 'make-a-risograph-effect', why: 'What makes riso look like riso, and the five moves that fake it, with a live duotone.' },
+      { slug: 'make-a-duotone-image', why: 'Two colours, one photo: how to pick the pair and apply it in one click.' },
       { slug: 'effects-overview', why: 'How Effects works: load, pick, tune, compare, export, send to the Editor.' },
       { slug: 'quick-tools', why: 'Halftone, Dither and Glitch as single-purpose tools with a download.' },
+      { slug: 'dither-effect-explained', why: 'The threshold, the pattern and why it must be made at final size.' },
+      { slug: 'glitch-effect-explained', why: 'Slices, offset and RGB shift, and where the effect stops helping.' },
       { slug: 'workflow-textured-print-look', why: 'A risograph or screen-print look, built in Effects and finished in the Editor.' },
       { slug: 'artistic-effects', why: 'Every artistic effect and what each slider does.' },
       { slug: 'colour-effects', why: 'Duotone, gradient map, posterize and the other colour effects.' },

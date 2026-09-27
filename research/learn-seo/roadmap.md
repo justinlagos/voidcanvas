@@ -27,6 +27,8 @@ The existing guides already carrying cornerstone weight, now signposted as such:
 
 ## Tier 2: supporting high-intent pages (41 in the map)
 
+Live so far: what a print-ready PDF is, how much bleed, dithering explained, the glitch effect explained, how to make a duotone image. The Canva-arrival phrasings ("can I clipping mask in Canva", "can I change blend mode in Canva", "can I resize images in Canva") were added as answers on the technique guides rather than as new pages.
+
 Build order, by cluster, each linking up to its cornerstone:
 
 1. **Print**: what a print-ready PDF is · how much bleed (with the pixel maths) · why a print looks different from the screen · RGB or CMYK in an RGB-only tool · what dpi a poster should be.
