@@ -83,7 +83,7 @@ export async function createWorkspace(name: string): Promise<string> {
 }
 
 /** Make an invite link for one email address. The link carries a secret; the server never sees it. */
-export async function createInvite(ws: string, email: string, role: Exclude<Role, 'owner'>, origin = 'https://voidcanvas.netlify.app'): Promise<string> {
+export async function createInvite(ws: string, email: string, role: Exclude<Role, 'owner'>, origin = 'https://voidcanvas.app'): Promise<string> {
   const w = useTeams.getState().workspaces.find(x => x.id === ws); if (!w) throw new AccountError('Team not found.')
   const all = keys.get(ws); if (!all?.size) throw new AccountError('This device does not have the team key.')
   const id = base32(randomBytes(7)).slice(0, 10)

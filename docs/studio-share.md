@@ -9,7 +9,7 @@ The client needs no account and installs nothing. The designer needs an account 
 
 ## Link
 
-`https://voidcanvas.netlify.app/s#<id>.<secret>`: `id` is 16 random bytes and `secret` another 16, both base64url.
+`https://voidcanvas.app/s#<id>.<secret>`: `id` is 16 random bytes and `secret` another 16, both base64url.
 The fragment never reaches a server (analytics records the path only).
 
 From the secret, with HKDF-SHA256 and the id as info:

@@ -129,6 +129,6 @@ describe('share links', () => {
     const { b64u } = await import('../vault')
     const url = shareUrl('abcdefghijklmnopqrstuv', b64u(secret))
     expect(parseShareLink(url)).toEqual({ id: 'abcdefghijklmnopqrstuv', secret: b64u(secret) })
-    expect(() => parseShareLink('https://voidcanvas.netlify.app/s#abc')).toThrow(/not complete/)
+    expect(() => parseShareLink('https://voidcanvas.app/s#abc')).toThrow(/not complete/)
   })
 })

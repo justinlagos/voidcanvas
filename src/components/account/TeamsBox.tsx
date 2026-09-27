@@ -74,7 +74,7 @@ function TeamDetail({ w }: { w: Workspace }) {
   const r = useRun()
   const load = async () => { setMembers(await listMembers(w.id)); if (owner) setInvites(await listInvites(w.id)) }
   useEffect(() => { load().catch(() => setMembers([])) }, [w.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const origin = typeof location !== 'undefined' && location.protocol.startsWith('http') ? location.origin : 'https://voidcanvas.netlify.app'
+  const origin = typeof location !== 'undefined' && location.protocol.startsWith('http') ? location.origin : 'https://voidcanvas.app'
   const seats = members?.filter(m => m.role !== 'reviewer').length ?? 0
   return (
     <div className="px-3 pb-3 space-y-3">

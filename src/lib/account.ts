@@ -242,7 +242,7 @@ export async function unlockWithRecoveryKey(text: string) {
 let pairingState: PairingStart | null = null
 let pairingTimer: ReturnType<typeof setInterval> | null = null
 
-export async function startDevicePairing(origin = 'https://voidcanvas.netlify.app') {
+export async function startDevicePairing(origin = 'https://voidcanvas.app') {
   cancelDevicePairing()
   const start = await startPairing()
   await rest('vc_pairings', '', { method: 'POST', body: JSON.stringify({ ...start.row, new_device: deviceName() }), prefer: 'return=minimal' })

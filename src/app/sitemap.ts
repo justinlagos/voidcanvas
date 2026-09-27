@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next'
 import { ARTICLES, CATEGORIES, GOALS } from '@/content/learn/index'
 import { livePosts } from '@/content/blog/index'
 
-const base = 'https://voidcanvas.netlify.app'
+const base = 'https://voidcanvas.app'
 export const revalidate = 3600
 
 export default function sitemap(): MetadataRoute.Sitemap {

@@ -145,7 +145,7 @@ function Unlock() {
   const [now, setNow] = useState(Date.now())
   useEffect(() => { if (!pairing) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [pairing])
   useEffect(() => () => cancelDevicePairing(), [])
-  const origin = typeof location !== 'undefined' && location.protocol.startsWith('http') ? location.origin : 'https://voidcanvas.netlify.app'
+  const origin = typeof location !== 'undefined' && location.protocol.startsWith('http') ? location.origin : 'https://voidcanvas.app'
   return (
     <>
       <p className="text-void-200 leading-relaxed">Signed in as <strong>{email}</strong>. This device needs your account key before it can sync. Get it from a device you are already signed in on, or use your recovery key.</p>

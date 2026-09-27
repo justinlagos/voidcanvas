@@ -34,4 +34,4 @@ export function Eyebrow({ children }: { children: ReactNode }) {
   return <p className="text-[13px] sm:text-[14px] font-semibold text-lp-accent tracking-wide">{children}</p>
 }
 
-export const SITE = 'https://voidcanvas.netlify.app'
+export const SITE = 'https://voidcanvas.app'

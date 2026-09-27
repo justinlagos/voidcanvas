@@ -1,6 +1,6 @@
 # Working on Voidcanvas
 
-Owner: Justin Ukaegbu (MotionPlay Labs Ltd). Live: https://voidcanvas.netlify.app. Repo: github.com/justinlagos/voidcanvas, default branch `master`.
+Owner: Justin Ukaegbu (MotionPlay Labs Ltd). Live: https://voidcanvas.app (hosted on Netlify; voidcanvas.netlify.app redirects there). Repo: github.com/justinlagos/voidcanvas, default branch `master`.
 
 ## Ship every change: local, git, Netlify, desktop
 

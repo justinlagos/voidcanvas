@@ -2,7 +2,7 @@ import { livePosts } from '@/content/blog/index'
 import { plain } from '@/content/util'
 
 export const revalidate = 3600
-const SITE = 'https://voidcanvas.netlify.app'
+const SITE = 'https://voidcanvas.app'
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 export function GET() {

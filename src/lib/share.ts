@@ -1,6 +1,6 @@
 // ─── Studio Share ──────────────────────────────────────────────────
 // Review and delivery links for clients. The client needs no account and installs nothing.
-// Link: https://voidcanvas.netlify.app/s#<id>.<secret>. The fragment never reaches a server.
+// Link: https://voidcanvas.app/s#<id>.<secret>. The fragment never reaches a server.
 // From the secret come the content key (seals the manifest, every file and every comment) and a token; the
 // server keeps only a hash of the token, which it checks before handing out sealed data or taking a comment.
 // Files sit in the public bucket `vc-share` under random names listed only in the sealed manifest.
@@ -10,7 +10,7 @@ import { SUPABASE_KEY, SUPABASE_URL } from './analytics'
 import { b64u, openBytes, openJson, randomBytes, sealBytes, sealJson, shareKeys, unb64u } from './vault'
 
 const BUCKET = 'vc-share'
-export const SHARE_ORIGIN = 'https://voidcanvas.netlify.app'
+export const SHARE_ORIGIN = 'https://voidcanvas.app'
 export const SHARE_DAYS = 30
 /** Largest total a delivery link can carry, and largest single file (the storage limit). */
 export const MAX_SHARE_BYTES = 500 * 1024 * 1024

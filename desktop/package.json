@@ -1,13 +1,13 @@
 {
   "name": "voidcanvas-desktop",
   "productName": "Voidcanvas",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Voidcanvas for your computer: design, edit and export, with your files on your own disk.",
   "author": {
     "name": "MotionPlay Labs Ltd",
     "email": "mrjustinukaegbu@gmail.com"
   },
-  "homepage": "https://voidcanvas.netlify.app",
+  "homepage": "https://voidcanvas.app",
   "repository": {
     "type": "git",
     "url": "https://github.com/justinlagos/voidcanvas.git"

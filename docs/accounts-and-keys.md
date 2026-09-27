@@ -37,7 +37,7 @@ or with the recovery key. Signing out deletes the account key from the device an
 
 1. New device makes a one-time ECDH key pair, a 10-character id and a 10-byte secret. It stores
    `{id, new_pub, new_mac = HMAC(secret, "new|id|pub")}` in `vc_pairings` and shows the code (id + secret,
-   26 characters) and a QR code for `https://voidcanvas.netlify.app/pair#<code>`. The fragment never reaches a server.
+   26 characters) and a QR code for `https://voidcanvas.app/pair#<code>`. The fragment never reaches a server.
 2. Existing device, signed in and unlocked, takes the code (typed, or by scanning), reads the row, checks the
    MAC (the server cannot swap the key without the secret), shows which device asked and when, and on approval
    writes `{old_pub, payload = account key sealed with HKDF(ECDH), payload_mac}`.

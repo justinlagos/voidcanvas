@@ -137,5 +137,5 @@ jobs:
           if gh release view "v$VER" --repo "$REPO" >/dev/null 2>&1; then
             gh release upload "v$VER" files/* --repo "$REPO" --clobber
           else
-            gh release create "v$VER" files/* --repo "$REPO" --target "$GITHUB_SHA" --title "Voidcanvas $VER" --notes "Download for Windows, Mac or Linux at https://voidcanvas.netlify.app/download" --latest
+            gh release create "v$VER" files/* --repo "$REPO" --target "$GITHUB_SHA" --title "Voidcanvas $VER" --notes "Download for Windows, Mac or Linux at https://voidcanvas.app/download" --latest
           fi

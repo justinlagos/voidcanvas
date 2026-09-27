@@ -24,7 +24,7 @@ import { Ami, Analogue, EditorFrame, EditorLive, EffectsFrame, Fx, Kofi, KofiGui
 import { Scene } from './motion'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
-const APP = 'https://voidcanvas.netlify.app'
+const APP = 'https://voidcanvas.app'
 
 const FOOTNOTES: [string, string][] = [
   ['Background removal', 'Runs on your device. The model (MODNet via transformers.js, both Apache-2.0) downloads once from a CDN on first use. Your image is never sent.'],

@@ -1,0 +1,7 @@
+# voidcanvas.app is the canonical host. The Netlify subdomain redirects there, so search engines and shared links see
+# one site. Branch and deploy preview hosts (master--voidcanvas.netlify.app, <id>--voidcanvas.netlify.app) are untouched.
+[[redirects]]
+  from = "https://voidcanvas.netlify.app/*"
+  to = "https://voidcanvas.app/:splat"
+  status = 301
+  force = true

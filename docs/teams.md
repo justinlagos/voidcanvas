@@ -34,7 +34,7 @@ roles; a member may only change their own public key; emails are fixed).
 
 1. The owner enters an email and role. The device makes an invite id and a 16-byte secret, seals the team name and
    every key version with a key derived from the secret, and stores that in `vc_invites`.
-2. The link is `https://voidcanvas.netlify.app/join#<id>.<secret>`. The fragment never reaches a server. The owner
+2. The link is `https://voidcanvas.app/join#<id>.<secret>`. The fragment never reaches a server. The owner
    sends it themselves (Voidcanvas does not email invites).
 3. The invitee opens it, signs in with the invited email, and `vc_accept_invite` adds them as a member after checking
    the email matches, the invite is unused and under 7 days old. Their device opens the keys with the secret and

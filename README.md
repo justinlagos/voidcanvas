@@ -23,7 +23,7 @@ npm run dev        # http://localhost:3000
 npm run build && npm start
 ```
 
-Pushing to `master` deploys the site to Netlify (voidcanvas.netlify.app). The desktop app is in `desktop/`; raising its version in `desktop/package.json` builds and publishes a release (`.github/workflows/desktop.yml`).
+Pushing to `master` deploys the site to Netlify at voidcanvas.app (voidcanvas.netlify.app redirects there). The desktop app is in `desktop/`; raising its version in `desktop/package.json` builds and publishes a release (`.github/workflows/desktop.yml`).
 
 ## Editor
 

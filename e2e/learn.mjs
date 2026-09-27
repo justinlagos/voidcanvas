@@ -56,7 +56,7 @@ const title = await p.title()
 ok('article: title under 70 chars and query shaped', title.length <= 70 && /prepare a poster for print/i.test(title), title)
 const desc = await p.getAttribute('meta[name="description"]', 'content')
 ok('article: meta description under 160', desc.length <= 160, String(desc.length))
-ok('article: canonical and og:image', (await p.getAttribute('link[rel="canonical"]', 'href')) === 'https://voidcanvas.netlify.app/learn/prepare-a-poster-for-print' && (await p.getAttribute('meta[property="og:image"]', 'content') || '').includes('/og/learn/prepare-a-poster-for-print'))
+ok('article: canonical and og:image', (await p.getAttribute('link[rel="canonical"]', 'href')) === 'https://voidcanvas.app/learn/prepare-a-poster-for-print' && (await p.getAttribute('meta[property="og:image"]', 'content') || '').includes('/og/learn/prepare-a-poster-for-print'))
 const ald = await p.$$eval('script[type="application/ld+json"]', els => els.map(e => JSON.parse(e.textContent)))
 const graph = ald[0]['@graph']
 ok('article: TechArticle, BreadcrumbList and FAQPage schema', graph.some(x => x['@type'] === 'TechArticle' && x.datePublished && x.image) && graph.some(x => x['@type'] === 'BreadcrumbList' && x.itemListElement[1].item.includes('/learn/topic/')) && graph.some(x => x['@type'] === 'FAQPage'))

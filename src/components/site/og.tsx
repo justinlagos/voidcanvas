@@ -26,7 +26,7 @@ export function ogImage({ eyebrow, title, meta, answer: answerIn }: { eyebrow: s
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 22, color: '#8f8fa3' }}>
           <div>{meta ?? 'Guides that answer real design questions, then show the steps.'}</div>
-          <div style={{ color: '#fff', fontWeight: 500 }}>voidcanvas.netlify.app/learn</div>
+          <div style={{ color: '#fff', fontWeight: 500 }}>voidcanvas.app/learn</div>
         </div>
       </div>
     ),
