@@ -87,6 +87,8 @@ bar (Applied, Selected, Joined, Complete, Paid), key details in a panel, numbere
 "The Voidcanvas team". Greeting falls back to "Hi there" through `{$name|default('there')}`. After editing
 `build.py`, paste each file into its automation step (or the campaign, which must be unscheduled to edit).
 
+ICO registration number: ZC258834 (shown on /research/privacy).
+
 The MailerLite account is on a 14-day trial (from 27 September). Automations need a paid plan after it ends.
 
 ## Tests

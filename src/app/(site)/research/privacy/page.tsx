@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   alternates: { canonical: `${SITE}/research/privacy` },
 }
 
-// The ICO registration number is added here once it is issued.
-const ICO_NUMBER: string | null = null
+// ICO data protection registration number (MotionPlay Labs Ltd).
+const ICO_NUMBER: string | null = 'ZC258834'
 
 export default function Privacy() {
   return (
