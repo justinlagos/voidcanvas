@@ -9,7 +9,7 @@ import { FONTS, ensureFont, registerLocalFont } from '../io'
 import { useEditor } from '../store'
 import type { TextLayer } from '../types'
 import { useUi } from '../ui-store'
-import { deleteVersion, listVersions, restoreVersion, saveVersion, type VersionSummary } from '../versions'
+import { saveVersion } from '../versions'
 import { ColorButton } from './ColorPicker'
 import { Button, Modal, Select, Slider, focusRing } from './ui'
 
@@ -268,41 +268,7 @@ export function AiInfoDialog({ onClose }: { onClose: () => void }) { return <Mod
 
 // ─── Version history ───────────────────────────────────────────────
 
-export function VersionsDialog({ onClose }: { onClose: () => void }) {
-  const doc = useEditor(s => s.doc)!
-  const [list, setList] = useState<VersionSummary[] | null>(null)
-  const load = () => listVersions(doc.id).then(setList).catch(() => setList([]))
-  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const when = (t: number) => { const d = new Date(t); return d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-  return (
-    <Modal title="Version history" onClose={onClose} wide>
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[12.5px] text-void-400">Restore points for this design, kept on this device. Restoring saves the current state first, so you can always come back.</p>
-          <Button onClick={async () => { await saveVersion("Saved by you"); load() }} className="shrink-0 whitespace-nowrap"><Download size={14} />Save a version now</Button>
-        </div>
-        {!list ? <p className="text-[13px] text-void-500">Loading…</p> : !list.length ? <p className="text-[13px] text-void-500 py-6">No versions yet. One is made automatically every few minutes while you work, and you can save one any time with Ctrl+Alt+S.</p> : (
-          <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[55vh] overflow-y-auto">
-            {list.map(v => (
-              <li key={v.id} className="rounded-xl border border-white/[0.06] bg-surface-sunken overflow-hidden">
-                <img src={v.thumb} alt="" className="w-full h-28 object-contain bg-black/40" />
-                <div className="p-2.5">
-                  <p className="text-[12.5px] text-void-100">{v.label}</p>
-                  <p className="text-[11.5px] text-void-500">{when(v.at)} · {v.width}×{v.height}</p>
-                  <div className="flex gap-1 mt-2">
-                    <Button onClick={async () => { await restoreVersion(v.id); onClose() }} className="!h-7 !px-2 !text-[12px] flex-1"><RotateCcw size={12} />Restore</Button>
-                    <Button onClick={async () => { await restoreVersion(v.id, true); onClose() }} className="!h-7 !px-2 !text-[12px]">As copy</Button>
-                    <button aria-label="Delete version" onClick={async () => { await deleteVersion(v.id); load() }} className="w-7 h-7 inline-flex items-center justify-center text-void-500 hover:text-white"><Trash2 size={13} /></button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </Modal>
-  )
-}
+export { VersionsDialog } from './VersionsDialog'
 
 // ─── Missing fonts ─────────────────────────────────────────────────
 

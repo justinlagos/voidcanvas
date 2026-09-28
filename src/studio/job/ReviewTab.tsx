@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Columns2, Download, FileText, Image as ImageIcon, Link2, MessageSquarePlus, Plus, SplitSquareHorizontal, Trash2 } from 'lucide-react'
 import { blobToCanvas, downloadBlob, zipFiles } from '@/editor/io'
 import { uid } from '@/editor/engine'
-import { slug, type Job, type Pin, type ShareLink, type Version } from '../jobs'
+import { STAGE_LABEL, slug, versionTitle, type Job, type Pin, type ShareLink, type Version, type VersionStage } from '../jobs'
+import { boardBoxes, placePin, type LayerBox } from '../pins'
 import { applyShareEvents } from '../share-merge'
 import { LinkBox, SignInToShare, useCanShare } from './LinkBox'
-import { boardCanvas, boardsOf, loadDesign, toBlob } from '../render'
+import { boardCanvas, loadDesign, reviewBoards, toBlob } from '../render'
 import { screenPdf } from '../pdf'
 import { SCENES, bestScene, findSurface, loadScenePhoto, quadAspect, renderOnPhoto, renderScene, sceneUrl, type Finish } from '../mockups'
 import { Btn, Empty, Overlay, focusRing, fmtDate, useObjectUrl } from '../ui'
@@ -56,24 +57,47 @@ export function ReviewTab({ job, update, toast }: TabProps) {
     return () => { stop = true; clearInterval(t); document.removeEventListener('visibilitychange', vis) }
   }, [shared]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // An approved version's design is kept for good in the Editor's version history.
+  const approvedKey = job.versions.filter(x => x.status === 'approved' && x.designVersionId).map(x => x.designVersionId).join(',')
+  useEffect(() => {
+    if (!approvedKey) return
+    import('@/editor/versions').then(m => { for (const id of approvedKey.split(',')) m.keepVersion(id, true).catch(() => {}) }).catch(() => {})
+  }, [approvedKey])
+
   const snapshot = async () => {
     setBusy('Rendering the formats…')
     try {
       const d = await loadDesign(job.designId)
       if (!d) { toast('Start the key visual first (Key visual and formats tab), or add images by hand.'); return }
-      const boards = boardsOf(d).filter(f => f.id === '__doc' || f.deliverableId || !d.doc.frames?.some(k => k.linkedFrom))
+      // The master and every format, Studio's and the Editor's Cascade boards alike.
+      const boards = reviewBoards(d)
+      if (!boards.length) { toast('The design has no boards to show yet.'); return }
+      const n = job.versions.length + 1
+      // Keep the design exactly as it is now, so this version can be reopened, compared and delivered as sent.
+      const { saveVersionOf, getVersionSummary } = await import('@/editor/versions')
+      const designVersionId = await saveVersionOf(job.designId!, 'Sent for review', { name: `Review v${n}` }).catch(() => null)
+      const designFp = designVersionId ? (await getVersionSummary(designVersionId))?.fp ?? null : null
       const images: Version['images'] = []
+      const boxes: Record<string, LayerBox[]> = {}
       for (const f of boards) {
         const k = Math.min(1, 1800 / Math.max(f.width, f.height))
         const c = boardCanvas(d, f, k, true)
-        images.push({ name: job.deliverables.find(x => x.id === f.deliverableId)?.label ?? f.name, blob: await toBlob(c, 'image/jpeg', 0.9), w: c.width, h: c.height })
+        const frame = f.id === '__doc' ? null : f
+        boxes[String(images.length)] = boardBoxes(d, frame, c.width / f.width)
+        // The master board answers the key visual's deliverable even when it carries no deliverable id itself.
+        const isMaster = !f.deliverableId && !f.linkedFrom && d.doc.frames?.some(k => k.linkedFrom === f.id)
+        const delId = f.deliverableId ?? (isMaster ? job.masterDeliverableId : null)
+        images.push({ name: job.deliverables.find(x => x.id === delId)?.label ?? f.name, blob: await toBlob(c, 'image/jpeg', 0.9), w: c.width, h: c.height, frameId: frame?.id ?? null })
       }
-      addVersion(images)
+      if (!images.length) { toast('Nothing rendered, so no version was made.'); return }
+      addVersion(images, { designVersionId, designFp, boxes })
     } finally { setBusy(null) }
   }
-  const addVersion = (images: Version['images']) => {
+  const addVersion = (images: Version['images'], extra: Partial<Version> = {}) => {
     const n = job.versions.length + 1
-    const ver: Version = { id: uid(), n, label: `v${n}`, notes: n === 1 ? 'First look.' : '', at: Date.now(), images, pins: {}, todo: [], status: 'draft' }
+    const prev = job.versions[job.versions.length - 1]
+    const stage: VersionStage = !prev ? 'direction' : prev.stage === 'final' ? 'final' : 'revision'
+    const ver: Version = { id: uid(), n, label: `v${n}`, stage, notes: n === 1 ? 'First look.' : '', at: Date.now(), images, pins: {}, todo: [], status: 'draft', ...extra }
     update(j => ({ versions: [...j.versions, ver], status: j.status === 'design' || j.status === 'direction' ? 'review' : j.status }))
     setVid(ver.id); setImg(0); setMode('pins')
   }
@@ -110,8 +134,8 @@ export function ReviewTab({ job, update, toast }: TabProps) {
             const open = x.todo.filter(t => !t.done).length + Object.values(x.pins).flat().filter(p => !p.done).length
             return (
               <button key={x.id} onClick={() => { setVid(x.id); setImg(0) }} className={`w-full text-left px-3 py-2 rounded-lg ${focusRing} ${vid === x.id ? 'bg-void-800' : 'hover:bg-void-900'}`}>
-                <span className="flex items-center gap-2"><span className="text-[13px] font-semibold">{x.label}</span><span className={`text-[10.5px] px-1.5 h-5 rounded flex items-center ${STATUS[x.status].cls}`}>{STATUS[x.status].label}</span></span>
-                <span className="block text-[11.5px] text-void-500">{fmtDate(x.at)} · {x.images.length} image{x.images.length === 1 ? '' : 's'}{open ? ` · ${open} open` : ''}</span>
+                <span className="flex items-center gap-2"><span className="text-[13px] font-semibold truncate">{versionTitle(x)}</span><span className={`shrink-0 text-[10.5px] px-1.5 h-5 rounded flex items-center ${STATUS[x.status].cls}`}>{STATUS[x.status].label}</span></span>
+                <span className="block text-[11.5px] text-void-500">{x.stage ? STAGE_LABEL[x.stage] + ' · ' : ''}{fmtDate(x.at)} · {x.images.length} image{x.images.length === 1 ? '' : 's'}{open ? ` · ${open} open` : ''}</span>
               </button>
             )
           })}
@@ -127,13 +151,17 @@ export function ReviewTab({ job, update, toast }: TabProps) {
                 <button key={k} onClick={() => setMode(k)} className={`h-8 px-3 rounded-lg text-[12.5px] flex items-center gap-1.5 ${focusRing} ${mode === k ? 'bg-void-700 text-white' : 'text-void-400 hover:text-white'}`}><I size={14} />{l}</button>
               ))}
               <span className="flex-1" />
+              <input value={v.name ?? ''} onChange={e => setV({ name: e.target.value })} onBlur={() => { if (v.designVersionId) import('@/editor/versions').then(m => m.renameVersion(v.designVersionId!, v.name?.trim() ? `${v.name.trim()} (review ${v.label})` : `Review ${v.label}`)).catch(() => {}) }} placeholder={`Name ${v.label}`} aria-label="Version name" className={`h-8 w-40 px-2 rounded-lg bg-void-900 border border-void-800 text-[12.5px] ${focusRing}`} />
+              <select value={v.stage ?? ''} onChange={e => setV({ stage: (e.target.value || undefined) as VersionStage | undefined })} aria-label="Version stage" className={`h-8 px-2 rounded-lg bg-void-900 border border-void-800 text-[12.5px] ${focusRing}`}>
+                <option value="">No stage</option>{(Object.keys(STAGE_LABEL) as VersionStage[]).map(k => <option key={k} value={k}>{STAGE_LABEL[k]}</option>)}
+              </select>
               <select value={v.status} onChange={e => { const st = e.target.value as Version['status']; setV({ status: st }); if (st === 'approved') update({ status: 'review' }) }} aria-label="Version status" className={`h-8 px-2 rounded-lg bg-void-900 border border-void-800 text-[12.5px] ${focusRing}`}>
                 {Object.entries(STATUS).map(([k, s]) => <option key={k} value={k}>{s.label}</option>)}
               </select>
               <Btn primary={!v.share} subtle={!!v.share} onClick={() => setLinkOpen(true)}><Link2 size={14} />{v.share ? 'Review link' : 'Send a review link'}</Btn>
               <Btn subtle onClick={exportPack} disabled={!!busy}><FileText size={14} />Review pack PDF</Btn>
               <Btn subtle onClick={exportWa} disabled={!!busy}><Download size={14} />WhatsApp images</Btn>
-              <Btn subtle onClick={() => { if (confirm(`Delete ${v.label}?`)) { update(j => ({ versions: j.versions.filter(x => x.id !== v.id) })); setVid(null) } }}><Trash2 size={14} /></Btn>
+              <Btn subtle label="Delete this version" onClick={() => { if (confirm(`Delete ${v.label}?`)) { update(j => ({ versions: j.versions.filter(x => x.id !== v.id) })); setVid(null) } }}><Trash2 size={14} /></Btn>
             </div>
             <div className="flex-1 min-h-0 flex">
               <div className="flex-1 min-w-0 flex flex-col">
@@ -141,12 +169,12 @@ export function ReviewTab({ job, update, toast }: TabProps) {
                   <div className="flex gap-1 px-3 pt-3 overflow-x-auto">{v.images.map((im, i) => <button key={i} onClick={() => setImg(i)} className={`h-7 px-2.5 rounded-lg text-[12px] whitespace-nowrap ${focusRing} ${img === i ? 'bg-void-700 text-white' : 'text-void-400 hover:text-white'}`}>{im.name}</button>)}</div>
                 )}
                 <div className="flex-1 min-h-0 p-3">
-                  {mode === 'pins' && v.images[img] && <PinBoard key={v.id + img} im={v.images[img]} pins={v.pins[String(img)] ?? []} share={v.share} onPins={pins => setV(x => ({ pins: { ...x.pins, [String(img)]: pins } }))} />}
+                  {mode === 'pins' && v.images[img] && <PinBoard key={v.id + img} im={v.images[img]} boxes={v.boxes?.[String(img)]} pins={v.pins[String(img)] ?? []} share={v.share} onPins={pins => setV(x => ({ pins: { ...x.pins, [String(img)]: pins } }))} />}
                   {mode === 'compare' && <Compare job={job} v={v} img={img} />}
                   {mode === 'mockup' && v.images[img] && <Mockups im={v.images[img]} name={`${slug(job.name)}_v${v.n}_${slug(v.images[img].name)}`} />}
                 </div>
               </div>
-              {mode === 'pins' && <FeedbackSide v={v} img={img} setV={setV} />}
+              {mode === 'pins' && <FeedbackSide v={v} img={img} setV={setV} job={job} />}
             </div>
           </>
         )}
@@ -163,7 +191,7 @@ function ReviewLink({ job, v, setV, onClose }: { job: Job; v: Version; setV: (p:
     setBusy('Encrypting…'); setError(null)
     try {
       const { createReviewShare } = await import('@/lib/share')
-      const ref = await createReviewShare({ client: job.client, job: job.name, label: v.label, notes: v.notes, workspaceId: job.workspaceId }, v.images.map(im => ({ name: im.name, blob: im.blob, w: im.w, h: im.h })), (d, t) => setBusy(`Uploading ${Math.min(d + 1, t)} of ${t}…`))
+      const ref = await createReviewShare({ client: job.client, job: job.name, label: versionTitle(v), notes: v.notes, workspaceId: job.workspaceId }, v.images.map(im => ({ name: im.name, blob: im.blob, w: im.w, h: im.h })), (d, t) => setBusy(`Uploading ${Math.min(d + 1, t)} of ${t}…`))
       setV({ share: { ...ref, at: Date.now(), seen: 0 }, status: v.status === 'draft' ? 'sent' : v.status })
     } catch (e) { setError((e as Error).message || 'Could not make the link.') } finally { setBusy(null) }
   }
@@ -191,14 +219,14 @@ function ReviewLink({ job, v, setV, onClose }: { job: Job; v: Version; setV: (p:
   )
 }
 
-function PinBoard({ im, pins, onPins, share }: { im: Version['images'][number]; pins: Pin[]; onPins: (p: Pin[]) => void; share?: ShareLink | null }) {
+function PinBoard({ im, pins, onPins, share, boxes }: { im: Version['images'][number]; pins: Pin[]; onPins: (p: Pin[]) => void; share?: ShareLink | null; boxes?: LayerBox[] }) {
   const [reply, setReply] = useState('')
   const post = (body: Parameters<typeof import('@/lib/share').postEventFor>[1]) => { if (share) import('@/lib/share').then(m => m.postEventFor(share, body)).catch(() => {}) }
   const url = useObjectUrl(im.blob)
   const [edit, setEdit] = useState<string | null>(null)
   const add = (e: React.MouseEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
-    const p: Pin = { id: uid(), x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height, text: '', done: false, at: Date.now() }
+    const p: Pin = placePin({ id: uid(), x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height, text: '', done: false, at: Date.now() }, boxes, im.w, im.h)
     onPins([...pins, p]); setEdit(p.id)
   }
   return (
@@ -212,6 +240,7 @@ function PinBoard({ im, pins, onPins, share }: { im: Version['images'][number]; 
             <button onClick={() => { setEdit(edit === p.id ? null : p.id); setReply('') }} className={`-ml-3.5 -mt-3.5 w-7 h-7 rounded-full text-[12px] font-bold shadow-lg ${p.done ? 'bg-emerald-400 text-black' : 'bg-accent text-white'} ${focusRing}`}>{i + 1}</button>
             {edit === p.id && (
               <div className="absolute left-5 top-0 z-10 w-64 p-2 rounded-xl bg-[#1d1d24] border border-void-700 shadow-2xl space-y-1.5">
+                {(p.layerName ?? placePin(p, boxes, im.w, im.h).layerName) && <p className="text-[11px] text-void-400">On: {p.layerName ?? placePin(p, boxes, im.w, im.h).layerName}</p>}
                 {p.shared ? (
                   <div className="space-y-1.5 text-[12.5px]">
                     <p><span className="font-semibold">{p.by}</span> <span className="text-void-300 whitespace-pre-wrap">{p.text}</span></p>
@@ -240,7 +269,14 @@ function splitReply(t: string) {
   return t.split(/\n+|(?<=[.!?])\s+(?=[A-Z])|\s*[•\-*]\s+/).map(s => s.trim().replace(/^\d+[.)]\s*/, '')).filter(s => s.length > 3)
 }
 
-function FeedbackSide({ v, img, setV }: { v: Version; img: number; setV: (p: Partial<Version> | ((v: Version) => Partial<Version>)) => void }) {
+function FeedbackSide({ v, img, setV, job }: { v: Version; img: number; setV: (p: Partial<Version> | ((v: Version) => Partial<Version>)) => void; job: Job }) {
+  // Open the design in the Editor on the layer a comment is about, with the comments showing.
+  const openAt = async (layerId?: string) => {
+    if (!job.designId) return
+    const { flushJob, useJobs } = await import('../jobs')
+    await flushJob(useJobs.getState().jobs?.find(j => j.id === job.id) ?? job)
+    window.location.href = `/editor?project=${encodeURIComponent(job.designId)}&comments=1${layerId ? `&layer=${encodeURIComponent(layerId)}` : ''}`
+  }
   const [reply, setReply] = useState('')
   const pins = v.pins[String(img)] ?? []
   return (
@@ -258,7 +294,7 @@ function FeedbackSide({ v, img, setV }: { v: Version; img: number; setV: (p: Par
       <div>
         <span className="block text-[12px] font-semibold text-void-200 mb-1.5">Pinned comments ({pins.length})</span>
         {!pins.length ? <p className="text-[12px] text-void-500">Click on the image to pin a comment where the client pointed.</p> : (
-          <ol className="space-y-1">{pins.map((p, i) => <li key={p.id} className="flex gap-2 text-[12.5px]"><span className={`w-5 h-5 shrink-0 rounded-full text-[10.5px] font-bold flex items-center justify-center ${p.done ? 'bg-emerald-400 text-black' : 'bg-accent text-white'}`}>{i + 1}</span><span className={p.done ? 'line-through text-void-500' : ''}>{p.by && <b className="font-semibold">{p.by}: </b>}{p.text || 'No comment yet'}{p.replies?.length ? <span className="text-void-500"> · {p.replies.length} repl{p.replies.length === 1 ? 'y' : 'ies'}</span> : null}</span></li>)}</ol>
+          <ol className="space-y-1">{pins.map((p, i) => { const placed = p.layerId ? p : placePin(p, v.boxes?.[String(img)], v.images[img]?.w ?? 1, v.images[img]?.h ?? 1); const on = placed.layerName; return <li key={p.id} className="flex gap-2 text-[12.5px]"><span className={`w-5 h-5 shrink-0 rounded-full text-[10.5px] font-bold flex items-center justify-center ${p.done ? 'bg-emerald-400 text-black' : 'bg-accent text-white'}`}>{i + 1}</span><span className={p.done ? 'line-through text-void-500' : ''}>{p.by && <b className="font-semibold">{p.by}: </b>}{p.text || 'No comment yet'}{p.replies?.length ? <span className="text-void-500"> · {p.replies.length} repl{p.replies.length === 1 ? 'y' : 'ies'}</span> : null}{on && <span className="block text-[11px] text-void-500">On: {on}{job.designId && v.designVersionId && <> · <button onClick={() => openAt(placed.layerId)} className={`underline underline-offset-2 hover:text-white rounded ${focusRing}`}>Show in the Editor</button></>}</span>}</span></li> })}</ol>
         )}
       </div>
       <div>
@@ -298,7 +334,7 @@ function Compare({ job, v, img }: { job: Job; v: Version; img: number }) {
     <div className="h-full flex flex-col gap-2">
       <div className="flex items-center gap-2 text-[12.5px]">
         <span className="text-void-400">{v.label} against</span>
-        <select value={other} onChange={e => setOther(e.target.value)} className={`h-8 px-2 rounded-lg bg-void-900 border border-void-800 ${focusRing}`}>{others.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}</select>
+        <select value={other} onChange={e => setOther(e.target.value)} className={`h-8 px-2 rounded-lg bg-void-900 border border-void-800 ${focusRing}`}>{others.map(x => <option key={x.id} value={x.id}>{versionTitle(x)}</option>)}</select>
         <button onClick={() => setStyle('split')} className={`h-8 px-2.5 rounded-lg flex items-center gap-1 ${style === 'split' ? 'bg-void-700' : 'text-void-400'}`}><SplitSquareHorizontal size={14} />Slider</button>
         <button onClick={() => setStyle('side')} className={`h-8 px-2.5 rounded-lg flex items-center gap-1 ${style === 'side' ? 'bg-void-700' : 'text-void-400'}`}><Columns2 size={14} />Side by side</button>
       </div>

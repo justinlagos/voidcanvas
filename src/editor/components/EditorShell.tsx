@@ -33,6 +33,7 @@ import { useDesktop } from '../useDesktop'
 import { buildActions, canvasMenu, resolveAction, type MenuItem, eventCombo, internalClip, isOwnLayerPicture, noteDuplicate, normCombo, pasteInPlace, pasteLayers, selectAllLayers, smartDuplicate } from '../actions'
 import { groupChain, inGroup } from '../store'
 import { useUi } from '../ui-store'
+import { useComments } from '../comments'
 import { MobileEditor, useIsPhone } from './MobileEditor'
 import * as ops from '../ops'
 import { markSessionClean, noteEdit, readCrashedSession, startAutoVersions, writeSession } from '../versions'
@@ -84,6 +85,7 @@ export function EditorShell() {
     // Browser checks (e2e/trust.mjs) read the design's rules and the save state through these.
     w.__vcCheck = () => checkInvariants(useEditor.getState())
     w.__vcSave = { flush: flushSave, unsaved: hasUnsaved }
+    w.__vcComments = useComments
   }, [])
 
   const docId = useEditor(s => s.doc?.id)
@@ -138,7 +140,19 @@ export function EditorShell() {
     const q = new URLSearchParams(window.location.search)
     const inbox = q.get('inbox'), project = q.get('project'), preset = q.get('preset')
     if (inbox || project || preset) window.history.replaceState(null, '', '/editor')
-    if (project) { openProject(project).then(ok => { if (!ok) useEditor.getState().notify('That design is not on this device any more.') }); return }
+    if (project) {
+      // From a client comment in Studio: open the design on the layer it is about, with the comments showing.
+      const layer = q.get('layer'), comments = q.get('comments')
+      openProject(project).then(ok => {
+        if (!ok) { useEditor.getState().notify('That design is not on this device any more.'); return }
+        if (comments) useUi.getState().showPanel('comments')
+        const s = useEditor.getState(), l = layer ? s.layers.find(x => x.id === layer) : null
+        // After the design's remembered view and selection are put back, so this selection wins.
+        if (l) setTimeout(() => { const st = useEditor.getState(); if (l.frameId) st.setActiveFrame(l.frameId); st.setActive(l.id); stageApi.fitFrame() }, 250)
+        else if (layer) s.notify('The layer that comment was about is no longer in the design.')
+      })
+      return
+    }
     // A Learn guide or the size calculator can open the Editor straight onto a preset (/editor?preset=a5).
     if (preset && !inbox) {
       const p = SIZE_PRESETS.find(x => x.id === preset)

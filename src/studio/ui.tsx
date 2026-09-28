@@ -17,9 +17,9 @@ export function useObjectUrl(blob?: Blob | null) {
   return url
 }
 
-export function Btn({ children, onClick, primary, subtle, disabled, className = '', title, type = 'button' }: { children: ReactNode; onClick?: () => void; primary?: boolean; subtle?: boolean; disabled?: boolean; className?: string; title?: string; type?: 'button' | 'submit' }) {
+export function Btn({ children, onClick, primary, subtle, disabled, className = '', title, label, type = 'button' }: { children: ReactNode; onClick?: () => void; primary?: boolean; subtle?: boolean; disabled?: boolean; className?: string; title?: string; label?: string; type?: 'button' | 'submit' }) {
   return (
-    <button type={type} title={title} onClick={onClick} disabled={disabled}
+    <button type={type} title={title ?? label} aria-label={label} onClick={onClick} disabled={disabled}
       className={`h-8 px-3 inline-flex items-center justify-center gap-1.5 rounded-lg text-[12.5px] font-medium transition-colors disabled:opacity-40 disabled:pointer-events-none ${focusRing} ${primary ? 'bg-white text-void-950 hover:bg-void-100' : subtle ? 'text-void-300 hover:text-white hover:bg-void-800' : 'bg-void-800/80 text-void-100 hover:bg-void-700'} ${className}`}>
       {children}
     </button>

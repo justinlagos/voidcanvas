@@ -5,6 +5,7 @@ import type { RefAnalysis } from './analyze'
 import type { AssetProfile } from '@/lib/intelligence/asset'
 import type { LogoRules } from '@/lib/intelligence/brand'
 import type { VariantId } from '@/lib/intelligence/logo'
+import type { LayerBox } from './pins'
 
 // Studio's data. A job is one piece of client work from brief to delivery. Everything lives
 // in the browser's IndexedDB: nothing is uploaded, nothing needs an account.
@@ -68,18 +69,34 @@ export interface Pin {
   by?: string
   shared?: boolean
   replies?: Reply[]
+  /** The layer under the pin when the version was made, and where on it (0 to 1 across and down). */
+  layerId?: string
+  layerName?: string
+  rel?: { x: number; y: number }
 }
 /** A review or delivery link (Studio Share). The id and secret make the link; the secret never goes to a server readable. */
 export interface ShareLink { id: string; secret: string; url: string; expiresAt: string; at: number; seen?: number }
+export type VersionStage = 'direction' | 'revision' | 'final'
+export const STAGE_LABEL: Record<VersionStage, string> = { direction: 'Direction', revision: 'Revision', final: 'Final' }
 export interface Version {
   id: string
   n: number
+  /** "v3". What the client sees in the link and in file names. */
   label: string
+  /** Where it is in the job, and a name you can change, such as "Direction A" or "Client revision 2". */
+  stage?: VersionStage
+  name?: string
+  /** The Editor version this was made from, so it can be reopened, compared and delivered exactly as it was. */
+  designVersionId?: string | null
+  /** Fingerprint of the design when this version was made (Editor versions.ts), to tell whether it changed since. */
+  designFp?: string | null
+  /** Per image: where the layers sat on it, for tying client pins to layers. Stays on this device's job. */
+  boxes?: Record<string, LayerBox[]>
   /** What changed since the last version. */
   notes: string
   at: number
   /** One image per format shown in this version. */
-  images: { name: string; blob: Blob; w: number; h: number }[]
+  images: { name: string; blob: Blob; w: number; h: number; frameId?: string | null }[]
   pins: Record<string, Pin[]>
   /** Client feedback turned into a checklist. */
   todo: { id: string; text: string; done: boolean }[]
@@ -116,6 +133,20 @@ export interface Job {
   /** Server time of the version last sent or received, and local time it was sent. */
   syncedAt?: string | null
   pushedAt?: number
+}
+
+/** "Direction A · v1", or just "v1" when the version has no name. */
+export const versionTitle = (v: Pick<Version, 'label' | 'name'>) => (v.name?.trim() ? `${v.name.trim()} · ${v.label}` : v.label)
+
+/** Change one job wherever it is: in memory when Studio has it loaded, and in the database. */
+export async function updateJob(id: string, fn: (j: Job) => Partial<Job>): Promise<Job | null> {
+  const mem = useJobs.getState().jobs?.find(j => j.id === id)
+  const cur = mem ?? await idb.get<Job>('jobs', id).catch(() => undefined)
+  if (!cur) return null
+  const next = { ...cur, ...fn(cur), updatedAt: Date.now() }
+  if (mem) useJobs.setState({ jobs: (useJobs.getState().jobs ?? []).map(j => (j.id === id ? next : j)) })
+  await idb.put('jobs', next)
+  return next
 }
 
 export function newJob(partial: Partial<Job> = {}): Job {

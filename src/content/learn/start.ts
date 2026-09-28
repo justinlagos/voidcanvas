@@ -151,7 +151,7 @@ export const articles: Article[] = [
       { t: 'p', text: "File, **Save as template** stores a copy of the design as a template. Templates appear on the start screen under **Your templates**. Opening one makes a fresh copy, so the template itself never changes. Templates are stored on this device like everything else. See [Templates and versions](/learn/templates-and-versions)." },
 
       { t: 'h', text: 'Versions' },
-      { t: 'p', text: "Autosave keeps only the latest state. Versions are extra restore points. One is made automatically every 10 minutes while you work (change this in Preferences, **History and saving**, or set it to 0 to turn it off), and you can save one yourself with {{Ctrl+Alt+S}}. File, **Version history…** lists them with **Restore** and **As copy**. Up to 30 versions are kept per design; when there are more, the oldest automatic ones go first." },
+      { t: 'p', text: "Autosave keeps only the latest state. Versions are extra restore points. One is made automatically every 10 minutes while you work (change this in Preferences, **History and saving**, or set it to 0 to turn it off), and you can save one yourself with {{Ctrl+Alt+S}}. File, **Version history…** lists them with **Restore** and **As copy**. Up to 30 versions are kept per design; when there are more, the oldest automatic ones go first. Named versions and approved ones are never removed to make room." },
 
       { t: 'h', text: 'What can wipe your work' },
       { t: 'warn', text: "Clearing your browser's site data, cookies or storage for this site deletes every design, job and brand in it. So does **Delete all my data** in Your privacy. Neither can be undone." },

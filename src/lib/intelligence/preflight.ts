@@ -90,6 +90,11 @@ export interface DeliveryInput {
   versions: { n: number; label: string; status: 'sent' | 'approved' | 'changes' | 'draft'; openPins: number; openTodos: number; hasOpenLink: boolean }[]
   fileNames: string[]
   hasBrand: boolean
+  /**
+   * The approved version, when there is one: its label, whether the design changed after it was approved
+   * (null when that cannot be told), what is being delivered, and the label the next version would get.
+   */
+  approval?: { label: string; changed: boolean | null; delivering: 'approved' | 'current'; next: string } | null
 }
 
 /** Is the job ready to leave? */
@@ -102,11 +107,13 @@ export function deliveryPreflight(d: DeliveryInput): { level: Level; summary: st
   const latest = d.versions.slice().sort((a, b) => b.n - a.n)[0]
   if (!d.versions.length) f.push({ level: 'check', text: 'Nothing has been sent for review. Delivering without a sign-off is fine for small jobs; note it in the delivery.', tab: 'review' })
   else {
-    if (latest.status !== 'approved') f.push({ level: latest.status === 'changes' ? 'attention' : 'check', text: latest.status === 'changes' ? `${latest.label} came back with changes asked. Deliver after the next round, or confirm with the client.` : `${latest.label} is not approved yet.`, tab: 'review' })
+    if (latest.status !== 'approved' && !(d.approval?.delivering === 'approved')) f.push({ level: latest.status === 'changes' ? 'attention' : 'check', text: latest.status === 'changes' ? `${latest.label} came back with changes asked. Deliver after the next round, or confirm with the client.` : `${latest.label} is not approved yet.`, tab: 'review' })
     if (latest.openPins) f.push({ level: 'attention', text: `${plural(latest.openPins, 'comment')} on ${latest.label} not marked done.`, tab: 'review', action: 'Open review' })
     if (latest.openTodos) f.push({ level: 'check', text: `${plural(latest.openTodos, 'item')} on the ${latest.label} to-do list still open.`, tab: 'review' })
     if (latest.hasOpenLink && latest.status !== 'approved') f.push({ level: 'check', text: `The review link for ${latest.label} is still open. The client may still be commenting.`, tab: 'review' })
   }
+  const ap = d.approval
+  if (ap && ap.delivering === 'current' && ap.changed) f.push({ level: 'attention', text: `The design changed after ${ap.label} was approved. Deliver ${ap.label}, or send ${ap.next} for approval.`, action: `Deliver ${ap.label}`, tab: 'deliver-approved' })
   const dupes = d.fileNames.filter((n, i) => d.fileNames.indexOf(n) !== i)
   if (dupes.length) f.push({ level: 'attention', text: `Duplicate file names in the package: ${Array.from(new Set(dupes)).join(', ')}. Rename the formats so each file is unique.`, tab: 'brief' })
   const attention = f.filter(x => x.level === 'attention').length, check = f.filter(x => x.level === 'check').length

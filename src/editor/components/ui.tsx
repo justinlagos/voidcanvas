@@ -167,7 +167,7 @@ export function Modal({ title, onClose, children, wide, preview }: { title: stri
     return () => window.removeEventListener('keydown', k, true)
   }, [onClose])
   return (
-    <div className={`fixed inset-0 z-50 flex items-end sm:items-center p-0 sm:p-6 ${preview ? 'justify-center sm:justify-end bg-black/15' : 'justify-center bg-black/60 backdrop-blur-[2px]'}`} onPointerDown={e => { if (e.target === e.currentTarget) onClose() }}>
+    <div className={`fixed inset-0 z-[70] flex items-end sm:items-center p-0 sm:p-6 ${preview ? 'justify-center sm:justify-end bg-black/15' : 'justify-center bg-black/60 backdrop-blur-[2px]'}`} onPointerDown={e => { if (e.target === e.currentTarget) onClose() }}>
       <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title}
         className={`w-full ${wide ? 'sm:max-w-3xl' : 'sm:max-w-md'} max-h-[88vh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-[#17171c] border border-void-800 shadow-2xl outline-none`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-void-800/70">

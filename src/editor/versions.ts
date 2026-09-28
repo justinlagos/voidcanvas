@@ -1,37 +1,116 @@
-import { idb, isPrivate, restoreStored, saveProject, storeDesign, type StoredProject } from './io'
+import { idb, isPrivate, restoreStored, saveProject, storeDesign, whenSaved, type ProjectSummary, type StoredProject } from './io'
 import { useEditor } from './store'
 import { useUi } from './ui-store'
 
 // Version history and crash recovery. Versions are full copies of a design kept on this device:
 // saved by hand, every few minutes while you work, before risky operations and on export.
 
-export interface VersionSummary { id: string; docId: string; at: number; label: string; auto: boolean; thumb: string; width: number; height: number }
+export interface VersionSummary {
+  id: string; docId: string; at: number
+  /** How it was made: "Saved by you", "Automatic", "Exported", "Sent for review"… */
+  label: string
+  auto: boolean
+  thumb: string; width: number; height: number
+  /** A name the designer gave it, such as "Direction A" or "Client revision 2". */
+  name?: string
+  /** Approved by a client (or pinned by hand): never removed to make room. */
+  keep?: boolean
+  /** Fingerprint of the design (see `fingerprint`), to tell whether the design changed since. */
+  fp?: string
+}
 interface StoredVersion { id: string; project: StoredProject }
 
 const KEEP = 30
 
-export async function saveVersion(label: string, auto = false): Promise<boolean> {
+/** Save the open design as a version. Returns the version id, or null when there is nothing to save. */
+export async function saveVersion(label: string, auto = false, opts: { name?: string } = {}): Promise<string | null> {
   const { doc, layers, groups, swatches } = useEditor.getState()
-  if (!doc || isPrivate()) return false
+  if (!doc || isPrivate()) return null
   const { stored, summary } = await storeDesign(doc, layers, groups, swatches)
-  const id = `${doc.id}:${Date.now()}`
-  await idb.put('versions', { id, project: stored } as StoredVersion)
-  await idb.put('versionIndex', { id, docId: doc.id, at: Date.now(), label, auto, thumb: summary.thumb, width: doc.width, height: doc.height } as VersionSummary)
-  await prune(doc.id)
+  const id = await putVersion(stored, summary.thumb, label, auto, opts)
   lastVersionAt = Date.now()
-  return true
+  return id
+}
+
+/**
+ * Save a design that is not open (Studio making a review version). The newest version is reused when the
+ * design has not changed since it, so sending the same design twice does not store it twice.
+ */
+export async function saveVersionOf(docId: string, label: string, opts: { name?: string; keep?: boolean } = {}): Promise<string | null> {
+  if (isPrivate()) return null
+  await whenSaved()
+  const stored = await idb.get<StoredProject>('projects', docId).catch(() => undefined)
+  if (!stored) return null
+  const fp = await fingerprint(stored)
+  const last = (await listVersions(docId))[0]
+  if (last && last.fp === fp) {
+    await idb.put('versionIndex', { ...last, ...(opts.name && !last.name ? { name: opts.name } : {}), ...(opts.keep ? { keep: true } : {}) })
+    return last.id
+  }
+  const summary = await idb.get<ProjectSummary>('index', docId).catch(() => undefined)
+  return putVersion(stored, summary?.thumb ?? '', label, false, opts, fp)
+}
+
+async function putVersion(stored: StoredProject, thumb: string, label: string, auto: boolean, opts: { name?: string; keep?: boolean }, fp?: string): Promise<string> {
+  const docId = stored.id
+  const id = `${docId}:${Date.now()}`
+  await idb.put('versions', { id, project: stored } as StoredVersion)
+  const v: VersionSummary = { id, docId, at: Date.now(), label, auto, thumb, width: stored.doc.width, height: stored.doc.height, fp: fp ?? await fingerprint(stored).catch(() => undefined) }
+  if (opts.name?.trim()) v.name = opts.name.trim()
+  if (opts.keep) v.keep = true
+  await idb.put('versionIndex', v)
+  await prune(docId)
+  return id
 }
 
 export async function listVersions(docId: string): Promise<VersionSummary[]> {
   return (await idb.all<VersionSummary>('versionIndex')).filter(v => v.docId === docId).sort((a, b) => b.at - a.at)
 }
+export const getVersionSummary = (id: string) => idb.get<VersionSummary>('versionIndex', id)
+/** The stored design of a version, for rendering it (Studio delivery, compare). */
+export async function versionProject(id: string): Promise<StoredProject | null> {
+  return (await idb.get<StoredVersion>('versions', id).catch(() => undefined))?.project ?? null
+}
+
+/** Give a version a name, or clear it with an empty string. */
+export async function renameVersion(id: string, name: string) {
+  const v = await getVersionSummary(id); if (!v) return
+  const next = { ...v }; if (name.trim()) next.name = name.trim(); else delete next.name
+  await idb.put('versionIndex', next)
+}
+/** Keep a version for good (an approved one), or let it go again. */
+export async function keepVersion(id: string, keep: boolean) {
+  const v = await getVersionSummary(id); if (!v) return
+  await idb.put('versionIndex', { ...v, keep })
+}
+
+/**
+ * Which versions to remove so at most `keep` remain. Automatic unnamed versions go first, then unnamed ones
+ * saved by hand, oldest first. Named and kept (approved) versions are never removed, even past the limit.
+ */
+export function versionsToDrop(all: VersionSummary[], keep = KEEP): VersionSummary[] {
+  if (all.length <= keep) return []
+  const old = all.slice().sort((a, b) => a.at - b.at)
+  const loose = (v: VersionSummary) => !v.name && !v.keep
+  return [...old.filter(v => loose(v) && v.auto), ...old.filter(v => loose(v) && !v.auto)].slice(0, all.length - keep)
+}
 
 async function prune(docId: string) {
-  const all = await listVersions(docId)
-  if (all.length <= KEEP) return
-  // Drop the oldest automatic versions first; versions you saved by hand go last.
-  const drop = [...all.filter(v => v.auto).reverse(), ...all.filter(v => !v.auto).reverse()].slice(0, all.length - KEEP)
-  for (const v of drop) await deleteVersion(v.id)
+  for (const v of versionsToDrop(await listVersions(docId))) await deleteVersion(v.id)
+}
+
+/**
+ * A short fingerprint of a stored design. The same design gives the same fingerprint, even after it was
+ * closed and opened again (unchanged layers keep their PNG bytes); any change to a layer, the boards or the
+ * pixels gives a different one.
+ */
+export async function fingerprint(p: StoredProject): Promise<string> {
+  const layers = p.layers.map(l => { const { rev, ...rest } = l; return rest })
+  const parts: BlobPart[] = [JSON.stringify({ doc: p.doc, layers, groups: p.groups ?? [] })]
+  for (const k of Object.keys(p.blobs).sort()) { parts.push('\u0000' + k + '\u0000'); parts.push(p.blobs[k]) }
+  const buf = await new Blob(parts).arrayBuffer()
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', buf))
+  return Array.from(h.slice(0, 16), b => b.toString(16).padStart(2, '0')).join('')
 }
 
 export async function deleteVersion(id: string) { await idb.del('versions', id); await idb.del('versionIndex', id) }

@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Blend, ChevronDown, ChevronRight, CircleDot, Compass, FunctionSquare, History, Info, Layers, Palette, Pilcrow, Route, SlidersHorizontal, SwatchBook, Type, X, ClipboardCheck } from 'lucide-react'
+import { Blend, ChevronDown, ChevronRight, CircleDot, Compass, FunctionSquare, History, Info, Layers, MessageSquare, Palette, Pilcrow, Route, SlidersHorizontal, SwatchBook, Type, X, ClipboardCheck } from 'lucide-react'
 import { PANEL_LABELS } from '../actions'
 import { useUi, type DockGroup, type FloatingPanel, type PanelId } from '../ui-store'
 import { AdjustmentsPanel, BrandPanel, ChannelsPanel, CharacterPanel, HistoryPanel, InfoPanel, NavigatorPanel, ParagraphPanel, PathsPanel, StylesPanel, SwatchesPanel, BriefPanel } from './panels'
 import { LayersPanel } from './LayersPanel'
+import { CommentsPanel } from './CommentsPanel'
 import { PropertiesPanel } from './PropertiesPanel'
 import { Tooltip, focusRing } from './ui'
 
@@ -15,7 +16,7 @@ import { Tooltip, focusRing } from './ui'
 
 export const PANEL_ICONS: Record<PanelId, typeof Layers> = {
   properties: SlidersHorizontal, layers: Layers, channels: CircleDot, paths: Route, history: History, swatches: Palette,
-  adjustments: Blend, character: Type, paragraph: Pilcrow, info: Info, brand: SwatchBook, navigator: Compass, styles: FunctionSquare, brief: ClipboardCheck,
+  adjustments: Blend, character: Type, paragraph: Pilcrow, info: Info, brand: SwatchBook, navigator: Compass, styles: FunctionSquare, brief: ClipboardCheck, comments: MessageSquare,
 }
 
 export function PanelBody({ id, onOpenFilters }: { id: PanelId; onOpenFilters: () => void }) {
@@ -34,6 +35,7 @@ export function PanelBody({ id, onOpenFilters }: { id: PanelId; onOpenFilters: (
     case 'brand': return <div className="h-full overflow-y-auto"><BrandPanel /></div>
     case 'styles': return <div className="h-full overflow-y-auto"><StylesPanel /></div>
     case 'brief': return <div className="h-full overflow-y-auto"><BriefPanel /></div>
+    case 'comments': return <CommentsPanel />
   }
 }
 

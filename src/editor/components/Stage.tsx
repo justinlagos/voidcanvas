@@ -17,6 +17,7 @@ import { recallView, rememberView, viewFor } from '../viewmemory'
 import { LONG_PRESS_MS, isCoarse, touchCanvas } from '../touch'
 import { noteDuplicate } from '../actions'
 import { pivotPoint, rotatedAbout } from '../pivot'
+import { pinPoint, useComments } from '../comments'
 import * as ops from '../ops'
 import * as pen from '../pen'
 
@@ -179,6 +180,8 @@ export function Stage() {
   const compare = useEditor(s => s.compare)
   const transform = useEditor(s => s.transform)
   const isolated = useEditor(s => (s.isolatedGroupId ? s.groups.find(g => g.id === s.isolatedGroupId) ?? null : null))
+  const commentPins = useComments(s => (s.shown ? s.pins : null))
+  const commentFocus = useComments(s => s.focus)
   const quickMask = useEditor(s => s.quickMask)
   const viewChannel = useEditor(s => s.viewChannel)
   const activePathId = useEditor(s => s.activePathId)
@@ -517,6 +520,22 @@ export function Stage() {
         octx.beginPath(); octx.moveTo(edge.x, edge.y); octx.lineTo(rp.x, rp.y); octx.stroke()
         octx.beginPath(); octx.arc(rp.x, rp.y, coarse() ? 9 : 6, 0, Math.PI * 2); octx.fill(); octx.stroke()
       }
+    }
+    // Client comments, while the Comments panel is open: numbered pins, on the layer each one is about.
+    const cm = useComments.getState()
+    if (cm.shown && cm.pins.length) {
+      octx.save()
+      octx.font = `bold 11px ${uiFont()}`; octx.textAlign = 'center'; octx.textBaseline = 'middle'
+      for (const pin of cm.pins) {
+        const at = toScreen(pinPoint(pin, doc, s.layers))
+        if (at.x < -20 || at.y < -20 || at.x > w + 20 || at.y > h + 20) continue
+        const focus = cm.focus === pin.id
+        octx.beginPath(); octx.arc(at.x, at.y, focus ? 13 : 11, 0, Math.PI * 2)
+        octx.fillStyle = pin.done ? '#34d399' : '#8b7cff'; octx.fill()
+        octx.lineWidth = focus ? 3 : 2; octx.strokeStyle = '#fff'; octx.stroke()
+        octx.fillStyle = pin.done ? '#000' : '#fff'; octx.fillText(String(pin.n), at.x, at.y + 0.5)
+      }
+      octx.restore()
     }
     // Editing a group on its own: everything outside it is dimmed.
     if (s.isolatedGroupId) {
@@ -972,7 +991,7 @@ export function Stage() {
 
   useEffect(() => { restoreOrFit() }, [docId, restoreOrFit])
   useEffect(() => { invalidate(true) }, [docRev, compare, editingTextId, transform?.layerId, viewChannel, invalidate])
-  useEffect(() => { invalidate() }, [selRev, view, tool, activeId, crop, optSize, transform, quickMask, activePathId, showRulers, showGuides, pixelGrid, isolated, invalidate])
+  useEffect(() => { invalidate() }, [selRev, view, tool, activeId, crop, optSize, transform, quickMask, activePathId, showRulers, showGuides, pixelGrid, isolated, commentPins, commentFocus, invalidate])
   useEffect(() => { if (tool !== 'pen' && tool !== 'curvature') penSub.current = null; if (!isPathTool(tool)) { sel.current = null; hover.current = null; if (useEditor.getState().vmaskEditId) useEditor.setState({ vmaskEditId: null }); pathSnap.current = { v: null, h: null, info: null } } if (tool !== 'polylasso') poly.current = null }, [tool])
   // Undo or another panel can remove the path being drawn.
   useEffect(() => { if (penSub.current && !getSubs(penSub.current.target)[penSub.current.sub]) penSub.current = null; if (sel.current && !getSubs(sel.current.target).length) sel.current = null }, [docRev])

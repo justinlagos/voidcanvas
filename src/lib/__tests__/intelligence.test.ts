@@ -248,4 +248,15 @@ describe('preflight', () => {
     expect(bad.level).toBe('attention'); expect(bad.summary).toMatch(/things need attention/)
     expect(bad.findings.map(f => f.text).join('\n')).toMatch(/Story/); expect(bad.findings.map(f => f.text).join('\n')).toMatch(/no print PDF/); expect(bad.findings.map(f => f.text).join('\n')).toMatch(/2 comments/); expect(bad.findings.map(f => f.text).join('\n')).toMatch(/Duplicate/)
   })
+  it('delivery: warns when the design changed after approval, and not when the approved version is delivered', () => {
+    const base = { deliverables: [{ id: 'a', label: 'Post', group: 'Social', built: true, kinds: ['png'] }], versions: [{ n: 3, label: 'v3', status: 'approved' as const, openPins: 0, openTodos: 0, hasOpenLink: false }], fileNames: ['x_v3.png'], hasBrand: true }
+    const now = deliveryPreflight({ ...base, approval: { label: 'v3', changed: true, delivering: 'current', next: 'v4' } })
+    expect(now.level).toBe('attention')
+    expect(now.findings[0].text).toBe('The design changed after v3 was approved. Deliver v3, or send v4 for approval.')
+    expect(deliveryPreflight({ ...base, approval: { label: 'v3', changed: true, delivering: 'approved', next: 'v4' } }).level).toBe('good')
+    expect(deliveryPreflight({ ...base, approval: { label: 'v3', changed: false, delivering: 'current', next: 'v4' } }).level).toBe('good')
+    // A newer draft after the approved one: delivering the approved version is still fine.
+    const later = { ...base, versions: [...base.versions, { n: 4, label: 'v4', status: 'draft' as const, openPins: 0, openTodos: 0, hasOpenLink: false }] }
+    expect(deliveryPreflight({ ...later, approval: { label: 'v3', changed: true, delivering: 'approved', next: 'v5' } }).level).toBe('good')
+  })
 })

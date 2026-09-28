@@ -509,16 +509,24 @@ export async function storeDesign(doc: Doc, layers: Layer[], groups: Group[], sw
   return { stored, summary }
 }
 
+/** A canvas from a stored PNG. The PNG is remembered for that canvas, so saving an unchanged layer writes the
+ *  same bytes again instead of encoding it anew (faster, and a design that did not change keeps its fingerprint). */
+async function fromPng(b: Blob): Promise<HTMLCanvasElement> {
+  const c = await blobToCanvas(b, 1e6)
+  if (b.type === 'image/png' || !b.type) pngCache.set(c, Promise.resolve(b))
+  return c
+}
+
 /** Turn a stored project back into live layers. */
 export async function restoreStored(p: StoredProject): Promise<{ doc: Doc; layers: Layer[] }> {
   await unpackFonts(p.fonts)
   const layers: Layer[] = await Promise.all(p.layers.map(async m => {
     const { hasMask, ...rest } = m
-    const l: any = { ...rest, rev: nextRev(), mask: hasMask && p.blobs[m.id + ':mask'] ? await blobToCanvas(p.blobs[m.id + ':mask'], 1e6) : null }
-    if (m.type === 'raster') l.canvas = p.blobs[m.id] ? await blobToCanvas(p.blobs[m.id], 1e6) : makeCanvas(1, 1)
+    const l: any = { ...rest, rev: nextRev(), mask: hasMask && p.blobs[m.id + ':mask'] ? await fromPng(p.blobs[m.id + ':mask']) : null }
+    if (m.type === 'raster') l.canvas = p.blobs[m.id] ? await fromPng(p.blobs[m.id]) : makeCanvas(1, 1)
     return l as Layer
   }))
-  const doc = await unpackDoc(p.doc, async k => (p.blobs[k] ? blobToCanvas(p.blobs[k], 1e6) : null))
+  const doc = await unpackDoc(p.doc, async k => (p.blobs[k] ? fromPng(p.blobs[k]) : null))
   return { doc, layers }
 }
 

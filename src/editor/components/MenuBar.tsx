@@ -222,7 +222,7 @@ export function CanvasMenu({ x, y, items, onDone }: { x: number; y: number; item
     return () => { clearTimeout(t); window.removeEventListener('pointerdown', away, true); window.removeEventListener('wheel', away, true); window.removeEventListener('contextmenu', away, true); window.removeEventListener('keydown', key, true); window.removeEventListener('blur', onDone) }
   }, [onDone])
   return (
-    <div ref={box} data-canvas-menu className="fixed z-50" style={{ left: pos?.left ?? -9999, top: pos?.top ?? 0, visibility: pos ? 'visible' : 'hidden' }} onContextMenu={e => e.preventDefault()}>
+    <div ref={box} data-canvas-menu className="fixed z-[70]" style={{ left: pos?.left ?? -9999, top: pos?.top ?? 0, visibility: pos ? 'visible' : 'hidden' }} onContextMenu={e => e.preventDefault()}>
       <MenuList items={items} actions={actions} onDone={onDone} autoFocus />
     </div>
   )

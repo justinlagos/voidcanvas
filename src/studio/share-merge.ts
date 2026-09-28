@@ -3,6 +3,7 @@
 
 import type { ShareEvent } from '@/lib/share'
 import type { Pin, Version } from './jobs'
+import { placePin } from './pins'
 
 export function applyShareEvents(v: Version, events: ShareEvent[]): Version {
   if (!v.share || !events.length) return v
@@ -16,7 +17,9 @@ export function applyShareEvents(v: Version, events: ShareEvent[]): Version {
     if (e.t === 'pin') {
       if (find(e.id) || !Number.isFinite(e.x) || !Number.isFinite(e.y)) continue
       const k = String(Math.max(0, Math.floor(e.img) || 0))
-      pins[k] = [...(pins[k] ?? []), { id: e.id, x: clamp01(e.x), y: clamp01(e.y), text: clip(e.text, 2000), done: false, at, by, shared: true, replies: [] }]
+      const im = v.images[Number(k)]
+      const pin: Pin = { id: e.id, x: clamp01(e.x), y: clamp01(e.y), text: clip(e.text, 2000), done: false, at, by, shared: true, replies: [] }
+      pins[k] = [...(pins[k] ?? []), im ? placePin(pin, v.boxes?.[k], im.w, im.h) : pin]
     } else if (e.t === 'reply') {
       const p = find(e.pin); if (!p || p.replies?.some(r => r.id === e.id)) continue
       p.replies = [...(p.replies ?? []), { id: e.id, by, text: clip(e.text, 2000), at, team: e.team }]

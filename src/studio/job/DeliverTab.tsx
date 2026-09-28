@@ -5,7 +5,8 @@ import { Check, Link2, Package } from 'lucide-react'
 import { downloadBlob, zipFiles } from '@/editor/io'
 import { colorSpecLine } from '../brand/export'
 import { fileName, slug, useJobs, type ClientBrand, type Deliverable, type Job } from '../jobs'
-import { boardCanvas, boardsOf, loadDesign, toBlob, type LoadedDesign } from '../render'
+import { boardCanvas, boardsOf, loadDesign, loadDesignVersion, toBlob, type LoadedDesign } from '../render'
+import { versionTitle } from '../jobs'
 import { printPdf } from '../pdf'
 import { Btn, Empty, Panel, focusRing, fmtDate } from '../ui'
 import { deliveryPreflight } from '@/lib/intelligence/preflight'
@@ -19,16 +20,40 @@ const KIND_LABEL: Record<Kind, string> = { png: 'PNG', jpg: 'JPG', webp: 'WebP',
 const defaults = (d: Deliverable): Kind[] => (d.group === 'Print' || d.group === 'Outdoor' ? ['pdf', 'jpg'] : ['png', 'jpg'])
 
 export function DeliverTab({ job, update, toast, go }: TabProps) {
-  const [design, setDesign] = useState<LoadedDesign | null>(null)
+  const [live, setLive] = useState<LoadedDesign | null>(null)
   const [loading, setLoading] = useState(true)
+  // The newest approved version. When it kept its design, that is what gets delivered unless you choose the
+  // design as it is now; if the design changed since approval, the check below says so.
+  const approved = job.versions.filter(v => v.status === 'approved').sort((a, b) => b.n - a.n)[0] ?? null
+  const [approvedDesign, setApprovedDesign] = useState<LoadedDesign | null>(null)
+  const [changed, setChanged] = useState<boolean | null>(null)
+  const [source, setSource] = useState<'approved' | 'current'>('approved')
+  useEffect(() => {
+    let live = true
+    setApprovedDesign(null); setChanged(null)
+    if (!approved?.designVersionId) return
+    loadDesignVersion(approved.designVersionId).then(d => { if (live) setApprovedDesign(d) }).catch(() => {})
+    if (approved.designFp && job.designId) {
+      Promise.all([import('@/editor/versions'), import('@/editor/io')]).then(async ([v, io]) => {
+        await io.whenSaved()
+        const p = await io.idb.get<import('@/editor/io').StoredProject>('projects', job.designId!)
+        if (live) setChanged(p ? (await v.fingerprint(p)) !== approved.designFp : null)
+      }).catch(() => {})
+    }
+    return () => { live = false }
+  }, [approved?.designVersionId, approved?.designFp, job.designId])
+  const fromApproved = source === 'approved' && !!approvedDesign
+  const design = fromApproved ? approvedDesign : live
   const [pick, setPick] = useState<Record<string, Kind[]>>({})
   const [withBrand, setWithBrand] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const brand = useJobs(s => s.brands.find(b => b.id === job.brandId))
-  useEffect(() => { loadDesign(job.designId).then(d => { setDesign(d); setLoading(false) }) }, [job.designId])
-  const version = Math.max(1, job.versions.length)
+  useEffect(() => { loadDesign(job.designId).then(d => { setLive(d); setLoading(false) }) }, [job.designId])
+  const version = fromApproved ? approved!.n : Math.max(1, job.versions.length)
   const boards = design ? boardsOf(design) : []
-  const frameFor = (d: Deliverable) => boards.find(f => f.deliverableId === d.id) ?? (d.id === job.masterDeliverableId ? boards.find(f => !f.linkedFrom) : undefined)
+  // The master is the board the formats link to; without formats, the first board that links to nothing.
+  const masterBoard = boards.find(f => boards.some(k => k.linkedFrom === f.id)) ?? boards.find(f => !f.linkedFrom)
+  const frameFor = (d: Deliverable) => boards.find(f => f.deliverableId === d.id) ?? (d.id === job.masterDeliverableId ? masterBoard : undefined)
   const rows = job.deliverables.map(d => ({ d, f: frameFor(d), kinds: pick[d.id] ?? defaults(d) }))
   const ready = rows.filter(r => r.f)
   const fileList = useMemo(() => ready.flatMap(r => r.kinds.map(k => fileName(job, r.d, version, k === 'jpg' ? 'jpg' : k))), [ready, job, version])
@@ -38,7 +63,8 @@ export function DeliverTab({ job, update, toast, go }: TabProps) {
     deliverables: rows.map(r => ({ id: r.d.id, label: r.d.label, group: r.d.group, built: !!r.f, kinds: r.kinds })),
     versions: job.versions.map(v => ({ n: v.n, label: v.label, status: v.status, openPins: Object.values(v.pins ?? {}).flat().filter(p => !p.done).length, openTodos: (v.todo ?? []).filter(t => !t.done).length, hasOpenLink: !!v.share })),
     fileNames: fileList, hasBrand: !!brand,
-  }), [rows, job.versions, fileList, brand])
+    approval: approved ? { label: approved.label, changed: approvedDesign || !approved.designVersionId ? changed : null, delivering: fromApproved ? 'approved' : 'current', next: `v${job.versions.length + 1}` } : null,
+  }), [rows, job.versions, fileList, brand, approved, approvedDesign, changed, fromApproved])
   const canShare = useCanShare()
   const [signIn, setSignIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -125,10 +151,22 @@ export function DeliverTab({ job, update, toast, go }: TabProps) {
                 <li key={i} className="flex items-start gap-2.5 px-3 py-2 text-[12.5px]">
                   <span className={`mt-[4px] w-2 h-2 rounded-full shrink-0 ${f.level === 'attention' ? 'bg-rose-400' : 'bg-amber-300'}`} />
                   <span className={`flex-1 leading-snug ${f.level === 'attention' ? 'text-void-100' : 'text-void-300'}`}>{f.text}</span>
-                  {f.tab && <button onClick={() => go(f.tab as never)} className={`shrink-0 text-void-400 hover:text-white rounded ${focusRing}`}>{f.action ?? 'Open'}</button>}
+                  {f.tab && <button onClick={() => (f.tab === 'deliver-approved' ? setSource('approved') : go(f.tab as never))} className={`shrink-0 text-void-400 hover:text-white rounded ${focusRing}`}>{f.action ?? 'Open'}</button>}
                 </li>
               ))}
             </ul>
+          )}
+          {approved && (
+            <div role="radiogroup" aria-label="What to deliver" className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12.5px]" data-deliver-source>
+              {approved.designVersionId && approvedDesign ? (
+                <>
+                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="deliver-source" checked={fromApproved} onChange={() => setSource('approved')} className="accent-[#8b7cff]" />{versionTitle(approved)}, as the client approved it</label>
+                  <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="deliver-source" checked={!fromApproved} onChange={() => setSource('current')} className="accent-[#8b7cff]" />The design as it is now{changed ? <span className="text-amber-200">, changed since {approved.label} was approved</span> : changed === false ? <span className="text-void-500">, the same as {approved.label}</span> : null}</label>
+                </>
+              ) : (
+                <span className="text-void-400">{approved.label} was approved{approved.designVersionId ? ', but its design is not on this device' : ' before versions kept their design'}, so the design as it is now is delivered.</span>
+              )}
+            </div>
           )}
           <div className="rounded-xl border border-void-800 overflow-hidden divide-y divide-void-800">
             {rows.map(({ d, f, kinds }) => (

@@ -443,6 +443,7 @@ function ContextSheet({ ctx, onClose, onInspect, onSeveral }: { ctx: { id: strin
 function MoreSheet({ onClose, openPanel }: { onClose: () => void; openPanel: (id: PanelId, title: string) => void }) {
   const actions = useMemo(() => buildActions(), [])
   const hasBrief = useEditor(s => !!s.doc?.brief)
+  const hasJob = useEditor(s => !!s.doc?.jobId)
   const run = (id: string) => { const a = actions[id]; if (a && (!a.enabled || a.enabled())) { onClose(); a.run() } }
   const item = 'w-full h-12 px-1 flex items-center gap-3 text-left text-[14px] text-void-100 active:bg-void-800 rounded-lg'
   const Item = ({ icon: I, label, onClick }: { icon: typeof Type; label: string; onClick: () => void }) => <button className={item} onClick={onClick}><I size={17} className="text-void-400" /><span className="flex-1">{label}</span><ChevronRight size={15} className="text-void-600" /></button>
@@ -462,6 +463,7 @@ function MoreSheet({ onClose, openPanel }: { onClose: () => void; openPanel: (id
       <Item icon={Type} label="Character" onClick={() => openPanel('character', 'Character')} />
       <Item icon={Pilcrow} label="Paragraph" onClick={() => openPanel('paragraph', 'Paragraph')} />
       {hasBrief && <Item icon={Check} label="Brief" onClick={() => openPanel('brief', 'Brief')} />}
+      {hasJob && <Item icon={MessageSquare} label="Client comments" onClick={() => openPanel('comments', 'Comments')} />}
       <Item icon={Shield} label="Brand checks" onClick={() => openPanel('brand', 'Brand')} />
       <Label>Help and settings</Label>
       <Item icon={BookOpen} label="Learn Voidcanvas" onClick={() => run('help.learn')} />

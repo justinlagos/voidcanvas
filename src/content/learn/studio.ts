@@ -233,9 +233,9 @@ export const articles: Article[] = [
     summary: "Group references into two or three directions the client can choose from, present them as slides, a PDF or WhatsApp images, record their choice, then save each version you show them, pin their comments and turn their reply into a checklist.",
     category: 'studio',
     level: 'Intermediate',
-    updated: '2026-09-26',
+    updated: '2026-09-28',
     related: ['references-and-palettes', 'start-a-job-from-a-brief', 'delivering-files', 'review-and-delivery-links'],
-    keywords: 'directions concepts routes moodboard present pitch client feedback revisions amends comments pins versions compare before after mockup poster mockup review pack approval whatsapp',
+    keywords: 'directions concepts routes moodboard present pitch client feedback revisions amends comments pins layers versions named stages direction revision final compare before after mockup poster mockup review pack approval whatsapp',
     body: [
       { t: 'p', text: "Clients choose better between two or three clear ideas than from one design. The **Directions** tab turns references into ideas the client can pick from, and the **Review** tab keeps a record of every version you showed them and everything they said about it. Use both and you always know what was agreed." },
 
@@ -284,13 +284,17 @@ export const articles: Article[] = [
       { t: 'h', text: 'Save a version for review' },
       { t: 'p', text: "Save a version every time you show the client something. That gives you a numbered history (v1, v2, v3) to compare and point back to." },
       { t: 'list', items: [
-        "**New version from the design** renders every format in the key visual design as an image, up to 1800 px on the long side, and saves them as the next version.",
+        "**New version from the design** renders the master and every format in the key visual design (formats built in Studio and boards made with Cascade in the Editor alike) as images, up to 1800 px on the long side, and saves them as the next version. Loose working boards beside the formats are left out. It also keeps the design exactly as it is, in the Editor's version history, so this version can be reopened, compared and delivered as it was sent. Sending the same design again does not store it twice.",
         "**New version from images** saves images you choose instead, for work done elsewhere.",
       ] },
-      { t: 'p', text: "Each version has a status you set from the menu at the top: **Draft**, **Sent**, **Changes asked** or **Approved**. Setting any version to Approved ticks the Review tab. The list on the left shows each version's date, number of images and how many pins and to-dos are still open." },
+      { t: 'p', text: "Each version has a status you set from the menu at the top: **Draft**, **Sent**, **Changes asked** or **Approved**. Setting any version to Approved ticks the Review tab, and keeps its design for good in the Editor's version history. The list on the left shows each version's date, number of images and how many pins and to-dos are still open." },
+      { t: 'p', text: "Beside the status, give the version a **name** such as Direction A or Client revision 2, and a **stage**: **Direction**, **Revision** or **Final**. The first version starts as a Direction and later ones as Revisions. The name shows in the list, on the review link and in the Editor's version history; the number (v1, v2) stays in file names." },
 
       { t: 'h', text: 'Pin comments and turn a reply into a checklist' },
       { t: 'p', text: "In **Feedback** mode, click the image where the client pointed to drop a numbered pin, and type what they said. Press **Done** on a pin when it is fixed; it turns green and can be reopened." },
+      { t: 'p', text: "A version made from the design remembers where each layer sat on each image, so every pin, yours or the client's, says which layer it is on, such as **On: Headline**. **Show in the Editor** opens the design on that layer with the **Comments** panel showing. The layer names stay on your device: the review link carries only the images." },
+      { t: 'h', text: 'Comments in the Editor' },
+      { t: 'p', text: "In the Editor, **Window, Comments** (on a phone, **More, Client comments**) lists the pins on the design's review versions, open ones first. Each says which layer it is on and has **Select layer**, **Done** and, for the client's pins, **Reply**. Done and replies go back to the client through the review link, as they do from Studio. While the panel is open, numbered pins sit on the canvas on the layers they are about, and they move with the layer when you move it. A pin says **Changed since the comment** once its layer looks different, and **The layer is gone** if you deleted it." },
       { t: 'steps', items: [
         "Paste the client's WhatsApp message or email into **Client's reply**.",
         "Press **Turn into a checklist**. Studio splits it into one to-do per line, bullet or sentence, and sets the version to Changes asked (unless it is already Approved).",
@@ -299,7 +303,7 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'Compare versions' },
-      { t: 'p', text: "**Compare** puts the current version against any earlier one, matching formats by name. **Slider** stacks them with a divider you drag across; **Side by side** shows both. You need at least two versions." },
+      { t: 'p', text: "**Compare** puts the current version against any earlier one, matching formats by name. **Slider** stacks them with a divider you drag across; **Side by side** shows both. You need at least two versions. The Editor can compare the designs themselves, board by board: see [Save templates and restore versions](/learn/templates-and-versions)." },
 
       { t: 'h', text: 'Mockups' },
       { t: 'p', text: "**Mockups** puts the current image into a real photo, so the client sees a poster on a wall rather than a flat file. Studio starts on the scene closest in shape to your design." },
@@ -380,14 +384,18 @@ export const articles: Article[] = [
     summary: "The Deliver tab checks the job is ready, renders every format at full size in the file types you tick, names each file by client, job, format and version, adds print PDFs with bleed and crop marks, and zips it all with a delivery note.",
     category: 'studio',
     level: 'Intermediate',
-    updated: '2026-09-27',
+    updated: '2026-09-28',
     related: ['export-for-print', 'directions-and-review', 'start-a-job-from-a-brief', 'designing-for-print'],
-    keywords: 'deliver final files handover export zip package file naming version numbers print pdf bleed crop marks delivery note brand sheet artwork hand off',
+    keywords: 'deliver final files handover export zip package file naming version numbers approved version changed after approval print pdf bleed crop marks delivery note brand sheet artwork hand off',
     body: [
       { t: 'p', text: "Delivery is where small mistakes cost the most: a file called final_final2.png, a poster without bleed, a missing size. The **Deliver** tab builds the whole handover in one go, from the same design you reviewed, so every file is there, full size and properly named." },
 
       { t: 'h', text: 'Before you deliver' },
       { t: 'p', text: "Delivery works from the key visual design and its format boards. A format with no board is greyed out with **Not built yet**; build it on the **Key visual** tab first (see [Start a job from the client's brief](/learn/start-a-job-from-a-brief)). The top of the panel shows how many formats are ready, for example **3 of 4 formats ready**." },
+      { t: 'h', text: 'Deliver what the client approved' },
+      { t: 'p', text: "When a version is approved, the Deliver tab builds the files from the design exactly as it was in that version, even if you have worked on it since. The top of the panel offers two choices: the approved version, as the client approved it, or **The design as it is now**. It also says whether the design has changed since approval." },
+      { t: 'p', text: "If you choose the design as it is now and it has changed, the readiness list says: \"The design changed after v3 was approved. Deliver v3, or send v4 for approval.\" **Deliver v3** switches back. Files built from the approved version carry its number, so the delivery says v3 and matches what was signed off." },
+      { t: 'note', text: "Versions saved before this worked like this, and versions from a teammate's device, do not carry their design. For those, the design as it is now is delivered, and the Deliver tab says so." },
       { t: 'p', text: "Next to the package title is a readiness read: **Ready to deliver**, or **3 things need attention** with the list under it. It looks for formats not built, print formats with no print PDF ticked, a latest version that is not approved or came back with changes, client comments not marked done, open to-do items, a review link still open, and duplicate file names. Each line has a button to the tab that fixes it. Nothing is blocked; it is there so you do not find out after sending." },
 
       { t: 'h', text: 'Choose file types for each format' },
@@ -415,7 +423,7 @@ export const articles: Article[] = [
         "`lekki-nights_launch_a3-poster_v2.pdf`",
         "`lekki-nights_launch_v2_delivery.zip` for the zip itself",
       ] },
-      { t: 'p', text: "The version number is the number of versions saved on the Review tab (v1 if there are none). So if you saved v3 for review and the client approved it, the delivered files say v3 too, and everyone is talking about the same thing. Rename a format on the Brief tab if you want a different name in the file." },
+      { t: 'p', text: "Delivering the approved version uses its number: if the client approved v3, the files say v3, and everyone is talking about the same thing. Delivering the design as it is now uses the number of versions saved on the Review tab (v1 if there are none). Rename a format on the Brief tab if you want a different name in the file." },
 
       { t: 'h', text: 'What the print PDF contains' },
       { t: 'list', items: [

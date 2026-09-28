@@ -10,6 +10,10 @@ export async function loadDesign(id: string | null | undefined): Promise<LoadedD
   if (!id) return null
   const p = await idb.get<StoredProject>('projects', id).catch(() => undefined)
   if (!p) return null
+  return fromStored(p)
+}
+
+async function fromStored(p: StoredProject): Promise<LoadedDesign> {
   const { doc, layers } = await restoreStored(p)
   // Thumbnails, mockups and delivered files must use the real fonts, not a stand-in.
   const want = new Map<string, [string, number, boolean]>()
@@ -43,6 +47,27 @@ export function boardsOf(d: LoadedDesign): Frame[] {
   return d.doc.frames?.length ? d.doc.frames : [{ id: '__doc', name: d.doc.name, x: 0, y: 0, width: d.doc.width, height: d.doc.height, background: d.doc.background }]
 }
 export const boardCanvas = (d: LoadedDesign, f: Frame, scale: number, full = false) => renderBoard(d, f.id === '__doc' ? null : f, scale, full)
+
+/**
+ * The boards a review version shows: every format and the master they come from (Studio formats and Editor
+ * Cascade boards alike). A design with no formats shows all its boards. Loose working boards beside formats
+ * are left out.
+ */
+export function reviewBoards(d: LoadedDesign): Frame[] {
+  const all = boardsOf(d), frames = d.doc.frames ?? []
+  if (!frames.some(f => f.linkedFrom || f.deliverableId)) return all
+  const masters = new Set(frames.map(f => f.linkedFrom).filter(Boolean) as string[])
+  return all.filter(f => f.deliverableId || f.linkedFrom || masters.has(f.id))
+}
+
+/** A design as it was in an Editor version (versions.ts), for delivering or comparing exactly that. */
+export async function loadDesignVersion(versionId: string | null | undefined): Promise<LoadedDesign | null> {
+  if (!versionId) return null
+  const { versionProject } = await import('@/editor/versions')
+  const p = await versionProject(versionId)
+  if (!p) return null
+  return fromStored(p)
+}
 
 export const toBlob = (c: HTMLCanvasElement, type = 'image/png', q?: number) => new Promise<Blob>((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error('encode'))), type, q))
 export async function thumbUrl(c: HTMLCanvasElement, max = 480) {

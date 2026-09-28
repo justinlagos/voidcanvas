@@ -405,12 +405,12 @@ export const articles: Article[] = [
   {
     slug: 'templates-and-versions',
     title: 'Save templates and restore versions',
-    summary: 'Reuse a layout as a template that never changes, and go back to earlier states of a design with version history.',
+    summary: 'Reuse a layout as a template that never changes, and go back to, name and compare earlier states of a design with version history.',
     category: 'editor',
     level: 'Beginner',
-    updated: '2026-09-25',
+    updated: '2026-09-28',
     related: ['saving-and-your-files', 'history-and-undo', 'private-session', 'brand-kit'],
-    keywords: 'template templates reuse layout version history versions restore recover backup snapshot older copy autosave crash',
+    keywords: 'template templates reuse layout version history versions named versions compare restore recover backup snapshot older copy autosave crash approved',
     body: [
       { t: 'p', text: 'Templates and versions both protect work you have already done. A template is a starting point you reuse for new designs. A version is a restore point for one design, so you can go back to how it looked an hour or a day ago. Both are kept in your browser on this device.' },
 
@@ -437,6 +437,7 @@ export const articles: Article[] = [
         ['Exported', 'Each time you click Download in the Export dialog.'],
         ['Before image size', 'Before resizing an image to more than 4000 pixels.'],
         ['Before restoring an older version', 'Just before you restore, so the restore can be undone.'],
+        ['Sent for review', 'When Studio makes a review version from this design. It is named Review v1, Review v2 and so on.'],
       ] },
       { t: 'p', text: 'On a Mac, the shortcut is Cmd+Option+S.' },
 
@@ -447,14 +448,21 @@ export const articles: Article[] = [
         'Click **Restore** to replace the open design with that version. Your current state is saved as a version first, so nothing is lost.',
         'Or click **As copy** to open that version as a separate design called "(restored)", leaving the current one alone.',
       ] },
-      { t: 'p', text: 'The bin icon deletes a version. **Save a version now** at the top adds one immediately.' },
+      { t: 'p', text: 'The bin icon deletes a version. **Save a version now** at the top adds one immediately; type a name first, such as Direction A, to save it with that name.' },
+
+      { t: 'h', text: 'Name, keep and compare' },
+      { t: 'list', items: [
+        'Click a version\'s name to rename it. Enter keeps the new name, Escape the old one.',
+        'The pin button keeps a version for good. A version the client approved in Studio is kept for good automatically and shows **Kept for good**; it cannot be deleted until you stop keeping it.',
+        '**Compare** shows that version against the design as it is now, under a slider you drag across or side by side. Pick any two versions at the top, and a board when the design has several.',
+      ] },
 
       { t: 'h', text: 'Change how often versions are made' },
       { t: 'p', text: 'Open **Edit, Preferences…** ({{Ctrl+,}}) and choose **History and saving**. Set **Automatic version every** anywhere from 0 to 60 minutes. 0 turns automatic versions off; versions you save by hand and export versions still work.' },
 
       { t: 'h', text: 'Good to know' },
       { t: 'list', items: [
-        'Each design keeps its 30 most recent versions. When there are more, the oldest automatic ones go first; versions you saved by hand are kept longest.',
+        'Each design keeps up to 30 versions. When there are more, the oldest automatic ones go first, then the oldest unnamed ones you saved by hand. Named versions and ones kept for good are never removed to make room.',
         'Versions and templates live in this browser only. Clearing site data or using another browser means they are not there. For a copy you control, use **File, Download project file (.void)**. See [Saving and your files](/learn/saving-and-your-files).',
         'In a [private session](/learn/private-session), versions are not saved.',
         'If the browser or tab closes unexpectedly, the start screen offers to reopen every design that was open.',

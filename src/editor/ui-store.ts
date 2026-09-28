@@ -4,7 +4,7 @@ import { create } from 'zustand'
 
 export type PanelId =
   | 'properties' | 'layers' | 'channels' | 'paths' | 'history' | 'swatches' | 'adjustments'
-  | 'character' | 'paragraph' | 'info' | 'brand' | 'navigator' | 'styles' | 'brief'
+  | 'character' | 'paragraph' | 'info' | 'brand' | 'navigator' | 'styles' | 'brief' | 'comments'
 
 export interface DockGroup { id: string; tabs: PanelId[]; active: PanelId; collapsed?: boolean; size?: number }
 export interface FloatingPanel { id: string; tabs: PanelId[]; active: PanelId; x: number; y: number; w: number; h: number }
@@ -28,7 +28,7 @@ export const WORKSPACES: Record<string, () => Workspace> = {
   // The default: what you need to finish a simple job. Everything else is under Window.
   Simple: () => ({
     name: 'Simple', dockWidth: 288, floating: [], hideStrip: true,
-    strip: ['brief', 'history', 'swatches', 'adjustments', 'character', 'paragraph', 'styles', 'channels', 'paths', 'info', 'brand', 'navigator'],
+    strip: ['brief', 'comments', 'history', 'swatches', 'adjustments', 'character', 'paragraph', 'styles', 'channels', 'paths', 'info', 'brand', 'navigator'],
     groups: [
       { id: gid(), tabs: ['properties'], active: 'properties', size: 1.1 },
       { id: gid(), tabs: ['layers'], active: 'layers', size: 1 },
@@ -36,7 +36,7 @@ export const WORKSPACES: Record<string, () => Workspace> = {
   }),
   Essentials: () => ({
     name: 'Essentials', dockWidth: 300, floating: [],
-    strip: ['brief', 'info', 'adjustments', 'character', 'paragraph', 'styles', 'brand', 'navigator'],
+    strip: ['brief', 'comments', 'info', 'adjustments', 'character', 'paragraph', 'styles', 'brand', 'navigator'],
     groups: [
       { id: gid(), tabs: ['properties', 'history', 'swatches'], active: 'properties', size: 1.1 },
       { id: gid(), tabs: ['layers', 'channels', 'paths'], active: 'layers', size: 1 },
@@ -44,7 +44,7 @@ export const WORKSPACES: Record<string, () => Workspace> = {
   }),
   Photo: () => ({
     name: 'Photo', dockWidth: 300, floating: [],
-    strip: ['info', 'swatches', 'character', 'paragraph', 'styles', 'brand', 'navigator'],
+    strip: ['info', 'swatches', 'character', 'paragraph', 'styles', 'brand', 'navigator', 'comments'],
     groups: [
       { id: gid(), tabs: ['adjustments', 'properties'], active: 'properties', size: 1.1 },
       { id: gid(), tabs: ['history'], active: 'history', size: 0.5 },
@@ -53,7 +53,7 @@ export const WORKSPACES: Record<string, () => Workspace> = {
   }),
   Design: () => ({
     name: 'Design', dockWidth: 300, floating: [],
-    strip: ['brief', 'info', 'adjustments', 'channels', 'paths', 'history', 'navigator'],
+    strip: ['brief', 'comments', 'info', 'adjustments', 'channels', 'paths', 'history', 'navigator'],
     groups: [
       { id: gid(), tabs: ['properties', 'character', 'paragraph', 'styles'], active: 'properties', size: 1.2 },
       { id: gid(), tabs: ['layers', 'swatches', 'brand'], active: 'layers', size: 1 },
@@ -142,7 +142,7 @@ function persist(s: UiState) {
   } catch { /* storage blocked: preferences last for this visit only */ }
 }
 
-const ALL_PANELS: PanelId[] = ['properties', 'layers', 'channels', 'paths', 'history', 'swatches', 'adjustments', 'character', 'paragraph', 'info', 'brand', 'navigator', 'styles', 'brief']
+const ALL_PANELS: PanelId[] = ['properties', 'layers', 'channels', 'paths', 'history', 'swatches', 'adjustments', 'character', 'paragraph', 'info', 'brand', 'navigator', 'styles', 'brief', 'comments']
 
 /** Remove a panel from wherever it currently lives. Empty groups and floating windows are dropped. */
 function without(w: Workspace, p: PanelId): Workspace {
@@ -201,7 +201,10 @@ export const useUi = create<UiState>((set, get) => {
       if (g) { save({ workspace: { ...w, groups: w.groups.map(x => x.id === g.id ? { ...x, active: p, collapsed: false } : x) }, flyout: null }); return }
       const f = w.floating.find(x => x.tabs.includes(p))
       if (f) { save({ workspace: { ...w, floating: [...w.floating.filter(x => x.id !== f.id), { ...f, active: p }] } }); return }
-      set({ flyout: p })
+      // A panel tucked in the strip (or with the strip hidden, as in Simple) opens as a floating window beside
+      // the dock, as the Window menu does in desktop apps. A flyout needs a strip button to hang from.
+      const vw = typeof window !== 'undefined' ? window.innerWidth : 1440
+      get().movePanel(p, { float: { x: Math.max(8, vw - w.dockWidth - 310), y: 96 + 28 * (w.floating.length % 5) } })
     },
 
     movePanel: (p, to) => {
