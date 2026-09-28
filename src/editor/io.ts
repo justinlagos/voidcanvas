@@ -287,8 +287,9 @@ export async function exportImage(o: ExportOptions, frameId?: string | null): Pr
   return (await exportBoards({ boardIds: [id], format: o.format, scale: o.scale, quality: o.quality, transparent: o.transparent })).blob
 }
 
-export function downloadBlob(blob: Blob, filename: string) {
-  import('@/lib/analytics').then(m => { m.track('export', { format: /\.void(\.png)?$/i.test(filename) ? 'void' : (filename.match(/\.([a-z0-9]+)$/i)?.[1] || blob.type.split('/')[1] || '?').toLowerCase(), kb: Math.round(blob.size / 1024) }); m.noteExportForPrompt() }).catch(() => {})
+/** Save a file through the browser. `tracked`: the caller already counted this export (the Export dialog does, with more detail). */
+export function downloadBlob(blob: Blob, filename: string, opts: { tracked?: boolean } = {}) {
+  if (!opts.tracked) import('@/lib/analytics').then(m => { m.track('export', { format: /\.void(\.png)?$/i.test(filename) ? 'void' : (filename.match(/\.([a-z0-9]+)$/i)?.[1] || blob.type.split('/')[1] || '?').toLowerCase(), kb: Math.round(blob.size / 1024) }); m.noteExportForPrompt() }).catch(() => {})
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob); a.download = filename
   document.body.appendChild(a); a.click(); a.remove()
@@ -487,7 +488,7 @@ export async function exportProjectPng(id: string): Promise<void> {
     return l as Layer
   }))
   const c = makeCanvas(p.doc.width, p.doc.height)
-  renderDoc(c, p.doc, layers, { groups: p.groups ?? [], scale: 1, noCache: true })
+  renderDoc(c, p.doc, layers, { groups: p.groups ?? [], scale: 1, noCache: true, fullRes: true })
   downloadBlob(await canvasToBlob(c), `${p.doc.name.replace(/[^\w\- ]+/g, '') || 'design'}.png`)
 }
 

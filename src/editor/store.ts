@@ -766,7 +766,8 @@ export const useEditor = create<EditorState>((set, get) => ({
     const i = layers.findIndex(l => l.id === id)
     if (i <= 0) return
     const c = makeCanvas(doc.width, doc.height)
-    renderDoc(c, doc, [layers[i - 1], layers[i]].map(l => ({ ...l, visible: true } as Layer)), { transparent: true, noCache: true })
+    // fullRes: filters are baked at document size, as a 1x export would draw them, not from the 1200 px preview.
+    renderDoc(c, doc, [layers[i - 1], layers[i]].map(l => ({ ...l, visible: true } as Layer)), { transparent: true, noCache: true, fullRes: true })
     const merged: RasterLayer = { ...base(layers[i - 1].name), type: 'raster', canvas: c, visible: layers[i - 1].visible, groupId: layers[i - 1].groupId ?? null }
     const next = [...layers]
     next.splice(i - 1, 2, merged)

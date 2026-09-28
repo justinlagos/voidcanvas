@@ -102,7 +102,7 @@ export const articles: Article[] = [
       { t: 'steps', items: [
         'On the start screen choose **Poster 18 × 24 in** (5400 × 7200), **A4 flyer** (2480 × 3508), or type a custom size from the table above, for example 3508 × 4961 for A3.',
         'Before you design, add the bleed: **Image, Canvas size…**, tick **Relative**, enter 72 in **Add to width** and 72 in **Add to height**, anchor in the centre, **Apply**. Nothing is scaled; the canvas grows by 36 px on each side.',
-        'Add guides for the trim and the safe area: **View, New guide…** at 36 px from each edge for the trim, and again at 95 px (36 + 59) for the safe area. **View, New guide layout…** puts a column grid inside them if you want one.',
+        'Add guides for the trim and the safe area: **View, Guides, New guide…** at 36 px from each edge for the trim, and again at 95 px (36 + 59) for the safe area. **View, Guides, New guide layout…** puts a column grid inside them if you want one.',
         'Design. Run the background and photos to the outer edge of the canvas. Keep type inside the inner guides. Check photos at 100 per cent with {{Ctrl+1}} (Cmd+1 on a Mac).',
         'Export with {{Ctrl+E}} and choose **PDF**. Because the design is over 2000 px on its longest side, the page is sized at 300 dpi, so an A3 with bleed comes out at 303 × 426 mm. Leave **Size** at 1× and **Quality** high.',
         'Send the PDF with the note: "RGB, 300 dpi, 3 mm bleed included, no crop marks."',
@@ -110,12 +110,12 @@ export const articles: Article[] = [
       { t: 'warn', text: 'The Editor\'s PDF is one page holding your design as a high-quality image, flattened onto white, in RGB. It adds no bleed or crop marks of its own, which is why steps 2 and 3 exist. Type is rendered to pixels at 300 dpi, so it prints as it looks on screen but is not selectable. Details in [Export for print](/learn/export-for-print).' },
       { t: 'h3', text: 'In Studio' },
       { t: 'steps', items: [
-        'Open a job and, on the **Brief** tab, add a print format: **A3 poster**, **Poster 18 × 24 in** or **A4 flyer**. Each knows its size in millimetres.',
-        'Build the design on the **Key visual** tab, or send it there from the Editor.',
+        'Open a job and, on the **Brief** tab, add a print format: **A3 poster** (300 dpi), **Poster 18 × 24 in** (2700 × 3600, which is 150 dpi) or **A4 flyer** (300 dpi). Each knows its size in millimetres.',
+        'Build the design on the **Key visual** tab.',
         'On **Deliver**, tick **Print PDF** and choose **Build the package**. The PDF is at trim size with 3 mm bleed made by extending the artwork\'s edges, crop marks outside the bleed, TrimBox and BleedBox set for the printer\'s software, and a slug line recording the job, version, size, bleed and that the file is RGB.',
       ] },
       { t: 'note', text: 'Studio\'s bleed repeats the edge pixels outwards. That is clean for flat colour and simple backgrounds. For a detailed photo running off the edge, design the photo 3 mm larger in the Editor route instead.' },
-      { t: 'product', text: 'Both routes run in the browser and the file never leaves your device. Print presets are at 300 dpi, the PDF is sized at 300 dpi for anything over 2000 px, and the guides above are the only setup a poster needs.', label: 'Start a poster in the Editor', href: '/editor?preset=poster' },
+      { t: 'product', text: 'Both routes run in the browser and the file never leaves your device. The Editor\'s print presets are at 300 dpi, its PDF is sized at 300 dpi for anything over 2000 px, and the guides above are the only setup a poster needs.', label: 'Start a poster in the Editor', href: '/editor?preset=poster' },
 
       { t: 'h', text: 'Common mistakes' },
       { t: 'list', items: [
@@ -124,7 +124,7 @@ export const articles: Article[] = [
         '**White hairline on one edge of the printed poster.** No bleed, or the background stopped at the trim.',
         '**Colours came back dull.** Expected for bright RGB. Ask for a proof next time, and see the colour section above.',
         '**The PDF opened at the wrong size.** In the Editor, a design 2000 px or smaller on its longest side is treated as a screen document at 96 dpi. Posters are always bigger than that; business cards are not.',
-        '**Very large exports fail.** Browsers cap image size. Exports over about 67 megapixels (an A1 at 300 dpi is 70) are scaled down to fit. Use 150 dpi for A1 and above.',
+        '**Very large sizes do not fit.** New designs stop at 8000 px a side, so an A1 or A0 cannot be started at 300 dpi (an A1 would be 7016 × 9933, about 70 megapixels, more than a browser can export at 1×). Use 150 dpi for A1 and above, which is right for them anyway.',
       ] },
 
       { t: 'h', text: 'Quick checklist' },
@@ -184,7 +184,7 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'Dot size: match it to where it will be seen' },
-      { t: 'p', text: 'Dot size is really grid spacing, and the right spacing depends on the output size, not on how it looks zoomed out on screen. In Voidcanvas the **Dot Size** slider runs from 10 to 100 and sets a cell of roughly Dot Size ÷ 8 pixels on the working image (so 40 gives a 5 px cell, 80 a 10 px cell). When you download from the Halftone tool at full size, the setting is scaled with the image so the result matches the preview.' },
+      { t: 'p', text: 'Dot size is really grid spacing, and the right spacing depends on the output size, not on how it looks zoomed out on screen. In Voidcanvas the **Dot Size** slider runs from 10 to 100 and sets a cell of about Dot Size ÷ 8 pixels on the preview, which is at most 1200 px on the long edge (so 40 gives a 5 px cell, 80 a 10 px cell). When you export or download, the setting is scaled with the image so the result looks like the preview: the cell in the final file is Dot Size ÷ 8 on images up to 1200 px (a 1080 px post, say), and about **Dot Size ÷ 8 × long side ÷ 1200** on bigger ones: on a 4800 px print file, Dot Size ÷ 2.' },
       { t: 'table', head: ['Where it will be seen', 'Aim for', 'Why'], rows: [
         ['Instagram post or story', 'a cell of 4 to 8 px on the 1080 px image', 'Smaller and the phone screen smooths it back into a photo; larger and the face breaks up.'],
         ['Web hero or presentation', '6 to 12 px on the exported image', 'Big enough to read as dots at arm\'s length.'],
@@ -201,13 +201,14 @@ export const articles: Article[] = [
       { t: 'list', items: [
         '**Coloured dots on white:** put a solid colour layer above the halftone and set it to **Screen**. White stays white; the black dots take the colour.',
         '**Black dots on coloured paper:** put the colour layer above and set it to **Multiply**. The white becomes the colour; the dots stay black.',
-        '**Coloured dots on coloured paper:** do both, with two colour layers, or use a **Duotone** filter under the halftone to tint the photo first, then set the halftone layer itself to **Multiply** so its dots print over the tint.',
+        '**Coloured dots on coloured paper:** add a **Gradient map** adjustment above the halftone with two stops. The first stop colours the dots, the second colours the paper.',
+        '**Dots over the photo:** set the halftone layer itself to **Multiply**. Its white drops out and the photo shows between the dots, a softer look than pure dots.',
       ] },
       { t: 'p', text: 'Blend modes are explained in [Blend modes and opacity](/learn/blend-modes-and-opacity).' },
 
       { t: 'h', text: 'Variations' },
       { t: 'list', items: [
-        '**Two-tone poster:** Duotone first (a deep colour for shadows, a pale one for highlights), then Halftone at a coarse setting on Multiply.',
+        '**Two-tone poster:** Halftone at a coarse setting, then a Gradient map above it with a deep colour and a pale one.',
         '**Cut-out portrait:** remove the background, halftone the person only, and put them on a flat colour.',
         '**Sharp eyes:** apply the halftone as a filter layer in the Editor, then erase it over the eyes so they stay photographic. The contrast between dots and detail is the whole trick.',
         '**Random dots instead of a grid:** the **Stipple** effect scatters dots by density rather than on a grid. **Dither** gives a fine, non-grid pattern that suits small sizes.',
@@ -244,7 +245,7 @@ export const articles: Article[] = [
       ] },
 
       { t: 'faq', items: [
-        { q: 'What are the best halftone settings for screen printing?', a: 'Ask the printer for their line count (lpi) and make the halftone at the final size at 300 dpi with a cell that matches it: cell in pixels = 300 ÷ lpi. For 45 lpi that is about 6.7 px, so a Dot Size around 50. Keep Contrast so the shadows go solid; screens cannot hold very small dots.' },
+        { q: 'What are the best halftone settings for screen printing?', a: 'Ask the printer for their line count (lpi) and make the halftone at the final size at 300 dpi with a cell that matches it: cell in pixels = 300 ÷ lpi, so 45 lpi is about 6.7 px. On a 3600 × 4800 px shirt file the cell is about Dot Size ÷ 2, so Dot Size 14 gives 7 px (43 lpi). The preview is drawn from a 1200 px copy, so measure the exported file. Keep Contrast so the shadows go solid; screens cannot hold very small dots. More in [Halftone for screen printing and DTF](/learn/halftone-for-screen-printing-and-dtf).' },
         { q: 'Can I make a halftone in colour?', a: 'The effect itself is black and white. Add colour with a layer above it set to Screen (colours the dots) or Multiply (colours the paper), or tint the photo with Duotone first.' },
         { q: 'Is the halftone made from my photo uploaded anywhere?', a: 'No. The tool, Effects and the Editor all run in your browser. See [Privacy and data](/learn/privacy-and-data) for exactly what the app does send.' },
       ] },
@@ -324,15 +325,15 @@ export const articles: Article[] = [
         'Open the [Editor](/editor) and press {{Ctrl+O}} (Cmd+O on a Mac), or drop the .psd on the start screen. The file is read in your browser; nothing is uploaded and the original is not changed.',
         'Read the **Opened** report if one appears, and settle **Some fonts are missing** if it appears.',
         'Edit. The Layers panel shows the same groups, masks, labels and locks as the original.',
-        'Export: {{Ctrl+E}} for PNG, JPG, WebP or PDF. Choose **Save editable file** in the same dialog for a .void.png, or **File, Download project file (.void)**.',
+        'Export: {{Ctrl+E}} for PNG, JPG, WebP or PDF. For a file that keeps the layers, **File, Download editable picture (.void.png)** or **File, Download project file (.void)**.',
       ] },
       { t: 'note', text: 'Photos larger than 4096 px on their longest side are scaled to 4096 on the way in, and very large PSDs open slowly because the Editor draws with the browser\'s 2D canvas. Password-protected PDFs will not open; PSDs are never password protected.' },
       { t: 'product', text: 'The Editor opens PSD files as real layered designs, reports anything it changed, matches fonts by name and lets you load the missing ones, and exports PNG, JPG, WebP and PDF. It does not write PSD, and it says so.', label: 'Open a PSD in the Editor', href: '/editor' },
 
       { t: 'h', text: 'Common problems' },
       { t: 'list', items: [
-        '**"Could not read that PSD."** The file may be damaged or use a feature the reader cannot handle. Ask for it to be saved again, or for a flattened copy.',
-        '**"That PSD has no layers we can read."** It was saved without layers (Maximize Compatibility off, or flattened). Ask for a layered save.',
+        '**"Could not read that PSD."** The file is damaged, or saved in CMYK, Lab, Duotone or Multichannel, which the Editor cannot read yet. Ask for an RGB copy, saved again.',
+        '**"That PSD has no layers or picture we can read."** Neither its layers nor its flattened picture could be read. Ask for it to be saved again with Maximize Compatibility on. (A flattened PSD opens as one layer.)',
         '**Text shifted slightly.** Photoshop and browsers set type a little differently. Compare against a flat export of the original and nudge.',
         '**The logo will not recolour.** It was a smart object or a vector shape and is now pixels. Ask for the logo as SVG or PNG and place it fresh.',
         '**Colours look different.** The file was CMYK and has been converted to RGB. Check against the original\'s flat export and correct with an adjustment layer.',
@@ -408,7 +409,7 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'How to do it in Voidcanvas' },
       { t: 'steps', items: [
-        '**Grid:** choose **View, New guide layout…** and set the columns, gutter and margins. Snap is on by default, so layers land on the guides.',
+        '**Grid:** choose **View, Guides, New guide layout…** and set the columns, gutter and margins. Snap is on by default, so layers land on the guides.',
         '**Type scale:** in Studio\'s **Brand guideline builder**, the **Type** tab sets a scale (Minor third to Golden ratio) and a base size and lists every step in pixels. In the Editor, set sizes in the **Character** panel and tighten headlines with **Tracking** in pixels.',
         '**Colour:** save the leading colour, neutral and accent as swatches, or as a [brand kit](/learn/brand-kit) so every piece in the series uses the same three.',
         '**Photo treatment:** add a **Black and white** or **Curves** adjustment layer, then **Filter, Filter gallery…** for **Duotone**, **Halftone** or **Film Grain** as an editable layer you can fade or mask. See [Filters in the Editor](/learn/filters-in-the-editor).',
@@ -516,7 +517,7 @@ export const articles: Article[] = [
         'The **print presets** (A4 flyer, A5 flyer, Poster 18 × 24 in, Business card) are at 300 dpi, and a **Custom size** takes up to 8000 px a side.',
         '**Photos over 4096 px on their longest side are scaled to 4096 when imported.** That is enough for A4 at 300 dpi and A3 at about 248 dpi. For a photo that has to fill A2 or larger at full resolution, split it or accept 150 dpi, which is normal for posters read from a distance.',
         'Text and shapes are redrawn at export size, so a 2× or 3× export of type is crisp; photos are resampled and cannot gain detail.',
-        '**Export as…** ({{Ctrl+E}}) offers PNG, JPG, WebP and PDF at 0.5×, 1×, 2× and 3×. For print, PDF at 1× from a print-size document, or PNG at 1×.',
+        '**Export as…** ({{Ctrl+E}}) offers PNG, JPG, WebP and PDF at 1×, 2×, 3× and 4×, as far as the browser can draw. For print, PDF at 1× from a print-size document, or PNG at 1×.',
       ] },
       { t: 'product', text: 'The Image size dialog answers the one-minute check for you, the presets are at 300 dpi, and the PDF export is sized at 300 dpi for anything over 2000 px. All in the browser, with the file on your device.', label: 'Check a design in the Editor', href: '/editor' },
 
@@ -605,9 +606,9 @@ export const articles: Article[] = [
         '**References and Directions tabs.** Drop in references, then sort them into **Direction A, B and C** frames with a name, a line, a palette and a type pairing each. **Present** shows them full screen; **PDF** and **WhatsApp images** send them. When the client picks, press **Client chose this one**: the job moves to Design and that palette and type seed the design.',
         '**Key visual tab.** **Start key visual in the Editor** opens a design at the master format with the brief as a checklist in the **Brief** panel, then **Build N missing formats** lays out every other size from it.',
         '**Review tab.** **New version from the design** saves v1, v2, v3. Drop pins where the client pointed, paste their message into **Client\'s reply** and press **Turn into a checklist**. Set the version to **Sent**, **Changes asked** or **Approved**. **Compare** and **Mockups** put the work in context. **Send a review link** lets the client pin comments and approve in their browser with no account (you need one; the images and comments are encrypted with a key that lives in the link).',
-        '**Deliver tab.** Tick the file types per format and press **Build the package**. Every file is named client_job_format_version, print PDFs carry 3 mm bleed, crop marks and a slug line, and a delivery note lists what is in the zip. **Send as a link** gives the client a download page instead.',
+        '**Deliver tab.** Tick the file types per format and press **Build the package**. Every file is named client_job_format_version, print PDFs carry 3 mm bleed, crop marks and a slug line, and a delivery note lists what is in the zip. **Send as a link** gives the client a download page instead (you need an account for links; the client does not).',
       ] },
-      { t: 'product', text: 'Studio keeps the brief, the directions, the decision, every version and every comment with the job, on your device, and builds the delivery from the version that was approved. The Editor is one click away at every stage.', label: 'Start a job in Studio', href: '/studio' },
+      { t: 'product', text: 'Studio keeps the brief, the directions, the decision, every version and every comment with the job, on your device, and builds the delivery with the latest version\'s number and a note of the approved ones. The Editor is one click away at every stage.', label: 'Start a job in Studio', href: '/studio' },
 
       { t: 'h', text: 'Common mistakes' },
       { t: 'list', items: [
@@ -775,15 +776,15 @@ export const articles: Article[] = [
       { t: 'p', text: 'A page that talks only about cookies, or only about "security", has not answered the question.' },
 
       { t: 'h', text: 'What Voidcanvas sends, and what it never sends' },
-      { t: 'p', text: 'Editing, effects, the AI tools, Studio and every export run inside your browser. These never leave your device: your images, photos, PSDs and PDFs; your designs, layers and text; file and design names; Studio jobs, briefs, references, brands and brand guidelines; fonts you add from files.' },
+      { t: 'p', text: 'Editing, effects, the AI tools, Studio and every export run inside your browser. These never leave your device unless you share them with a team or through a client link, and then only encrypted: your images, photos, PSDs and PDFs; your designs, layers and text; file and design names; Studio jobs, briefs, references, brands and brand guidelines; fonts you add from files.' },
       { t: 'table', head: ['What goes over the network', 'Why', 'What it contains'], rows: [
         ['The app itself', 'To load the pages and, once installed, update them', 'Ordinary page requests'],
         ['Web fonts from Google Fonts', 'So text layers can use fonts such as Inter or Playfair Display', 'A request for the font family by name. No text, no design'],
         ['AI model files, first use only', 'Remove background, Select subject, Object select, Remove object and Expand with AI fill run on your device and need their model downloaded once', 'A download of the model from public hosts (jsDelivr and Hugging Face). Your image is not sent'],
-        ['Anonymous usage counts', 'To know which tools get used and what breaks', 'Event names and small settings such as a file type or a preset name. Never images, file names, text or layer content. Off in a private session or when your browser sends Do Not Track or Global Privacy Control'],
-        ['Feedback and bug reports, only when you press send', 'So you can tell us something', 'What you type, plus device and browser context'],
+        ['Anonymous usage counts', 'To know which tools get used and what breaks', 'Event names and small settings such as a file type or a preset name, the page, device type, browser, operating system, browser language, screen size, time zone, whether the app is installed, and random browser and visit ids. Never images, file names, text or layer content. Off in a private session or when your browser sends Do Not Track or Global Privacy Control'],
+        ['Feedback and bug reports, only when you press send', 'So you can tell us something', 'What you type, plus the page, device and browser context and the random ids'],
       ] },
-      { t: 'p', text: 'You never need an account. If you make one, it syncs interface settings, encrypted on your device before they are sent, with a key only your devices have. Teams share the client brands and jobs you choose, encrypted with the team\'s key. Review and delivery links for clients are encrypted the same way, with the key in the link itself. [What Voidcanvas sends and what stays on your device](/learn/privacy-and-data) is the full list and stays current with the app.' },
+      { t: 'p', text: 'You never need an account. If you make one, it syncs interface settings, encrypted on your device before they are sent, with a key only your devices have; your email address and the names of the devices you signed in on are all it keeps readable. Teams share the client brands and jobs you choose, encrypted with the team\'s key. Review and delivery links for clients are encrypted the same way, with the key in the link itself. [What Voidcanvas sends and what stays on your device](/learn/privacy-and-data) is the full list and stays current with the app.' },
       { t: 'steps', items: [
         'Run the two tests above on Voidcanvas. Open the [Editor](/editor), load a photo, remove its background, export a PNG, then go offline and do it again.',
         'To switch off usage counts, open Help, **Your privacy**, and turn off **Share anonymous usage counts**.',
@@ -853,7 +854,7 @@ export const articles: Article[] = [
       { t: 'h3', text: 'Your own brand: the Editor\'s brand kit' },
       { t: 'steps', items: [
         'Open **Edit, Brand kit…**. Under **Colours**, add each brand colour; under **Fonts**, switch on your headline font first and your text font second (the first becomes the default for new text); under **Logos**, add PNG or SVG files with transparent backgrounds.',
-        'In every design, brand colours sit first in the swatches, the **Brand kit** panel applies a colour or a font to the selected layer in one click, and your logos appear under **Your logos** in the **Add** menu. [Brand kit](/learn/brand-kit) has the details.',
+        'In every design, brand colours sit first in the swatches, in the **Brand kit** panel a click makes a brand colour the main colour and an Alt-click puts it on the selected text or shape, and your logos appear under **Your logos** in the **Add** menu. [Brand kit](/learn/brand-kit) has the details.',
       ] },
       { t: 'h3', text: 'Client brands: Studio\'s brands library, with checks' },
       { t: 'steps', items: [

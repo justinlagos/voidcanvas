@@ -105,8 +105,16 @@ export function ToolPage({ def }: { def: ToolDef }) {
     finally { setBusy(false) }
   }
   // Send the ORIGINAL image plus a live, re-editable filter layer (matches the reference's "Send to Layer Stack").
+  // The photo goes at its own size (capped like the download), not the 1200 px preview copy, so the Editor can export it sharp.
   const sendToLayerStack = async () => {
-    const src = srcRef.current; if (!src) return
+    let src = srcRef.current; if (!src) return
+    const full = fullRef.current
+    if (full) {
+      const k = Math.min(1, EXPORT_MAX / Math.max(full.width, full.height))
+      const c = document.createElement('canvas'); c.width = Math.round(full.width * k); c.height = Math.round(full.height * k)
+      const x = c.getContext('2d')!; x.imageSmoothingQuality = 'high'; x.drawImage(full, 0, 0, c.width, c.height)
+      src = c
+    }
     const blob = await canvasToBlob(src)
     const liveParams: Record<string, number> = {}
     for (const c of cfg) liveParams[c.key] = params[c.key] as number

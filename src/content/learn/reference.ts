@@ -283,7 +283,7 @@ export const articles: Article[] = [
       { t: 'h3', text: 'Social' },
       { t: 'table', head: ['Preset', 'Pixels', 'Shape', 'Use it for'], rows: [
         ['Instagram post', '1080 × 1350', '4:5 portrait', 'Feed posts. The tallest shape the feed shows, so it takes the most screen space'],
-        ['Square post', '1080 × 1080', '1:1', 'Feed posts that also work as profile grids and on most other platforms'],
+        ['Square post', '1080 × 1080', '1:1', 'Feed posts on most platforms. Instagram\'s profile grid is 3:4, so it crops the sides of a square'],
         ['Story or Reel cover', '1080 × 1920', '9:16 portrait', 'Full-screen phone formats: stories, reel and short-video covers, status posts'],
         ['YouTube thumbnail', '1280 × 720', '16:9', 'Video thumbnails. Read at small sizes, so keep the words few and large'],
         ['LinkedIn banner', '1584 × 396', '4:1', 'The banner behind a LinkedIn profile or page'],
@@ -371,7 +371,7 @@ export const articles: Article[] = [
       { t: 'h', text: 'Good to know' },
       { t: 'list', items: [
         'Presets are only starting sizes. Change the size later with Image, Canvas size ({{Ctrl+Alt+C}}) or Image size ({{Ctrl+Alt+I}}).',
-        'The Export dialog can save at 0.5×, 1×, 2× or 3× the design size, as long as the long side stays at 8192 px or less. A 1080 px post exported at 2× is 2160 px.',
+        'The Export dialog can save at 1×, 2×, 3× or 4× the design size, as long as the browser can draw the result (up to 16,384 px on a side and about 67 megapixels). A 1080 px post exported at 2× is 2160 px.',
         'When the Editor exports a PDF, it treats designs with a long side over 2000 px as print work at 300 dpi and sizes the page to match. Smaller designs get a 96 dpi page. That means a Business card from the Editor preset (1050 px wide) comes out as a large screen-sized page, not a 3.5 × 2 in card. For print-ready cards with bleed and crop marks, deliver them from a Studio job, which uses the trim size in millimetres.',
         'Platforms change their recommended sizes from time to time. The shapes above are the ones Voidcanvas uses; check the platform if an upload gets cropped.',
       ] },
@@ -443,7 +443,7 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'Exporting from the Editor' },
-      { t: 'p', text: 'File, Export as ({{Ctrl+E}}) opens the Export dialog. Pick a File type and a Size, then Download or Copy image.' },
+      { t: 'p', text: 'File, Export as ({{Ctrl+E}}) opens the Export dialog. Pick where the file is going, or a file type and a size, then Download or Copy.' },
       { t: 'table', head: ['File type', 'Transparency', 'Quality setting', 'Best for'], rows: [
         ['PNG', 'Yes', 'None, always lossless', 'Graphics, text, logos, anything with sharp edges or see-through parts'],
         ['JPG', 'No: see-through areas become white', '40 to 100%', 'Photos, when file size matters'],
@@ -451,12 +451,12 @@ export const articles: Article[] = [
         ['PDF', 'No: on white', '40 to 100%, never below 90% inside the PDF', 'Sending to clients and printers'],
       ] },
       { t: 'list', items: [
-        '**Size** offers 0.5×, 1×, 2× and 3× the design size, with the pixel result shown on each button. Sizes that would pass 8192 px on the long side are hidden.',
-        '**Leave out the background colour** appears for PNG and WebP when the design has a background colour. Tick it for a see-through background.',
+        '**Size** offers 1×, 2×, 3× and 4× the design size, with the pixel result shown beside the buttons. Sizes the browser cannot draw (over 16,384 px on a side or about 67 megapixels) are hidden; if even 1× is too big, one smaller size is offered.',
+        '**More options** holds **Quality** (JPG, WebP, PDF), **Transparent background (leave out board colours)** for PNG and WebP, and, with several boards, file numbering and one PDF or a PDF per board.',
         '**PDF** is one page holding the design as a high-quality JPG. Designs with a long side over 2000 px get a 300 dpi page size; smaller ones get 96 dpi. Text in the PDF cannot be selected or edited, and there is no bleed or crop marks. For print PDFs with bleed, see [Export for print](/learn/export-for-print).',
-        '**Copy image** puts a PNG on your clipboard to paste into another app.',
-        'With boards, **Boards to export** appears: **This board**, **All**, or a range such as 1-3, 5. Several boards download as one file each, zipped, at the size you pick, optionally numbered in board order.',
-        '**Save editable file (.void.png, previews as your design, keeps layers)** saves a PNG that looks like your design in any image viewer, with the whole editable project stored inside it. The preview picture is at most 1600 px on the long side; the layers inside are full size.',
+        '**Copy** puts a PNG on your clipboard to paste into another app.',
+        'With boards, the top of the dialog picks which: **This board**, **All N**, or a range such as 1-3, 5 in the **Boards** field. Several boards download as one file each, zipped, at the size you pick, numbered in board order unless you turn that off under **More options**.',
+        '**File, Download editable picture (.void.png)** saves a PNG that looks like your design in any image viewer, with the whole editable project stored inside it. The preview picture is at most 1600 px on the long side; the layers inside are full size.',
         'Download also saves a version of the design, so you can go back to exactly what you sent.',
       ] },
       { t: 'try', label: 'Open the Editor', href: '/editor' },

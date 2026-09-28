@@ -666,9 +666,12 @@ function processAdjustment(acc: HTMLCanvasElement, l: AdjustmentLayer, scale: nu
   if (l.kind === 'voidEffect' && l.effect && l.effectParams) {
     const accLong = Math.max(acc.width, acc.height)
     if (fullRes) {
-      // The preview computed at min(FX_MAX, document size); scale pixel settings by how much bigger this output is.
-      const ref = Math.min(FX_MAX, docLong || accLong)
-      const k = accLong / ref
+      // The preview ran over the whole document at min(FX_MAX, its long side), so one working pixel is docLong / ref
+      // document pixels, which is scale times that in output pixels. That holds for the whole document and for one
+      // board of it (a region), so exported dots and grain match the preview either way.
+      const long = docLong || accLong / scale
+      const ref = Math.min(FX_MAX, long)
+      const k = (scale * long) / ref
       octx.drawImage(acc, 0, 0)
       const img = octx.getImageData(0, 0, out.width, out.height)
       octx.putImageData(applyEffect(octx, img, l.effect, scaleParams(l.effect, l.effectParams, k)), 0, 0)
@@ -707,6 +710,8 @@ export interface RenderOptions {
   noCache?: boolean
   /** Export: run Void effect layers at the output size instead of the preview working size. */
   fullRes?: boolean
+  /** With fullRes: the long side of the document the Editor previewed filters over, when one board is rendered as a document of its own. */
+  fxLong?: number
   transparent?: boolean
   groups?: Group[]
   /** Override which frames to draw; omit to use doc.frames, pass [] to force flat. */
@@ -818,7 +823,7 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
       const cached = opts.noCache ? undefined : adjCacheById.get(l.id)
       if (cached && cached.key === key && !liveBelow) processed = cached.canvas
       else {
-        processed = processAdjustment(target, l, s, !!opts.fullRes, Math.max(doc.width, doc.height))
+        processed = processAdjustment(target, l, s, !!opts.fullRes, opts.fxLong || Math.max(doc.width, doc.height))
         if (!opts.noCache && !liveBelow) adjCacheById.set(l.id, { key, canvas: processed })
       }
       let draw = processed

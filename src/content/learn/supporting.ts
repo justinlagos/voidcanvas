@@ -46,7 +46,7 @@ export const articles: Article[] = [
       { t: 'steps', items: [
         'Open [Effects](/effects), drop in the photo, choose **Color**, then **Duotone**.',
         'Under **Parameters**, set **Shadow Color** and **Highlight Color**. The starting pair is black and white, which is plain greyscale; pick your own two to see the effect.',
-        'Press **Download** for a PNG, JPG or WebP, or **Open in Editor** to carry on with the duotone as a live filter layer.',
+        'Press **PNG**, **JPG** or **WebP** to download, or **Open in Editor** to carry on with the duotone as a live filter layer.',
         'In the Editor, the same effect is **Filter, Colour, Duotone**: a filter layer with the two colours in **Filter settings**, which you can fade with the layer\'s opacity or paint out of a face with the Eraser.',
       ] },
       { t: 'product', text: 'Duotone in Voidcanvas is two colour pickers on a live layer. It runs in the browser, the photo stays on your device, and the brand kit puts the exact brand colours one click away.', label: 'Open Effects', href: '/effects?effect=duotone' },
@@ -228,7 +228,7 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'Image-based PDFs are print-ready too' },
-      { t: 'p', text: 'Professional layout tools write PDFs with live type and vector shapes. Browser design tools, Voidcanvas included, usually write the page as one high-quality image at 300 dpi. That is fine for flyers, posters and cards, as long as the page is sized correctly and the image is at 300 dpi: the type is crisp at that resolution and cannot reflow, which removes the font problem entirely. What you lose is selectable text and the very sharpest hairlines. Tell the printer it is image-based so nobody looks for fonts to embed.' },
+      { t: 'p', text: 'Professional layout tools write PDFs with live type and vector shapes. Browser design tools, Voidcanvas included, usually write the page as one high-quality image. That is fine for flyers, posters and cards, as long as the page is sized correctly and the image has enough pixels for it (300 dpi for anything read up close): the type is crisp at that resolution and cannot reflow, which removes the font problem entirely. What you lose is selectable text and the very sharpest hairlines. Tell the printer it is image-based so nobody looks for fonts to embed.' },
 
       { t: 'h', text: 'Check your own file in two minutes' },
       { t: 'steps', items: [
@@ -247,7 +247,7 @@ export const articles: Article[] = [
         '**Editor:** design at a print preset or a 300 dpi custom size, add bleed with **Image, Canvas size…** (Relative, 72 px each way), export with {{Ctrl+E}} as **PDF**. Designs over 2000 px on their longest side are sized at 300 dpi. The PDF is one page, image-based, RGB, with no marks. Details in [Export for print](/learn/export-for-print).',
         '**Studio:** add a print format on the **Brief** tab, build it, and on **Deliver** tick **Print PDF**. The package PDF is at trim size with 3 mm bleed, crop marks outside the bleed, TrimBox and BleedBox set, and a slug line stating the size, bleed, version and that the file is RGB. Details in [Deliver every format](/learn/delivering-files).',
       ] },
-      { t: 'product', text: 'Voidcanvas writes image-based PDFs at 300 dpi for print sizes, and Studio adds the bleed, crop marks and boxes a printer\'s software reads. Both say RGB on the file, so the printer knows to convert.', label: 'Export a PDF from the Editor', href: '/editor?preset=a5' },
+      { t: 'product', text: 'The Editor writes an image-based PDF sized at 300 dpi for designs over 2000 px. Studio adds the bleed, crop marks and boxes a printer\'s software reads, at the resolution of each format (300 dpi for its flyers and cards, 150 for its 18 × 24 in poster), and its slug line says RGB. The Editor\'s PDF does not, so say RGB in your note.', label: 'Export a PDF from the Editor', href: '/editor?preset=a5' },
 
       { t: 'faq', items: [
         { q: 'Does a print-ready PDF have to be CMYK?', a: 'No. Most digital printers accept RGB and convert with their own press profile, which is usually better than a generic conversion on your side. Say RGB in the note and ask for a proof if colour matters. Some litho and packaging printers do require CMYK; ask first.' },
@@ -303,7 +303,7 @@ export const articles: Article[] = [
       { t: 'p', text: 'Do not scale the finished design up: that moves the safe area and softens the photos. Grow the canvas instead, then extend whatever touches the edge.' },
       { t: 'steps', items: [
         'In the Editor choose **Image, Canvas size…**, tick **Relative**, enter 72 in **Add to width** and 72 in **Add to height** (36 px each side at 300 dpi), leave the anchor in the centre and **Apply**. Nothing is scaled.',
-        'Add guides 36 px in from each edge with **View, New guide…** so you can see the trim, and another 59 px further in for the safe area.',
+        'Add guides 36 px in from each edge with **View, Guides, New guide…** so you can see the trim, and another 59 px further in for the safe area.',
         'Stretch or move the background colour and any edge photo so it reaches the new outer edge. Check nothing important slid past the inner guides.',
         'Export the PDF with {{Ctrl+E}} and tell the printer: "3 mm bleed included, no crop marks."',
       ] },
@@ -420,15 +420,17 @@ export const articles: Article[] = [
       { t: 'p', text: 'Send this to the client, or fill it in on a call. Labels matter: a line that starts with **Headline:** is never misread.' },
       { t: 'table', head: ['Line', 'Example', 'Why it is there'], rows: [
         ['Headline:', 'Harvest Thanksgiving', 'The one thing the piece says. Also the working name of the job.'],
-        ['Subheading or theme:', 'Rooted in Gratitude', 'The second line, if there is one.'],
-        ['Date: / Time: / Venue:', 'Sun 12 Oct / 10am, lunch after / Grace Chapel, Mill Lane', 'The facts that get reprinted when wrong. Labelled, so nothing is guessed.'],
+        ['Subheading:', 'Rooted in Gratitude', 'The second line, if there is one. Theme: works too.'],
+        ['Date:', 'Sun 12 Oct', 'The facts that get reprinted when wrong. One labelled line each, so nothing is guessed.'],
+        ['Time:', '10am, lunch after', 'A start time, and an end or what follows.'],
+        ['Venue:', 'Grace Chapel, Mill Lane', 'The name people will search for, and the street.'],
         ['Price:', 'Free', 'Or the amount and currency. "Free" is information.'],
         ['Contact:', '@gracechapel, gracechapel.org', 'Up to two: a handle, a web address, a phone number, an email.'],
         ['Must include:', 'church logo, food bank logo, #RootedInGratitude', 'Logos, sponsors, partners, hashtags, disclaimers, a lineup. Comma separated.'],
         ['Formats:', 'A4 flyer (by 24 Oct), Instagram post and story (by 17 Oct)', 'Every deliverable, its size or platform, and its own date.'],
         ['Tone:', 'warm, welcoming, not too formal', 'Three words is plenty. They steer type and colour.'],
         ['Audience:', 'the congregation and the neighbours', 'Who is reading it, in a phrase.'],
-        ['Assets:', 'logo attached as SVG; fonts and colours as in last year\'s flyer', 'What exists. Ask for vector logos and real font files.'],
+        ['Assets:', 'logo attached as SVG; fonts and colours as in last year\'s flyer', 'What exists. Ask for vector logos and real font files. Leave this line out when you paste into Studio: a line about a logo is read as a must-have.'],
         ['References:', 'link or attachment', 'Anything they like, and one thing they do not.'],
       ] },
       { t: 'tip', text: 'Ask for the logo as an SVG or a large PNG with a transparent background, and for fonts as files or names. A logo screenshot from a website is the most common reason a job stalls on day one.' },
@@ -561,7 +563,7 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'The sizes' },
       { t: 'table', head: ['Format', 'Pixels', 'Ratio', 'Where it is covered'], rows: [
-        ['Instagram post', '1080 × 1350', '4:5', 'Nothing over it. The profile grid shows a 1:1 crop from the centre.'],
+        ['Instagram post', '1080 × 1350', '4:5', 'Nothing over it. The profile grid shows a 3:4 crop from the centre, about 34 px off each side.'],
         ['Square post', '1080 × 1080', '1:1', 'Nothing. Works on every platform; smaller in the feed than 4:5.'],
         ['Story', '1080 × 1920', '9:16', 'Top and bottom, about 250 px each: progress bar and name above, reply box below.'],
         ['Reel cover', '1080 × 1920', '9:16', 'Bottom about 420 px (account, caption, audio) and a column about 120 px wide on the right (like, comment, share).'],
@@ -577,11 +579,11 @@ export const articles: Article[] = [
       { t: 'h', text: 'Make the safe zone once' },
       { t: 'steps', items: [
         'Open the [Story preset](/editor?preset=story) (1080 × 1920).',
-        'Choose **View, New guide…** and add horizontal guides at 250 and 1670 px. For a reel cover add one at 1500 px and a vertical guide at 960 px.',
-        'Choose **File, Save as template**. Every new story starts from it with the zones marked, and snapping keeps text inside them.',
+        'Choose **View, Guides, New guide…** and add horizontal guides at 250 and 1670 px. For a reel cover add one at 1500 px and a vertical guide at 960 px.',
+        'Choose **File, Save as template**. Start each new story from it under **Your templates** on the start screen: the zones are marked, and snapping keeps text inside them.',
         'Design the most constrained format first (usually the 4:5 post), then **File, Resize for other formats…** or Studio\'s key visual to build the rest, and move anything that landed in a covered area.',
       ] },
-      { t: 'product', text: 'The Editor has presets for every size above, guides that snap, templates that keep the safe zones, and Resize to every format to derive the other sizes from one master.', label: 'Start a social post', href: '/editor?preset=ig-post' },
+      { t: 'product', text: 'The Editor has presets for every size above, guides that snap, templates that keep the safe zones, and **File, Resize for other formats…** to derive the other sizes from one master.', label: 'Start a social post', href: '/editor?preset=ig-post' },
 
       { t: 'faq', items: [
         { q: 'What is the Instagram story safe zone?', a: 'Keep text and logos out of roughly the top and bottom 14 per cent of the 1080 × 1920 canvas, about 250 px each, where the progress bar, name and reply box sit. The middle 1420 px is safe.' },
@@ -615,12 +617,12 @@ export const articles: Article[] = [
       also: [{ when: 'you want to know what is sent anywhere', slug: 'privacy-and-data' }, { when: 'you work on a phone or tablet too', slug: 'designing-on-a-phone' }],
     },
     body: [
-      { t: 'answer', text: 'Most of Photoshop carries over: **layers, groups, masks, clipping masks, adjustment layers, selections with feather and select-and-mask, free transform, layer styles, the single-letter tool keys and the Ctrl shortcuts**, plus opening PSDs with their layers. Three things are different by design: it runs in a browser tab with your files on your device rather than in a cloud library, it exports **RGB only**, and it **does not write PSD**. Three things are not there: **smart objects**, **actions**, and **third-party plugins**. And three shortcuts change because the browser owns them: New is **Ctrl+Alt+N**, Close is **Ctrl+Alt+W**, Export is **Ctrl+E**.' },
+      { t: 'answer', text: 'Most of Photoshop carries over: **layers, groups, masks, clipping masks, adjustment layers, selections with feather and select-and-mask, free transform, layer styles, the single-letter tool keys and the Ctrl shortcuts**, plus opening PSDs with their layers. Three things are different by design: it runs in a browser tab with your files on your device rather than in a cloud library, it exports **RGB only**, and it **does not write PSD**. Three things are not there: **smart objects**, **actions**, and **third-party plugins**. And three shortcuts change: New is **Ctrl+Alt+N** and Close is **Ctrl+Alt+W**, because the browser owns Ctrl+N and Ctrl+W, and **Ctrl+E** is Export, not Merge down (Merge down is in the Layer menu).' },
 
       { t: 'h', text: 'What works the way you expect' },
       { t: 'table', head: ['Photoshop habit', 'In the Editor', 'Notes'], rows: [
         ['Layers panel, groups, opacity, blend modes', 'The same', 'Colour labels, lock, hide, rename, merge and stamp visible ({{Ctrl+Alt+Shift+E}}) all present. See [Layers](/learn/layers).'],
-        ['Layer mask, Alt-click to view, Shift-click to disable', 'The same', 'Layer, Layer mask, Add mask. Vector masks and quick mask ({{Q}}) too. See [Masks](/learn/masks).'],
+        ['Layer mask, Alt-click to view, Shift-click to disable', 'The same', 'Layer, Layer mask, Add layer mask. Vector masks and quick mask ({{Q}}) too. See [Masks](/learn/masks).'],
         ['Clipping mask', '{{Ctrl+Alt+G}}', 'Press again to release.'],
         ['Adjustment layers', 'Curves, Levels, Hue/Saturation, Colour balance, Black and white and the rest, as layers', 'From the Layers panel button or Image, Adjustments. See [Adjustment layers](/learn/adjustment-layers).'],
         ['Selections, feather, Select subject, Select and mask', 'The same, {{Ctrl+Alt+R}} for Select and mask', 'Marquee, lasso, polygonal lasso, magic wand, object select. See [Selections](/learn/selections).'],
@@ -637,16 +639,16 @@ export const articles: Article[] = [
       { t: 'h', text: 'What is different by design' },
       { t: 'list', items: [
         '**Where the files are.** Designs are saved in the browser on this device ({{Ctrl+S}}), or to a .void file on disk ({{Ctrl+Shift+S}}). There is no cloud library and no account needed. Back up by exporting or saving to disk. See [Saving and your files](/learn/saving-and-your-files).',
-        '**RGB only.** Every export is RGB. Printers convert with their own profile; the print files say RGB on them. See [Designing for print](/learn/designing-for-print).',
+        '**RGB only.** Every export is RGB. Printers convert with their own profile. Studio\'s print PDFs say RGB in the slug line; the Editor\'s PDF does not, so say it in your note. See [Designing for print](/learn/designing-for-print).',
         '**PSD in, not out.** PSDs open with their layers; the Editor does not write PSD. Deliver PNG, JPG, WebP or PDF, and keep a .void file for the layers.',
-        '**Image-based PDF.** The PDF export renders the page at 300 dpi as an image. Fine for flyers and posters; not selectable text.',
-        '**Imports are capped at 4096 px** on the longest side, to keep the browser responsive. Enough for A4 at 300 dpi and A3 at about 248 dpi.',
+        '**Image-based PDF.** The PDF export holds the page as one image, with the page sized at 300 dpi when the design is over 2000 px on its long side and at 96 dpi below that. Fine for flyers and posters; not selectable text.',
+        '**Opened and placed images are capped at 4096 px** on the longest side, to keep the browser responsive. Enough for A4 at 300 dpi and A3 at about 248 dpi. PSD layers open at their own size.',
       ] },
 
       { t: 'h', text: 'What is not there' },
       { t: 'list', items: [
         '**Smart objects.** Layers are pixels, text, shapes, adjustments or filters. A smart object in a PSD arrives as pixels.',
-        '**Actions and scripting.** Repeatable work is done with templates, the brand kit, and Resize to every format instead.',
+        '**Actions and scripting.** Repeatable work is done with templates, the brand kit, and Resize for other formats instead.',
         '**Third-party plugins and Camera Raw.** Adjustment layers and the 58 effects are what there is.',
         '**Colour management and soft proofing.** Ask the printer for a proof.',
       ] },
@@ -655,7 +657,7 @@ export const articles: Article[] = [
       { t: 'keys', rows: [
         ['Ctrl+Alt+N', 'New design. The browser keeps Ctrl+N for a new window'],
         ['Ctrl+Alt+W', 'Close the design. The browser keeps Ctrl+W for the tab'],
-        ['Ctrl+E', 'Export as (PNG, JPG, WebP, PDF). Photoshop\'s Ctrl+Alt+Shift+S is not needed'],
+        ['Ctrl+E', 'Export as (PNG, JPG, WebP, PDF). In Photoshop this is Merge down; here Merge down is in the Layer menu'],
         ['Ctrl+Alt+I and Ctrl+Alt+C', 'Image size and Canvas size, as in Photoshop'],
         ['Ctrl+K', 'Search every action by name. Faster than remembering where a command lives'],
         ['?', 'The shortcut sheet, with a search box'],
@@ -674,7 +676,7 @@ export const articles: Article[] = [
       { t: 'faq', items: [
         { q: 'Is it a free Photoshop alternative?', a: 'For layered image editing, retouching, type, effects and print and screen export, yes, in the browser with no account. It is not a replacement for CMYK prepress, smart objects, actions or Camera Raw.' },
         { q: 'Can I keep using my PSD files?', a: 'You can open them, with layers, masks, text, adjustments and styles carried over as far as the format allows and a report of anything changed. You cannot save back to PSD; keep a .void file for the layers and deliver PNG, JPG, WebP or PDF.' },
-        { q: 'Do my shortcuts still work?', a: 'The tool keys and most Ctrl shortcuts are the same. New, Close and Export differ because the browser owns Ctrl+N and Ctrl+W; they are Ctrl+Alt+N, Ctrl+Alt+W and Ctrl+E.' },
+        { q: 'Do my shortcuts still work?', a: 'The tool keys and most Ctrl shortcuts are the same. New and Close are Ctrl+Alt+N and Ctrl+Alt+W because the browser owns Ctrl+N and Ctrl+W. Ctrl+E is Export, where Photoshop has Merge down.' },
       ] },
       { t: 'try', label: 'Open the Editor', href: '/editor' },
     ],
@@ -711,7 +713,7 @@ export const articles: Article[] = [
         ['Large text (about 24 px regular, 19 px bold) on a surface', '3:1', 'AA large.'],
         ['Icons, borders that carry meaning, the brand colour used as a graphic', '3:1', 'WCAG minimum for graphics.'],
         ['Button label on the accent', '4.5:1', 'The pairing that most often fails.'],
-        ['Logo edge on its background', '3:1', 'Otherwise use the reversed or dark mono logo.'],
+        ['Logo edge on its background', '3:1', 'A house rule, not WCAG (logos are exempt). Below it, use the reversed or dark mono logo.'],
       ] },
       { t: 'p', text: 'Contrast is measured between the text colour and the colour directly behind it, not between two brand colours in the abstract. A palette passes when every pairing you will actually use passes, which is why the output of this work is a list of pairings, not a row of swatches.' },
 
@@ -741,7 +743,7 @@ export const articles: Article[] = [
 
       { t: 'faq', items: [
         { q: 'How many colours should a brand have?', a: 'One brand colour, one secondary, one accent and a neutral family, each with a ramp of tints and shades. That is four families and forty-odd usable steps, which is plenty. More than that and nobody can keep them consistent.' },
-        { q: 'What contrast ratio do brand colours need?', a: '4.5:1 for body text on a surface, 3:1 for large text and for the brand colour used as a graphic or an icon, and 3:1 between the logo\'s edge and whatever it sits on. Measure the pairings you will use, not the swatches in the abstract.' },
+        { q: 'What contrast ratio do brand colours need?', a: '4.5:1 for body text on a surface, 3:1 for large text and for the brand colour used as a graphic or an icon, and, as a house rule (WCAG exempts logos), 3:1 between the logo\'s edge and whatever it sits on. Measure the pairings you will use, not the swatches in the abstract.' },
         { q: 'My brand colour fails as text. Do I have to change the brand?', a: 'No. Keep the brand colour for surfaces, buttons and large headings, and use a darker step of the same ramp for text. It still reads as the brand and it passes.' },
       ] },
       { t: 'try', label: 'Open Studio', href: '/studio' },
@@ -793,14 +795,14 @@ export const articles: Article[] = [
       { t: 'h', text: 'Limits worth knowing' },
       { t: 'list', items: [
         '**Imported photos are capped at 4096 px** on the long side in the Editor. That is A3 at about 248 dpi, A2 at 175, A1 at 124, all measured on the long side, all fine from their viewing distance. It also means a photo cannot make an A0 poster sharp close up, whatever you do.',
-        '**Exports are capped at about 67 million pixels.** A1 at 300 dpi is just over that and A0 at 300 is double it; the Editor scales such an export down to fit. Both sizes are right at 150 dpi anyway.',
+        '**New designs and boards stop at 8000 px a side**, so you cannot start an A1 or A0 at 300 dpi (A1 would be 7016 × 9933). Enlarged with Image size it is about 70 megapixels, more than a browser can draw, so Export offers a size just under 1× instead. At 150 dpi they fit (A1 is 3508 × 4967, A0 is 4967 × 7022), and 150 is the right resolution for them anyway.',
         '**Text and shapes are vector** and are drawn sharp at whatever size you export. Only photos and painted layers have a dpi.',
-        '**Very large canvases are slow.** Above 8000 px on a side the browser warns you. Work at 150 dpi for big posters and everything is quicker.',
+        '**Very large canvases are slow.** Image size warns above 8000 px a side. Work at 150 dpi for big posters and everything is quicker.',
       ] },
 
       { t: 'h', text: 'How Voidcanvas handles this' },
       { t: 'p', text: 'The Editor\'s print presets are A4 and A5 at 300 dpi and Poster 18 × 24 in at 300 dpi (5400 × 7200). For any other size, use the calculator above and enter the pixel size as a custom canvas on the start screen. Any design over 2000 px on its long side exports as a PDF at 300 dpi; a poster made at 150 dpi therefore comes out at half the physical size on the PDF page, so tell the printer the intended size, or export a PNG and state the size in millimetres. Studio\'s poster format is 2700 × 3600, which is 18 × 24 in at 150 dpi, and its delivery PDF carries the size in mm with bleed and crop marks.' },
-      { t: 'product', text: 'Print presets at 300 dpi, a custom size for everything else, the Image size dialog showing the print size at any dpi, and the 4096 px import cap stated rather than hidden.', label: 'Start a poster', href: '/editor?preset=poster' },
+      { t: 'product', text: 'Print presets at 300 dpi, a custom size for everything else, and the Image size dialog showing the print size at any dpi.', label: 'Start a poster', href: '/editor?preset=poster' },
 
       { t: 'faq', items: [
         { q: 'Is 150 dpi good enough for a poster?', a: 'Yes for anything read from a metre or more: A2 and larger, 18 × 24 in and larger. Use 300 for A3 and smaller, which people read up close.' },
@@ -867,7 +869,7 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'How Voidcanvas handles this' },
-      { t: 'p', text: 'Every export is RGB. Studio\'s print PDFs say so in the slug line, with bleed and crop marks; the Editor\'s PDF does not label itself, so put RGB in the order note. Both are image-based at 300 dpi, which printers accept and convert with their own profile. There is no CMYK export, no soft proof and no profile embedding. The brand guideline builder keeps colours in OKLCH ramps, which makes it easy to pick a less saturated step for print surfaces, and the print-setup preview above shows which colours are going to move.' },
+      { t: 'p', text: 'Every export is RGB. Studio\'s print PDFs say so in the slug line, with bleed and crop marks; the Editor\'s PDF does not label itself, so put RGB in the order note. Both are image-based, which printers accept and convert with their own profile. There is no CMYK export, no soft proof and no profile embedding. The brand guideline builder keeps colours in OKLCH ramps, which makes it easy to pick a less saturated step for print surfaces, and the print-setup preview above shows which colours are going to move.' },
       { t: 'product', text: 'RGB output, print presets at 300 dpi, and Studio print PDFs whose slug line tells the printer the file is RGB. The conversion belongs with the person who owns the press.', label: 'Open the Editor', href: '/editor?preset=a4' },
 
       { t: 'faq', items: [
@@ -924,13 +926,13 @@ export const articles: Article[] = [
       { t: 'p', text: 'One element wins: the headline, or the image, never both. Make it win by a wide margin, two to three times the size of the next thing, or the only thing in colour, or the only thing with space around it. A poster with two equal things has a tie, and the reader walks past a tie.' },
 
       { t: 'h', text: '5. Margins and a grid' },
-      { t: 'p', text: 'Keep everything at least 5 per cent of the short side away from the edge (15 mm on A3, 25 mm on 18 × 24 in). Printers trim with a small tolerance, frames cover edges, and a margin makes the design look placed. Inside the margin, align to two or three edges, not seven. The Editor\'s **View, Guides, New guide layout…** has a **Safe margins** preset; set the margin in pixels and snap to it.' },
+      { t: 'p', text: 'Keep everything at least 5 per cent of the short side away from the edge (15 mm on A3, 23 mm on 18 × 24 in). Printers trim with a small tolerance, frames cover edges, and a margin makes the design look placed. Inside the margin, align to two or three edges, not seven. The Editor\'s **View, Guides, New guide layout…** has a **Safe margins** preset; set the margin in pixels and snap to it.' },
 
       { t: 'h', text: '6. Two colours and a neutral' },
       { t: 'p', text: 'A background, a type colour and one accent is a complete poster palette. Contrast between the type and what is behind it matters more than the colours themselves: dark on light or light on dark, at 4.5:1 or better, because posters are read in bad light. Bright saturated colours print duller than they look on screen, so put the neon in the accent, not the background. [Colour that works](/learn/colour-that-works) has the system.' },
 
       { t: 'h', text: '7. Details in reading order' },
-      { t: 'p', text: 'After the headline the eye wants: **what** it is, **when**, **where**, **how much** and **how to get in**. Put them in that order, top to bottom or in one block, in the second size, aligned to one edge. Logos go at the bottom in a row, aligned along their base, each no taller than the small print is wide. A QR code is a detail: 25 mm minimum for a 1 m scan, with quiet space around it.' },
+      { t: 'p', text: 'After the headline the eye wants: **what** it is, **when**, **where**, **how much** and **how to get in**. Put them in that order, top to bottom or in one block, in the second size, aligned to one edge. Logos go at the bottom in a row, aligned along their base, each no taller than the small print is wide. A QR code needs to be about a tenth of the distance it is scanned from (25 mm at 25 cm, 100 mm from a metre away), with quiet space around it.' },
 
       { t: 'h', text: '8. The two tests' },
       { t: 'list', items: [
@@ -1041,7 +1043,7 @@ export const articles: Article[] = [
       { t: 'p', text: 'Repeat the word, a number, a shape or the date across the page until it reads as texture, then set the real headline once, clearly, over the top or in a gap.' },
       { t: 'steps', items: [
         'Make the element: a text layer or a shape in the accent colour at about 15 per cent opacity, or in a tint of the background.',
-        'Duplicate it ({{Ctrl+J}}) and nudge with Shift plus an arrow key (10 px steps) to place the second copy exactly. Select both, duplicate again, and the spacing doubles. Six or seven duplications fill a page.',
+        'Duplicate it ({{Ctrl+J}}) and nudge the copy with Shift plus an arrow key (10 px steps) to place it exactly. {{Ctrl+J}} copies only the active layer, so duplicate the newest copy and nudge it the same number of steps each time. Six or seven copies fill a page.',
         'Select all the copies and **Layer, Group** ({{Ctrl+G}}) them, so they move as one and the group can be masked to the margins.',
         'Set the headline over the pattern in the full type colour, larger than the pattern element, or leave a clear band for it.',
       ] },
@@ -1123,7 +1125,7 @@ export const articles: Article[] = [
       { t: 'p', text: 'Even offline-capable tools fetch a few things once. Prepare them before you go:' },
       { t: 'checklist', items: [
         'Open the app once and open the parts you use (in Voidcanvas: the Editor, Studio, Effects and any quick tool). They are stored on the device from then on.',
-        'Use every font you plan to use. Web fonts load once and are kept; a font you have never used will not load offline. The 16 fonts built into Voidcanvas are always available.',
+        'Use every font you plan to use. Web fonts load once and are kept; a font you have never used will not load offline. That includes the 16 built-in fonts in the browser: only the desktop app carries them with it.',
         'Run each AI tool once (Remove background, Select subject, Expand with AI fill). Each downloads its model the first time, then runs on the device.',
         'Save a .void file of anything important to disk, or install the desktop app so designs are files in a folder you own.',
         'Export a PNG of the current state of the job, in case you need to send it from a phone.',
@@ -1190,7 +1192,7 @@ export const articles: Article[] = [
         ['PSD', 'Yes, in most layered editors, including the Voidcanvas Editor: layers, groups, masks, text, adjustments and styles, with smart objects and vector shapes as pixels', 'Rasterise smart objects you need to keep editable, or keep their source files. Make sure the fonts used are files you own.'],
         ['AI (Illustrator)', 'Rarely as editable vectors', 'Export every AI file you care about as SVG (editable) and PDF (exact). Keep the AI file too.'],
         ['INDD (InDesign)', 'Almost nowhere', 'Export IDML (for Affinity Publisher or Scribus) and a PDF of each document. Package the fonts and links.'],
-        ['PDF', 'Everywhere', 'Nothing. The Voidcanvas Editor opens PDFs as layers.'],
+        ['PDF', 'Everywhere', 'Nothing. The Voidcanvas Editor opens each PDF page as a flat picture layer, so keep the source files for anything you will edit.'],
         ['Lightroom catalogue', 'Only in Lightroom', 'Export the photos with edits applied, and the catalogue as XMP sidecars if you want the edit data.'],
         ['XD, After Effects, Premiere projects', 'Not in Voidcanvas; specialised tools exist', 'Export finished assets and, where offered, an interchange format.'],
       ] },
@@ -1211,10 +1213,10 @@ export const articles: Article[] = [
       { t: 'table', head: ['You used', 'In Voidcanvas', 'Notes'], rows: [
         ['Photoshop for layered design, retouching, type, export', 'The Editor', 'Layers, masks, adjustment layers, selections, retouching, layer styles, type, PSD import. See Coming from Photoshop for the full map.'],
         ['Photoshop for CMYK prepress, soft proofing, Camera Raw', 'Not covered', 'RGB export only; printers convert. For raw processing use a raw developer and bring in the result.'],
-        ['Illustrator for logos and icons', 'Partly', 'Shape layers, the Pen tools, Pathfinder and SVG export cover simple vector work. Complex illustration wants a vector app (Inkscape, Affinity).'],
+        ['Illustrator for logos and icons', 'Partly', 'Shape layers, the Pen tools and Pathfinder cover simple vector work, and a single path exports as SVG (there is no SVG export of a whole design). Complex illustration wants a vector app (Inkscape, Affinity).'],
         ['InDesign for multi-page documents', 'Not covered', 'The Editor is single-page with boards. Brand guidelines export as a multi-page PDF from Studio, but a book or catalogue needs a layout app.'],
         ['Libraries for brand assets', 'Brand kit and the brands library', 'Colours, fonts, logos and rules per brand, loaded into any design, with checks before export.'],
-        ['Actions for repeat work', 'Templates, Resize to every format, Studio formats', 'Not scripting, but it covers the common cases: same design in every size, same setup every time.'],
+        ['Actions for repeat work', 'Templates, Resize for other formats, Studio formats', 'Not scripting, but it covers the common cases: same design in every size, same setup every time.'],
         ['Adobe Fonts', 'Google Fonts, or font files you add', 'Installed fonts are not listed; add the font file, and it is saved inside the design so it travels with it.'],
         ['Cloud documents and sync', 'Files on your device; optional encrypted account sync', 'Nothing leaves the device readable.'],
       ] },
@@ -1262,19 +1264,19 @@ export const articles: Article[] = [
       { t: 'table', head: ['Part', 'What it did on the printed page', 'Effect that makes it', 'Setting to start from'], rows: [
         ['Flat colour', 'Comics were printed with a few inks, so skin, hair and sky were flat fills', 'Posterize (keeps the photo\'s own colours) or Pop Art (swaps in a bright palette)', 'Posterize Levels 20 to 30; Pop Art Colour levels 30 to 40, Colour blend 100'],
         ['Dots', 'Mid-tones and shadows were screened into dots, usually one ink over another', 'Halftone', 'Dot size 40 to 60, Contrast 50; coarser for print, finer for a phone'],
-        ['Lines', 'The inker\'s black outlines', 'Edge Detect, inverted', 'Threshold 50 to 90; higher for cleaner outlines'],
+        ['Lines', 'The inker\'s black outlines', 'Edge Detect, inverted', 'Threshold 50 to 90; higher leaves fewer, thinner lines'],
       ] },
       { t: 'p', text: 'Each part on its own is a different effect. Posterize alone is a poster; halftone alone is newsprint; edge detect alone is a blueprint. The comic look is the stack, and the order matters because each filter works on what is below it.' },
 
       { t: 'h', text: 'The recipe in the Editor' },
       { t: 'steps', items: [
         'Open the photo. Crop tight, and add a **Curves** adjustment layer to push the contrast: comics have no soft shadows. If the background is busy, **Layer, Remove background** and put a flat colour layer underneath.',
-        'Flat colour: **Filter, Stylize, Posterize** (or **Filter, Artistic, Pop Art**). It arrives as a filter layer named after the filter. In **Filter settings** in Properties, drop Posterize to 20 to 30 levels. Every filter you add from here goes above the last.',
+        'Flat colour: **Filter, Stylize, Posterize** (or **Filter, Artistic, Pop Art**). It arrives as a filter layer named after the filter. In **Filter settings** in Properties, set **Levels** to 20 to 30, which leaves two or three tones per colour channel. Every filter you add from here goes above the last.',
         'Dots: **Filter, Artistic, Halftone**. Set **Dot Size** around 50 and **Contrast** around 50. Then set the filter layer\'s blend mode to **Multiply** in the Layers panel: the white parts of the halftone vanish and the black dots sit on the flat colour. Lower the layer\'s **Opacity** to 60 to 80 per cent so the dots tint the shadows rather than covering them.',
-        'Lines: duplicate the original photo ({{Ctrl+J}}) and drag the copy to the top of the stack. Add **Filter, Stylize, Edge Detect** above it, set **Threshold** so only the strong outlines remain, then select the filter layer and choose **Layer, Merge down** to bake the lines into the copy. Add an **Invert** adjustment directly above the copy and **Merge down** again: Merge down applies it to that one layer only, so the lines turn black on white. Set the copy to **Multiply**. White becomes transparent; the lines stay black.',
+        'Lines: duplicate the original photo ({{Ctrl+J}}) and drag the copy to the top of the stack. For smoother, bolder lines, first add **Filter, Enhance, Blur** at a Radius of 40 to 80 (a 2 to 4 px blur) above the copy and **Layer, Merge down**. Then add **Filter, Stylize, Edge Detect** above it, set **Threshold** so only the strong outlines remain, then select the filter layer and choose **Layer, Merge down** to bake the lines into the copy. Add an **Invert** adjustment directly above the copy and **Merge down** again: Merge down applies it to that one layer only, so the lines turn black on white. Set the copy to **Multiply**. White becomes transparent; the lines stay black.',
         'Finish: a **Film Grain** filter at a low amount over everything for paper texture, and a text layer in a bold display face if you want a caption box or a sound effect. Export as PNG.',
       ] },
-      { t: 'tip', text: 'For the Lichtenstein look, use Pop Art with Colour levels low and Colour blend at 100, make the halftone coarse (Dot size 70 or more) and keep the lines thick by raising the Edge Detect threshold and adding a 2 px **Stroke** layer style to the line layer.' },
+      { t: 'tip', text: 'For the Lichtenstein look, use Pop Art with Colour levels low and Colour blend at 100, make the halftone coarse (Dot size 70 or more) and keep the lines bold by blurring the photo copy before Edge Detect. A Stroke layer style does not help here: the line layer is solid, so a stroke only traces its outer edge.' },
 
       { t: 'h', text: 'Where it goes wrong' },
       { t: 'table', head: ['Problem', 'Cause', 'Fix'], rows: [
@@ -1286,8 +1288,8 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'How Voidcanvas handles this' },
-      { t: 'p', text: 'Posterize, Pop Art, Halftone and Edge Detect are four of the 58 effects. In Effects you can try each alone with sliders and Compare, and Send to Editor. In the Editor they are filter layers: stackable, reorderable, maskable, with blend modes and opacity, and re-rendered sharp at export size. The example above runs the same Pop Art code as the product.' },
-      { t: 'product', text: 'Four effects, stacked as filter layers with blend modes, is the comic recipe. Start in Effects to pick your settings, then Send to Editor to build the stack.', label: 'Open Pop Art in Effects', href: '/effects?effect=popart' },
+      { t: 'p', text: 'Posterize, Pop Art, Halftone and Edge Detect are four of the 58 effects. In Effects you can try each alone with sliders and Compare, then **Open in Editor**. In the Editor they are filter layers: stackable, reorderable, maskable, with blend modes and opacity, and re-rendered sharp at export size. The example above runs the same Pop Art code as the product.' },
+      { t: 'product', text: 'Four effects, stacked as filter layers with blend modes, is the comic recipe. Start in Effects to pick your settings, then Open in Editor to build the stack.', label: 'Open Pop Art in Effects', href: '/effects?effect=popart' },
 
       { t: 'faq', items: [
         { q: 'Is there a one-click comic book filter?', a: 'Pop Art gets closest in one click: flat colours from a comic palette. The full look needs the dots and the lines as well, which is three filters stacked in the Editor. Ten minutes, and it looks like a comic rather than a filter.' },
@@ -1336,13 +1338,21 @@ export const articles: Article[] = [
       { t: 'p', text: 'The formula: dot cell in pixels = dpi ÷ lpi. At 300 dpi, 50 lpi is a 6 px cell. Ask the printer what mesh they will use; if they do not know yet, 45 lpi (a 6.7 px cell at 300 dpi) is the safe middle for most shops.' },
 
       { t: 'h', text: 'Getting a Voidcanvas halftone to a number' },
-      { t: 'p', text: 'The **Dot Size** slider is grid spacing. In the Editor, a filter layer\'s cell is about **Dot Size ÷ 8** document pixels at a 1× export, so on a 300 dpi document: Dot Size 48 is a 6 px cell (50 lpi), 56 is 7 px (43 lpi), 64 is 8 px (37.5 lpi). In the Halftone tool the setting is scaled with the download so the result matches the preview; measure the exported file rather than trusting the slider.' },
+      { t: 'p', text: 'The **Dot Size** slider is grid spacing. The Editor previews filters on a copy at most 1200 px on the long edge, and scales the setting with the image when it exports or merges, so the cell in the final file is about **Dot Size ÷ 8 × long side ÷ 1200** pixels. Cells are whole pixels, so pick the nearest.' },
+      { t: 'table', head: ['Dot Size', 'Cell on a 3600 × 4800 px file', 'Lines per inch at 300 dpi'], rows: [
+        ['12', '6 px', '50'],
+        ['14', '7 px', '43'],
+        ['16', '8 px', '37.5'],
+        ['20', '10 px', '30'],
+      ] },
+      { t: 'p', text: 'The preview draws its cells in whole pixels of a 1200 px copy, which on a file this size means 4 px steps, so its dots can look coarser or finer than the file\'s. Judge the dots on the exported file, or on a stamped copy, not on the live filter.' },
       { t: 'steps', items: [
         'Set the document to the print size at 300 dpi (a 12 × 16 in shirt print area is 3600 × 4800 px). Place the photo; convert it to black and white with an adjustment layer and push **Curves** until the shadows are dark and the highlights nearly white. Screens print ink or no ink, so the photo has to be graphic already.',
-        'Add **Filter, Artistic, Halftone**. Set **Dot Size** from the table (48 to 64 for most shirts) and **Contrast** to about 50, so the darkest dots just fill their cell rather than merging into a solid.',
-        'Zoom to 100 per cent ({{Ctrl+1}}) and count: the distance between dot centres is your cell. Adjust Dot Size until it matches the lpi you agreed.',
+        'Add **Filter, Artistic, Halftone**. Set **Dot Size** from the table (12 to 16 on a 3600 × 4800 file) and **Contrast** to about 50, so the darkest dots just fill their cell rather than merging into a solid.',
+        'Check the real dots: choose **Layer, Stamp visible to new layer** ({{Ctrl+Alt+Shift+E}}), zoom to 100 per cent ({{Ctrl+1}}) and measure the distance between dot centres. That is your cell. Delete the stamped layer, adjust Dot Size and check again until it matches the lpi you agreed.',
         'Check the extremes. Very small dots in the highlights will drop out; very large in the shadows will fill in. Use Curves under the filter to pull the tonal range in, so the smallest printed dot is around 10 per cent and the largest around 90.',
         'One ink per file. Hide everything except the layers for that ink, export a PNG at 1×. Black is ink; white or transparent is no ink. For a two-colour job, make one halftone per colour on its own layer stack and export each separately, at the same size, so they register.',
+        'If the printer wants no white: **Image, Flatten image**, pick the **Magic wand** ({{Shift+W}}), turn **Contiguous** off, click the white and press {{Delete}}. In Export, open **More options** and tick **Transparent background**.',
       ] },
       { t: 'note', text: 'Many screen printers prefer to make the halftone themselves in their RIP from a continuous-tone greyscale file, because they know their mesh, emulsion and ink. Ask first. If they do, send a high-contrast greyscale PNG at 300 dpi and tell them the lpi you would like; skip the halftone filter entirely.' },
 
@@ -1356,13 +1366,13 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'How Voidcanvas handles this' },
-      { t: 'p', text: 'The Halftone tool and the Halftone filter run the same code; the filter gives you the document-size control and the layer stack for one ink per file. Exports are PNG with transparency preserved, so a halftone on a transparent layer exports as black dots on nothing, which is what a screen positive and a DTF file both want. There is no CMYK separation and no RIP; for process work, send the printer a high-resolution RGB file and let them separate.' },
-      { t: 'product', text: 'Halftone as a filter layer at document size, Curves to control the tonal range under it, and a PNG export with transparency per ink. Enough for one- and two-colour shirt work; ask the printer before anything with more inks.', label: 'Open the Halftone tool', href: '/tools/halftone' },
+      { t: 'p', text: 'The Halftone tool and the Halftone filter run the same code; the filter gives you the document-size control and the layer stack for one ink per file. The filter draws black dots on white. Flatten and delete the white, as in the last step above, when the file has to be dots on nothing. There is no CMYK separation and no RIP; for process work, send the printer a high-resolution RGB file and let them separate.' },
+      { t: 'product', text: 'Halftone as a filter layer at document size, Curves to control the tonal range under it, and a PNG export per ink. Enough for one- and two-colour shirt work; ask the printer before anything with more inks.', label: 'Open the Halftone tool', href: '/tools/halftone' },
 
       { t: 'faq', items: [
         { q: 'What lpi should I use for screen printing a t-shirt?', a: '35 to 55 lpi, matched to the mesh: about 40 lpi on 156 mesh, 50 on 230. If you do not know the mesh, 45 lpi is the safe middle. At 300 dpi that is a dot cell of about 6.7 px.' },
         { q: 'Should I halftone my design for DTF?', a: 'Not for tonal reasons; the printer\'s RIP screens it. Send full-resolution artwork with a transparent background. Add halftone dots only as a visible design element, and make them coarse.' },
-        { q: 'Black on white or black on transparent?', a: 'Either works for a screen positive; ask the shop. Transparent is safer for DTF because white would print as white ink. In Voidcanvas, a halftone filter over a layer with transparency keeps the transparency on export.' },
+        { q: 'Black on white or black on transparent?', a: 'Either works for a screen positive; ask the shop. Transparent is safer for DTF because white would print as white ink. In Voidcanvas the Halftone filter draws on white; flatten, select the white with the Magic wand (Contiguous off), delete it, and export PNG with Transparent background ticked.' },
       ] },
       { t: 'try', label: 'Open the Halftone tool', href: '/tools/halftone' },
     ],
@@ -1410,9 +1420,9 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Limits, stated plainly' },
       { t: 'list', items: [
-        'Layers larger than 4096 px on the long side are scaled to 4096 px.',
+        'Only RGB, Grayscale, Indexed and Bitmap PSDs open. CMYK, Lab, Duotone and Multichannel files do not open yet; ask for an RGB copy.',
         'Smart objects and vector shapes arrive as pixels. Warped text, text on a path and text with mixed styles arrive as pixels.',
-        'A few blend modes (linear burn, linear dodge, vivid light, pin light, dissolve) use the nearest match. 16-bit files open as 8-bit.',
+        'A few blend modes (linear burn, linear dodge, vivid light, pin light, dissolve) use the nearest match. Masks on groups are left out, and the report says so. 16- and 32-bit files open as 8-bit.',
         'No PSD export. Deliver PNG, JPG, WebP or PDF; keep layers in a .void file.',
       ] },
 
@@ -1424,7 +1434,7 @@ export const articles: Article[] = [
         { q: 'Is it really free with no account?', a: 'Yes. The Editor runs in the browser with no sign-up. An optional account exists for encrypted sync between devices; opening and editing a PSD does not need it.' },
         { q: 'Is my PSD uploaded?', a: 'No. The file is read in your browser and never leaves your device. You can open it with the Wi-Fi off.' },
         { q: 'Can I convert PSD to PNG here?', a: 'Yes: open the PSD, press Ctrl+E, choose PNG, Download. Hide layers first if you want only some of them.' },
-        { q: 'Does it work on a Chromebook or a phone?', a: 'Chromebook, yes, with the full Editor. Phones get the phone Editor; a large PSD may be slow on a phone, and the 4096 px cap applies.' },
+        { q: 'Does it work on a Chromebook or a phone?', a: 'Chromebook, yes, with the full Editor. Phones get the phone Editor; a large PSD may be slow on a phone because every layer is held in memory.' },
       ] },
       { t: 'try', label: 'Open the Editor', href: '/editor' },
     ],

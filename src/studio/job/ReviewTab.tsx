@@ -65,7 +65,7 @@ export function ReviewTab({ job, update, toast }: TabProps) {
       const images: Version['images'] = []
       for (const f of boards) {
         const k = Math.min(1, 1800 / Math.max(f.width, f.height))
-        const c = boardCanvas(d, f, k)
+        const c = boardCanvas(d, f, k, true)
         images.push({ name: job.deliverables.find(x => x.id === f.deliverableId)?.label ?? f.name, blob: await toBlob(c, 'image/jpeg', 0.9), w: c.width, h: c.height })
       }
       addVersion(images)

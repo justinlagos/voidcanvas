@@ -95,9 +95,9 @@ export const articles: Article[] = [
       { t: 'h', text: '9. Export the PDF' },
       { t: 'steps', items: [
         'Choose **File > Export as…** ({{Ctrl+E}}) and pick **PDF**.',
-        'Under Size, choose **1×** (5400 × 7200). Only 0.5× and 1× are offered here, because larger would pass 8192 px.',
-        'Click **Download**.',
-        'For social media, export again as **JPG** at **0.5×** (2700 × 3600).',
+        'Under Size, **1×** (5400 × 7200) is the only choice: anything larger is more than a browser can draw.',
+        'Click **Download PDF**.',
+        'For social media, make a post-size copy with **File, Resize for other formats…** and export that as **JPG**.',
       ] },
       { t: 'p', text: 'The PDF is one page at 18 × 24 inches with the design placed as a 300 dpi image. The Editor treats any design over 2000 px on its long side as print work. Transparent areas print as white. Every download also saves a version named Exported, so you can always find the file you sent.' },
 
@@ -211,7 +211,7 @@ export const articles: Article[] = [
       { t: 'list', items: [
         '**File > Resize for other formats…** makes copies at the sizes you pick. Backgrounds stretch to fill; everything else keeps its place and scales to fit. Click **Download N as PNG** for a zip, or **Save as separate designs** to fine-tune each one. Your original is not changed.',
         '**File > Boards…**, then the **Cascade to touchpoints** tab, adds linked boards beside the current design. The **Re-sync variants** button on the master rebuilds them from it and throws away changes made on the variants, so re-sync before fine-tuning, not after.',
-        'To export boards, open **File > Export as…**, choose **All** under Boards to export, pick PNG and a size (1× is each board at its own size), tick **Number files in board order (01, 02…)** and press **Download N PNGs (zip)**.',
+        'To export boards, open **File > Export as…**, click **All N** at the top, pick PNG and a size (1× is each board at its own size) and press **Download N PNGs (zip)**. Files are numbered in board order (01, 02…) unless you turn that off under **More options**.',
       ] },
       { t: 'p', text: 'Scaling to fit is why a banner from a portrait post looks tiny: on a 1584 × 396 LinkedIn banner the scale is set by the height, so a 1080 × 1350 post shrinks to under a third. Plan to rework the wide formats by hand either way.' },
 
@@ -418,7 +418,7 @@ export const articles: Article[] = [
         ['Download .ase', 'Other designers', 'Adobe Swatch Exchange, grouped by role, for Illustrator, Photoshop and InDesign.'],
         ['Editor', 'You, for custom edits', 'Every page as a board of real text, shape and image layers.'],
       ] },
-      { t: 'p', text: 'Open the pages in the Editor when the client needs wording the builder does not generate, such as their own voice examples. Changes made there do not flow back to the builder, so finish the system first and edit last. To export the edited pages, use **File > Export as…**, choose **All** under Boards to export, and pick PNG, or PDF with **One PDF** for a page per board.' },
+      { t: 'p', text: 'Open the pages in the Editor when the client needs wording the builder does not generate, such as their own voice examples. Changes made there do not flow back to the builder, so finish the system first and edit last. To export the edited pages, use **File > Export as…**, click **All N** at the top, and pick PNG, or PDF (one PDF with a page per board, or a PDF per board under **More options**).' },
 
       { t: 'h', text: '9. Save it as a client brand' },
       { t: 'steps', items: [
@@ -635,12 +635,12 @@ export const articles: Article[] = [
 
       { t: 'h', text: '8. Export' },
       { t: 'steps', items: [
-        'Press {{Ctrl+E}}, choose **All** under Boards to export, pick PNG at 1×, tick **Number files in board order (01, 02…)** and press **Download N PNGs (zip)**. Each file is named after its board.',
+        'Press {{Ctrl+E}}, click **All N** at the top, pick PNG at 1× and press **Download N PNGs (zip)**. Each file is named after its board and numbered in board order.',
         'Rename the boards in **File > Boards…** first if you want tidy file names.',
       ] },
 
       { t: 'h', text: 'Sending work back' },
-      { t: 'p', text: 'Voidcanvas does not write PSD files. Send your colleague the PNGs. To keep an editable copy for yourself or another Voidcanvas user, choose **File > Download project file (.void)**, or **Save editable file (.void.png…)** in the Export dialog.' },
+      { t: 'p', text: 'Voidcanvas does not write PSD files. Send your colleague the PNGs. To keep an editable copy for yourself or another Voidcanvas user, choose **File > Download project file (.void)**, or **File > Download editable picture (.void.png)**.' },
 
       { t: 'h', text: 'Common problems' },
       { t: 'list', items: [

@@ -9,10 +9,14 @@ import { docSubsToLayerPatch, docSubsToTextPathPatch, docToVmask, layerSubsToDoc
 
 const st = () => useEditor.getState()
 
-export function composite(opts: { transparent?: boolean } = {}): HTMLCanvasElement | null {
+/**
+ * The whole document at its own size. `full` runs filter layers at document size, as an export at 1x does;
+ * use it whenever the result becomes pixels in the design (flatten, stamp). Selections read the preview.
+ */
+export function composite(opts: { transparent?: boolean; full?: boolean } = {}): HTMLCanvasElement | null {
   const s = st(); if (!s.doc) return null
   const c = makeCanvas(s.doc.width, s.doc.height)
-  renderDoc(c, s.doc, s.layers, { groups: s.groups, noCache: true, transparent: opts.transparent, frameRects: s.doc.frames?.length ? s.doc.frames : undefined, noShadow: true })
+  renderDoc(c, s.doc, s.layers, { groups: s.groups, noCache: true, fullRes: !!opts.full, transparent: opts.transparent, frameRects: s.doc.frames?.length ? s.doc.frames : undefined, noShadow: true })
   return c
 }
 
@@ -106,7 +110,7 @@ export function cropToSelection() {
 
 export function flatten() {
   const s = st(); const doc = s.doc; if (!doc) return
-  const c = composite(); if (!c) return
+  const c = composite({ full: true }); if (!c) return
   const l: RasterLayer = { ...base('Background'), type: 'raster', canvas: c }
   s.replaceAll({ layers: [l], groups: [] }, 'Flatten image')
   useEditor.setState({ activeId: l.id, selectedIds: [l.id] })
@@ -117,7 +121,7 @@ export function mergeVisible() {
   const vis = s.layers.filter(l => l.visible)
   if (vis.length < 2) return
   const c = makeCanvas(doc.width, doc.height)
-  renderDoc(c, doc, vis, { groups: s.groups, noCache: true, transparent: true })
+  renderDoc(c, doc, vis, { groups: s.groups, noCache: true, fullRes: true, transparent: true })
   const l: RasterLayer = { ...base('Merged'), type: 'raster', canvas: c }
   s.replaceAll({ layers: [...s.layers.filter(x => !x.visible), l], groups: s.groups }, 'Merge visible')
   useEditor.setState({ activeId: l.id, selectedIds: [l.id] })
@@ -126,7 +130,7 @@ export function mergeVisible() {
 /** Ctrl+Alt+Shift+E: a new layer holding everything visible, layers kept. */
 export function stampVisible() {
   const s = st(); const doc = s.doc; if (!doc) return
-  const c = composite({ transparent: true }); if (!c) return
+  const c = composite({ transparent: true, full: true }); if (!c) return
   s.addLayer({ ...base('Stamped'), type: 'raster', canvas: c }, 'Stamp visible')
 }
 

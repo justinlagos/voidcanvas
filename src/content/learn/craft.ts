@@ -287,7 +287,7 @@ export const articles: Article[] = [
         '**Imported photos are capped.** When you open or place an image larger than 4096 px on its longest side, it is scaled down to 4096 px. A photo filling an A3 page at 300 ppi (3508 × 4961) is therefore at most about 248 ppi, and one filling the 18 × 24 in poster about 170 ppi. Both usually print well, but know the limit.',
         '**Text and shapes stay sharp at any size.** They are redrawn at the export size, so a 2× or 3× export of text is crisp. Photos and painted layers are resampled and cannot gain detail.',
         '**Image size** (Image menu, {{Ctrl+Alt+I}}) scales every layer. It shows the size in pixels, about how many MB each layer takes, and what that prints at in centimetres at the **Resolution** you enter. Change the Resolution to see a different print size.',
-        '**Export as…** ({{Ctrl+E}}) offers 0.5×, 1×, 2× and 3×, showing the pixel size of each. Scales that would go over 8192 px on the longest side are not offered.',
+        '**Export as…** ({{Ctrl+E}}) offers 1×, 2×, 3× and 4×, showing the pixel size you will get. Sizes the browser cannot draw (over 16,384 px on a side or about 67 megapixels) are not offered.',
         '**Custom size** on the start screen accepts 16 to 8000 px per side.',
       ] },
       { t: 'p', text: 'On a Mac, use Cmd in place of Ctrl.' },

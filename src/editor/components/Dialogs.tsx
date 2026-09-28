@@ -26,7 +26,7 @@ export function ResizeDialog({ onClose }: { onClose: () => void }) {
     const files = []
     for (const t of build()) {
       const c = makeCanvas(t.doc.width, t.doc.height)
-      renderDoc(c, t.doc, t.layers, { groups: s.groups, noCache: true })
+      renderDoc(c, t.doc, t.layers, { groups: s.groups, noCache: true, fullRes: true })
       files.push({ name: `${t.p.label.replace(/[^\w ]+/g, '')} ${t.doc.width}x${t.doc.height}.png`, blob: await canvasToBlob(c) })
     }
     downloadBlob(await zipFiles(files), `${doc.name.replace(/[^\w\- ]+/g, '') || 'design'} all sizes.zip`)
@@ -130,12 +130,6 @@ export function applyBrand(kit: BrandKit) {
 }
 
 // ─── Shortcut sheet ────────────────────────────────────────────────
-
-const KEYS: [string, [string, string][]][] = [
-  ['Tools', [['V', 'Move'], ['B', 'Brush'], ['E', 'Eraser'], ['J', 'Heal'], ['S', 'Clone stamp'], ['T', 'Text'], ['U', 'Shape'], ['M / Shift M', 'Rectangle / ellipse select'], ['L', 'Lasso'], ['W', 'Magic wand'], ['G / Shift G', 'Fill / gradient'], ['I', 'Pick colour'], ['C', 'Crop'], ['Space', 'Pan']]],
-  ['Layers', [['Ctrl J', 'Duplicate, or copy selection to layer'], ['Ctrl G', 'Group'], ['Ctrl Shift G', 'Ungroup'], ['Shift click', 'Select several'], ['[ ]', 'Send back / bring forward'], ['Arrows', 'Nudge (Shift for 10)'], ['Enter', 'Edit text'], ['Delete', 'Delete']]],
-  ['Everything else', [['Ctrl K', 'Search every action'], ['\\ (hold)', 'See before'], ['Ctrl Z / Shift Z', 'Undo / redo'], ['Ctrl A / D', 'Select all / deselect'], ['Ctrl 0 / 1', 'Fit / 100%'], ['Ctrl E', 'Export'], ['[ ] with a brush', 'Brush size'], ['X / D', 'Swap / reset colours'], ['?', 'This sheet']]],
-]
 
 export function ShortcutSheet({ onClose }: { onClose: () => void }) {
   // Built from the same lists the menus and tools use, so it is always complete and correct.

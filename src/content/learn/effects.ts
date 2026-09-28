@@ -679,7 +679,7 @@ export const articles: Article[] = [
         ['Opacity slider', 'No', 'Yes'],
         ['Compare and zoom', 'No', 'Yes'],
         ['Download formats', 'PNG', 'PNG, JPG, WebP'],
-        ['Send to Editor', 'Send to Layer Stack', 'Open in Editor (Shift-click for flattened)'],
+        ['Into the Editor', 'Send to Layer Stack', 'Open in Editor (Shift-click for flattened)'],
       ] },
 
       { t: 'h', text: 'Good to know' },

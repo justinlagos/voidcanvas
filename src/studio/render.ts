@@ -19,26 +19,30 @@ export async function loadDesign(id: string | null | undefined): Promise<LoadedD
   return { doc, layers, groups: p.groups ?? [] }
 }
 
-/** One board of a design on its own canvas. Only that board's layers are drawn. */
-export function renderBoard(d: LoadedDesign, frame: Frame | null, scale: number): HTMLCanvasElement {
+/**
+ * One board of a design on its own canvas. Only that board's layers are drawn. `full` runs filter layers at
+ * the output size, as the Editor's export does; use it for files that leave Studio (delivery, review versions).
+ */
+export function renderBoard(d: LoadedDesign, frame: Frame | null, scale: number, full = false): HTMLCanvasElement {
   const { doc } = d
   if (!frame) {
     const c = makeCanvas(Math.max(1, Math.round(doc.width * scale)), Math.max(1, Math.round(doc.height * scale)))
-    renderDoc(c, doc, d.layers, { groups: d.groups, scale, noCache: true, noShadow: true })
+    renderDoc(c, doc, d.layers, { groups: d.groups, scale, noCache: true, noShadow: true, fullRes: full })
     return c
   }
   const f0: Frame = { ...frame, x: 0, y: 0 }
   const sub: Doc = { ...doc, width: frame.width, height: frame.height, frames: [f0] }
   const layers = d.layers.filter(l => l.frameId === frame.id).map(l => ({ ...l, x: l.x - frame.x, y: l.y - frame.y }) as Layer)
   const c = makeCanvas(Math.max(1, Math.round(frame.width * scale)), Math.max(1, Math.round(frame.height * scale)))
-  renderDoc(c, sub, layers, { groups: d.groups, scale, noCache: true, noShadow: true })
+  // Filters are scaled from the whole design the Editor previewed them on, not from this one board.
+  renderDoc(c, sub, layers, { groups: d.groups, scale, noCache: true, noShadow: true, fullRes: full, fxLong: Math.max(doc.width, doc.height) })
   return c
 }
 
 export function boardsOf(d: LoadedDesign): Frame[] {
   return d.doc.frames?.length ? d.doc.frames : [{ id: '__doc', name: d.doc.name, x: 0, y: 0, width: d.doc.width, height: d.doc.height, background: d.doc.background }]
 }
-export const boardCanvas = (d: LoadedDesign, f: Frame, scale: number) => renderBoard(d, f.id === '__doc' ? null : f, scale)
+export const boardCanvas = (d: LoadedDesign, f: Frame, scale: number, full = false) => renderBoard(d, f.id === '__doc' ? null : f, scale, full)
 
 export const toBlob = (c: HTMLCanvasElement, type = 'image/png', q?: number) => new Promise<Blob>((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error('encode'))), type, q))
 export async function thumbUrl(c: HTMLCanvasElement, max = 480) {

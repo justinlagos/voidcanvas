@@ -177,6 +177,8 @@ function textFrom(n: any, report: ImportReport): Partial<TextLayer> | null {
  * clipping, locks, blend modes and artboards. Anything that cannot be rebuilt is kept as pixels and listed in a
  * report, so nothing changes silently.
  */
+const NOTHING_READABLE = 'That PSD has no layers or picture we can read. Save it again from the app that made it, with Maximize Compatibility on.'
+
 export async function importPsd(file: Blob, name: string) {
   const ed = useEditor.getState()
   ed.setBusy('Opening PSD')
@@ -261,7 +263,9 @@ export async function importPsd(file: Blob, name: string) {
 
   if (!artboards.length) {
     walk(top, null, null)
-    if (!layers.length) { ed.setBusy(null); ed.notify('That PSD has no layers we can read. Try flattening it first.'); return }
+    // A flattened PSD has no layer records, only the composite picture. Open that as one layer.
+    if (!layers.length && psd.canvas?.width && psd.canvas?.height) layers.push({ ...baseLayer('Background'), type: 'raster', canvas: psd.canvas, x: 0, y: 0 } as RasterLayer)
+    if (!layers.length) { ed.setBusy(null); ed.notify(NOTHING_READABLE); return }
     for (const l of layers) delete (l as any).frameId
     ed.newDoc({ name: docName, width: W, height: H, background: null })
     useEditor.setState({ layers, groups, activeId: layers[layers.length - 1].id, selectedIds: [layers[layers.length - 1].id], docRev: useEditor.getState().docRev + 1 })
@@ -281,7 +285,7 @@ export async function importPsd(file: Blob, name: string) {
       walk(n.children ?? [], null, f.id)
     } else walk([n], null, null)
   }
-  if (!layers.length && !frames.length) { ed.setBusy(null); ed.notify('That PSD has no layers we can read. Try flattening it first.'); return }
+  if (!layers.length && !frames.length) { ed.setBusy(null); ed.notify(NOTHING_READABLE); return }
 
   const boxes = [...frames.map(f => ({ x: f.x, y: f.y, r: f.x + f.width, b: f.y + f.height })),
     ...layers.filter(l => !l.frameId && l.type === 'raster').map(l => { const c = (l as RasterLayer).canvas; return { x: l.x, y: l.y, r: l.x + c.width, b: l.y + c.height } })]

@@ -107,7 +107,7 @@ export const articles: Article[] = [
     summary: "Add any of the 58 Void filters from the filter gallery as a live layer, then stack, mask and fade it. Also explains why exports look slightly sharper than the preview.",
     category: 'editor',
     level: 'Beginner',
-    updated: '2026-09-25',
+    updated: '2026-09-28',
     related: ['adjustment-layers', 'effects-overview', 'artistic-effects', 'masks'],
     keywords: 'filter gallery effects fx halftone glitch dither film grain vignette live filter layer non-destructive stack mask fade preview export sharper',
     body: [
@@ -148,6 +148,7 @@ export const articles: Article[] = [
         ['1200 px or smaller on the long edge', 'The filter at full size', 'The same'],
         ['Larger than 1200 px', 'The filter worked out at 1200 px, scaled up to fit', 'The filter at full size, with pixel settings scaled, so finer detail'],
       ] },
+      { t: 'p', text: "Merging bakes a filter the same way as an export: **Merge down**, **Merge visible**, **Stamp visible** and **Flatten image** all run filters at the full size of the design, so the pixels you keep match the file you would export. With several boards, a board exported on its own keeps the dot and grain size you saw, because the settings are scaled from the whole canvas the preview was worked out on." },
       { t: 'note', text: "Because of this, a very fine pattern (small halftone dots, a single-pixel dither) on a large design can look softer on screen than it will in the file. Zooming in does not change that. Export a test at the size you need to judge the fine detail. See [Export for screen](/learn/export-for-screen) and [Export for print](/learn/export-for-print)." },
 
       { t: 'h', text: 'Common problems' },
@@ -396,7 +397,7 @@ export const articles: Article[] = [
       { t: 'h', text: 'Export a transparent PNG' },
       { t: 'steps', items: [
         "Click an empty part of the canvas to deselect layers. Under **Design** in Properties, set **Background** to none. The panel confirms: **Transparent. PNG and WebP exports keep it see-through.**",
-        "Or keep the background colour and tick **Leave out the background colour** in the export window.",
+        "Or keep the background colour and, in the export window, open **More options** and tick **Transparent background (leave out board colours)**.",
         "Export with {{Ctrl+E}} as PNG or WebP. JPG has no transparency.",
       ] },
       { t: 'p', text: "To crop the result tight to the subject, use **Image > Trim transparent edges** before exporting. See [Export for screen](/learn/export-for-screen)." },

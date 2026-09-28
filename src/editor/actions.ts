@@ -49,7 +49,7 @@ export function internalClip() { return clip }
 export async function copyPixels(merged: boolean, cut = false) {
   const st = s(); const doc = st.doc; if (!doc) return
   const src = makeCanvas(doc.width, doc.height)
-  if (merged) renderDoc(src, doc, st.layers, { groups: st.groups, noCache: true, transparent: true, frameRects: [] })
+  if (merged) renderDoc(src, doc, st.layers, { groups: st.groups, noCache: true, fullRes: true, transparent: true, frameRects: [] })
   else {
     const l = st.active(); if (!l || l.type === 'adjustment') { st.notify('Select a layer to copy from.'); return }
     renderDoc(src, doc, [{ ...l, visible: true, opacity: 1, blend: 'source-over' } as any], { transparent: true, noCache: true, frameRects: [] })

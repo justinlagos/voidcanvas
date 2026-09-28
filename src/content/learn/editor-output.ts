@@ -64,7 +64,7 @@ export const articles: Article[] = [
       { t: 'p', text: 'These are also in the **View** menu. On a Mac, use Cmd where it says Ctrl.' },
 
       { t: 'h', text: 'Export boards' },
-      { t: 'p', text: 'Open **File, Export as…** ({{Ctrl+E}}). When the design has boards, the dialog starts with **Boards to export**: **This board**, **All**, a **Boards** field for a range such as 1-3, 5, or click the thumbnails. Pick the file type and the size (1× is each board at its own size). With more than one board, tick **Number files in board order (01, 02…)** to keep them in sequence, and the button reads **Download N PNGs (zip)**. Files are named after their boards, with the pixel size added unless the name already has it. For PDF, choose **One PDF** with a page per board, or **A PDF per board**. See [Export for screens](/learn/export-for-screen).' },
+      { t: 'p', text: 'Open **File, Export as…** ({{Ctrl+E}}). When the design has more than one board, the top of the dialog picks which to export: **This board**, **All N**, a **Boards** field for a range such as 1-3, 5, or click the thumbnails. Pick the file type and the size (1× is each board at its own size). With more than one board the button reads **Download N PNGs (zip)**, and the files are numbered in board order (01, 02…); the switch for that is under **More options**, on by default. Files are named after their boards, with the pixel size added unless the name already has it. For PDF, **More options** chooses **One PDF** with a page per board, or **A PDF per board**. See [Export for screens](/learn/export-for-screen).' },
 
       { t: 'h', text: 'Good to know' },
       { t: 'list', items: [
@@ -223,7 +223,7 @@ export const articles: Article[] = [
       { t: 'p', text: 'Two file types carry a whole editable design: layers, masks, groups, swatches and board layout.' },
       { t: 'table', head: ['File', 'How to make it', 'Notes'], rows: [
         ['.void', 'File, Save to disk… or File, Download project file (.void)', 'A self-contained project file. Good for backups and for moving a design to another browser. Save to disk keeps the file linked, so Ctrl+S updates it in Chromium browsers.'],
-        ['.void.png', 'Export dialog, Save editable file', 'A normal PNG preview of your design (up to 1600 pixels) with the full project hidden inside it. It previews anywhere; open it in Voidcanvas to get the layers back.'],
+        ['.void.png', 'File, Download editable picture (.void.png)', 'A normal PNG preview of your design (up to 1600 pixels) with the full project hidden inside it. It previews anywhere; open it in Voidcanvas to get the layers back.'],
       ] },
       { t: 'p', text: 'Opening either one creates a new copy of the design on this device. In Chrome, Edge and other Chromium browsers, a .void opened with File, Open or dropped on the start screen stays linked, so Ctrl+S also writes your changes back to that file. A plain PNG with no project inside shows "That PNG has no Voidcanvas project inside it."' },
 
@@ -246,7 +246,7 @@ export const articles: Article[] = [
     summary: 'Pick the right file type and size for web and social, keep or drop transparency, and copy an image straight to your clipboard.',
     category: 'editor',
     level: 'Beginner',
-    updated: '2026-09-25',
+    updated: '2026-09-28',
     related: ['export-for-print', 'artboards', 'image-resolution-explained', 'file-formats'],
     keywords: 'export download save png jpg jpeg webp transparent background clipboard copy image retina 2x scale quality share',
     body: [
@@ -255,9 +255,9 @@ export const articles: Article[] = [
       { t: 'h', text: 'Export in four steps' },
       { t: 'steps', items: [
         'Choose **File, Export as…** or press {{Ctrl+E}} (Cmd+E on a Mac).',
-        'Pick where the file is going: **PNG · Social**, **PNG · Transparent**, **JPG · Web**, **PDF · Print** or **PDF · Client proof**. Each sets the file type, size and quality for that destination. Or set them yourself under **File type** and **Size**.',
+        'Pick where the file is going: **PNG · Social**, **PNG · Transparent**, **JPG · Web**, **PDF · Print** or **PDF · Client proof**. Each sets the file type, size and quality for that destination. Or pick the file type (PNG, JPG, WebP or PDF) and the size (1× to 4×) yourself, below them.',
         'Read the preflight list, if one appears, and fix or accept what it says.',
-        'Click **Download**, or **Copy image** to put it on your clipboard.',
+        'Click **Download PNG** (or JPG, WEBP, PDF), or **Copy** to put it on your clipboard.',
       ] },
       { t: 'h', text: 'Destinations' },
       { t: 'table', head: ['Destination', 'What it sets'], rows: [
@@ -286,31 +286,31 @@ export const articles: Article[] = [
         ['WebP', 'Small file that keeps transparency. Best for websites.', 'Website images. Most modern browsers and many platforms accept it.'],
         ['PDF', 'For printers and clients.', 'See [Export for print](/learn/export-for-print).'],
       ] },
-      { t: 'p', text: 'For JPG, WebP and PDF a **Quality** slider appears, from 40 to 100 percent, starting at 92. Lower numbers make smaller files with more blocky artefacts, most visible around text and flat colour. Between 80 and 92 is a sensible range for photos. PNG has no quality slider because it is lossless.' },
+      { t: 'p', text: 'For JPG, WebP and PDF, **More options** has a **Quality** slider, from 40 to 100 percent, starting at 92 (a PDF never goes below 90). Lower numbers make smaller files with more blocky artefacts, most visible around text and flat colour. Between 80 and 92 is a sensible range for photos. PNG has no quality slider because it is lossless.' },
 
       { t: 'h', text: 'Which size' },
-      { t: 'p', text: 'The size buttons are 0.5×, 1×, 2× and 3×, each labelled with the result in pixels. Only scales that keep the longest side at 8192 pixels or less are offered, so large designs show fewer buttons.' },
+      { t: 'p', text: 'The size buttons are 1×, 2×, 3× and 4× the design size, with the result in pixels shown beside them. Only sizes the browser can draw are offered (up to 16,384 px on a side and about 67 megapixels), so very large designs show fewer. If even 1× is too big, one smaller size is offered instead.' },
       { t: 'list', items: [
         '**1×** gives exactly your design size. Use it when you designed at the platform\'s size, such as 1080 x 1350 for an Instagram post.',
         '**2×** is for sharp screens and websites that show images at half their pixel size.',
-        '**0.5×** makes a quick preview to send for comment.',
+        '**3× and 4×** make type and shapes bigger and still sharp. Photos only get bigger, not sharper.',
       ] },
       { t: 'p', text: 'Text, shapes and layer styles are drawn fresh at the export size, so they stay crisp at 2× and 3×. Photos cannot gain detail they never had: scaling a small photo up makes it bigger, not sharper. More in [Image resolution explained](/learn/image-resolution-explained).' },
 
       { t: 'h', text: 'Transparency' },
       { t: 'list', items: [
         'If your design has no background colour, PNG and WebP keep the empty areas transparent.',
-        'If your design has a background colour, PNG and WebP show a checkbox, **Leave out the background colour**. Tick it to export the layers on a transparent background.',
+        'If it has one, open **More options** and tick **Transparent background (leave out board colours)**. The layers export on a transparent background.',
         'JPG cannot be transparent. Empty areas become white.',
       ] },
 
       { t: 'h', text: 'Copy to the clipboard' },
-      { t: 'p', text: '**Copy image** always copies a PNG at the size you picked. You will see "Copied. Paste it anywhere." Paste it into a chat, a document or another app. Some browsers limit clipboard access; if copying fails, use Download.' },
+      { t: 'p', text: '**Copy** (shown when one board is picked) always copies a PNG at the size you picked. You will see "Copied. Paste it anywhere." Paste it into a chat, a document or another app. Some browsers limit clipboard access; if copying fails, use Download.' },
 
       { t: 'h', text: 'Boards and editable files' },
       { t: 'list', items: [
-        'With [boards](/learn/artboards), choose which to export under **Boards to export** (this board, all, or a range). Several boards download as a zip with one file per board, at the size you pick, optionally numbered in board order.',
-        '**Save editable file (.void.png, previews as your design, keeps layers)** makes a PNG that also carries your full project. Send it to someone who uses Voidcanvas, or keep it as a backup.',
+        'With [boards](/learn/artboards), pick which to export at the top of the dialog: **This board**, **All N**, a **Boards** field for a range such as 1-3, 5, or click the thumbnails. Several boards download as a zip, one file per board. **More options** has **Number files in board order (01, 02…)**, on by default.',
+        '**File, Download editable picture (.void.png)** makes a PNG that also carries your full project. Send it to someone who uses Voidcanvas, or keep it as a backup. **Download project file (.void)** saves the project alone.',
       ] },
 
       { t: 'h', text: 'Other places to export' },

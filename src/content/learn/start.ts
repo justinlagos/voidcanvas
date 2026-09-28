@@ -97,7 +97,7 @@ export const articles: Article[] = [
         "Click **Export** in the top bar, or press {{Ctrl+E}}.",
         "Leave **File type** on **PNG** for the best quality, or choose **JPG** for a smaller file.",
         "Under **Size**, 1× gives the design's own pixel size. 2× doubles it, which looks sharper on high-density screens.",
-        "Click **Download**. Or click **Copy image** to paste it straight into a chat or document.",
+        "Click **Download PNG** (or the type you picked). Or click **Copy** to paste it straight into a chat or document.",
       ] },
       { t: 'p', text: "On a Mac, use Cmd wherever this page says Ctrl." },
 
@@ -169,7 +169,7 @@ export const articles: Article[] = [
       { t: 'p', text: "Because there is no cloud copy, the backup is a file you keep. There are two editable formats:" },
       { t: 'table', head: ['Where', 'File', 'What it is'], rows: [
         ['File, **Save to disk…** ({{Ctrl+Shift+S}})', 'name.void', 'The whole project in a folder you choose, kept up to date by Ctrl+S where the browser allows.'],
-        ['Export dialog, **Save editable file (.void.png, previews as your design, keeps layers)**', 'name.void.png', 'A normal PNG preview of the design with the full editable project hidden inside. It shows as a picture in any file browser.'],
+        ['File, **Download editable picture (.void.png)**', 'name.void.png', 'A normal PNG preview of the design with the full editable project hidden inside. It shows as a picture in any file browser.'],
         ['File, **Download project file (.void)**', 'name.void', 'The whole project as one self-contained file.'],
       ] },
       { t: 'p', text: "Both keep every layer, mask, group, board and saved selection, and fonts you added from files travel inside the design. Files saved by older versions of Voidcanvas still open. To open one, drop it on the Editor start screen or use File, **Open…** ({{Ctrl+O}}). A .void.png file also opens this way; a plain PNG without a project inside shows **That PNG has no Voidcanvas project inside it.**" },
@@ -228,7 +228,7 @@ export const articles: Article[] = [
     keywords: 'account sign in login email code sync settings devices recovery key pair phone qr encrypted end to end lost device',
     body: [
       { t: 'p', text: "You never need an account to use Voidcanvas. If you make one, your interface settings follow you to every browser, computer and phone you sign in on. Your designs stay on your devices." },
-      { t: 'p', text: "What the account stores is encrypted on your device before it is sent, with a key only your devices have. Voidcanvas cannot read it." },
+      { t: 'p', text: "Apart from your email address, which it needs to send the sign-in code, and the list of devices you signed in on (browser, system and when each was last used), what the account stores is encrypted on your device before it is sent, with a key only your devices have. Voidcanvas cannot read it." },
 
       { t: 'h', text: 'Signing in' },
       { t: 'p', text: "In the Editor, open Edit, **Account and sync…**. Enter your email and choose **Send a sign-in code**. Type the 6-digit code from the email and choose **Sign in**. There is no password." },
@@ -471,14 +471,14 @@ export const articles: Article[] = [
     summary: 'Your images and designs stay on your device unless you choose a feature that shares them, and then they are encrypted first. The complete list of what goes over the network, and how to turn the usage counts off.',
     category: 'help',
     level: 'Beginner',
-    updated: '2026-09-27',
+    updated: '2026-09-28',
     related: ['private-session', 'saving-and-your-files', 'ai-on-this-device', 'report-a-bug-well'],
     keywords: 'privacy data gdpr tracking analytics telemetry cookies upload cloud what is sent do not track usage counts opt out',
     body: [
       { t: 'p', text: "This page lists exactly what Voidcanvas sends over the network and what never leaves your device. It is useful if you work with client material under an NDA, or if you just want to know." },
 
       { t: 'h', text: 'What never leaves your device' },
-      { t: 'p', text: "Editing, effects, AI tools, Studio boards and exports all run inside your browser. These are never sent anywhere:" },
+      { t: 'p', text: "Editing, effects, AI tools, Studio boards and exports all run inside your browser. These are never sent anywhere, unless you share them with a team or through a client link, and then only encrypted (see the next section):" },
       { t: 'list', items: [
         "Your images, photos, PSDs and PDFs.",
         "Your designs, layers, text and anything you type into them.",
@@ -489,12 +489,12 @@ export const articles: Article[] = [
       { t: 'p', text: "Your work is saved in this browser, or in files you save to disk. There is no cloud copy of your designs. See [Saving and your files](/learn/saving-and-your-files)." },
 
       { t: 'h', text: 'Optional features that share, encrypted first' },
-      { t: 'p', text: "You never need an account. If you choose to use one of these, what it shares is encrypted on your device, with a key that only your devices, your team or the link holds. Voidcanvas stores only what it cannot read." },
+      { t: 'p', text: "You never need an account. If you choose to use one of these, what it shares is encrypted on your device, with a key that only your devices, your team or the link holds. Apart from the little it needs to run these features, Voidcanvas stores only what it cannot read. The readable part: your email address (so the sign-in code can reach you), the list of devices you signed in on (browser, system and when each was last used), team members\' email addresses and roles, and each link\'s size and expiry date." },
       { t: 'table', head: ['Feature', 'What it sends', 'Who can read it'], rows: [
         ['[Account and sync](/learn/account-and-sync)', 'Interface settings, workspaces, recent colours and your usage-count choice. Not designs.', 'Only your signed-in devices.'],
         ['[Teams](/learn/teams)', 'The client brands and Studio jobs you choose to share, with their logos, references and versions.', 'Only the team.'],
-        ['[Review and delivery links](/learn/review-and-delivery-links)', 'The version images, notes and comments, or the delivered files, for that one link. Deleted when you stop the link or after 30 days.', 'Only people who have the link, because the key is in it.'],
-        ['The Working Designer Study, only if you joined it through a study link', 'Timing for study jobs and a few job events (started, formats, delivered). Never designs, text, images or file names.', 'The research team.'],
+        ['[Review and delivery links](/learn/review-and-delivery-links)', 'The version images, notes and comments, or the delivered files, for that one link. The link stops working when you stop it or after 30 days.', 'Only people who have the link, because the key is in it.'],
+        ['The Working Designer Study, only if you joined it through a study link', 'What you give when you apply (name, email, country, role), your interview answers (typed or recorded) and closing answers, and timing for study jobs with a few job events (started, formats, delivered). Never designs, images or file names.', 'The research team.'],
       ] },
 
       { t: 'h', text: 'What else goes over the network' },
@@ -530,7 +530,7 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'Feedback and bug reports' },
-      { t: 'p', text: "Nothing is sent from these until you press send. Help, **Send feedback…** sends your mood (Not good, It’s okay or Love it), your message, and an email address only if you give one for a reply. It also attaches the page area, device type, browser, operating system, screen size, time zone, whether the app is installed, and the ids of your last few commands, so a message like ‘it broke’ has some context. After your second export, Voidcanvas asks once **How did that go?**; you can ignore it." },
+      { t: 'p', text: "Nothing is sent from these until you press send. Help, **Send feedback…** sends your mood (Not good, It’s okay or Love it), your message, and an email address only if you give one for a reply. It also attaches the page you were on, device type, browser, operating system, screen size, time zone, whether the app is installed, the random browser and visit ids described above, and the ids of your last few commands, so a message like ‘it broke’ has some context. After your second export, Voidcanvas asks once **How did that go?**; you can ignore it." },
       { t: 'p', text: "Bug reports are covered in [Report a bug well](/learn/report-a-bug-well)." },
 
       { t: 'h', text: 'Good to know' },
@@ -578,7 +578,7 @@ export const articles: Article[] = [
       { t: 'p', text: "Because nothing is kept, export before you close the tab:" },
       { t: 'list', items: [
         "Export the finished image with **Export** ({{Ctrl+E}}). On a phone, the Share sheet reminds you: **Private session: nothing is saved on this phone unless you export it.**",
-        "To keep it editable, use **Save editable file (.void.png, previews as your design, keeps layers)** in the export dialog, or File, **Download project file (.void)**, and take the file with you.",
+        "To keep it editable, use File, **Download editable picture (.void.png)** or File, **Download project file (.void)**, and take the file with you.",
       ] },
       { t: 'warn', text: "Downloaded files land in the computer's Downloads folder like any other download. On a shared computer, move or delete them before you leave." },
 
@@ -628,8 +628,8 @@ export const articles: Article[] = [
       { t: 'h', text: 'Exports' },
       { t: 'list', items: [
         "**Could not draw N px on the long side.** The browser ran out of room for the canvas. The message says which scale to drop to, or to export fewer boards at once. Scales that would go past the browser's limit are not offered.",
-        "**The JPG has a white background.** JPG has no transparency. Use PNG or WebP. For PNG and WebP with a background colour set, tick **Leave out the background colour**.",
-        "**Copy image did nothing, or failed.** Some browsers do not allow copying images to the clipboard. Use **Download** instead.",
+        "**The JPG has a white background.** JPG has no transparency. Use PNG or WebP. For PNG and WebP with a background colour set, open **More options** and tick **Transparent background**.",
+        "**Copy did nothing, or failed.** Some browsers do not allow copying images to the clipboard. Use **Download** instead.",
         "**The PDF looks soft.** PDF export is image based. Designs larger than 2000 pixels on the long side are treated as print work at 300 dpi; smaller ones are sized for screen. Start print work from a Print size. See [Export for print](/learn/export-for-print).",
         "**The download never appeared on a phone.** Use **Share** and pick where to send it, or check the browser's downloads list.",
       ] },
@@ -694,7 +694,7 @@ export const articles: Article[] = [
         ['IndexedDB (site storage)', 'Saving designs, jobs, brands and passing work between modules.', 'Saves fail with **Could not save to browser storage**. Allow site data, or use a private session and export your work.'],
         ['Canvas', 'All drawing, effects and export.', 'The Editor cannot run.'],
         ['Service worker', 'Working offline and installing as an app.', 'Everything works online; offline use and install are not available.'],
-        ['Clipboard images', '**Copy image** in export, and pasting images with Ctrl+V.', 'Use Download, and add images by dropping or opening files.'],
+        ['Clipboard images', '**Copy** in export, and pasting images with Ctrl+V.', 'Use Download, and add images by dropping or opening files.'],
         ['Web Share with files', 'The **Share** button on phones.', 'The button becomes **Save PNG** and downloads instead.'],
         ['File handling', 'Opening files with the installed app from your file browser.', 'Open files from inside the Editor instead.'],
         ['Pointer events with pressure', 'Pen pressure for brush size and opacity.', 'Strokes use full size and opacity.'],

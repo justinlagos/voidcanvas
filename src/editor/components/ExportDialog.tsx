@@ -94,7 +94,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         track('export', { format: 'clipboard', scale: k }); noteExportForPrompt()
       } else {
         import('../versions').then(m => m.saveVersion('Exported', true)).catch(() => {})
-        downloadBlob(blob, name)
+        downloadBlob(blob, name, { tracked: true })
         track('export', { format, scale: k, boards: chosen.length }); noteExportForPrompt()
       }
       onClose()

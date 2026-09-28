@@ -103,3 +103,28 @@ describe('readBrief: edge cases', () => {
     expect(f.must).toEqual([])
   })
 })
+
+// The labelled template on the Learn page "Design brief example": each label must be read as the page says.
+describe('readBrief: the labelled template from the Learn brief example', () => {
+  const f = readBrief(`Headline: Harvest Thanksgiving
+Subheading: Rooted in Gratitude
+Date: Sun 12 Oct
+Time: 10am, lunch after
+Venue: Grace Chapel, Mill Lane
+Price: Free
+Contact: @gracechapel, gracechapel.org
+Must include: church logo, food bank logo, #RootedInGratitude
+Tone: warm, welcoming, not too formal
+Audience: the congregation and the neighbours`)
+  it('reads every labelled line', () => {
+    expect(f.headline).toBe('Harvest Thanksgiving')
+    expect(f.subhead).toBe('Rooted in Gratitude')
+    expect(f.date).toBe('Sun 12 Oct')
+    expect(f.venue).toBe('Grace Chapel, Mill Lane')
+    expect(f.price).toBe('Free')
+    expect(f.must.map(m => m.toLowerCase())).toEqual(['church logo', 'food bank logo', '#rootedingratitude'])
+  })
+  it('reads Theme: as the subheading too', () => {
+    expect(readBrief('Headline: Harvest Thanksgiving\nTheme: Rooted in Gratitude').subhead).toBe('Rooted in Gratitude')
+  })
+})

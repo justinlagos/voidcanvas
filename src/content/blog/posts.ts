@@ -58,7 +58,7 @@ export const posts: Post[] = [
 
       { t: 'h', text: 'The trade-off, stated plainly' },
       { t: 'p', text: "No cloud copy means your work lives in this browser, on this device. Open Voidcanvas in another browser or on another computer and your designs are not there. Clearing the site's data in your browser settings deletes them for good." },
-      { t: 'p', text: "So backups are a file you keep. File, **Download project file (.void)** saves the whole editable design as one file, and the export dialog's **Save editable file** makes a .void.png that previews as a normal image and opens with every layer. Both are how you move a design to another machine. [Saving and your files](/learn/saving-and-your-files) covers the details." },
+      { t: 'p', text: "So backups are a file you keep. File, **Download project file (.void)** saves the whole editable design as one file, and File, **Download editable picture (.void.png)** makes a .void.png that previews as a normal image and opens with every layer. Both are how you move a design to another machine. [Saving and your files](/learn/saving-and-your-files) covers the details." },
       { t: 'tip', text: "Working on a computer that is not yours? Switch on **Private session** in Your privacy before you start. Nothing is written to the device, a **Private** badge shows in the top bar, and closing the tab discards everything. Export before you leave." },
       { t: 'p', text: "On your own machine, **Delete all my data** removes the whole Voidcanvas database from the browser in one step. It asks first, and it cannot be undone." },
 
@@ -162,7 +162,7 @@ export const posts: Post[] = [
       { t: 'p', text: "A PDF opens with each page as its own pixel layer, named Page 1, Page 2 and so on, with only page 1 visible at first. Pages come in at up to twice their printed point size, so an A4 page is about 1190 × 1684 pixels. Text in a PDF becomes pixels, so add new text layers on top rather than trying to edit it. Password-protected PDFs will not open until the password is removed." },
 
       { t: 'h', text: 'Getting work back out' },
-      { t: 'p', text: "Voidcanvas does not export PSD. If the design needs to go back to someone in Photoshop, send a PNG, or a PDF for print. To keep it editable for yourself, use File, **Download project file (.void)** or the export dialog's **Save editable file**, which keep every layer, mask and group. [Open PSD, PDF and other files](/learn/import-psd-and-pdf) is the full reference." },
+      { t: 'p', text: "Voidcanvas does not export PSD. If the design needs to go back to someone in Photoshop, send a PNG, or a PDF for print. To keep it editable for yourself, use File, **Download project file (.void)** or **Download editable picture (.void.png)**, which keep every layer, mask and group. [Open PSD, PDF and other files](/learn/import-psd-and-pdf) is the full reference." },
       { t: 'try', label: 'Open a PSD in the Editor', href: '/editor' },
     ],
   },
@@ -444,7 +444,7 @@ export const posts: Post[] = [
       { t: 'h', text: 'Getting the files out' },
       { t: 'list', items: [
         "**Resize for other formats** writes PNGs at exactly the preset size.",
-        "In the Editor's export dialog, choose **All** under Boards to export and the boards download as one PNG each, zipped, named after the boards, at the size you pick.",
+        "In the Editor's export dialog, click **All N** at the top and the boards download as one PNG each, zipped, named after the boards, at the size you pick.",
         "Studio's **Deliver** tab renders every format in the file types you tick, including a print PDF with bleed for print formats, named client_job_format_version.",
       ] },
       { t: 'p', text: "Which to use comes down to what happens next. A personal post in three sizes: Resize. A set you want to see together: Cascade. A client campaign that will change before it ships: a Studio job. [Resize one design to every format](/learn/resize-to-every-format) and [Turn one launch post into every social format](/learn/workflow-social-campaign) have the step-by-step detail." },

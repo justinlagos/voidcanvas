@@ -192,7 +192,7 @@ export const GOALS: Goal[] = [
       { slug: 'filters-in-the-editor', why: 'The same effects as editable layers inside a design.' },
     ],
     queries: ['how to make a halftone effect', 'halftone effect online', 'dither effect', 'glitch effect online free', 'how to make a duotone', 'risograph effect', 'screen print effect', 'comic book effect', 'halftone for screen printing', 'photo to sketch', 'vintage photo effect', 'film grain effect', 'pixel sort', 'crt effect', 'newspaper effect'],
-    product: { text: 'Effects has 58 one-click effects with sliders, a compare view and Send to Editor. The quick tools do halftone, dither and glitch on their own pages with a download. All of it runs on your device.', label: 'Open Effects', href: '/effects' },
+    product: { text: 'Effects has 58 one-click effects with sliders, a compare view and Open in Editor. The quick tools do halftone, dither and glitch on their own pages with a download. All of it runs on your device.', label: 'Open Effects', href: '/effects' },
   },
   {
     id: 'client-project', name: 'Run a client project', prompt: 'I want to run a client design project', primary: true,

@@ -54,7 +54,7 @@ export function DeliverTab({ job, update, toast, go }: TabProps) {
       for (const { d, f, kinds } of ready) {
         setBusy(`Rendering ${d.label}…`)
         // Formats render at their full size; a print sheet gets its bleed from the edges.
-        const c = boardCanvas(design, f!, Math.min(1, 12000 / Math.max(f!.width, f!.height)))
+        const c = boardCanvas(design, f!, Math.min(1, 12000 / Math.max(f!.width, f!.height)), true)
         for (const k of kinds) {
           const name = fileName(job, d, version, k)
           if (k === 'pdf') {

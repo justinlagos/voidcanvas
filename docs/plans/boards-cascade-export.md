@@ -74,6 +74,13 @@ Every board is rendered on its own at its own size. No more pasteboard renders.
 - The sharp view is cached and reused until the document changes or the view moves out of the cached area.
 - Check the PSD import path: raster layers are capped at 4096px on import. For large print banners that cap is raised, or the layer keeps its source resolution for export.
 
+## 6. Filters at export and when baked (added 28 Sept 2026)
+
+- Filter layers preview at a working size of 1200 px on the whole canvas's long side (`FX_WORK`). An export runs them at the output size with pixel settings scaled by `scale x canvas long side / min(1200, canvas long side)` (engine.ts `processAdjustment`). The canvas long side is used even when one board is rendered as a region, so a board exported on its own has the dot and grain size the preview showed. Before this, board exports scaled from the board's size and came out finer than the preview on multi-board canvases.
+- Studio renders a board as a document of its own; it passes `fxLong` (the design's long side) so the same scale applies. Delivery and review versions render with `fullRes`.
+- Baking uses the export path too: Merge down, Merge visible, Stamp visible, Flatten image and Copy merged pass `fullRes`, as do Resize for other formats (PNG download) and the start screen's Export PNG. Selections (magic wand, colour range, channels) still read the preview, which is what is on screen.
+- Checked by `e2e/bake-fullres.mjs`.
+
 ## Order of work
 
 1. Export rebuild (per-board render, board picker, multi-page PDF, new dialog). Fixes the squashing straight away.
