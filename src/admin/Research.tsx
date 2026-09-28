@@ -220,7 +220,7 @@ function Detail({ p, answers, jobs, pay, admin, act, busy }: { p: Person; answer
         {pay && <pre className="whitespace-pre-wrap rounded-lg bg-void-900 border border-void-800 p-2 text-[12.5px]">{Object.entries(pay.details).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>}
         {p.status === 'complete' && (
           <div className="flex flex-wrap gap-2 items-center">
-            <input value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount, e.g. ₦31,500" aria-label="Amount" className={`${inp} w-36`} />
+            <input value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount, e.g. ₦21,000" aria-label="Amount" className={`${inp} w-36`} />
             <input value={method} onChange={e => setMethod(e.target.value)} placeholder="Method" aria-label="Method" className={`${inp} w-40`} />
             <input value={ref} onChange={e => setRef(e.target.value)} placeholder="Payment reference" aria-label="Reference" className={`${inp} w-40`} />
             <button onClick={() => act('mark_paid', { id: p.id, amount, method, ref }, 'Marked paid; payment email goes out')} disabled={busy || !amount || !method || !ref} className={`h-8 px-3 rounded-lg bg-white text-void-950 font-medium disabled:opacity-40 ${focus}`}>Mark paid</button>
