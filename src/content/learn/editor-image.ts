@@ -156,7 +156,7 @@ export const articles: Article[] = [
         "**The filter changed my text and logo too.** It affects everything below it. Move the filter layer down so it sits directly above the photo, with the text above it.",
         "**Editing is slow.** Each filter recalculates when something below it changes. Hide filters while you work on layers beneath them, and turn them back on to check.",
         "**I want to bake the filter in.** **Merge down** or **Flatten image** turns it into pixels. After that it cannot be edited, so save a version first.",
-        "**On a phone:** open the **Effects** tab and tap **Filters**. With an image layer selected, the **Select** tab also has a **Filters** button.",
+        "**On a phone:** open the **Effects** tab and tap **Filters**. With an image layer selected, the **Select** tab also has a **Filters** button. To change a filter afterwards, tap its layer in **Layers**: its settings are in the **Select** sheet.",
       ] },
     ],
   },
@@ -448,7 +448,7 @@ export const articles: Article[] = [
       { t: 'p', text: "4:5 suits portrait social posts, 9:16 stories and reels, 16:9 video and slides, 3:2 most camera photos. To crop to an exact shape you have already selected, use **Image > Crop to selection**, which crops to the selection's bounding box." },
       { t: 'tip', text: "Cropping moves the edges of the page, not your layers' pixels. Image layers keep the parts that now sit off the page, so after a crop you can still drag a photo to show a different part of it." },
       { t: 'p', text: "**Image > Trim transparent edges** crops the page to whatever is visible, which is handy after [removing a background](/learn/remove-background)." },
-      { t: 'p', text: "On a phone, select a photo and tap **Crop** in the **Select** or **Image** tab." },
+      { t: 'p', text: "On a phone, select a photo and tap **Crop** in the **Select** or **Image** tab, drag over the part to keep, and tap **Apply** in the pill at the top." },
 
       { t: 'h', text: 'Canvas size: add or remove space' },
       { t: 'p', text: "**Image > Canvas size…** ({{Ctrl+Alt+C}}; Cmd+Option+C on a Mac) changes the page size without scaling anything. Use it to add a border, make room for a caption, or turn a landscape photo into a square with space above and below." },
@@ -479,7 +479,7 @@ export const articles: Article[] = [
       { t: 'p', text: "**Image > Image rotation** has **Rotate 90° clockwise**, **Rotate 90° anticlockwise**, **Rotate 180°**, **Flip canvas horizontal** and **Flip canvas vertical**. Every layer turns with the page, and a 90° turn swaps the width and height." },
       { t: 'note', text: "Flipping the canvas mirrors image layers and their masks. Text and shape layers move to the mirrored position but are not reversed, so words still read normally." },
       { t: 'h3', text: 'One layer' },
-      { t: 'p', text: "**Edit > Transform** holds **Rotate layer 90° clockwise**, **Rotate layer 180°**, **Flip layer horizontal** and **Flip layer vertical**. For any other angle, use **Free transform** ({{Ctrl+T}}). The **Mirror** and **Flip** buttons in Properties do the same for image layers." },
+      { t: 'p', text: "**Edit > Transform** holds **Rotate layer 90° clockwise**, **Rotate layer 180°**, **Flip layer horizontal** and **Flip layer vertical**. For any other angle, type it into the rotation field in Properties, or use **Free transform** ({{Ctrl+T}}; in a browser tab, where Ctrl+T opens a new tab, press {{Alt+T}}). The **Mirror** and **Flip** buttons in Properties do the same for image layers." },
 
       { t: 'h', text: 'Good to know' },
       { t: 'list', items: [

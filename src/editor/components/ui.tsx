@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
+import { evalNumber } from '../numexpr'
 
 export const focusRing = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
@@ -55,29 +56,36 @@ export function IconButton({ label, shortcut, active, disabled, onClick, childre
   )
 }
 
-export function Slider({ label, value, min, max, step = 1, unit = '', onChange, onCommit, format }: {
+export function Slider({ label, value, min, max, step = 1, unit = '', onChange, onCommit, format, mixed }: {
   label: string; value: number; min: number; max: number; step?: number; unit?: string
   onChange: (v: number) => void; onCommit?: () => void; format?: (v: number) => string
+  /** Several layers with different values: shows "Mixed" until moved. */
+  mixed?: boolean
 }) {
   const pct = ((value - min) / (max - min)) * 100
   const scrub = useRef<{ x: number; v: number } | null>(null)
   const snap = (v: number) => Math.min(max, Math.max(min, Math.round(v / step) * step))
+  // Only a change is an undo step: a click, a Tab onto the slider or an arrow at the end of the range is not.
+  const now = useRef(value); now.current = value
+  const start = useRef<number | null>(null)
+  const begin = () => { if (start.current === null) start.current = now.current }
+  const end = () => { const was = start.current; start.current = null; if (was !== null && (was !== now.current || mixed)) onCommit?.() }
   return (
     <label className="block">
       <span className="flex items-center justify-between text-[12px] text-void-400 mb-1">
         <span title="Drag sideways to change. Hold Shift for big steps." className="cursor-ew-resize select-none touch-none"
-          onPointerDown={e => { e.preventDefault(); scrub.current = { x: e.clientX, v: value }; (e.target as HTMLElement).setPointerCapture(e.pointerId) }}
+          onPointerDown={e => { e.preventDefault(); scrub.current = { x: e.clientX, v: value }; begin(); (e.target as HTMLElement).setPointerCapture(e.pointerId) }}
           onPointerMove={e => { if (scrub.current) onChange(snap(scrub.current.v + ((e.clientX - scrub.current.x) * (max - min) * (e.shiftKey ? 4 : 1)) / 260)) }}
-          onPointerUp={() => { if (scrub.current) { scrub.current = null; onCommit?.() } }}>{label}</span>
-        <span className="tabular-nums text-void-200">{format ? format(value) : Math.round(value * 100) / 100}{unit}</span>
+          onPointerUp={() => { if (scrub.current) { scrub.current = null; end() } }}>{label}</span>
+        <span className="tabular-nums text-void-200">{mixed ? 'Mixed' : <>{format ? format(value) : Math.round(value * 100) / 100}{unit}</>}</span>
       </span>
-      <span className="relative block h-4">
+      <span className="vc-slider-track relative block h-4">
         <span className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded bg-void-800" />
         <span className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded bg-accent" style={{ width: `${pct}%` }} />
         <input
           type="range" min={min} max={max} step={step} value={value}
-          onChange={e => onChange(Number(e.target.value))}
-          onPointerUp={onCommit} onKeyUp={onCommit}
+          onChange={e => { begin(); onChange(Number(e.target.value)) }}
+          onPointerDown={begin} onKeyDown={begin} onPointerUp={end} onKeyUp={end} onBlur={end}
           className="vc-range absolute inset-0"
         />
       </span>
@@ -182,5 +190,48 @@ export function Button({ children, onClick, primary, disabled, className = '', t
       } ${className}`}>
       {children}
     </button>
+  )
+}
+
+/**
+ * A number box. Type a value or a little maths ("+10", "*2", "50%", "1080/2"); Enter or leaving the box applies it,
+ * Escape puts it back. Arrow keys step it (Shift for ten times), and dragging the label sideways scrubs it.
+ * Nothing is applied when the value did not change.
+ */
+export function NumField({ label, value, onCommit, step = 1, digits = 0, mixed, title, suffix }: {
+  label: string; value: number; onCommit: (v: number) => void; step?: number; digits?: number; mixed?: boolean; title?: string; suffix?: string
+}) {
+  const scrub = useRef<{ x: number; v: number } | null>(null)
+  const [live, setLive] = useState<number | null>(null)
+  const [text, setText] = useState<string | null>(null)
+  const round = (n: number) => { const k = 10 ** digits; return Math.round(n * k) / k }
+  const shown = live ?? round(value)
+  const apply = (v: number | null) => { if (v !== null && Number.isFinite(v) && (mixed || round(v) !== round(value))) onCommit(round(v)) }
+  return (
+    <label title={title} className="flex items-center gap-1.5 bg-surface-sunken border border-white/[0.06] rounded-lg px-2 h-8 focus-within:border-accent/60">
+      <span
+        onPointerDown={e => { (e.target as HTMLElement).setPointerCapture(e.pointerId); scrub.current = { x: e.clientX, v: value }; setLive(round(value)) }}
+        onPointerMove={e => { if (!scrub.current) return; setLive(round(scrub.current.v + (e.clientX - scrub.current.x) * step * (e.shiftKey ? 10 : 1))) }}
+        onPointerUp={() => { if (scrub.current && live != null) apply(live); scrub.current = null; setLive(null) }}
+        className="text-[11px] text-void-500 min-w-3 cursor-ew-resize select-none touch-none">{label}</span>
+      <input type="text" inputMode="decimal" spellCheck={false} aria-label={title ?? label}
+        value={text ?? (mixed && live === null ? '' : String(shown))} placeholder={mixed ? 'Mixed' : undefined}
+        onFocus={e => { setText(mixed ? '' : String(round(value))); const el = e.target; requestAnimationFrame(() => el.select()) }}
+        onChange={e => setText(e.target.value)}
+        onBlur={() => { if (text !== null) apply(evalNumber(text, value)); setText(null) }}
+        onKeyDown={e => {
+          const el = e.target as HTMLInputElement
+          if (e.key === 'Enter') el.blur()
+          else if (e.key === 'Escape') { e.stopPropagation(); setText(null); requestAnimationFrame(() => el.blur()) }
+          else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault()
+            const base = evalNumber(text ?? '', value) ?? value
+            const next = round(base + (e.key === 'ArrowUp' ? 1 : -1) * step * (e.shiftKey ? 10 : 1))
+            setText(String(next)); apply(next)
+          }
+        }}
+        className="min-w-0 flex-1 bg-transparent text-[12px] tabular-nums text-void-100 outline-none placeholder:text-void-500" />
+      {suffix && <span className="text-[11px] text-void-500">{suffix}</span>}
+    </label>
   )
 }

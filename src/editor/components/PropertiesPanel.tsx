@@ -18,7 +18,11 @@ import { BLEND_MODES, type AdjustmentLayer, type Layer, type ShapeLayer, type Te
 import { CURVE_PRESETS, CurvesEditor } from './CurvesEditor'
 import { defaultStyle, emptyStyles } from '../styles'
 import type { ShadowStyle } from '../types'
-import { Button, ColorField, IconButton, Section, Select, Slider, focusRing } from './ui'
+import { Button, ColorField, IconButton, NumField, Section, Select, Slider, focusRing } from './ui'
+import { useShallow } from 'zustand/react/shallow'
+import { useUi } from '../ui-store'
+import { Link2, Link2Off } from 'lucide-react'
+import { PIVOTS, PIVOT_NAMES, pivotPoint, rotatedAbout, type Pivot } from '../pivot'
 
 const ADJ_FIELDS: Record<string, { key: string; label: string; min: number; max: number }[]> = {
   brightnessContrast: [{ key: 'brightness', label: 'Brightness', min: -100, max: 100 }, { key: 'contrast', label: 'Contrast', min: -100, max: 100 }],
@@ -41,27 +45,6 @@ export async function removeBackground(layerId: string, mode: 'person' | 'any' =
   return removeBackgroundLayer(layerId, mode)
 }
 
-function NumField({ label, value, onCommit, step = 1 }: { label: string; value: number; onCommit: (v: number) => void; step?: number }) {
-  const scrub = useRef<{ x: number; v: number } | null>(null)
-  const [live, setLive] = useState<number | null>(null)
-  const shown = live ?? Math.round(value)
-  return (
-    <label className="flex items-center gap-1.5 bg-surface-sunken border border-white/[0.06] rounded-lg px-2 h-8 focus-within:border-accent/60">
-      {/* drag the label sideways to scrub the value */}
-      <span
-        onPointerDown={e => { (e.target as HTMLElement).setPointerCapture(e.pointerId); scrub.current = { x: e.clientX, v: value }; setLive(Math.round(value)) }}
-        onPointerMove={e => { if (!scrub.current) return; const nv = scrub.current.v + (e.clientX - scrub.current.x) * step * (e.shiftKey ? 10 : 1); setLive(Math.round(nv)) }}
-        onPointerUp={() => { if (scrub.current && live != null) onCommit(live); scrub.current = null; setLive(null) }}
-        className="text-[11px] text-void-500 w-3 cursor-ew-resize select-none touch-none">{label}</span>
-      <input type="number" value={shown} key={scrub.current ? 'scrub' : Math.round(value)}
-        onChange={e => setLive(Number(e.target.value))}
-        onBlur={e => { const v = Number(e.target.value); if (Number.isFinite(v)) onCommit(v); setLive(null) }}
-        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-        className="min-w-0 flex-1 bg-transparent text-[12px] tabular-nums text-void-100 outline-none" />
-    </label>
-  )
-}
-
 export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }) {
   const layer = useEditor(s => s.layers.find(l => l.id === s.activeId) ?? null)
   const doc = useEditor(s => s.doc)
@@ -69,6 +52,10 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
   const swatches = useEditor(s => s.swatches)
   const count = useEditor(s => s.selectedIds.length)
   const group = useEditor(s => { const l = s.layers.find(x => x.id === s.activeId); return l?.groupId ? s.groups.find(g => g.id === l.groupId) ?? null : null })
+  const sel = useEditor(useShallow(s => (s.selectedIds.length > 1 ? s.layers.filter(l => s.selectedIds.includes(l.id)) : [])))
+  const keyName = useEditor(s => (s.keyObjectId && s.selectedIds.length > 1 ? s.layers.find(l => l.id === s.keyObjectId)?.name ?? null : null))
+  const keepRatio = useUi(u => u.keepRatio)
+  const pivot = useUi(u => u.pivot ?? 'c')
   const s = useEditor.getState()
   if (!doc) return null
 
@@ -95,37 +82,96 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
     )
   }
 
+  // Positions are measured from the top left of the layer's board (of the page when there are no boards).
+  const boardOf = (l: Layer) => (doc.frames?.length ? doc.frames.find(f => f.id === l.frameId) ?? null : null)
+  const edit = (label: string) => s.commit(label, { merge: 1000, ifChanged: true })
+  const boxOf = (ls: Layer[]) => {
+    const bs = ls.filter(l => l.type !== 'adjustment').map(l => layerBounds(l, doc))
+    if (!bs.length) return null
+    const x = Math.min(...bs.map(b => b.x)), y = Math.min(...bs.map(b => b.y))
+    return { x, y, w: Math.max(...bs.map(b => b.x + b.w)) - x, h: Math.max(...bs.map(b => b.y + b.h)) - y }
+  }
+  /** Average space between the selected layers along one axis, when they do not overlap. */
+  const gapOf = (ls: Layer[], axis: 'h' | 'v') => {
+    const bs = ls.filter(l => l.type !== 'adjustment').map(l => layerBounds(l, doc)).sort((a, b) => (axis === 'h' ? a.x - b.x : a.y - b.y))
+    if (bs.length < 2) return 0
+    let sum = 0
+    for (let i = 1; i < bs.length; i++) sum += axis === 'h' ? bs[i].x - (bs[i - 1].x + bs[i - 1].w) : bs[i].y - (bs[i - 1].y + bs[i - 1].h)
+    return sum / (bs.length - 1)
+  }
+  const moveAll = (dx: number, dy: number) => {
+    const ls = useEditor.getState().layers.filter(l => useEditor.getState().selectedIds.includes(l.id) && !l.locked && !l.lockPosition)
+    s.updateLayers(ls.map(l => ({ id: l.id, patch: { x: l.x + dx, y: l.y + dy } })))
+    edit('Move')
+  }
+
+  const one = count === 1 && layer && layer.type !== 'adjustment'
+  const board = one ? boardOf(layer) : sel.length ? boardOf(sel[0]) : null
+  const ox = board?.x ?? 0, oy = board?.y ?? 0
+  const ratioButton = (
+    <IconButton label={keepRatio ? 'Width and height change together' : 'Width and height change separately'} active={keepRatio} onClick={() => useUi.getState().setPref('keepRatio', !keepRatio)} className="!h-8 !w-8">
+      {keepRatio ? <Link2 size={15} /> : <Link2Off size={15} />}
+    </IconButton>
+  )
   const arrange = (
     <Section title={count > 1 ? `${count} layers selected` : 'Position'} collapsible={count === 1} defaultOpen={count > 1}>
       <div className="flex items-center justify-between">
         {([['left', AlignStartVertical, 'Align left'], ['hcenter', AlignCenterVertical, 'Centre horizontally'], ['right', AlignEndVertical, 'Align right'], ['top', AlignStartHorizontal, 'Align top'], ['vcenter', AlignCenterHorizontal, 'Centre vertically'], ['bottom', AlignEndHorizontal, 'Align bottom']] as const).map(([how, Icon, label]) => (
-          <IconButton key={how} label={count > 1 ? label : `${label} on the page`} onClick={() => s.align(how)}><Icon size={16} /></IconButton>
+          <IconButton key={how} label={count > 1 ? (keyName ? `${label} to “${keyName}”` : label) : `${label} on the ${board ? 'board' : 'page'}`} onClick={() => s.align(how)}><Icon size={16} /></IconButton>
         ))}
       </div>
-      {count === 1 && layer && layer.type !== 'adjustment' && (() => {
-        const b = layerBounds(layer, doc!)
+      {count > 1 && <p className="mt-1.5 text-[12px] text-void-500">{keyName ? <>Lining up to “{keyName}”. Click it again to stop.</> : 'Click one of them again to line the others up to it.'}</p>}
+      {one && (() => {
+        const b = layerBounds(layer, doc)
+        const setW = (w: number) => { s.setLayerBox(layer.id, keepRatio && b.w > 0 ? { w, h: (b.h * w) / b.w } : { w }); edit('Resize') }
+        const setH = (h: number) => { s.setLayerBox(layer.id, keepRatio && b.h > 0 ? { h, w: (b.w * h) / b.h } : { h }); edit('Resize') }
         return (
-          <div className="grid grid-cols-2 gap-1.5 mt-2.5">
-            <NumField label="X" value={b.x} onCommit={v => { s.setLayerBox(layer.id, { x: v }); s.commit('Move') }} />
-            <NumField label="Y" value={b.y} onCommit={v => { s.setLayerBox(layer.id, { y: v }); s.commit('Move') }} />
-            <NumField label="W" value={b.w} onCommit={v => { s.setLayerBox(layer.id, { w: v }); s.commit('Resize') }} />
-            <NumField label="H" value={b.h} onCommit={v => { s.setLayerBox(layer.id, { h: v }); s.commit('Resize') }} />
+          <div className="grid grid-cols-[1fr_1fr] gap-1.5 mt-2.5">
+            <NumField label="X" title={board ? 'X, from the left of the board' : 'X, from the left of the page'} value={b.x - ox} onCommit={v => { s.setLayerBox(layer.id, { x: v + ox }); edit('Move') }} />
+            <NumField label="Y" title={board ? 'Y, from the top of the board' : 'Y, from the top of the page'} value={b.y - oy} onCommit={v => { s.setLayerBox(layer.id, { y: v + oy }); edit('Move') }} />
+            <NumField label="W" title="Width" value={b.w} onCommit={setW} />
+            <NumField label="H" title="Height" value={b.h} onCommit={setH} />
+            <NumField label="°" title="Rotation in degrees" digits={1} value={(layer.rotation * 180) / Math.PI} onCommit={v => { if (layer.locked || layer.lockPosition) { s.notify('This layer is locked. Unlock it to rotate it.'); return } s.updateLayer(layer.id, rotatedAbout(layer, doc, pivotPoint(layer, doc, pivot), ((((v % 360) + 540) % 360) - 180) * Math.PI / 180)); edit('Rotate') }} />
+            <div className="flex items-center gap-1.5">
+              {ratioButton}
+              {/* The point the layer turns around, for the rotation field and the round handle. */}
+              <div role="radiogroup" aria-label="Turn around" className="grid grid-cols-3 gap-[3px] p-1 rounded-md bg-surface-sunken border border-white/[0.06]">
+                {(Object.keys(PIVOTS) as Pivot[]).map(k => (
+                  <button key={k} role="radio" aria-checked={pivot === k} aria-label={`Turn around the ${PIVOT_NAMES[k]}`} title={`Turn around the ${PIVOT_NAMES[k]}`} onClick={() => useUi.getState().setPref('pivot', k)}
+                    className={`w-[7px] h-[7px] rounded-[2px] ${pivot === k ? 'bg-accent' : 'bg-void-600 hover:bg-void-400'} ${focusRing}`} />
+                ))}
+              </div>
+            </div>
           </div>
         )
       })()}
-      {count > 2 && (
-        <div className="flex items-center gap-1.5 mt-2.5">
-          <span className="text-[12px] text-void-500 mr-1">Distribute</span>
-          <IconButton label="Distribute horizontally" onClick={() => s.distribute('h')}><AlignHorizontalDistributeCenter size={16} /></IconButton>
-          <IconButton label="Distribute vertically" onClick={() => s.distribute('v')}><AlignVerticalDistributeCenter size={16} /></IconButton>
+      {count > 1 && (() => {
+        const bx = boxOf(sel); if (!bx) return null
+        return (
+          <div className="grid grid-cols-2 gap-1.5 mt-2.5">
+            <NumField label="X" title="X of the selection" value={bx.x - ox} onCommit={v => moveAll(v + ox - bx.x, 0)} />
+            <NumField label="Y" title="Y of the selection" value={bx.y - oy} onCommit={v => moveAll(0, v + oy - bx.y)} />
+          </div>
+        )
+      })()}
+      {count > 1 && (
+        <div className="grid grid-cols-[auto_1fr_1fr] items-center gap-1.5 mt-2.5">
+          <span className="text-[12px] text-void-500 mr-1">Space</span>
+          <div className="flex items-center gap-1">
+            {count > 2 && <IconButton label="Distribute horizontally" onClick={() => s.distribute('h')} className="!h-8 !w-8"><AlignHorizontalDistributeCenter size={15} /></IconButton>}
+            <NumField label="↔" title="Space between them, across" value={gapOf(sel, 'h')} onCommit={v => s.distribute('h', v)} />
+          </div>
+          <div className="flex items-center gap-1">
+            {count > 2 && <IconButton label="Distribute vertically" onClick={() => s.distribute('v')} className="!h-8 !w-8"><AlignVerticalDistributeCenter size={15} /></IconButton>}
+            <NumField label="↕" title="Space between them, down" value={gapOf(sel, 'v')} onCommit={v => s.distribute('v', v)} />
+          </div>
         </div>
       )}
       {count > 1 && <Button onClick={() => s.groupSelected()} className="w-full mt-2.5"><FolderPlus size={15} />Group these layers</Button>}
-      {count > 1 && <p className="mt-2 text-[12px] text-void-500">Drag any of them to move them together.</p>}
     </Section>
   )
 
-  if (count > 1) return <div>{arrange}</div>
+  if (count > 1) return <div>{arrange}<SeveralProps layers={sel} /></div>
   const hasBoards = !!useEditor.getState().doc?.frames?.length
 
   return (
@@ -189,6 +235,55 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
         )}
       </Section>
     </div>
+  )
+}
+
+/** Settings for several selected layers at once. A value that differs between them shows as Mixed until it is set. */
+function SeveralProps({ layers }: { layers: Layer[] }) {
+  const s = useEditor.getState()
+  if (!layers.length) return null
+  const ids = layers.map(l => l.id)
+  const same = <T,>(get: (l: Layer) => T): { v: T; mixed: boolean } => { const v = get(layers[0]); return { v, mixed: layers.some(l => get(l) !== v) } }
+  const setAll = (patch: (l: Layer) => Partial<Layer>) => s.updateLayers(useEditor.getState().layers.filter(l => ids.includes(l.id)).map(l => ({ id: l.id, patch: patch(l) })))
+  const opacity = same(l => Math.round(l.opacity * 100))
+  const blend = same(l => l.blend)
+  const shapes = layers.every(l => l.type === 'shape') ? (layers as ShapeLayer[]) : null
+  const texts = layers.every(l => l.type === 'text') ? (layers as TextLayer[]) : null
+  const fill = shapes ? same(l => (l as ShapeLayer).fill) : null
+  const stroke = shapes ? same(l => (l as ShapeLayer).stroke) : null
+  const color = texts ? same(l => (l as TextLayer).color) : null
+  const font = texts ? same(l => (l as TextLayer).fontFamily) : null
+  const size = texts ? same(l => (l as TextLayer).fontSize) : null
+  const setFont = async (fontFamily: string) => {
+    await Promise.all(texts!.map(t => ensureFont(fontFamily, t.fontWeight, t.italic)))
+    setAll(() => ({ fontFamily } as Partial<Layer>)); s.commit('Font')
+  }
+  return (
+    <>
+      {shapes && (
+        <Section title="Style">
+          <div className="space-y-3">
+            <ColorField label={fill!.mixed ? 'Fill (mixed)' : 'Fill'} value={fill!.v} allowNone onChange={v => setAll(() => ({ fill: v } as Partial<Layer>))} onCommit={() => s.commit('Fill', { ifChanged: true })} />
+            <ColorField label={stroke!.mixed ? 'Outline (mixed)' : 'Outline'} value={stroke!.v} allowNone onChange={v => setAll(l => ({ stroke: v, strokeWidth: v && !(l as ShapeLayer).strokeWidth ? 6 : (l as ShapeLayer).strokeWidth } as Partial<Layer>))} onCommit={() => s.commit('Outline', { ifChanged: true })} />
+          </div>
+        </Section>
+      )}
+      {texts && (
+        <Section title="Type">
+          <div className="space-y-3">
+            <Select label="Font" value={font!.mixed ? '' : font!.v} options={[...(font!.mixed ? [{ id: '', label: 'Mixed' }] : []), ...FONTS.map(f => ({ id: f, label: f }))]} onChange={f => f && setFont(f)} />
+            <NumField label="Size" title="Text size in pixels" value={size!.v} mixed={size!.mixed} onCommit={v => { setAll(() => ({ fontSize: Math.max(1, v) } as Partial<Layer>)); s.commit('Text size', { merge: 1000 }) }} />
+            <ColorField label={color!.mixed ? 'Colour (mixed)' : 'Colour'} value={color!.v} onChange={v => v && setAll(() => ({ color: v } as Partial<Layer>))} onCommit={() => s.commit('Text colour', { ifChanged: true })} />
+          </div>
+        </Section>
+      )}
+      <Section title="Layer">
+        <div className="space-y-3">
+          <Slider label="Opacity" value={opacity.v} mixed={opacity.mixed} min={0} max={100} unit="%" onChange={v => setAll(() => ({ opacity: v / 100 }))} onCommit={() => s.commit('Opacity', { ifChanged: true })} />
+          <Select label="Blend" value={blend.mixed ? '' : blend.v} options={[...(blend.mixed ? [{ id: '' as any, label: 'Mixed' }] : []), ...BLEND_MODES]} onChange={v => { if (!v) return; setAll(() => ({ blend: v })); s.commit('Blend mode') }} />
+        </div>
+      </Section>
+    </>
   )
 }
 

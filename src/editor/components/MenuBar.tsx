@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Check, ChevronRight, Download, Menu as MenuIcon, Plus, Redo2, Search, Undo2 } from 'lucide-react'
-import { MENUS, buildActions, prettyKey, resolveAction, type Action, type MenuItem } from '../actions'
+import { MENUS, buildActions, keyFor, prettyKey, resolveAction, type Action, type MenuItem } from '../actions'
 import { useEditor } from '../store'
 import { Button, IconButton, focusRing } from './ui'
 import { PrivateBadge, usePrivate } from './PrivacyPanel'
@@ -49,7 +49,7 @@ function SubMenu({ anchor, children, onKeyDown }: { anchor: HTMLElement | null; 
   )
 }
 
-function MenuList({ items, actions, onDone, level = 0, autoFocus }: { items: MenuItem[] | (() => MenuItem[]); actions: Record<string, Action>; onDone: () => void; level?: number; autoFocus?: boolean }) {
+export function MenuList({ items, actions, onDone, level = 0, autoFocus }: { items: MenuItem[] | (() => MenuItem[]); actions: Record<string, Action>; onDone: () => void; level?: number; autoFocus?: boolean }) {
   const rows = useMemo(() => resolve(actions, items), [actions, items])
   const [sub, setSub] = useState<number | null>(null)
   const refs = useRef<(HTMLButtonElement | null)[]>([])
@@ -85,7 +85,7 @@ function MenuList({ items, actions, onDone, level = 0, autoFocus }: { items: Men
         const a = r.a
         const enabled = a.enabled ? a.enabled() : true
         const checked = a.checked ? a.checked() : undefined
-        const key = a.hotkey ?? a.shortcut
+        const key = keyFor(a)
         return (
           <button key={a.id} ref={el => { refs.current[i] = el }} role={checked === undefined ? 'menuitem' : 'menuitemcheckbox'} aria-checked={checked} aria-disabled={!enabled}
             onPointerEnter={() => setSub(null)}
@@ -198,5 +198,32 @@ export function MenuBar({ onExport, onAdd, onSearch }: { onExport: () => void; o
       )}
       <Fragment />
     </header>
+  )
+}
+
+/** The right-click menu on the canvas. Opens at the pointer, stays on screen, closes on Escape or a click elsewhere. */
+export function CanvasMenu({ x, y, items, onDone }: { x: number; y: number; items: MenuItem[]; onDone: () => void }) {
+  const actions = useMemo(() => buildActions(), [])
+  const box = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = box.current; if (!el) return
+    const z = parseFloat(getComputedStyle(el).getPropertyValue('--vc-ui-scale')) || 1
+    const w = el.offsetWidth * z, h = el.offsetHeight * z
+    const left = x + w > innerWidth - 8 ? Math.max(8, x - w) : x
+    const top = y + h > innerHeight - 8 ? Math.max(8, innerHeight - 8 - h) : y
+    setPos({ left: left / z, top: top / z })
+  }, [x, y])
+  useEffect(() => {
+    const away = (e: Event) => { if (!box.current?.contains(e.target as Node)) onDone() }
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onDone() } }
+    const t = setTimeout(() => { window.addEventListener('pointerdown', away, true); window.addEventListener('wheel', away, true); window.addEventListener('contextmenu', away, true) }, 0)
+    window.addEventListener('keydown', key, true); window.addEventListener('blur', onDone)
+    return () => { clearTimeout(t); window.removeEventListener('pointerdown', away, true); window.removeEventListener('wheel', away, true); window.removeEventListener('contextmenu', away, true); window.removeEventListener('keydown', key, true); window.removeEventListener('blur', onDone) }
+  }, [onDone])
+  return (
+    <div ref={box} data-canvas-menu className="fixed z-50" style={{ left: pos?.left ?? -9999, top: pos?.top ?? 0, visibility: pos ? 'visible' : 'hidden' }} onContextMenu={e => e.preventDefault()}>
+      <MenuList items={items} actions={actions} onDone={onDone} autoFocus />
+    </div>
   )
 }

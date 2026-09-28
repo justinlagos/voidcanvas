@@ -71,7 +71,7 @@ export const articles: Article[] = [
         'Photoshop files with artboards open as boards, with their backgrounds. See [Open PSD, PDF and other files](/learn/import-psd-and-pdf).',
         'Brand guidelines sent from Studio open with one board per page.',
         'Name your boards before exporting the zip. The file names come from the board names.',
-        'The Boards dialog is in the File menu, which shows on desktop and tablet screens. The phone Editor does not have it.',
+        'The Boards dialog is in the File menu on desktop and tablet screens, and under **More** in the phone Editor.',
       ] },
       { t: 'try', label: 'Open the Editor', href: '/editor' },
     ],
@@ -662,7 +662,7 @@ export const articles: Article[] = [
       { t: 'p', text: '**Interface size** makes menus, panels and tools bigger or smaller without touching the canvas. It helps on sharp laptop screens and large monitors. **Window, Interface size** has quick steps from 90% to 150%, plus Compact and Comfortable.' },
 
       { t: 'h', text: 'Touch mode' },
-      { t: 'p', text: 'Turn it on in Preferences or with **View, Touch mode (bigger controls)**. Controls get bigger, and when you draw with a pen, your fingers pan and zoom instead of painting. Two-finger tap undoes; three-finger tap redoes.' },
+      { t: 'p', text: 'It is on by itself on touch screens; you can also turn it on in Preferences or with **View, Touch mode (bigger controls)**. Controls get bigger, and when you draw with a pen, your fingers pan and zoom instead of painting. Two-finger tap undoes; three-finger tap redoes.' },
       { t: 'p', text: 'On a phone, the Editor uses its own layout instead of the dock: a Layers button on the canvas, and short sheets for each mode along the bottom. See [Designing on a phone](/learn/designing-on-a-phone).' },
 
       { t: 'h', text: 'Good to know' },

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PanelRight } from 'lucide-react'
 import { blobToCanvas, flushSave, getBrand, hasUnsaved, importFiles, openProject, saveProject, startAutosave, takeHandoff } from '../io'
 import { checkInvariants } from '../invariants'
@@ -22,7 +22,7 @@ import { useTabs } from '../tabs'
 import { frameForLayer } from '../frames'
 import { SIZE_PRESETS } from '../presets'
 import { FloatingTools, TOOL_KEYS, ToolRail, cycleFamily, toggleQuickMask } from './ToolRail'
-import { MenuBar } from './MenuBar'
+import { CanvasMenu, MenuBar } from './MenuBar'
 import { track } from '@/lib/analytics'
 import { StatusBar } from './StatusBar'
 import { Dock, MobilePanels } from './Dock'
@@ -30,7 +30,8 @@ import { AiInfoDialog, CanvasSizeDialog, ColorRangeDialog, FillDialog, GuideLayo
 import { LayerStyleDialog } from './LayerStyleDialog'
 import { SelectMask } from './SelectMask'
 import { useDesktop } from '../useDesktop'
-import { buildActions, eventCombo, internalClip, normCombo, pasteInPlace } from '../actions'
+import { buildActions, canvasMenu, resolveAction, type MenuItem, eventCombo, internalClip, isOwnLayerPicture, noteDuplicate, normCombo, pasteInPlace, pasteLayers, selectAllLayers, smartDuplicate } from '../actions'
+import { groupChain, inGroup } from '../store'
 import { useUi } from '../ui-store'
 import { MobileEditor, useIsPhone } from './MobileEditor'
 import * as ops from '../ops'
@@ -64,6 +65,15 @@ export function EditorShell() {
     else setModalState(next)
   }
   const [panel, setPanel] = useState(false)
+  // A finger as the main pointer (phones and tablets): bigger rows and controls, and no pull-to-refresh.
+  const [coarse, setCoarse] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)'); const on = () => setCoarse(mq.matches); on()
+    mq.addEventListener('change', on)
+    const root = document.documentElement, prev = root.style.overscrollBehavior
+    root.style.overscrollBehavior = 'none'
+    return () => { mq.removeEventListener('change', on); root.style.overscrollBehavior = prev }
+  }, [])
   const [shownToast, setShownToast] = useState<string | null>(null)
   const ui = useUi()
 
@@ -217,12 +227,27 @@ export function EditorShell() {
   }, [toast])
 
   const actions = useMemo(() => buildActions(), [])
+  // Browser checks run menu commands by name (e2e/editing.mjs).
+  useEffect(() => { (window as any).__vcRun = (id: string) => { const a = resolveAction(actions, id); if (a && (!a.enabled || a.enabled())) a.run() } }, [actions])
+  // Right click on the canvas.
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null)
+  useEffect(() => {
+    const on = (e: Event) => { const d = (e as CustomEvent).detail; setCtxMenu({ x: d.x, y: d.y, items: canvasMenu(d.under ?? []) }) }
+    window.addEventListener('vc:canvasmenu', on)
+    return () => window.removeEventListener('vc:canvasmenu', on)
+  }, [])
+  const closeCtx = useCallback(() => setCtxMenu(null), [])
   useDesktop(actions)
   // An account is optional; if this device is signed in, settings sync starts here.
   useEffect(() => { import('@/lib/account').then(m => m.initAccount()).catch(() => {}) }, [])
   const hotkeys = useMemo(() => {
     const m = new Map<string, () => void>()
-    for (const a of Object.values(actions)) if (a.hotkey) m.set(normCombo(a.hotkey), () => { if (!a.enabled || a.enabled()) a.run() })
+    for (const a of Object.values(actions)) {
+      const run = () => { if (!a.enabled || a.enabled()) a.run() }
+      if (a.hotkey) m.set(normCombo(a.hotkey), run)
+      // In a browser tab some keys belong to the browser (Ctrl+T, Ctrl+Shift+N); these have a second key.
+      if (a.webHotkey && !(typeof window !== 'undefined' && (window as any).voidDesktop)) m.set(normCombo(a.webHotkey), run)
+    }
     return m
   }, [actions])
   // Shortcuts the older key handler runs directly still count as using that command.
@@ -238,18 +263,33 @@ export function EditorShell() {
     const onPaste = (e: ClipboardEvent) => {
       if (isTyping(e as unknown as KeyboardEvent)) return
       const files = Array.from(e.clipboardData?.files ?? []).filter(f => f.type.startsWith('image/'))
-      if (!files.length) return
-      e.preventDefault()
-      // Copied from this design: paste it back in place instead of in the middle.
-      const clip = internalClip()
-      if (clip && useEditor.getState().doc) {
-        createImageBitmap(files[0]).then(b => { if (b.width === clip.canvas.width && b.height === clip.canvas.height) pasteInPlace(); else importFiles(files) }).catch(() => importFiles(files))
+      const ed = useEditor.getState()
+      if (!files.length) {
+        // Text from anywhere pastes as a text layer; SVG code pastes as a picture.
+        const text = e.clipboardData?.getData('text/plain')?.trim()
+        if (!text || !ed.doc) return
+        e.preventDefault()
+        if (/^<svg[\s>]/i.test(text) || /^<\?xml[\s\S]*<svg/i.test(text)) { importFiles([new File([text], 'Pasted SVG.svg', { type: 'image/svg+xml' })]).then(() => useEditor.getState().notify('The SVG came in as a picture. Its shapes are not editable paths.')); return }
+        const v = stageApi.viewRect()
+        ed.addText(v ? v.x + v.w * 0.2 : undefined, v ? v.y + v.h * 0.4 : undefined, text.length > 40 ? (v ? v.w * 0.6 : null) : null)
+        const t = useEditor.getState().active()
+        if (t?.type === 'text') { ed.updateLayer(t.id, { text: text.slice(0, 5000), name: text.split('\n')[0].slice(0, 40) || 'Text' }, 'Paste text'); useEditor.setState({ editingTextId: null }) }
         return
       }
-      importFiles(files)
+      e.preventDefault()
+      if (!ed.doc) { importFiles(files); return }
+      // Copied from this design: paste the layers (still editable), or the pixels back in place.
+      const clip = internalClip()
+      createImageBitmap(files[0]).then(b => {
+        if (isOwnLayerPicture(b.width, b.height)) pasteLayers(false, stageApi.viewRect())
+        else if (clip && b.width === clip.canvas.width && b.height === clip.canvas.height) pasteInPlace()
+        else importFiles(files)
+      }).catch(() => importFiles(files))
     }
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e) || modal) return
+      // Keys inside an open menu move through the menu, not the design.
+      if ((e.target as HTMLElement | null)?.closest?.('[role=menu]')) return
       const s = useEditor.getState(); if (!s.doc) return
       const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase()
       const stop = () => e.preventDefault()
@@ -280,9 +320,11 @@ export function EditorShell() {
       if (mod && k === 'g') { stop(); if (e.shiftKey) { const g = s.active()?.groupId; if (g) s.ungroup(g) } else s.groupSelected(); return }
       if (mod && k === 'z') { stop(); e.shiftKey ? s.redo() : s.undo(); return }
       if (mod && k === 'y') { stop(); s.redo(); return }
-      if (mod && k === 'j') { stop(); if (s.selection) s.layerFromSelection(false); else if (s.activeId) s.duplicateLayer(s.activeId); return }
-      if (mod && k === 'a') { stop(); s.selectAll(); return }
-      if (mod && k === 'd') { stop(); s.setSelection(null, 'Deselect'); return }
+      if (mod && k === 'j') { stop(); if (s.selection) s.layerFromSelection(false); else if (s.selectedIds.length) { const src = s.layers.filter(l => s.selectedIds.includes(l.id)).map(l => l.id); noteDuplicate(s.duplicateSelected({ dx: 16, dy: 16 }), src) } return }
+      // Ctrl+A: every pixel with a pixel tool in hand, every layer otherwise (Alt+Ctrl+A is always layers).
+      if (mod && k === 'a') { stop(); if (['move', 'text', 'shape', 'hand', 'zoom', 'eyedropper'].includes(s.tool) && !e.altKey) selectAllLayers(); else s.selectAll(); return }
+      // Ctrl+D: deselect pixels when there is a selection; otherwise duplicate, and again repeats the last move.
+      if (mod && k === 'd') { stop(); if (s.selection) s.setSelection(null, 'Deselect'); else if (s.selectedIds.length) smartDuplicate(); return }
       if (mod && k === 'i' && e.shiftKey) { stop(); s.invertSelection(); return }
       if (mod && k === 'e') { stop(); setModal('export'); return }
       if (mod && k === 's') { stop(); import('../disk').then(m => m.saveNow()); return }
@@ -291,7 +333,20 @@ export function EditorShell() {
       if (mod && (k === '=' || k === '+')) { stop(); stageApi.zoomBy(1.25); return }
       if (mod && k === '-') { stop(); stageApi.zoomBy(0.8); return }
       if (mod) return
-      if (k === 'escape') { if (s.crop) useEditor.setState({ crop: null }); else if (s.quickMask) toggleQuickMask(); else if (s.selection) s.setSelection(null, 'Deselect'); else if (s.editingMask) s.setEditingMask(false); else if (s.viewChannel !== 'rgb') useEditor.setState({ viewChannel: 'rgb', docRev: s.docRev + 1 }); return }
+      if (k === 'escape') {
+        if (s.crop) useEditor.setState({ crop: null }); else if (s.quickMask) toggleQuickMask(); else if (s.selection) s.setSelection(null, 'Deselect'); else if (s.editingMask) s.setEditingMask(false); else if (s.viewChannel !== 'rgb') useEditor.setState({ viewChannel: 'rgb', docRev: s.docRev + 1 })
+        else if (s.selectedIds.length) {
+          // Up a level: from a layer to the group it is in, from a group to its parent group, then nothing.
+          const sel = s.layers.filter(l => s.selectedIds.includes(l.id))
+          const whole = (gid: string) => s.layers.filter(l => inGroup(l, gid, s.groups)).every(l => s.selectedIds.includes(l.id))
+          const chains = sel.map(l => groupChain(l.groupId, s.groups))
+          const common = chains[0].filter(g => chains.every(c => c.includes(g)))
+          const blocked = s.isolatedGroupId ? [s.isolatedGroupId, ...groupChain(s.isolatedGroupId, s.groups)] : []
+          const up = common.find(g => !whole(g) && !blocked.includes(g))
+          if (up) s.selectGroup(up); else if (s.isolatedGroupId) s.setIsolated(null); else s.setActive(null)
+        } else if (s.isolatedGroupId) s.setIsolated(null)
+        return
+      }
       if (k === 'enter' && s.crop && s.crop.w > 1) { s.cropTo(s.crop.x, s.crop.y, s.crop.w, s.crop.h); useEditor.setState({ crop: null }); return }
       if (k === 'delete' || k === 'backspace') { stop(); if (s.selection) s.clearSelectionPixels(); else s.removeSelected(); return }
       if (k === 'x') { s.swapColors(); return }
@@ -311,16 +366,30 @@ export function EditorShell() {
       }
       if (k.startsWith('arrow') && s.selectedIds.length) {
         stop()
-        const d = e.shiftKey ? 10 : 1
+        const u = useUi.getState()
+        const d = e.shiftKey ? (u.bigNudge || 10) : (u.nudge || 1)
         const dx = k === 'arrowleft' ? -d : k === 'arrowright' ? d : 0, dy = k === 'arrowup' ? -d : k === 'arrowdown' ? d : 0
-        for (const l of s.layers) if (s.selectedIds.includes(l.id) && !l.locked && !l.lockPosition && l.type !== 'adjustment') s.updateLayer(l.id, { x: l.x + dx, y: l.y + dy })
+        // Linked layers come along, as they do when dragging.
+        const links = new Set(s.layers.filter(l => s.selectedIds.includes(l.id) && l.linkId).map(l => l.linkId))
+        const moving = s.layers.filter(l => (s.selectedIds.includes(l.id) || (l.linkId && links.has(l.linkId))) && !l.locked && !l.lockPosition && l.type !== 'adjustment')
+        s.updateLayers(moving.map(l => ({ id: l.id, patch: { x: l.x + dx, y: l.y + dy } })))
         // Nudged across a board edge: the layer now belongs to the board it sits on.
         const doc = useEditor.getState().doc
-        if (doc?.frames?.length) for (const l of useEditor.getState().layers) if (s.selectedIds.includes(l.id) && l.type !== 'adjustment') { const f = frameForLayer(doc, l); if (f && f.id !== l.frameId) s.reassignLayerFrame(l.id, f.id) }
-        s.commit('Nudge')
+        if (doc?.frames?.length) for (const l of useEditor.getState().layers) if (moving.some(m => m.id === l.id)) { const f = frameForLayer(doc, l); if (f && f.id !== l.frameId) s.reassignLayerFrame(l.id, f.id) }
+        // Presses in quick succession make one undo step.
+        s.commit('Nudge', { merge: 1000 })
         return
       }
-      if (k === 'enter') { const l = s.active(); if (l?.type === 'text') { stop(); useEditor.setState({ editingTextId: l.id, tool: 'move' }) } return }
+      if (k === 'enter') {
+        // A whole group selected: Enter goes inside it and selects its top layer. One text layer: edit it.
+        if (s.selectedIds.length > 1) {
+          const sel = s.layers.filter(l => s.selectedIds.includes(l.id))
+          const g = groupChain(sel[0].groupId, s.groups).find(gid => s.layers.filter(l => inGroup(l, gid, s.groups)).every(l => s.selectedIds.includes(l.id)) && sel.every(l => inGroup(l, gid, s.groups)))
+          // One level in: the group or layer directly inside it, at the top of the stack.
+          if (g) { stop(); const top = sel[sel.length - 1]; const chain = groupChain(top.groupId, s.groups), at = chain.indexOf(g); if (at > 0) s.selectGroup(chain[at - 1]); else s.setActive(top.id); return }
+        }
+        const l = s.active(); if (l?.type === 'text') { stop(); useEditor.setState({ editingTextId: l.id, tool: 'move' }) } return
+      }
       if (!e.shiftKey && e.code === 'Digit2') return
       if (e.shiftKey && e.code === 'Digit2') { stop(); stageApi.fitSelection(); return }
       if (e.shiftKey && e.code === 'Digit1') { stop(); stageApi.fitFrame(); return }
@@ -336,7 +405,7 @@ export function EditorShell() {
   const close = () => { setModalState(queue[0] ?? null); setQueue(q => q.slice(1)) }
   const m = modal?.name
   return (
-    <main className={`h-[100dvh] flex flex-col bg-void-950 text-void-100 overflow-hidden ${ui.density === 'compact' ? 'vc-compact' : ''} ${ui.touchMode ? 'vc-touch' : ''}`} style={{ ['--vc-ui-scale' as any]: ui.uiScale }}>
+    <main className={`h-[100dvh] flex flex-col bg-void-950 text-void-100 overflow-hidden ${ui.density === 'compact' ? 'vc-compact' : ''} ${ui.touchMode || coarse ? 'vc-touch' : ''}`} style={{ ['--vc-ui-scale' as any]: ui.uiScale }}>
       {!(phone && hasDoc) && <MenuBar onExport={() => setModal('export')} onAdd={() => setModal('add')} onSearch={() => setModal('palette')} />}
       {hasDoc && !phone && <div className="vc-chrome"><TabBar onNew={() => useEditor.getState().closeDoc()} /></div>}
       {!hasDoc ? <StartScreen /> : phone ? <MobileEditor /> : (
@@ -356,6 +425,7 @@ export function EditorShell() {
         </>
       )}
 
+      {ctxMenu && hasDoc && !phone && <CanvasMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onDone={closeCtx} />}
       {m === 'add' && hasDoc && <AddMenu onClose={close} />}
       {m === 'filters' && hasDoc && <AddMenu filtersOnly onClose={close} />}
       {m === 'palette' && hasDoc && <CommandPalette onClose={close} open={x => setModal(x)} />}
@@ -390,7 +460,7 @@ export function EditorShell() {
         </div>
       )}
       {shownToast && (
-        <div role="status" aria-live="polite" className="fixed z-[95] left-1/2 -translate-x-1/2 bottom-16 md:bottom-10 max-w-[92vw] px-4 py-2.5 rounded-xl bg-white text-void-950 text-[13px] font-medium shadow-2xl">{shownToast}</div>
+        <div role="status" aria-live="polite" className={`fixed z-[95] left-1/2 -translate-x-1/2 ${phone && hasDoc ? 'top-[calc(60px+env(safe-area-inset-top))]' : 'bottom-16 md:bottom-10'} max-w-[92vw] px-4 py-2.5 rounded-xl bg-white text-void-950 text-[13px] font-medium shadow-2xl`}>{shownToast}</div>
       )}
     </main>
   )

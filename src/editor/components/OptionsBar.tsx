@@ -10,7 +10,7 @@ import type { PathOp, SubPath, ToolOptions } from '../types'
 import * as pen from '../pen'
 import { getSubs, setSubs, stageApi } from './Stage'
 import { Floating } from './ColorPicker'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button, IconButton, focusRing } from './ui'
 
 // The tool options bar, like Photoshop and Photopea: it changes with the tool, and holds the settings
@@ -59,6 +59,13 @@ function SelectionExtras() {
 export function OptionsBar() {
   const tool = useEditor(s => s.tool)
   const [more, setMore] = useState(false)
+  // Escape closes Move settings and stops there, so it does not also clear the selection.
+  useEffect(() => {
+    if (!more) return
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setMore(false) } }
+    window.addEventListener('keydown', key, true)
+    return () => window.removeEventListener('keydown', key, true)
+  }, [more])
   const moreRef = useRef<HTMLButtonElement>(null)
   const o = useEditor(s => s.options)
   const crop = useEditor(s => s.crop)
@@ -69,6 +76,7 @@ export function OptionsBar() {
   const transform = useEditor(s => s.transform)
   const active = useEditor(s => s.layers.find(l => l.id === s.activeId))
   const count = useEditor(s => s.selectedIds.length)
+  const hasBoards = useEditor(s => !!s.doc?.frames?.length)
   const s = useEditor.getState()
   const set = s.setOption
   const def = TOOLS.find(t => t.id === tool)
@@ -111,7 +119,7 @@ export function OptionsBar() {
           </div>
           <Sep />
           {([['left', AlignStartVertical, 'Align left'], ['hcenter', AlignCenterVertical, 'Align centres'], ['right', AlignEndVertical, 'Align right'], ['top', AlignStartHorizontal, 'Align tops'], ['vcenter', AlignCenterHorizontal, 'Align middles'], ['bottom', AlignEndHorizontal, 'Align bottoms']] as const).map(([h, I, label]) => (
-            <IconButton key={h} label={count > 1 ? label : label + ' to the page'} disabled={!active} onClick={() => s.align(h)} className="!h-7 !w-7" tipSide="bottom"><I size={15} /></IconButton>
+            <IconButton key={h} label={count > 1 ? label : label + (hasBoards ? ' on the board' : ' on the page')} disabled={!active} onClick={() => s.align(h)} className="!h-7 !w-7" tipSide="bottom"><I size={15} /></IconButton>
           ))}
           <IconButton label="Distribute horizontally" disabled={count < 3} onClick={() => s.distribute('h')} className="!h-7 !w-7" tipSide="bottom"><AlignHorizontalDistributeCenter size={15} /></IconButton>
           <IconButton label="Distribute vertically" disabled={count < 3} onClick={() => s.distribute('v')} className="!h-7 !w-7" tipSide="bottom"><AlignVerticalDistributeCenter size={15} /></IconButton>

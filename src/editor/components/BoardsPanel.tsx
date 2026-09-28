@@ -36,7 +36,7 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
                     {/* thumbnail */}
                     <FrameThumb id={f.id} />
                   </button>
-                  <input value={f.name} onChange={e => s.renameFrame(f.id, e.target.value)} className={`w-full h-7 px-2 rounded bg-surface-sunken border border-white/[0.06] text-[12px] ${focusRing}`} />
+                  <input value={f.name} onChange={e => s.renameFrame(f.id, e.target.value)} onBlur={() => s.commit('Rename board', { ifChanged: true })} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} className={`w-full h-7 px-2 rounded bg-surface-sunken border border-white/[0.06] text-[12px] ${focusRing}`} />
                   <div className="flex items-center justify-between mt-1.5 text-[11px] text-void-500">
                     <span className="flex items-center gap-1">
                       <input type="number" defaultValue={f.width} key={'w'+f.width} onBlur={e => { const v = Number(e.target.value); if (v > 0) s.setFrameSize(f.id, v, f.height) }} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} className={`w-12 h-6 px-1 rounded bg-surface-sunken border border-white/[0.06] text-[11px] tabular-nums text-void-200 ${focusRing}`} aria-label="Board width" />

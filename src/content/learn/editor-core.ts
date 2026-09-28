@@ -73,11 +73,11 @@ export const articles: Article[] = [
       { t: 'list', items: [
         "**Window, Interface size** sets menus, panels and tools to 90%, 100%, 110%, 125%, 140% or 150%. Preferences has a finer slider from 80% to 160%. The canvas is never scaled.",
         "**Compact** and **Comfortable** density are in the same menu.",
-        "**View, Touch mode (bigger controls)** makes controls larger for tablets. With a pen in use, fingers pan instead of painting. A two-finger tap undoes and a three-finger tap redoes.",
+        "**View, Touch mode (bigger controls)** makes controls larger. It is on by itself on touch screens. With a pen in use, fingers pan instead of painting. A two-finger tap undoes and a three-finger tap redoes.",
       ] },
 
       { t: 'h', text: 'On a phone' },
-      { t: 'p', text: "Below 768 pixels wide the Editor uses a layout built for phones: a top bar with back, the design name, undo, redo and **Share**, the canvas, a **Layers** button with a count, and five modes along the bottom (**Select**, **Text**, **Image**, **Shape**, **Effects**). The other desktop tools are under More tools in the Select sheet. See [Designing on a phone](/learn/designing-on-a-phone)." },
+      { t: 'p', text: "On a phone (held either way) or a window under 768 pixels wide, the Editor uses a layout built for phones: a top bar with back, the design name, undo, redo, **More** and **Share**, the canvas, a **Layers** button with a count, and five modes along the bottom (**Select**, **Text**, **Image**, **Shape**, **Effects**). Selecting a layer shows all of its settings; holding a finger on it shows its actions. See [Designing on a phone](/learn/designing-on-a-phone)." },
 
       { t: 'h', text: 'Good to know' },
       { t: 'list', items: [
@@ -92,12 +92,12 @@ export const articles: Article[] = [
   {
     slug: 'layers',
     title: 'Work with layers',
-    summary: 'Layer kinds, stacking order, hiding, locking, renaming, duplicating, merging, colour labels and finding layers in a busy design.',
+    summary: 'Layer kinds, stacking order, hiding, locking, renaming, duplicating, copying and pasting, merging, colour labels and finding layers in a busy design.',
     category: 'editor',
     level: 'Beginner',
-    updated: '2026-09-25',
+    updated: '2026-09-28',
     related: ['groups-align-guides', 'masks', 'blend-modes-and-opacity', 'editor-tour'],
-    keywords: 'layers panel stack order reorder hide show lock unlock rename duplicate copy merge flatten rasterize colour label find layer',
+    keywords: 'layers panel stack order reorder hide show lock unlock rename duplicate copy paste paste in place step and repeat alt drag merge flatten rasterize colour label find layer search',
     body: [
       { t: 'p', text: "Every photo, word and shape in a design is its own layer, stacked on top of each other. Working in layers means you can move, change or delete one thing without touching the rest. This article covers the Layers panel and everything you can do with a layer." },
 
@@ -109,11 +109,11 @@ export const articles: Article[] = [
         ['Adjustment', 'Curves, levels, hue and saturation and the rest, or a filter. Changes every layer beneath it', 'Yes, always'],
       ] },
       { t: 'p', text: "Groups and boards also appear in the panel, as headers with the layers they hold listed under them. See [Groups, align and guides](/learn/groups-align-guides) and [Artboards](/learn/artboards)." },
-      { t: 'p', text: "To add a layer, use the **Add** button in the menu bar (Photo, Text, Shape, Blank layer), the **New layer** button at the bottom of the Layers panel ({{Ctrl+Shift+N}}), or drop or paste an image onto the canvas." },
+      { t: 'p', text: "To add a layer, use the **Add** button in the menu bar (Photo, Text, Shape, Blank layer), the **New layer** button at the bottom of the Layers panel ({{Ctrl+Shift+N}}), or drop or paste an image onto the canvas. In a browser tab, {{Ctrl+Shift+N}} opens a private window, so the Editor also takes {{Alt+Shift+N}}; the desktop app uses Ctrl+Shift+N." },
       { t: 'note', text: "When you paint with the Brush on a photo you brought in, your strokes go on a new layer above it, so the photo stays untouched." },
 
       { t: 'h', text: 'Stacking order' },
-      { t: 'p', text: "The top of the list is the front of the design. Drag a layer up or down the list to change its place. Dropping a layer between two members of a group puts it in that group; dragging it away from its group takes it out." },
+      { t: 'p', text: "The top of the list is the front of the design. Drag a layer up or down the list to change its place. With several rows selected, drag any one of them and they all move together, in the same order. Dropping a layer between two members of a group puts it in that group; dragging it away from its group takes it out. Right-click a layer for **Move into** a group by name, or **Move out of the group**." },
       { t: 'keys', rows: [
         ['Ctrl+Shift+]', 'Bring to front'],
         ['Ctrl+]', 'Bring forward'],
@@ -126,7 +126,7 @@ export const articles: Article[] = [
       { t: 'h', text: 'Selecting layers' },
       { t: 'list', items: [
         "Click a row to select that layer. **Shift-click** selects every layer between the current one and the one you click. **Ctrl-click** adds or removes one layer.",
-        "On the canvas, with the Move tool ({{V}}), click something to select it. Shift-click adds another. Drag across empty canvas to select every layer the box touches. Locked layers and layers in hidden groups are left out.",
+        "On the canvas, with the Move tool ({{V}}), click something to select it; a layer in a group picks the whole group, and a double click goes inside. Shift-click adds another. Drag across empty canvas to select everything the box touches. Locked layers and layers in hidden groups are left out.",
         "If **Auto-select** is off (in the options bar under Move settings), Ctrl-click on the canvas still picks the layer under the pointer.",
       ] },
 
@@ -135,12 +135,22 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Rename, duplicate and delete' },
       { t: 'list', items: [
-        "**Rename:** double-click the name, or right-click and choose Rename. Press Enter to finish.",
-        "**Duplicate:** {{Ctrl+J}}, Layer, Duplicate layer, or the floating action bar. The copy is numbered (Rectangle 2, Rectangle 3) and sits 16 pixels down and to the right, so you can see it. It is a layer of its own: not linked to the original.",
+        "**Rename:** double-click the name, or right-click and choose Rename. Press Enter to keep the new name, or Escape to keep the old one.",
+        "**Duplicate:** {{Ctrl+J}}, Layer, Duplicate layer, or the floating action bar. The copy is numbered (Rectangle 2, Rectangle 3) and sits 16 pixels down and to the right, so you can see it. It is a layer of its own: not linked to the original. A whole group duplicates as a group.",
+        "**Drag a copy:** hold Alt (Option on a Mac) and drag a layer on the canvas. The copy goes where you drop it and the original stays put.",
+        "**Step and repeat:** {{Ctrl+D}} duplicates too, and after you have moved a copy, pressing it again makes the next copy the same distance further on. Alt-drag one copy into place, then press {{Ctrl+D}} for a neat row or column.",
         "**Delete:** press Delete, click the bin on the row or at the bottom of the panel, or drag a layer, group or board onto the bin. Locked layers are not deleted; unlock them first. Layers that were clipped to a deleted layer are released and show in full.",
-        "**Cut:** {{Ctrl+X}} with no pixel selection cuts the whole layer, ready to paste. With a pixel selection it cuts just those pixels.",
       ] },
-      { t: 'warn', text: "If there is an active pixel selection, {{Ctrl+J}} copies the selected pixels to a new layer, and Delete clears the selected pixels instead of deleting the layer. Press {{Ctrl+D}} to deselect first if you meant to act on the whole layer." },
+      { t: 'warn', text: "If there is an active pixel selection, {{Ctrl+J}} copies the selected pixels to a new layer, {{Ctrl+D}} deselects, and Delete clears the selected pixels instead of deleting the layer. Press {{Ctrl+D}} to deselect first if you meant to act on the whole layer." },
+
+      { t: 'h', text: 'Copy, cut and paste layers' },
+      { t: 'list', items: [
+        "With no pixel selection, {{Ctrl+C}} copies the selected layers as layers: text stays text, shapes stay shapes, and groups come with them. A picture of them also goes to your computer's clipboard, for other apps.",
+        "{{Ctrl+V}} pastes them in the middle of what you can see. {{Ctrl+Shift+V}} pastes them exactly where they were, on the board they came from.",
+        "{{Ctrl+X}} cuts the layers. Paste puts them back with their names; a pasted copy of a layer that is still there gets the next number.",
+        "Paste text copied from anywhere and it becomes a text layer. Paste SVG code and it comes in as a picture.",
+        "With a pixel selection, copy, cut and paste work on those pixels instead. **Copy merged** ({{Ctrl+Shift+C}}) copies everything you see inside the selection.",
+      ] },
 
       { t: 'h', text: 'Blend, opacity and locks' },
       { t: 'p', text: "The top of the Layers panel has a folding section called **Blend, opacity and locks**. It stays folded until something is set, so a simple design shows just the list. Open it for the blend mode, **Opacity**, **Fill** and four locks. Blend modes and fill have their own article: [Blend modes and opacity](/learn/blend-modes-and-opacity)." },
@@ -166,15 +176,17 @@ export const articles: Article[] = [
       { t: 'p', text: "Right-click a layer and pick one of the colour dots at the bottom of the menu: red, orange, yellow, green, blue, violet or grey. A stripe in that colour appears on the left of the row. Labels are just for you: use them to mark finished parts, layers for a client's review, or everything that belongs to one idea. The crossed dot removes the label." },
 
       { t: 'h', text: 'Find a layer' },
-      { t: 'p', text: "In a busy design, click **Find layers** (the magnifier at the bottom left of the panel). A search row appears in the panel header, under Blend, opacity and locks; open that section if it is folded. Pick a kind (**All**, **Pixels**, **Text**, **Shapes** or **Adjustments**) and type part of a name. For text layers the search also looks at the words themselves." },
+      { t: 'p', text: "Once a design has more than one layer, a **Find a layer** box sits at the top of the list. Type part of a name, or pick a kind (**Pixels**, **Text layers**, **Shapes** or **Adjustments**) beside it. For text layers the search also looks at the words themselves. Escape clears the search. The magnifier at the bottom left of the panel jumps to the box." },
 
       { t: 'h', text: 'More from the row and the right-click menu' },
       { t: 'list', items: [
         "**Ctrl-click a thumbnail** to select that layer's pixels. Add Shift to add to the selection, or Alt to subtract.",
         "An **fx** badge means the layer has layer styles. Click it to edit them. See [Layer styles](/learn/layer-styles).",
         "A chain icon means the layer is linked to others (Layer, Link layers). Linked layers move together.",
-        "Right-click any row for Blending options, Duplicate, Delete, Rename, clipping masks, masks, Select layer pixels, Group, Link, copy and paste layer style, Rasterize, the merges and Flatten image.",
+        "Right-click any row for Blending options, Duplicate, Delete, Rename, clipping masks, masks, Select layer pixels, Group, moving into or out of a group, editing a group on its own, Link, copy and paste layer style, Rasterize, the merges and Flatten image.",
+        "Right-click on the canvas for the commands that fit what is under the pointer: cut, copy, paste, duplicate, appearance, grouping, arrange, align, select same, transform, lock and hide. When several layers overlap there, **Select layer** lists them so you can pick the one underneath.",
       ] },
+      { t: 'p', text: "**Copy appearance** and **Paste appearance** (Edit menu, or right-click on the canvas) copy how a layer looks onto other layers without touching their size or place: opacity, blend mode, layer styles, and for shapes the fill, outline and corners, for text the font, size, colour, spacing, outline and shadow." },
       { t: 'p', text: "The buttons along the bottom of the panel are, from left to right: Find layers, Link layers, Layer style, Add mask, New adjustment layer, New group ({{Ctrl+G}}), New layer and Delete layer." },
 
       { t: 'h', text: 'On a phone' },
@@ -186,12 +198,12 @@ export const articles: Article[] = [
   {
     slug: 'groups-align-guides',
     title: 'Group, align and space layers precisely',
-    summary: 'Select several layers, group them, align and distribute them, and use smart guides, rulers, guides and snapping to place things exactly.',
+    summary: 'Select several layers, group them, align and space them, type exact numbers, and use smart guides, rulers, guides and snapping to place things exactly.',
     category: 'editor',
     level: 'Intermediate',
-    updated: '2026-09-25',
+    updated: '2026-09-28',
     related: ['layers', 'layout-and-composition', 'shapes-and-pen', 'artboards'],
-    keywords: 'group ungroup folder multi select align centre center distribute spacing smart guides snap snapping rulers guides grid columns nudge position x y width height',
+    keywords: 'group ungroup folder multi select select all select same align key object centre center distribute spacing gap smart guides snap snapping rulers guides grid columns nudge position x y width height rotation isolate edit group',
     body: [
       { t: 'p', text: "Good layouts depend on things lining up. This article shows you how to select several layers at once, keep related layers together in groups, align and space them evenly, and use snapping and guides so edges meet exactly where you intend." },
       { t: 'p', text: "Shortcuts below use Ctrl. On a Mac, press Cmd instead." },
@@ -200,8 +212,12 @@ export const articles: Article[] = [
       { t: 'list', items: [
         "On the canvas with the Move tool ({{V}}): Shift-click each layer, or drag a box across empty canvas to pick every layer it touches.",
         "In the Layers panel: Shift-click to select a range, Ctrl-click to add or remove one.",
+        "A box dragged across the canvas picks whole groups, as a click does.",
+        "{{Ctrl+A}} with the Move, Text or Shape tool selects every layer. With a selection tool it selects every pixel, as before. {{Ctrl+Alt+A}} selects every layer with any tool.",
+        "**Select, Same** picks every layer with the same fill colour, stroke, font, kind or layer style as the one you have selected.",
       ] },
-      { t: 'p', text: "Drag any selected layer and the rest come with it. With two or more selected, a box with four corner handles appears around them all: drag a corner to scale the whole selection together. Text sizes, shape outlines and rounded corners scale with it, so the set keeps its proportions." },
+      { t: 'p', text: "Drag any selected layer and the rest come with it. With two or more selected, a box with four corner handles appears around them all: drag a corner to scale the whole selection together. Text sizes, shape outlines and rounded corners scale with it, so the set keeps its proportions. Drag the round handle above the box to rotate them all around their shared centre; hold Shift for 15 degree steps." },
+      { t: 'p', text: "Right-click on the canvas for a menu of what you can do with the selection. Right-clicking a layer that is not selected selects it first." },
 
       { t: 'h', text: 'Groups' },
       { t: 'p', text: "A group keeps layers that belong together, such as a logo lock-up or a price badge, as one unit you can move, hide, fade or lock." },
@@ -216,30 +232,48 @@ export const articles: Article[] = [
         "Groups can hold other groups. Grouping layers that already fill a group moves that group inside the new one, so nesting is kept.",
         "Select a layer inside a group and the panel header shows the group's own blend mode and opacity. A group starts on **Pass through**, meaning its layers blend with the design as if they were not grouped.",
         "**Ungroup** with {{Ctrl+Shift+G}}, Layer, Ungroup, or the **Ungroup** button in Properties. The layers stay where they are.",
+        "With a layer inside a group selected, Escape selects the whole group, and Escape again selects nothing. With a whole group selected, Enter goes back in to its top layer.",
       ] },
-      { t: 'tip', text: "If you often want to drag whole groups on the canvas, open **Move settings** in the options bar and set Auto-select to **Group**. A click then picks the outermost group instead of the single layer." },
+      { t: 'h', text: 'Edit a group on its own' },
+      { t: 'p', text: "Right-click a layer in a group and choose **Edit the group on its own**, or use Layer, Edit group on its own. Everything outside the group is dimmed and cannot be picked, and a click picks single layers inside the group, so you can rearrange a busy lock-up without disturbing the rest. Click **Done** at the top of the canvas, or press Escape, to go back." },
+      { t: 'p', text: "On the canvas a group behaves as one object. A click on any of its layers picks the whole group, so dragging moves it all. **Double-click** to go inside: the next level down is picked, and once you are inside, a click picks the layers and groups around it at that level. Click empty canvas to come back out, or press Escape to go up one level." },
+      { t: 'tip', text: "Prefer Photoshop's way, where a click picks the single layer? Open **Move settings** in the options bar and set Auto-select to **Layer**." },
       { t: 'p', text: "**Link layers** (Layer menu, or the chain button in the Layers panel) is a lighter option: linked layers move together but stay where they are in the stack." },
 
       { t: 'h', text: 'Align and distribute' },
       { t: 'p', text: "With the Move tool, the options bar has six align buttons: left, centres, right, tops, middles and bottoms. The same buttons are in the Properties panel and in Layer, Align." },
       { t: 'list', items: [
         "**One layer selected:** it aligns to the page. Aligning centres and then middles puts it dead centre. (The floating action bar's More menu has **Centre on page** for exactly this.)",
-        "**Several layers selected:** they align to each other, using the box around all of them.",
-        "**Distribute horizontally** and **Distribute vertically** need three or more layers. The two outer layers stay put and the ones between are moved so the gaps are equal.",
+        "**One layer on a board:** it aligns to its board.",
+        "**Several layers selected:** they align to each other, using the box around all of them. A whole group counts as one object and keeps its own layout.",
+        "**Line up to one of them:** with several selected, click one of them again (without dragging). It gets a heavier outline and becomes the **key object**: the others move to it and it stays where it is. Click it again to go back to the box around them all.",
+        "**Distribute horizontally** and **Distribute vertically** need three or more layers. The two outer layers stay put and the ones between are moved so the gaps are equal. To set the gap yourself, type it into **Space** (↔ across, ↕ down) in Properties; this works for two layers or more.",
       ] },
-      { t: 'p', text: "For exact numbers, select one layer and open **Position** in Properties. Type into **X**, **Y**, **W** or **H** and press Enter." },
+
+      { t: 'h', text: 'Exact numbers' },
+      { t: 'p', text: "Select one layer and open **Position** in Properties for **X**, **Y**, **W**, **H** and the rotation in degrees. X and Y are measured from the top left of the layer's board, or of the page when there are no boards. With several layers selected, X and Y move them all together." },
+      { t: 'list', items: [
+        "Type a number, or a little maths: **+10** or **-=10** to add or take away, **x2** or **/2** to multiply or divide, **50%** for half of the current value, or a sum such as **1080/3**. Press Enter to apply it, or Escape to put the old value back.",
+        "Up and down arrows change the value by 1, or 10 with Shift. Drag the letter beside a field sideways to scrub it.",
+        "The chain button beside rotation makes width and height change together.",
+        "The small grid of nine dots beside it sets the point the layer turns around, for the rotation field and the round handle: its centre, a corner or the middle of an edge. A small target on the canvas shows the point when it is not the centre.",
+        "With several layers selected, Properties also sets their opacity and blend mode together, the fill and outline when they are all shapes, and the font, size and colour when they are all text. A setting that differs between them shows **Mixed** until you set it.",
+      ] },
 
       { t: 'h', text: 'Smart guides and snapping' },
-      { t: 'p', text: "As you drag a layer, it snaps to the edges and centre of the page, to your guides, and to the edges and centres of other layers. A line shows what it snapped to. Distances to the nearest neighbouring layers are shown in pixels while you drag, which makes even spacing easy to judge by eye." },
+      { t: 'p', text: "As you drag a layer, it snaps to the edges and centre of its board (the page when there are no boards), to your guides, and to the edges and centres of other layers on that board. A line shows what it snapped to. Between two neighbours it settles where the space on both sides is the same. Distances to the nearest neighbouring layers are shown in pixels while you drag, which makes even spacing easy to judge by eye. Dragging a resize handle snaps the edge you are moving in the same way." },
       { t: 'keys', rows: [
-        ['Alt (while dragging)', 'Move freely without snapping'],
+        ['Ctrl (while dragging)', 'Move or resize freely without snapping (Cmd on a Mac)'],
+        ['Alt (while dragging a layer)', 'Drag a copy and leave the original where it was'],
+        ['Alt (while dragging a handle)', 'Resize from the centre'],
         ['Shift (while dragging)', 'Move in a straight line, horizontally or vertically'],
         ['Shift (while rotating)', 'Rotate in 15 degree steps'],
         ['Arrow keys', 'Nudge by 1 pixel'],
         ['Shift+arrow keys', 'Nudge by 10 pixels'],
         ['Ctrl+Shift+;', 'Turn snapping on or off'],
       ] },
-      { t: 'p', text: "Snapping checks the last 40 layers in the stack for edges, which keeps it quick in big designs. Distances can be switched off under Move settings." },
+      { t: 'p', text: "Presses of the arrow keys in quick succession make one undo step. To nudge by a different amount, change **Arrow keys move by** and **Shift and arrow keys move by** in Edit, Preferences." },
+      { t: 'p', text: "Snapping checks the last 60 layers on the board for edges, which keeps it quick in big designs. Distances can be switched off under Move settings." },
       { t: 'note', text: "Corner handles resize in proportion. Hold Shift while dragging a corner to stretch freely. Text always keeps its proportions, and the side handles of a text box change its width so the words reflow instead of stretching." },
 
       { t: 'h', text: 'Rulers and guides' },
@@ -260,9 +294,11 @@ export const articles: Article[] = [
       { t: 'h', text: 'Common problems' },
       { t: 'list', items: [
         "**A layer will not move or align.** It is probably locked. Look for a padlock on its row in the Layers panel.",
-        "**Things jump when I drag.** That is snapping. Hold Alt while dragging, or turn off View, Snap.",
-        "**Distribute is greyed out.** It needs at least three layers selected.",
-        "**Align moved my layer to the page edge, not the other layer.** With one layer selected, alignment is to the page. Select both layers first.",
+        "**Things jump when I drag.** That is snapping. Hold Ctrl (Cmd on a Mac) while dragging, or turn off View, Snap.",
+        "**Dragging made a copy.** Alt was held down. Undo removes the copy.",
+        "**Distribute is greyed out.** It needs at least three layers selected. For two, type the gap into Space in Properties.",
+        "**Align moved my layer to the page edge, not the other layer.** With one layer selected, alignment is to the page or its board. Select both layers first.",
+        "**Align moved the wrong layer.** One of them is the key object, shown with a heavier outline. Click it again to stop lining up to it.",
       ] },
     ],
   },

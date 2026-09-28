@@ -4,6 +4,7 @@ import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, layerBounds, la
 import { boardGap, frameForLayer, occupied, placeBeside, type Side } from './frames'
 import type { AdjustmentKind, AdjustmentLayer, Doc, Frame, Group, Layer, LayerRole, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
 import { useUi } from './ui-store'
+import { touchCanvas } from './touch'
 
 // Revisions are globally unique so a given (id, rev) always means the same pixels, even across undo branches.
 let REV = 1
@@ -58,6 +59,10 @@ interface EditorState {
   activeId: string | null
   /** Every selected layer. activeId is always one of them. */
   selectedIds: string[]
+  /** With several layers selected: the one the others align to (click it a second time to choose it). */
+  keyObjectId: string | null
+  /** A group being edited on its own: everything else is dimmed and cannot be picked. */
+  isolatedGroupId: string | null
   editingTextId: string | null
   activeFrameId: string | null
   /** Hold to see the design without any adjustments or filters. */
@@ -129,12 +134,20 @@ interface EditorState {
   active: () => Layer | null
   setActive: (id: string | null) => void
   toggleSelect: (id: string) => void
+  setKeyObject: (id: string | null) => void
+  setIsolated: (groupId: string | null) => void
+  /**
+   * Duplicate everything selected: single layers and whole groups (a group whose layers are all selected is copied
+   * as a group). Copies sit just above their originals, offset by dx, dy, and become the selection. Returns their ids.
+   */
+  duplicateSelected: (opts?: { dx?: number; dy?: number; label?: string; commit?: boolean }) => string[]
   selectGroup: (groupId: string) => void
   groupSelected: () => void
   ungroup: (groupId: string) => void
   updateGroup: (groupId: string, patch: Partial<Group>, commitLabel?: string) => void
   align: (how: 'left' | 'hcenter' | 'right' | 'top' | 'vcenter' | 'bottom') => void
-  distribute: (axis: 'h' | 'v') => void
+  /** Space three or more layers evenly between the outer two, or at a set gap (px) from the first. */
+  distribute: (axis: 'h' | 'v', gap?: number) => void
   setLayerBox: (id: string, box: { x?: number; y?: number; w?: number; h?: number }) => void
   removeSelected: () => void
   addLayer: (l: Layer, label?: string) => void
@@ -149,6 +162,10 @@ interface EditorState {
   duplicateLayer: (id: string) => void
   /** Move in the stack. `toFrame` (a drop in another board's list) also moves the layer onto that board, keeping its place on the board. */
   moveLayer: (id: string, toIndex: number, toFrame?: string | null) => void
+  /** Move several layers together to where the layer at `toIndex` is (dragging several rows in the Layers list). */
+  moveLayers: (ids: string[], toIndex: number, toFrame?: string | null) => void
+  /** Put layers into a group (just above its top layer), or with `null` take them out of the group they are in. */
+  moveToGroup: (ids: string[], groupId: string | null) => void
   nudgeOrder: (id: string, dir: 1 | -1) => void
   mergeDown: (id: string) => void
   rasterize: (id: string) => RasterLayer | null
@@ -182,7 +199,9 @@ interface EditorState {
   setView: (v: Partial<View>) => void
 
   // history
-  commit: (label: string) => void
+  /** Record an undo step. `merge`: replace the last step of the same name made within that many ms.
+   *  `ifChanged`: skip it when nothing differs from the last step (a field left as it was, a drag that ended where it began). */
+  commit: (label: string, opts?: { merge?: number; ifChanged?: boolean }) => void
   undo: () => void
   redo: () => void
   jumpTo: (index: number) => void
@@ -196,6 +215,70 @@ interface EditorState {
   notify: (msg: string) => void
   setBusy: (msg: string | null) => void
   markSaved: () => void
+}
+
+/** True when the design is exactly as a history step left it. Layers are replaced, never changed in place, so
+ *  comparing references is enough; the design and groups are compared field by field. */
+function sameAsStep(step: Snapshot, doc: Doc, layers: Layer[], groups: Group[], selection: HTMLCanvasElement | null): boolean {
+  if (step.selection !== selection || step.layers.length !== layers.length || step.groups.length !== groups.length) return false
+  for (let i = 0; i < layers.length; i++) if (step.layers[i] !== layers[i]) return false
+  const shallow = (a: any, b: any) => { const ka = Object.keys(a), kb = Object.keys(b); return ka.length === kb.length && ka.every(k => a[k] === b[k]) }
+  if (!shallow(step.doc, doc)) return false
+  for (let i = 0; i < groups.length; i++) if (!shallow(step.groups[i], groups[i])) return false
+  return true
+}
+
+/**
+ * The selection as objects: each outermost group whose layers are all selected is one object, any other selected
+ * layer is one on its own. The group being edited on its own (and the groups around it) never count as objects.
+ */
+export function selectionUnits(layers: Layer[], groups: Group[], selectedIds: string[], isolatedGroupId?: string | null): { ids: string[]; group: string | null }[] {
+  const sel = new Set(selectedIds)
+  const blocked = new Set(isolatedGroupId ? [isolatedGroupId, ...groupChain(isolatedGroupId, groups)] : [])
+  const members = new Map<string, string[]>()
+  const membersOf = (gid: string) => { let m = members.get(gid); if (!m) { m = layers.filter(l => inGroup(l, gid, groups)).map(l => l.id); members.set(gid, m) } return m }
+  const out: { ids: string[]; group: string | null }[] = []
+  const seen = new Set<string>()
+  for (const l of layers) {
+    if (!sel.has(l.id) || seen.has(l.id)) continue
+    let top: string | null = null
+    for (const gid of groupChain(l.groupId, groups)) { if (blocked.has(gid)) break; if (membersOf(gid).every(id => sel.has(id))) top = gid }
+    const ids = top ? membersOf(top) : [l.id]
+    for (const id of ids) seen.add(id)
+    out.push({ ids, group: top })
+  }
+  return out
+}
+
+/** Objects that align and distribute can move: adjustments left out, and anything with a locked layer kept still. */
+function alignUnits(layers: Layer[], groups: Group[], selectedIds: string[], isolatedGroupId: string | null) {
+  const byId = new Map(layers.map(l => [l.id, l]))
+  return selectionUnits(layers, groups, selectedIds, isolatedGroupId)
+    .map(u => ({ ids: u.ids, ls: u.ids.map(id => byId.get(id)!).filter(l => l && l.type !== 'adjustment') }))
+    .filter(u => u.ls.length && !u.ls.some(l => l.locked || l.lockPosition))
+}
+
+export function unionBox(bs: Rect[]): Rect {
+  const x = Math.min(...bs.map(b => b.x)), y = Math.min(...bs.map(b => b.y))
+  return { x, y, w: Math.max(...bs.map(b => b.x + b.w)) - x, h: Math.max(...bs.map(b => b.y + b.h)) - y }
+}
+
+/**
+ * What a click on a layer picks when groups are picked whole: the outermost group around it that you are not
+ * already inside. You are inside a group when the selection sits in it without being all of it, or when it is
+ * the group being edited on its own. Returns null to pick the layer itself.
+ */
+export function pickGroupFor(hit: Layer, layers: Layer[], groups: Group[], selectedIds: string[], isolatedGroupId?: string | null): string | null {
+  const chain = groupChain(hit.groupId, groups)
+  if (!chain.length) return null
+  const blocked = new Set(isolatedGroupId ? [isolatedGroupId, ...groupChain(isolatedGroupId, groups)] : [])
+  const sel = layers.filter(l => selectedIds.includes(l.id))
+  const inside = (gid: string) => {
+    if (blocked.has(gid) || !sel.length || !sel.every(l => inGroup(l, gid, groups))) return blocked.has(gid)
+    return !layers.filter(l => inGroup(l, gid, groups)).every(l => selectedIds.includes(l.id))
+  }
+  const outer = chain.filter(g => !inside(g))
+  return outer.length ? outer[outer.length - 1] : null
 }
 
 /** Innermost first: the group a layer sits in, then its parent, and so on. */
@@ -286,6 +369,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   groups: [],
   activeId: null,
   selectedIds: [],
+  keyObjectId: null,
+  isolatedGroupId: null,
   editingTextId: null,
   activeFrameId: null,
   compare: false,
@@ -295,7 +380,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   docRev: 0,
 
   tool: 'move',
-  options: { size: 40, hardness: 0.8, opacity: 1, tolerance: 32, contiguous: true, shape: 'rect', cropAspect: null, feather: 0, flow: 1, smoothing: 0.25, sides: 5, star: 1, selMode: 'new', toneRange: 'midtones', exposure: 0.5, sampleAll: true, pressureSize: true, pressureOpacity: false, autoSelect: true, autoSelectGroup: false, showTransform: true, showDistances: true, spongeMode: 'desaturate' },
+  options: { size: 40, hardness: 0.8, opacity: 1, tolerance: 32, contiguous: true, shape: 'rect', cropAspect: null, feather: 0, flow: 1, smoothing: 0.25, sides: 5, star: 1, selMode: 'new', toneRange: 'midtones', exposure: 0.5, sampleAll: true, pressureSize: true, pressureOpacity: false, autoSelect: true, autoSelectGroup: true, showTransform: true, showDistances: true, spongeMode: 'desaturate' },
   fg: '#111111',
   bg: '#ffffff',
   swatches: ['#111111', '#ffffff', '#8b7cff', '#ff5a5f', '#ffb020', '#1fb47a', '#2d7ff9'],
@@ -527,12 +612,79 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   active: () => get().layers.find(l => l.id === get().activeId) ?? null,
-  setActive: (id) => set({ activeId: id, selectedIds: id ? [id] : [], editingMask: false }),
+  setActive: (id) => set({ activeId: id, selectedIds: id ? [id] : [], editingMask: false, keyObjectId: null }),
 
   toggleSelect: (id) => {
     const cur = get().selectedIds
     const next = cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]
-    set({ selectedIds: next, activeId: next.includes(id) ? id : (next[next.length - 1] ?? null), editingMask: false })
+    const key = get().keyObjectId
+    set({ selectedIds: next, activeId: next.includes(id) ? id : (next[next.length - 1] ?? null), editingMask: false, keyObjectId: key && next.includes(key) ? key : null })
+  },
+
+  setKeyObject: (id) => set({ keyObjectId: id && get().selectedIds.includes(id) ? id : null }),
+  setIsolated: (groupId) => {
+    if (!groupId) { set({ isolatedGroupId: null }); return }
+    const ids = get().layers.filter(l => inGroup(l, groupId, get().groups)).map(l => l.id)
+    set({ isolatedGroupId: groupId, selectedIds: ids.slice(-1), activeId: ids[ids.length - 1] ?? null, keyObjectId: null })
+  },
+
+  duplicateSelected: (opts = {}) => {
+    const { layers, groups, selectedIds } = get()
+    const dx = opts.dx ?? 0, dy = opts.dy ?? 0
+    const sel = new Set(selectedIds)
+    if (!sel.size) return []
+    // Units to copy: the outermost groups whose layers are all selected, then any other selected layer on its own.
+    const whole = (gid: string) => layers.filter(l => inGroup(l, gid, groups)).every(l => sel.has(l.id))
+    const groupUnits = new Set<string>()
+    for (const l of layers) {
+      if (!sel.has(l.id)) continue
+      const chain = groupChain(l.groupId, groups)
+      let top: string | null = null
+      for (const gid of chain) if (whole(gid)) top = gid
+      if (top) groupUnits.add(top)
+    }
+    type Unit = { ids: string[]; end: number; group: string | null }
+    const units: Unit[] = []
+    for (const gid of Array.from(groupUnits)) {
+      const ids = layers.filter(l => inGroup(l, gid, groups)).map(l => l.id)
+      units.push({ ids, end: Math.max(...ids.map(id => layers.findIndex(l => l.id === id))), group: gid })
+    }
+    const inUnit = new Set(units.flatMap(u => u.ids))
+    layers.forEach((l, i) => { if (sel.has(l.id) && !inUnit.has(l.id)) units.push({ ids: [l.id], end: i, group: null }) })
+    // From the top of the stack down, so earlier inserts do not move later positions.
+    units.sort((a, b) => b.end - a.end)
+    const next = [...layers]; const nextGroups = [...groups]
+    const taken = new Set(layers.map(l => l.name))
+    const copies: string[] = []
+    const linkMap = new Map<string, string>()
+    for (const u of units) {
+      const gMap = new Map<string, string>()
+      if (u.group) {
+        // Copy the group and every group inside it; the copy sits beside the original, in the same parent.
+        const byId = new Map(groups.map(g => [g.id, g]))
+        const inside = groups.filter(g => groupChain(g.id, groups).includes(u.group!))
+        for (const g of inside) gMap.set(g.id, uid())
+        for (const g of inside) nextGroups.push({ ...g, id: gMap.get(g.id)!, name: g.id === u.group ? copyName(g.name, groups.map(x => x.name)) : g.name, parentId: g.id === u.group ? (byId.get(u.group!)?.parentId ?? null) : gMap.get(g.parentId!) ?? g.parentId ?? null })
+      }
+      const idMap = new Map<string, string>()
+      const made = u.ids.map(id => {
+        const l = layers.find(x => x.id === id)!
+        const nid = uid(); idMap.set(id, nid)
+        const name = u.group ? l.name : copyName(l.name, taken); taken.add(name)
+        const lk = l.linkId ? (linkMap.get(l.linkId) ?? (linkMap.set(l.linkId, uid()), linkMap.get(l.linkId)!)) : null
+        return { ...l, id: nid, name, srcId: null, linkId: u.group ? lk : null, groupId: l.groupId && gMap.has(l.groupId) ? gMap.get(l.groupId)! : l.groupId ?? null, x: l.x + (l.type === 'adjustment' ? 0 : dx), y: l.y + (l.type === 'adjustment' ? 0 : dy), rev: nextRev() } as Layer
+      })
+      for (const c of made) if (c.clipId && idMap.has(c.clipId)) c.clipId = idMap.get(c.clipId)!
+      const at = next.findIndex(l => l.id === u.ids[u.ids.length - 1])
+      next.splice(at + 1, 0, ...made)
+      copies.push(...made.map(m => m.id))
+    }
+    // Copies moved onto another board belong to that board.
+    const doc = get().doc
+    const placed = doc?.frames?.length && (dx || dy) ? next.map(l => (copies.includes(l.id) && l.type !== 'adjustment' ? ({ ...l, frameId: boardFor(doc, l, get().activeFrameId) } as Layer) : l)) : next
+    set({ layers: placed, groups: prune(nextGroups, placed), selectedIds: copies, activeId: copies[0] ?? null, keyObjectId: null, editingMask: false, docRev: get().docRev + 1 })
+    if (opts.commit !== false) get().commit(opts.label ?? (copies.length > 1 ? 'Duplicate layers' : 'Duplicate layer'))
+    return copies
   },
 
   selectGroup: (groupId) => {
@@ -595,45 +747,48 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   align: (how) => {
-    const { layers, selectedIds, doc } = get(); if (!doc) return
-    const sel = layers.filter(l => selectedIds.includes(l.id) && l.type !== 'adjustment' && !l.locked)
-    if (!sel.length) return
-    const boxes = sel.map(l => layerBounds(l, doc))
-    // One layer aligns to the page. Several layers align to each other.
-    const frame = sel.length === 1 ? { x: 0, y: 0, w: doc.width, h: doc.height } : {
-      x: Math.min(...boxes.map(b => b.x)), y: Math.min(...boxes.map(b => b.y)),
-      w: Math.max(...boxes.map(b => b.x + b.w)) - Math.min(...boxes.map(b => b.x)),
-      h: Math.max(...boxes.map(b => b.y + b.h)) - Math.min(...boxes.map(b => b.y)),
-    }
-    const moves = new Map(sel.map((l, i) => {
+    const { layers, selectedIds, doc, groups, isolatedGroupId, keyObjectId } = get(); if (!doc) return
+    // Whole groups move as one object; a locked layer keeps its whole object in place.
+    const units = alignUnits(layers, groups, selectedIds, isolatedGroupId)
+    if (!units.length) return
+    const boxes = units.map(u => unionBox(u.ls.map(l => layerBounds(l, doc))))
+    // One object aligns to its board (or the page without boards). Several align to the key object if one
+    // is chosen, otherwise to the box around them all.
+    const first = units[0].ls[0]
+    const board = units.length === 1 && doc.frames?.length ? doc.frames.find(f => f.id === (first.frameId ?? boardFor(doc, first, get().activeFrameId))) : null
+    const key = units.length > 1 && keyObjectId ? units.findIndex(u => u.ids.includes(keyObjectId)) : -1
+    const frame = units.length === 1 ? (board ? { x: board.x, y: board.y, w: board.width, h: board.height } : { x: 0, y: 0, w: doc.width, h: doc.height }) : key >= 0 ? boxes[key] : unionBox(boxes)
+    const moves = new Map<string, { dx: number; dy: number }>()
+    units.forEach((u, i) => {
       const b = boxes[i]
       const dx = how === 'left' ? frame.x - b.x : how === 'hcenter' ? frame.x + frame.w / 2 - (b.x + b.w / 2) : how === 'right' ? frame.x + frame.w - (b.x + b.w) : 0
       const dy = how === 'top' ? frame.y - b.y : how === 'vcenter' ? frame.y + frame.h / 2 - (b.y + b.h / 2) : how === 'bottom' ? frame.y + frame.h - (b.y + b.h) : 0
-      return [l.id, { dx, dy }]
-    }))
+      for (const l of u.ls) moves.set(l.id, { dx, dy })
+    })
     set({ layers: layers.map(l => { const m = moves.get(l.id); return m ? ({ ...l, x: l.x + m.dx, y: l.y + m.dy, rev: nextRev() } as Layer) : l }), docRev: get().docRev + 1 })
-    get().commit('Align')
+    get().commit('Align', { ifChanged: true })
   },
 
-  distribute: (axis) => {
-    const { layers, selectedIds, doc } = get(); if (!doc) return
-    const sel = layers.filter(l => selectedIds.includes(l.id) && l.type !== 'adjustment' && !l.locked)
-    if (sel.length < 3) return
-    const boxes = sel.map(l => ({ l, b: layerBounds(l, doc) }))
-    // sort along the axis, keep the two extremes fixed, space the middles evenly by gap.
+  distribute: (axis, fixedGap) => {
+    const { layers, selectedIds, doc, groups, isolatedGroupId } = get(); if (!doc) return
+    const units = alignUnits(layers, groups, selectedIds, isolatedGroupId)
+    if (units.length < (fixedGap != null ? 2 : 3)) return
+    const boxes = units.map(u => ({ u, b: unionBox(u.ls.map(l => layerBounds(l, doc))) }))
+    // Sort along the axis, keep the first where it is, and space the rest by the gap (even, or the one given).
     boxes.sort((a, b) => axis === 'h' ? (a.b.x - b.b.x) : (a.b.y - b.b.y))
     const first = boxes[0].b, last = boxes[boxes.length - 1].b
     const totalSpan = axis === 'h' ? (last.x + last.w) - first.x : (last.y + last.h) - first.y
     const sumSize = boxes.reduce((n, x) => n + (axis === 'h' ? x.b.w : x.b.h), 0)
-    const gap = (totalSpan - sumSize) / (boxes.length - 1)
+    const gap = fixedGap != null ? fixedGap : (totalSpan - sumSize) / (boxes.length - 1)
     let cursor = axis === 'h' ? first.x : first.y
     const moves = new Map<string, { dx: number; dy: number }>()
-    boxes.forEach(({ l, b }) => {
-      if (axis === 'h') { moves.set(l.id, { dx: cursor - b.x, dy: 0 }); cursor += b.w + gap }
-      else { moves.set(l.id, { dx: 0, dy: cursor - b.y }); cursor += b.h + gap }
+    boxes.forEach(({ u, b }) => {
+      const m = axis === 'h' ? { dx: cursor - b.x, dy: 0 } : { dx: 0, dy: cursor - b.y }
+      cursor += (axis === 'h' ? b.w : b.h) + gap
+      for (const l of u.ls) moves.set(l.id, m)
     })
     set({ layers: layers.map(l => { const m = moves.get(l.id); return m ? ({ ...l, x: l.x + m.dx, y: l.y + m.dy, rev: nextRev() } as Layer) : l }), docRev: get().docRev + 1 })
-    get().commit('Distribute')
+    get().commit('Distribute', { ifChanged: true })
   },
 
   // Set a layer's document-space box precisely. x/y move the top-left of the unrotated bounds; w/h rescale from it.
@@ -818,6 +973,73 @@ export const useEditor = create<EditorState>((set, get) => ({
     // Anything above the moved layer may now sit over different pixels.
     set({ layers: layers.map(x => ({ ...x, rev: nextRev() } as Layer)), groups: prune(get().groups, layers), docRev: get().docRev + 1 })
     get().commit('Reorder layers')
+  },
+
+  moveLayers: (ids, toIndex, toFrame) => {
+    const all = get().layers
+    const moving = all.filter(l => ids.includes(l.id))
+    if (moving.length <= 1) { if (moving[0]) get().moveLayer(moving[0].id, toIndex, toFrame); return }
+    const target = all[toIndex]; if (!target || ids.includes(target.id)) return
+    const rest = all.filter(l => !ids.includes(l.id))
+    const ti = rest.indexOf(target)
+    // Dragged up from below the target they land above it, dragged down from above they land below it.
+    const at = all.indexOf(moving[0]) < toIndex ? ti + 1 : ti
+    const below = rest[at - 1], above = rest[at]
+    const groups = get().groups
+    const cb = below ? groupChain(below.groupId, groups) : [], ca = above ? groupChain(above.groupId, groups) : []
+    const shared = cb.find(g => ca.includes(g)) ?? null
+    const own = moving.every(l => l.groupId === moving[0].groupId) ? moving[0].groupId ?? null : null
+    const ownEdge = !!own && (cb.includes(own) || ca.includes(own)) && (!shared || groupChain(own, groups).includes(shared))
+    const groupId = ownEdge ? own : shared
+    const doc = get().doc
+    const dst = toFrame && doc?.frames?.length ? doc.frames.find(f => f.id === toFrame) : null
+    const block = moving.map(l => {
+      let m = { ...l, groupId } as Layer
+      if (dst && l.frameId !== dst.id) {
+        const src = doc!.frames!.find(f => f.id === l.frameId)
+        m = { ...m, frameId: dst.id, clipId: null } as Layer
+        if (src && l.type !== 'adjustment') m = { ...m, x: l.x + dst.x - src.x, y: l.y + dst.y - src.y } as Layer
+      }
+      return m
+    })
+    const next = releaseOrphans([...rest.slice(0, at), ...block, ...rest.slice(at)])
+    set({ layers: next.map(x => ({ ...x, rev: nextRev() } as Layer)), groups: prune(groups, next), docRev: get().docRev + 1 })
+    get().commit('Reorder layers')
+  },
+
+  moveToGroup: (ids, gid) => {
+    const { layers, groups } = get()
+    const moving = layers.filter(l => ids.includes(l.id) && !l.locked)
+    if (!moving.length) return
+    const rest = layers.filter(l => !moving.includes(l))
+    let into: string | null, at: number
+    if (gid) {
+      const members = rest.filter(l => inGroup(l, gid, groups))
+      if (!members.length) return
+      into = gid; at = rest.indexOf(members[members.length - 1]) + 1
+    } else {
+      // Out of the innermost group they are in, to just above it.
+      const inner = moving[0].groupId; if (!inner) return
+      const members = rest.filter(l => inGroup(l, inner, groups))
+      into = groups.find(g => g.id === inner)?.parentId ?? null
+      at = members.length ? rest.indexOf(members[members.length - 1]) + 1 : rest.length
+    }
+    const frame = gid ? rest.find(l => inGroup(l, gid, groups))?.frameId : undefined
+    const ids2 = new Set(moving.map(l => l.id))
+    const frames = get().doc?.frames ?? []
+    const block = moving.map(l => {
+      let m = { ...l, groupId: into, ...(l.clipId && !ids2.has(l.clipId) ? { clipId: null } : {}) } as Layer
+      // Into a group on another board: the layer goes to that board, at the same place on it.
+      if (frame !== undefined && frame !== l.frameId) {
+        const src = frames.find(f => f.id === l.frameId), dst = frames.find(f => f.id === frame)
+        m = { ...m, frameId: frame } as Layer
+        if (src && dst && l.type !== 'adjustment') m = { ...m, x: l.x + dst.x - src.x, y: l.y + dst.y - src.y } as Layer
+      }
+      return m
+    })
+    const next = releaseOrphans([...rest.slice(0, at), ...block, ...rest.slice(at)])
+    set({ layers: next.map(x => ({ ...x, rev: nextRev() } as Layer)), groups: prune(groups, next), docRev: get().docRev + 1 })
+    get().commit(gid ? 'Move into group' : 'Move out of group')
   },
 
   nudgeOrder: (id, dir) => {
@@ -1013,13 +1235,18 @@ export const useEditor = create<EditorState>((set, get) => ({
   addSwatch: (c) => { const s = get().swatches; if (!s.includes(c)) set({ swatches: [c, ...s].slice(0, 21) }) },
   setView: (v) => set({ view: { ...get().view, ...v } }),
 
-  commit: (label) => {
+  commit: (label, opts) => {
     const { doc, layers, activeId, selection, history, historyIndex, selectedIds, activeFrameId } = get(); if (!doc) return
     const snap: Snapshot = { doc: { ...doc }, layers: [...layers], groups: get().groups.map(g => ({ ...g })), activeId, selection, label, at: Date.now(), selectedIds: [...selectedIds], activeFrameId }
     const ui = useUi.getState()
-    let next = [...history.slice(0, historyIndex + 1), snap].slice(-Math.max(5, ui.historyLimit))
+    const last = history[historyIndex]
+    if (opts?.ifChanged && last && sameAsStep(last, doc, layers, get().groups, selection)) return
+    // A run of the same small step (arrow-key nudges) becomes one undo step.
+    const merge = !!opts?.merge && historyIndex === history.length - 1 && historyIndex > 0 && last?.label === label && Date.now() - (last.at ?? 0) < opts.merge
+    let next = (merge ? [...history.slice(0, historyIndex), snap] : [...history.slice(0, historyIndex + 1), snap]).slice(-Math.max(5, ui.historyLimit))
     // Keep history inside its memory budget: drop the oldest steps first, always keeping the last five.
-    const budget = ui.historyMemoryMB * 1048576
+    // Phones keep a smaller history so the browser does not close the tab for using too much memory.
+    const budget = (touchCanvas.phone ? Math.min(ui.historyMemoryMB, 300) : ui.historyMemoryMB) * 1048576
     if (next.length > 5 && historyBytes(next) > budget) {
       while (next.length > 5 && historyBytes(next) > budget) next = next.slice(Math.max(1, Math.floor(next.length / 10)))
     }

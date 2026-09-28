@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   verification: { google: '1V_2HoMNvlXk63E33XE6M_7eE3JiNEeenfseOC4Tr3Q' },
 }
 
-export const viewport: Viewport = { themeColor: '#141416', width: 'device-width', initialScale: 1, viewportFit: 'cover' }
+export const viewport: Viewport = { themeColor: '#141416', width: 'device-width', initialScale: 1, viewportFit: 'cover', interactiveWidget: 'resizes-content' }
 
 export default function RootLayout({
   children,

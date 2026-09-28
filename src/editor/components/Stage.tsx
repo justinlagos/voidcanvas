@@ -2,18 +2,21 @@
 import { uiFont } from '@/lib/ui-font'
 import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
-  brushTip, cloneCanvas, ctx2d, floodMask, fontString, healRegion, hitLayer, insideHiddenGroup, layerBounds, layerCorners, layerMatrix, layerSize,
+  brushTip, cloneCanvas, ctx2d, docToLocal, floodMask, fontString, healRegion, hitLayer, insideHiddenGroup, layerBounds, layerCorners, layerMatrix, layerSize,
   makeCanvas, maskEdges, polygonPoints, renderDoc, toneStroke, tracePath, type LiveStroke,
 } from '../engine'
 import { importFiles } from '../io'
-import { groupChain, tipOnce, useEditor } from '../store'
+import { groupChain, inGroup, pickGroupFor, selectionUnits, tipOnce, unionBox, useEditor } from '../store'
 import type { Layer, PathNode, Rect, SubPath, ToolId, VectorPath } from '../types'
 import { useUi } from '../ui-store'
 import { FloatingBar } from './FloatingBar'
 import { frameAt, frameForLayer } from '../frames'
 import { recallView, rememberView, viewFor } from '../viewmemory'
+import { LONG_PRESS_MS, isCoarse, touchCanvas } from '../touch'
+import { noteDuplicate } from '../actions'
+import { pivotPoint, rotatedAbout } from '../pivot'
 import * as ops from '../ops'
 import * as pen from '../pen'
 
@@ -24,14 +27,18 @@ const RULER = 20
 const PAINT_TOOLS: ToolId[] = ['brush', 'eraser', 'clone', 'heal', 'remove', 'dodge', 'burn', 'sponge']
 const HANDLES: [number, number][] = [[0, 0], [0.5, 0], [1, 0], [1, 0.5], [1, 1], [0.5, 1], [0, 1], [0, 0.5]]
 
+/** A coarse pointer (a finger) is the main input: handles are drawn bigger and rotation sits below the box. */
+const coarse = isCoarse
+
 type Pt = { x: number; y: number }
 type Drag =
-  | { kind: 'pan'; sx: number; sy: number; px: number; py: number }
-  | { kind: 'move'; start: Pt; items: { id: string; ox: number; oy: number }[]; box: Rect; snapX: number[]; snapY: number[]; siblings: Rect[]; moved: boolean }
+  | { kind: 'pan'; sx: number; sy: number; px: number; py: number; tap?: { t: number; frame: string | null } }
+  | { kind: 'move'; start: Pt; items: { id: string; ox: number; oy: number }[]; box: Rect; snapX: number[]; snapY: number[]; siblings: Rect[]; moved: boolean; dup?: boolean; keyClick?: string }
   | { kind: 'select'; start: Pt; cur: Pt; add: boolean; base: string[] }
   | { kind: 'gresize'; anchor: Pt; box: Rect; items: { id: string; l: Layer }[] }
-  | { kind: 'resize'; id: string; h: number; l0: Layer; w: number; hgt: number; anchor: Pt }
-  | { kind: 'rotate'; id: string; center: Pt; a0: number; r0: number }
+  | { kind: 'resize'; id: string; h: number; l0: Layer; w: number; hgt: number; anchor: Pt; snapX: number[]; snapY: number[] }
+  | { kind: 'grotate'; center: Pt; a0: number; items: { id: string; cx: number; cy: number; hw: number; hh: number; r0: number }[] }
+  | { kind: 'rotate'; id: string; center: Pt; a0: number; r0: number; l0: Layer }
   | { kind: 'stroke'; last: Pt; smooth: Pt; carry: number; snapshot?: HTMLCanvasElement; offset?: Pt; tool: ToolId; quick?: boolean }
   | { kind: 'box'; tool: ToolId; start: Pt; cur: Pt; pts: Pt[]; mode: 'new' | 'add' | 'sub' | 'intersect' }
   | { kind: 'guide'; axis: 'v' | 'h'; index: number; pos: number }
@@ -51,9 +58,11 @@ export const stageApi: {
   enter: () => boolean; escape: () => boolean; deleteNode: () => boolean
   /** Direct selection: nudge the selected anchor points; select every point. Return true when handled. */
   nudgeNodes: (dx: number, dy: number) => boolean; selectAllNodes: () => boolean
+  /** The part of the design on screen, in design pixels (for pasting into view). */
+  viewRect: () => { x: number; y: number; w: number; h: number } | undefined
   /** Selected anchor points, for the path commands (average, cut, join). */
   pathPicks: () => { target: Target; picks: Pick[] } | null
-} = { fit: () => {}, fitSelection: () => {}, fitFrame: () => {}, zoomBy: () => {}, zoomTo: () => {}, enter: () => false, escape: () => false, deleteNode: () => false, nudgeNodes: () => false, selectAllNodes: () => false, pathPicks: () => null }
+} = { fit: () => {}, viewRect: () => undefined, fitSelection: () => {}, fitFrame: () => {}, zoomBy: () => {}, zoomTo: () => {}, enter: () => false, escape: () => false, deleteNode: () => false, nudgeNodes: () => false, selectAllNodes: () => false, pathPicks: () => null }
 
 // ─── Path helpers ──────────────────────────────────────────────────
 
@@ -137,6 +146,29 @@ export function Stage() {
   const docRev = useEditor(s => s.docRev)
   const editingTextId = useEditor(s => s.editingTextId)
   const lastDown = useRef<{ t: number; x: number; y: number; id: string | null } | null>(null)
+  const lastEmptyTap = useRef<{ t: number; x: number; y: number } | null>(null)
+  // Long press on a layer (touch): select it and ask the shell for its actions, without moving it.
+  const longPress = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null)
+  const cancelLongPress = () => { if (longPress.current) { clearTimeout(longPress.current.timer); longPress.current = null } }
+  const startLongPress = (e: React.PointerEvent, id: string, at: Pt) => {
+    cancelLongPress()
+    const x = e.clientX, y = e.clientY
+    longPress.current = {
+      x, y,
+      timer: setTimeout(() => {
+        longPress.current = null
+        const d = drag.current
+        if (d && d.kind === 'move' && d.moved) return
+        drag.current = null; setBusyDrag(false)
+        const st = useEditor.getState()
+        if (!st.selectedIds.includes(id)) st.setActive(id)
+        try { navigator.vibrate?.(12) } catch { /* not on every phone */ }
+        // Everything under the finger, top first, so the actions can offer the layer underneath.
+        const under = st.doc ? st.layers.slice().reverse().filter(l => hitLayer([l], at.x, at.y, st.doc!, st.groups)).map(l => l.id) : [id]
+        window.dispatchEvent(new CustomEvent('vc:longpress', { detail: { id, x, y, under } }))
+      }, LONG_PRESS_MS),
+    }
+  }
   const selRev = useEditor(s => s.selRev)
   const view = useEditor(s => s.view)
   const tool = useEditor(s => s.tool)
@@ -146,6 +178,7 @@ export function Stage() {
   const optSize = useEditor(s => s.options.size)
   const compare = useEditor(s => s.compare)
   const transform = useEditor(s => s.transform)
+  const isolated = useEditor(s => (s.isolatedGroupId ? s.groups.find(g => g.id === s.isolatedGroupId) ?? null : null))
   const quickMask = useEditor(s => s.quickMask)
   const viewChannel = useEditor(s => s.viewChannel)
   const activePathId = useEditor(s => s.activePathId)
@@ -463,6 +496,14 @@ export function Stage() {
         const pts = layerCorners(l, doc).map(toScreen)
         octx.beginPath(); pts.forEach((p, i) => (i ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y))); octx.closePath(); octx.stroke()
       }
+      // The key object (the one the others align to) has a heavier outline.
+      const units = s.keyObjectId && s.selectedIds.length > 1 ? selectionUnits(s.layers, s.groups, s.selectedIds, s.isolatedGroupId) : []
+      const keyUnit = units.length > 1 ? units.find(u => u.ids.includes(s.keyObjectId!)) : null
+      if (keyUnit) {
+        const ls = s.layers.filter(l => keyUnit.ids.includes(l.id) && l.type !== 'adjustment')
+        const pts = ls.length === 1 ? layerCorners(ls[0], doc) : boxHandles(unionBox(ls.map(l => layerBounds(l, doc))))
+        octx.lineWidth = 3; octx.beginPath(); pts.map(toScreen).forEach((p, i) => (i ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y))); octx.closePath(); octx.stroke()
+      }
       const gb = selectionBox()
       if (gb && showTf) {
         const c = boxHandles(gb).map(toScreen)
@@ -470,18 +511,36 @@ export function Stage() {
         octx.beginPath(); c.forEach((p, i) => (i ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y))); octx.closePath(); octx.stroke()
         octx.fillStyle = '#fff'; octx.strokeStyle = ACCENT; octx.lineWidth = 1.5
         for (const p of c) { octx.beginPath(); octx.rect(p.x - 4, p.y - 4, 8, 8); octx.fill(); octx.stroke() }
+        // Rotate several layers together with the round handle.
+        const rp = toScreen(groupRotateHandle(gb))
+        const edge = toScreen(coarse() ? { x: gb.x + gb.w / 2, y: gb.y + gb.h } : { x: gb.x + gb.w / 2, y: gb.y })
+        octx.beginPath(); octx.moveTo(edge.x, edge.y); octx.lineTo(rp.x, rp.y); octx.stroke()
+        octx.beginPath(); octx.arc(rp.x, rp.y, coarse() ? 9 : 6, 0, Math.PI * 2); octx.fill(); octx.stroke()
       }
+    }
+    // Editing a group on its own: everything outside it is dimmed.
+    if (s.isolatedGroupId) {
+      const inside = s.layers.filter(l => inGroup(l, s.isolatedGroupId!, s.groups) && l.type !== 'adjustment')
+      octx.save(); octx.fillStyle = 'rgba(10,10,14,0.55)'; octx.beginPath(); octx.rect(0, 0, w, h)
+      for (const l of inside) { const pts = layerCorners(l, doc).map(toScreen); pts.forEach((p, i) => (i ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y))); octx.closePath() }
+      octx.fill('evenodd'); octx.restore()
     }
     if (s.tool === 'move' && showTf && !tf && !s.editingTextId && s.selectedIds.length === 1 && active && active.type !== 'adjustment' && active.visible && !active.locked && !active.lockPosition) {
       octx.strokeStyle = ACCENT; octx.lineWidth = 1.5
       const hp = handlePoints(active).map(toScreen)
-      const rot = hp[8]
-      octx.beginPath(); octx.moveTo(hp[1].x, hp[1].y); octx.lineTo(rot.x, rot.y); octx.stroke()
+      const rot = hp[8], big = coarse()
+      const from = big ? hp[5] : hp[1]
+      octx.beginPath(); octx.moveTo(from.x, from.y); octx.lineTo(rot.x, rot.y); octx.stroke()
       hp.forEach((p, i) => {
         octx.beginPath()
-        if (i === 8) octx.arc(p.x, p.y, 6, 0, Math.PI * 2); else octx.rect(p.x - 5, p.y - 5, 10, 10)
+        if (i === 8) octx.arc(p.x, p.y, big ? 9 : 6, 0, Math.PI * 2); else if (big) octx.rect(p.x - 7, p.y - 7, 14, 14); else octx.rect(p.x - 5, p.y - 5, 10, 10)
         octx.fillStyle = active.type === 'text' && active.boxWidth && (i === 3 || i === 7) ? ACCENT : '#fff'; octx.fill(); octx.stroke()
       })
+      // The pivot, when it is not the centre: a small target the layer turns around.
+      if (ui.pivot && ui.pivot !== 'c') {
+        const pv = toScreen(pivotPoint(active, doc, ui.pivot))
+        octx.beginPath(); octx.arc(pv.x, pv.y, 5, 0, Math.PI * 2); octx.moveTo(pv.x - 9, pv.y); octx.lineTo(pv.x + 9, pv.y); octx.moveTo(pv.x, pv.y - 9); octx.lineTo(pv.x, pv.y + 9); octx.stroke()
+      }
     }
 
     // Transform session handles.
@@ -735,6 +794,21 @@ export function Stage() {
     return { x, y, w: Math.max(...bs.map(b => b.x + b.w)) - x, h: Math.max(...bs.map(b => b.y + b.h)) - y }
   }
   function boxHandles(r: Rect): Pt[] { return [{ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y }, { x: r.x + r.w, y: r.y + r.h }, { x: r.x, y: r.y + r.h }] }
+  function groupRotateHandle(r: Rect): Pt { const z = useEditor.getState().view.zoom; return coarse() ? { x: r.x + r.w / 2, y: r.y + r.h + 40 / z } : { x: r.x + r.w / 2, y: r.y - 28 / z } }
+  /** What a moving or resized layer snaps to: its board's edges and centre (the page without boards), guides, and other layers on that board. */
+  function snapTargets(l: Layer, skip: string[]): { x: number[]; y: number[] } {
+    const st = useEditor.getState(), doc = st.doc!, ui = useUi.getState()
+    const x: number[] = [], y: number[] = []
+    const f = doc.frames?.length ? doc.frames.find(fr => fr.id === l.frameId) ?? null : null
+    const r = f ? { x: f.x, y: f.y, w: f.width, h: f.height } : { x: 0, y: 0, w: doc.width, h: doc.height }
+    x.push(r.x, r.x + r.w / 2, r.x + r.w); y.push(r.y, r.y + r.h / 2, r.y + r.h)
+    if (ui.snapToGuides && ui.showGuides && doc.guides) { x.push(...doc.guides.v); y.push(...doc.guides.h) }
+    const others = st.layers.filter(o => !skip.includes(o.id) && o.visible && o.type !== 'adjustment' && (!f || o.frameId === f.id)).slice(-60)
+    for (const o of others) { const b = layerBounds(o, doc); x.push(b.x, b.x + b.w / 2, b.x + b.w); y.push(b.y, b.y + b.h / 2, b.y + b.h) }
+    return { x, y }
+  }
+  /** Layers that can be picked: when a group is being edited on its own, only its layers. */
+  function pickable(): Layer[] { const st = useEditor.getState(); return st.isolatedGroupId ? st.layers.filter(l => inGroup(l, st.isolatedGroupId!, st.groups)) : st.layers }
 
   function handlePoints(l: Layer): Pt[] {
     const s = useEditor.getState()
@@ -742,7 +816,8 @@ export function Stage() {
     const m = new DOMMatrix().translate(l.x + (w * l.scaleX) / 2, l.y + (h * l.scaleY) / 2).rotate((l.rotation * 180) / Math.PI)
     const hw = (w * l.scaleX) / 2, hh = (h * l.scaleY) / 2
     const pts = HANDLES.map(([fx, fy]) => m.transformPoint({ x: (fx - 0.5) * 2 * hw, y: (fy - 0.5) * 2 * hh }))
-    pts.push(m.transformPoint({ x: 0, y: -hh - 28 / s.view.zoom }))
+    // With a finger, the rotation handle sits below the box, further out, where the hand does not cover it.
+    pts.push(coarse() ? m.transformPoint({ x: 0, y: hh + 40 / s.view.zoom }) : m.transformPoint({ x: 0, y: -hh - 28 / s.view.zoom }))
     return pts.map(p => ({ x: p.x, y: p.y }))
   }
 
@@ -839,6 +914,7 @@ export function Stage() {
 
   useEffect(() => {
     stageApi.fit = fit
+    stageApi.viewRect = () => { const v = useEditor.getState().view; const { w, h } = size.current; if (!w || !v.zoom) return undefined; return { x: -v.panX / v.zoom, y: -v.panY / v.zoom, w: w / v.zoom, h: h / v.zoom } }
     stageApi.fitSelection = fitSelection
     stageApi.fitFrame = fitFrame
     stageApi.zoomBy = f => zoomAt(f)
@@ -896,7 +972,7 @@ export function Stage() {
 
   useEffect(() => { restoreOrFit() }, [docId, restoreOrFit])
   useEffect(() => { invalidate(true) }, [docRev, compare, editingTextId, transform?.layerId, viewChannel, invalidate])
-  useEffect(() => { invalidate() }, [selRev, view, tool, activeId, crop, optSize, transform, quickMask, activePathId, showRulers, showGuides, pixelGrid, invalidate])
+  useEffect(() => { invalidate() }, [selRev, view, tool, activeId, crop, optSize, transform, quickMask, activePathId, showRulers, showGuides, pixelGrid, isolated, invalidate])
   useEffect(() => { if (tool !== 'pen' && tool !== 'curvature') penSub.current = null; if (!isPathTool(tool)) { sel.current = null; hover.current = null; if (useEditor.getState().vmaskEditId) useEditor.setState({ vmaskEditId: null }); pathSnap.current = { v: null, h: null, info: null } } if (tool !== 'polylasso') poly.current = null }, [tool])
   // Undo or another panel can remove the path being drawn.
   useEffect(() => { if (penSub.current && !getSubs(penSub.current.target)[penSub.current.sub]) penSub.current = null; if (sel.current && !getSubs(sel.current.target).length) sel.current = null }, [docRev])
@@ -1049,9 +1125,17 @@ export function Stage() {
     if (e.pointerType === 'pen') penSeen.current = true
 
     if (pointers.current.size >= 2) {
+      // A second finger turns what the first was doing into a pinch. A move, resize or rotate already made is kept
+      // as its own undo step first, so nothing is left changed without a step to undo it.
+      const was = drag.current
+      cancelLongPress()
+      if (was && ((was.kind === 'move' && was.moved) || was.kind === 'resize' || was.kind === 'rotate' || was.kind === 'gresize')) s.commit(was.kind === 'move' ? 'Move' : was.kind === 'rotate' ? 'Rotate' : 'Resize', { ifChanged: true })
       live.current = null; drag.current = null
       const [a, b] = Array.from(pointers.current.values())
-      pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: s.view.zoom, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, panX: s.view.panX, panY: s.view.panY, t: pinch.current?.t ?? Date.now(), moved: false, count: pointers.current.size }
+      // A two-finger tap undoes only when both fingers came down together, not when one was already working.
+      const prev = pinch.current
+      const working = !!was && ((was.kind === 'move' && was.moved) || was.kind === 'resize' || was.kind === 'rotate' || was.kind === 'gresize' || was.kind === 'stroke' || (was.kind === 'pan' && Math.abs(s.view.panX - was.px) + Math.abs(s.view.panY - was.py) > 10))
+      pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: s.view.zoom, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, panX: s.view.panX, panY: s.view.panY, t: prev ? prev.t : Date.now(), moved: prev ? prev.moved : working, count: pointers.current.size }
       invalidate(true); return
     }
 
@@ -1135,8 +1219,15 @@ export function Stage() {
       if (s.selectedIds.length > 1 && s.options.showTransform !== false) {
         const gb = selectionBox()
         if (gb) {
+          const rh = groupRotateHandle(gb)
+          if (Math.hypot(p.x - rh.x, p.y - rh.y) <= (e.pointerType === 'touch' ? 22 : 10) / s.view.zoom) {
+            const center = { x: gb.x + gb.w / 2, y: gb.y + gb.h / 2 }
+            const items = s.layers.filter(l => s.selectedIds.includes(l.id) && l.type !== 'adjustment' && !l.locked && !l.lockPosition).map(l => { const { w, h } = layerSize(l, s.doc!); const hw = (w * l.scaleX) / 2, hh = (h * l.scaleY) / 2; return { id: l.id, cx: l.x + hw, cy: l.y + hh, hw, hh, r0: l.rotation } })
+            drag.current = { kind: 'grotate', center, a0: Math.atan2(p.y - center.y, p.x - center.x), items }
+            return
+          }
           const corners = boxHandles(gb)
-          const tol = 9 / s.view.zoom
+          const tol = (e.pointerType === 'touch' ? 22 : 9) / s.view.zoom
           for (let i = 0; i < 4; i++) {
             if (Math.abs(p.x - corners[i].x) < tol && Math.abs(p.y - corners[i].y) < tol) {
               const anchor = corners[(i + 2) % 4]
@@ -1149,33 +1240,62 @@ export function Stage() {
       }
       if (s.options.showTransform !== false && s.selectedIds.length === 1 && act && act.type !== 'adjustment' && !act.locked && !act.lockPosition && act.visible) {
         const hp = handlePoints(act)
-        // Fingers need a bigger target than a mouse pointer.
-        const tol = (e.pointerType === 'touch' ? 22 : 11) / s.view.zoom
-        const hi = hp.findIndex(h => Math.hypot(h.x - p.x, h.y - p.y) <= tol)
+        // Fingers need a bigger target than a mouse pointer. On a layer that is small on screen, a finger inside it
+        // always moves it: its resize handles only answer from outside the body.
+        const touch = e.pointerType === 'touch'
+        const tol = (touch ? 22 : 11) / s.view.zoom
+        const { w: lw, h: lh } = layerSize(act, s.doc)
+        const small = touch && Math.min(lw * Math.abs(act.scaleX), lh * Math.abs(act.scaleY)) * s.view.zoom < 88
+        const lp = docToLocal(act, p.x, p.y, s.doc)
+        const inside = lp.x >= 0 && lp.y >= 0 && lp.x <= lw && lp.y <= lh
+        const hi = small && inside ? hp.findIndex((h, i) => i === 8 && Math.hypot(h.x - p.x, h.y - p.y) <= tol) : hp.findIndex(h => Math.hypot(h.x - p.x, h.y - p.y) <= tol)
         if (hi === 8) {
-          const cs = layerCorners(act, s.doc)
-          const center = { x: (cs[0].x + cs[2].x) / 2, y: (cs[0].y + cs[2].y) / 2 }
-          drag.current = { kind: 'rotate', id: act.id, center, a0: Math.atan2(p.y - center.y, p.x - center.x), r0: act.rotation }; return
+          // Turns around the pivot chosen in Properties (the centre unless another point is picked).
+          const center = pivotPoint(act, s.doc, ui.pivot ?? 'c')
+          drag.current = { kind: 'rotate', id: act.id, center, a0: Math.atan2(p.y - center.y, p.x - center.x), r0: act.rotation, l0: act }; return
         }
         if (hi >= 0) {
           const { w, h } = layerSize(act, s.doc)
           const opp = hp[(hi + 4) % 8]
-          drag.current = { kind: 'resize', id: act.id, h: hi, l0: act, w, hgt: h, anchor: opp }; return
+          const t = ui.snap ? snapTargets(act, [act.id]) : { x: [], y: [] }
+          drag.current = { kind: 'resize', id: act.id, h: hi, l0: act, w, hgt: h, anchor: opp, snapX: t.x, snapY: t.y }; return
         }
       }
-      let hit = auto || e.ctrlKey || e.metaKey ? hitLayer(s.layers, p.x, p.y, s.doc, s.groups) : null
+      let hit = auto || e.ctrlKey || e.metaKey ? hitLayer(pickable(), p.x, p.y, s.doc, s.groups) : null
       // Auto-select off: drag moves whatever is selected, wherever you press.
       if (!auto && !hit && s.selectedIds.length) hit = s.active()
       // Double click or double tap: pointerdown never carries a click count, so it is timed here. Works for mouse, touch and pen.
       const now = performance.now(), last = lastDown.current
       const dbl = !!last && now - last.t < 420 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 12 && last.id === (hit?.id ?? null)
       lastDown.current = { t: now, x: e.clientX, y: e.clientY, id: hit?.id ?? null }
-      if (hit && dbl && hit.type === 'text') { lastDown.current = null; s.setActive(hit.id); useEditor.setState({ editingTextId: hit.id }); return }
-      if (hit && e.shiftKey) { s.toggleSelect(hit.id); invalidate(); return }
+      // Double click on a selected group: go one level inside it, to the layer or group under the pointer.
+      if (hit && dbl && !touchCanvas.several) {
+        const units = selectionUnits(s.layers, s.groups, s.selectedIds, s.isolatedGroupId)
+        const g = units.length === 1 ? units[0].group : null
+        if (g && units[0].ids.includes(hit.id)) {
+          const chain = groupChain(hit.groupId, s.groups), at = chain.indexOf(g)
+          lastDown.current = null
+          if (at > 0) s.selectGroup(chain[at - 1]); else s.setActive(hit.id)
+          s.setKeyObject(null); invalidate(); return
+        }
+      }
+      if (hit && dbl && hit.type === 'text' && !touchCanvas.several) { lastDown.current = null; s.setActive(hit.id); useEditor.setState({ editingTextId: hit.id }); return }
+      if (hit && (e.shiftKey || (touchCanvas.several && e.pointerType === 'touch'))) { s.toggleSelect(hit.id); invalidate(); return }
+      if (hit && e.pointerType === 'touch') startLongPress(e, hit.id, p)
       if (hit) {
+        // Clicking one of several selected layers again (without dragging) makes it the key object.
+        const keyClick = s.selectedIds.includes(hit.id) && selectionUnits(s.layers, s.groups, s.selectedIds, s.isolatedGroupId).length > 1 ? hit.id : undefined
         if (!s.selectedIds.includes(hit.id)) {
-          const top = s.options.autoSelectGroup ? groupChain(hit.groupId, s.groups).pop() : undefined
+          const top = s.options.autoSelectGroup ? pickGroupFor(hit, s.layers, s.groups, s.selectedIds, s.isolatedGroupId) : null
           if (top) s.selectGroup(top); else s.setActive(hit.id)
+        }
+        // Alt-drag (mouse or pen) drags a copy and leaves the original in place.
+        let dup = false
+        if (e.altKey && e.pointerType !== 'touch') {
+          const s0 = useEditor.getState()
+          const src = s0.layers.filter(l => s0.selectedIds.includes(l.id)).map(l => l.id)
+          const copies = s0.duplicateSelected({ commit: false })
+          if (copies.length) { noteDuplicate(copies, src); dup = true }
         }
         const st = useEditor.getState()
         // Linked layers come along.
@@ -1185,21 +1305,16 @@ export function Stage() {
         const boxes = moving.map(l => layerBounds(l, s.doc!))
         const x0 = Math.min(...boxes.map(b => b.x)), y0 = Math.min(...boxes.map(b => b.y))
         const box = { x: x0, y: y0, w: Math.max(...boxes.map(b => b.x + b.w)) - x0, h: Math.max(...boxes.map(b => b.y + b.h)) - y0 }
-        const snapX: number[] = [], snapY: number[] = []
-        if (ui.snap) {
-          snapX.push(0, s.doc.width / 2, s.doc.width); snapY.push(0, s.doc.height / 2, s.doc.height)
-          if (ui.snapToGuides && ui.showGuides && s.doc.guides) { snapX.push(...s.doc.guides.v); snapY.push(...s.doc.guides.h) }
-          for (const o of st.layers.slice(-40)) {
-            if (moving.some(m => m.id === o.id) || !o.visible || o.type === 'adjustment') continue
-            const b = layerBounds(o, s.doc)
-            snapX.push(b.x, b.x + b.w / 2, b.x + b.w); snapY.push(b.y, b.y + b.h / 2, b.y + b.h)
-          }
-        }
+        const t = ui.snap ? snapTargets(hit, moving.map(m => m.id)) : { x: [], y: [] }
         const siblings: Rect[] = []
-        for (const o of st.layers) { if (moving.some(m => m.id === o.id) || !o.visible || o.type === 'adjustment') continue; siblings.push(layerBounds(o, s.doc)) }
-        drag.current = { kind: 'move', start: p, items: moving.map(l => ({ id: l.id, ox: l.x, oy: l.y })), box, snapX, snapY, siblings, moved: false }
+        const board = s.doc.frames?.length ? hit.frameId : undefined
+        for (const o of st.layers) { if (moving.some(m => m.id === o.id) || !o.visible || o.type === 'adjustment' || (board !== undefined && o.frameId !== board)) continue; siblings.push(layerBounds(o, s.doc)) }
+        drag.current = { kind: 'move', start: p, items: moving.map(l => ({ id: l.id, ox: l.x, oy: l.y })), box, snapX: t.x, snapY: t.y, siblings, moved: false, dup, keyClick }
       } else {
-        if (s.doc?.frames?.length) { const f = frameAt(s.doc, p.x, p.y); if (f) s.setActiveFrame(f.id) }
+        const f = s.doc?.frames?.length ? frameAt(s.doc, p.x, p.y) : null
+        // On a phone, one finger on empty canvas moves the view; a tap there clears the selection, a double tap fits.
+        if (touchCanvas.phone && e.pointerType === 'touch') { drag.current = { kind: 'pan', sx: sp.x, sy: sp.y, px: s.view.panX, py: s.view.panY, tap: { t: performance.now(), frame: f?.id ?? null } }; return }
+        if (f) s.setActiveFrame(f.id)
         drag.current = { kind: 'select', start: p, cur: p, add: e.shiftKey, base: e.shiftKey ? [...s.selectedIds] : [] }
         if (!e.shiftKey) s.setActive(null)
       }
@@ -1631,6 +1746,7 @@ export function Stage() {
       }
     }
     if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, sp)
+    if (longPress.current && Math.hypot(e.clientX - longPress.current.x, e.clientY - longPress.current.y) > 8) cancelLongPress()
     const now = performance.now()
     if (now - lastPointer.current > 40 && s.doc) {
       lastPointer.current = now
@@ -1810,11 +1926,19 @@ export function Stage() {
       const rx = Math.min(d.start.x, p.x), ry = Math.min(d.start.y, p.y)
       const rw = Math.abs(p.x - d.start.x), rh = Math.abs(p.y - d.start.y)
       const hits: string[] = []
-      for (const l of s.layers) {
+      for (const l of pickable()) {
         // Locked and hidden layers (hidden groups included) are never picked up by a marquee.
         if (!l.visible || l.locked || l.type === 'adjustment' || insideHiddenGroup(l, s.groups)) continue
         const b = layerBounds(l, s.doc!)
         if (b.x < rx + rw && b.x + b.w > rx && b.y < ry + rh && b.y + b.h > ry) hits.push(l.id)
+      }
+      // Groups are picked whole, as a click picks them.
+      if (s.options.autoSelectGroup) {
+        for (const id of hits.slice()) {
+          const l = s.layers.find(x => x.id === id)!
+          const g = pickGroupFor(l, s.layers, s.groups, [], s.isolatedGroupId)
+          if (g) for (const m of s.layers) if (inGroup(m, g, s.groups) && !hits.includes(m.id)) hits.push(m.id)
+        }
       }
       const next = Array.from(new Set([...(d.add ? d.base : []), ...hits]))
       useEditor.setState({ selectedIds: next, activeId: next[next.length - 1] ?? null })
@@ -1828,7 +1952,9 @@ export function Stage() {
       if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0 }
       const tol = 6 / s.view.zoom
       snapLines.current = { v: [], h: [] }
-      if (!e.altKey && d.snapX.length) {
+      const noSnap = e.ctrlKey || e.metaKey
+      let snappedX = false, snappedY = false
+      if (!noSnap && d.snapX.length) {
         const snap = (pos: number, sz: number, targets: number[]) => {
           let best: { d: number; g: number } | null = null
           for (const g of targets) for (const off of [0, sz / 2, sz]) {
@@ -1839,11 +1965,11 @@ export function Stage() {
         }
         const sx = dy === 0 && e.shiftKey ? snap(d.box.x + dx, d.box.w, d.snapX) : dx === 0 && e.shiftKey ? null : snap(d.box.x + dx, d.box.w, d.snapX)
         const sy = dx === 0 && e.shiftKey ? snap(d.box.y + dy, d.box.h, d.snapY) : dy === 0 && e.shiftKey ? null : snap(d.box.y + dy, d.box.h, d.snapY)
-        if (sx) { dx += sx.d; snapLines.current.v.push(sx.g) }
-        if (sy) { dy += sy.d; snapLines.current.h.push(sy.g) }
+        if (sx) { dx += sx.d; snapLines.current.v.push(sx.g); snappedX = true }
+        if (sy) { dy += sy.d; snapLines.current.h.push(sy.g); snappedY = true }
       }
       dist.current = []
-      const mb = { x: d.box.x + dx, y: d.box.y + dy, w: d.box.w, h: d.box.h }
+      let mb = { x: d.box.x + dx, y: d.box.y + dy, w: d.box.w, h: d.box.h }
       const overlapY = (a: Rect, b: Rect) => Math.max(a.y, b.y) < Math.min(a.y + a.h, b.y + b.h)
       const overlapX = (a: Rect, b: Rect) => Math.max(a.x, b.x) < Math.min(a.x + a.w, b.x + b.w)
       type Near = { gap: number; b: Rect } | null
@@ -1858,6 +1984,9 @@ export function Stage() {
           if (b.y >= mb.y + mb.h - 0.5) { const gap = b.y - (mb.y + mb.h); if (!nearB || gap < nearB.gap) nearB = { gap, b } }
         }
       }
+      // Equal gaps: between two neighbours, the layer settles where the space on both sides is the same.
+      if (!noSnap && !snappedX && nearL && nearR && Math.abs(nearL.gap - nearR.gap) < tol * 2) { const adj = (nearR.gap - nearL.gap) / 2; dx += adj; mb = { ...mb, x: mb.x + adj }; nearL = { ...nearL, gap: nearL.gap + adj }; nearR = { ...nearR, gap: nearR.gap - adj } }
+      if (!noSnap && !snappedY && nearT && nearB && Math.abs(nearT.gap - nearB.gap) < tol * 2) { const adj = (nearB.gap - nearT.gap) / 2; dy += adj; mb = { ...mb, y: mb.y + adj }; nearT = { ...nearT, gap: nearT.gap + adj }; nearB = { ...nearB, gap: nearB.gap - adj } }
       const cy = mb.y + mb.h / 2, cx = mb.x + mb.w / 2
       if (nearL) dist.current.push({ x: nearL.b.x + nearL.b.w, y: cy, w: nearL.gap, h: 0, px: Math.round(nearL.gap), axis: 'h' })
       if (nearR) dist.current.push({ x: mb.x + mb.w, y: cy, w: nearR.gap, h: 0, px: Math.round(nearR.gap), axis: 'h' })
@@ -1867,20 +1996,44 @@ export function Stage() {
       return
     }
 
+    if (d.kind === 'grotate') {
+      let da = Math.atan2(p.y - d.center.y, p.x - d.center.x) - d.a0
+      if (e.shiftKey) da = Math.round(da / (Math.PI / 12)) * (Math.PI / 12)
+      const c = Math.cos(da), sn = Math.sin(da)
+      s.updateLayers(d.items.map(it => {
+        const vx = it.cx - d.center.x, vy = it.cy - d.center.y
+        const nx = d.center.x + vx * c - vy * sn, ny = d.center.y + vx * sn + vy * c
+        return { id: it.id, patch: { rotation: it.r0 + da, x: nx - it.hw, y: ny - it.hh } }
+      }))
+      return
+    }
+
     if (d.kind === 'rotate') {
       let r = d.r0 + Math.atan2(p.y - d.center.y, p.x - d.center.x) - d.a0
       if (e.shiftKey) r = Math.round(r / (Math.PI / 12)) * (Math.PI / 12)
-      s.updateLayer(d.id, { rotation: Math.abs(r) < 0.02 ? 0 : r }); return
+      s.updateLayer(d.id, rotatedAbout(d.l0, s.doc!, d.center, Math.abs(r) < 0.02 ? 0 : r)); return
     }
 
     if (d.kind === 'resize') {
       const [fx, fy] = HANDLES[d.h]
       const l0 = d.l0, cos = Math.cos(-l0.rotation), sin = Math.sin(-l0.rotation)
-      const vx = p.x - d.anchor.x, vy = p.y - d.anchor.y
-      const ux = vx * cos - vy * sin, uy = vx * sin + vy * cos
       const dirX = fx === 0 ? -1 : fx === 1 ? 1 : 0, dirY = fy === 0 ? -1 : fy === 1 ? 1 : 0
       const w0 = d.w * l0.scaleX, h0 = d.hgt * l0.scaleY
-      let nw = dirX ? Math.max(4, ux * dirX) : w0, nh = dirY ? Math.max(4, uy * dirY) : h0
+      // Alt: resize from the centre, so the opposite side moves too.
+      const centred = e.altKey && !(l0.type === 'text' && l0.boxWidth)
+      const c0 = { x: l0.x + w0 / 2, y: l0.y + h0 / 2 }
+      let px = p.x, py = p.y
+      // Snap the moving edge (unrotated layers), unless Ctrl or Cmd is held.
+      if (Math.abs(l0.rotation) < 1e-6 && !(e.ctrlKey || e.metaKey)) {
+        const tol = 6 / s.view.zoom
+        snapLines.current = { v: [], h: [] }
+        if (dirX) { const g = d.snapX.reduce<number | null>((b, t) => (Math.abs(t - px) < tol && (b === null || Math.abs(t - px) < Math.abs(b - px)) ? t : b), null); if (g !== null) { px = g; snapLines.current.v.push(g) } }
+        if (dirY) { const g = d.snapY.reduce<number | null>((b, t) => (Math.abs(t - py) < tol && (b === null || Math.abs(t - py) < Math.abs(b - py)) ? t : b), null); if (g !== null) { py = g; snapLines.current.h.push(g) } }
+      }
+      const origin = centred ? c0 : d.anchor
+      const vx = px - origin.x, vy = py - origin.y
+      const ux = vx * cos - vy * sin, uy = vx * sin + vy * cos
+      let nw = dirX ? Math.max(4, ux * dirX * (centred ? 2 : 1)) : w0, nh = dirY ? Math.max(4, uy * dirY * (centred ? 2 : 1)) : h0
       const corner = dirX !== 0 && dirY !== 0
       const boxText = l0.type === 'text' && !!l0.boxWidth && dirX !== 0 && dirY === 0
       const proportional = boxText ? false : corner ? !e.shiftKey || l0.type === 'text' : l0.type === 'text'
@@ -1899,7 +2052,7 @@ export function Stage() {
       }
       const cxl = (dirX * nw) / 2, cyl = (dirY * nh) / 2
       const c2 = Math.cos(l0.rotation), s2 = Math.sin(l0.rotation)
-      const cx = d.anchor.x + cxl * c2 - cyl * s2, cy = d.anchor.y + cxl * s2 + cyl * c2
+      const cx = centred ? c0.x : d.anchor.x + cxl * c2 - cyl * s2, cy = centred ? c0.y : d.anchor.y + cxl * s2 + cyl * c2
       s.updateLayer(d.id, { scaleX: nw / d.w, scaleY: nh / d.hgt, x: cx - nw / 2, y: cy - nh / 2 }); return
     }
 
@@ -1946,8 +2099,21 @@ export function Stage() {
     }
     const s = useEditor.getState()
     const d = drag.current; drag.current = null
+    cancelLongPress()
     snapLines.current = { v: [], h: [] }; dist.current = []
     if (!d || !s.doc) { invalidate(); return }
+
+    if (d.kind === 'pan' && d.tap) {
+      const sp = local(e)
+      if (Math.hypot(sp.x - d.sx, sp.y - d.sy) < 10) {
+        // A tap on empty canvas: clear the selection (unless selecting several), pick the board, double tap fits.
+        const prev = lastEmptyTap.current; const now = performance.now()
+        lastEmptyTap.current = { t: now, x: sp.x, y: sp.y }
+        if (prev && now - prev.t < 380 && Math.hypot(sp.x - prev.x, sp.y - prev.y) < 24) { lastEmptyTap.current = null; fit() }
+        else { if (d.tap.frame) s.setActiveFrame(d.tap.frame); if (!touchCanvas.several) s.setActive(null) }
+      }
+      invalidate(); return
+    }
 
     if (d.kind === 'frame') {
       if (wrap.current) wrap.current.style.cursor = ''
@@ -1981,16 +2147,24 @@ export function Stage() {
     }
     if (d.kind === 'pmarq') { invalidate(); return }
     if (d.kind === 'free') { finishFreeform(d, e); return }
-    if (d.kind === 'gresize') { s.commit('Resize selection'); invalidate(); return }
+    if (d.kind === 'gresize') { s.commit('Resize selection', { ifChanged: true }); invalidate(); return }
+    if (d.kind === 'move' && !d.moved) {
+      // Alt-click without dragging: no copy after all. A second click on one of several: the key object.
+      if (d.dup) s.jumpTo(s.historyIndex)
+      else if (d.keyClick) { s.setKeyObject(s.keyObjectId === d.keyClick ? null : d.keyClick); useEditor.setState({ selectedIds: [...useEditor.getState().selectedIds], activeId: d.keyClick }) }
+    }
     if (d.kind === 'move' && d.moved) {
       if (s.doc?.frames?.length) {
         for (const it of d.items) { const l = s.layers.find(x => x.id === it.id); if (!l) continue; const f = frameForLayer(s.doc, l); if ((f?.id ?? null) !== (l.frameId ?? null)) s.reassignLayerFrame(l.id, f?.id ?? null) }
         const act = s.active(); if (act) { const f = frameForLayer(s.doc, act); if (f) s.setActiveFrame(f.id) }
       }
-      s.commit('Move')
+      s.commit(d.dup ? (d.items.length > 1 ? 'Duplicate layers' : 'Duplicate layer') : 'Move')
     }
-    if (d.kind === 'rotate') s.commit('Rotate')
-    if (d.kind === 'resize') {
+    // A rotate or resize that ended where it began is not an undo step.
+    if (d.kind === 'rotate') { const l = s.layers.find(x => x.id === d.id); if (l && Math.abs(l.rotation - d.r0) > 1e-6) s.commit('Rotate') }
+    if (d.kind === 'grotate') { if (d.items.some(it => Math.abs((s.layers.find(x => x.id === it.id)?.rotation ?? it.r0) - it.r0) > 1e-6)) s.commit('Rotate') }
+    if (d.kind === 'resize' && s.layers.find(x => x.id === d.id) === d.l0) { /* a click on a handle: nothing changed */ }
+    else if (d.kind === 'resize') {
       const l = s.layers.find(x => x.id === d.id)
       if (l?.type === 'shape') s.updateLayer(l.id, { w: l.w * l.scaleX, h: l.h * l.scaleY, scaleX: 1, scaleY: 1, ...(l.subpaths ? { subpaths: l.subpaths.map(sp => ({ ...sp, nodes: sp.nodes.map(n => ({ ...n, x: n.x * l.scaleX, y: n.y * l.scaleY, inX: n.inX * l.scaleX, inY: n.inY * l.scaleY, outX: n.outX * l.scaleX, outY: n.outY * l.scaleY })) })) } : {}) })
       if (l?.type === 'text' && !l.onPath && (l.scaleX !== 1 || l.scaleY !== 1)) {
@@ -2059,7 +2233,7 @@ export function Stage() {
     <div
       ref={wrap}
       className="relative flex-1 min-w-0 min-h-0 overflow-hidden bg-surface-base touch-none select-none"
-      style={{ cursor: cursorFor(tool) }}
+      style={{ cursor: cursorFor(tool), WebkitTouchCallout: 'none' } as React.CSSProperties}
       onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerUp={onUp}
@@ -2067,7 +2241,21 @@ export function Stage() {
       onPointerLeave={() => { cursor.current = null; useEditor.setState({ pointer: null }); invalidate() }}
       onDragOver={e => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}
       onDrop={e => { if (!e.dataTransfer.files.length) return; e.preventDefault(); importFiles(Array.from(e.dataTransfer.files)) }}
-      onContextMenu={e => e.preventDefault()}
+      onContextMenu={e => {
+        e.preventDefault()
+        // Right click (mouse): pick the layer under the pointer if it is not already selected, then show the menu.
+        if (touchCanvas.phone || drag.current) return
+        const st = useEditor.getState(); if (!st.doc || st.editingTextId) return
+        const at = toDoc(local(e).x, local(e).y)
+        const under = st.layers.slice().reverse().filter(l => pickable().includes(l) && hitLayer([l], at.x, at.y, st.doc!, st.groups)).map(l => l.id)
+        const top = under[0]
+        if (top && !st.selectedIds.includes(top) && (st.tool === 'move' || st.tool === 'text' || st.tool === 'shape' || st.tool === 'hand' || st.tool === 'zoom')) {
+          const tl = st.layers.find(l => l.id === top)!
+          const g = st.options.autoSelectGroup ? pickGroupFor(tl, st.layers, st.groups, st.selectedIds, st.isolatedGroupId) : null
+          if (g) st.selectGroup(g); else st.setActive(top)
+        }
+        window.dispatchEvent(new CustomEvent('vc:canvasmenu', { detail: { x: e.clientX, y: e.clientY, under } }))
+      }}
       role="application"
       aria-label="Design canvas"
     >
@@ -2075,6 +2263,10 @@ export function Stage() {
       <canvas ref={overC} className="absolute inset-0 w-full h-full pointer-events-none" />
       <TextEditor />
       {!busyDrag && showContextBar && !transform && <FloatingBar />}
+      {isolated && <div className="absolute top-8 left-1/2 -translate-x-1/2 flex items-center gap-2 pl-3 pr-1 py-1 rounded-full bg-white text-void-950 text-[12px] font-medium" data-isolation-pill onPointerDown={e => e.stopPropagation()}>
+        Editing “{[...groupChain(isolated.parentId, useEditor.getState().groups).reverse().map(id => useEditor.getState().groups.find(g => g.id === id)?.name ?? ''), isolated.name].join(' › ')}” on its own
+        <button className="px-2.5 py-1 rounded-full bg-void-950 text-white" onClick={() => useEditor.getState().setIsolated(null)}>Done</button>
+      </div>}
       {compare && <div className="absolute top-8 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white text-void-950 text-[12px] font-medium pointer-events-none">Before: adjustments and filters hidden</div>}
       {viewChannel !== 'rgb' && <button onClick={() => useEditor.setState({ viewChannel: 'rgb', docRev: useEditor.getState().docRev + 1 })} className="absolute top-8 right-4 px-3 py-1.5 rounded-full bg-white text-void-950 text-[12px] font-medium">Viewing {viewChannel.startsWith('mask:') ? 'layer mask' : viewChannel.length === 1 ? { r: 'red', g: 'green', b: 'blue' }[viewChannel as 'r'] + ' channel' : 'saved channel'}. Show all</button>}
     </div>
@@ -2129,9 +2321,12 @@ function TextEditor() {
   const view = useEditor(s => s.view)
   const ref = useRef<HTMLTextAreaElement>(null)
   const [ready, setReady] = useState(false)
+  // Focus straight away, inside the tap that asked for it: phones only open the keyboard for a focus made
+  // during the tap itself. Closing on blur waits a moment (ready), so the end of a double click cannot close it.
+  useLayoutEffect(() => { if (id) { ref.current?.focus(); ref.current?.select() } }, [id])
   useEffect(() => {
     if (!id) { setReady(false); return }
-    const t = setTimeout(() => { setReady(true); ref.current?.focus(); ref.current?.select() }, 60)
+    const t = setTimeout(() => { setReady(true); if (document.activeElement !== ref.current) { ref.current?.focus(); ref.current?.select() } }, 60)
     return () => clearTimeout(t)
   }, [id])
   if (!layer || layer.type !== 'text') return null
@@ -2160,7 +2355,7 @@ function TextEditor() {
     useEditor.setState({ editingTextId: null })
     // Nothing typed: the layer goes away again, so a stray click never leaves an empty text layer behind.
     if (cur && cur.type === 'text' && !cur.text.trim()) { st.removeLayer(layer.id); st.commit('Remove empty text'); return }
-    st.commit('Edit text')
+    st.commit('Edit text', { ifChanged: true })
   }
   return (
     <>
@@ -2198,19 +2393,25 @@ function TextEditBar({ layer, left, top, width, onDone }: { layer: Extract<Layer
     const w = el.offsetWidth, stageW = stage.clientWidth
     if (w !== box.w || stageW !== box.stageW) setBox({ w, stageW })
   })
-  // Phone keyboard: when it opens, the visual viewport shrinks. Pan the canvas so the text stays in view.
+  // Phone keyboard: when it opens, the visual viewport shrinks. Pan the canvas so the text stays in view, and put
+  // the view back when the keyboard closes or typing ends, so the design does not stay pushed up.
+  const shifted = useRef(0)
   useEffect(() => {
     const vv = window.visualViewport; if (!vv) return
+    let lastH = vv.height
     const onResize = () => {
       const stage = ref.current?.parentElement; if (!stage) return
+      const grew = vv.height > lastH + 40; lastH = vv.height
+      if (grew && shifted.current) { const v = useEditor.getState().view; useEditor.getState().setView({ panY: v.panY + shifted.current }); shifted.current = 0; return }
       const r = stage.getBoundingClientRect()
       const visibleBottom = vv.height + vv.offsetTop
       const textBottom = r.top + top + Math.max(40, layer.fontSize * layer.lineHeight * useEditor.getState().view.zoom) + 24
-      if (textBottom > visibleBottom) useEditor.getState().setView({ panY: useEditor.getState().view.panY - (textBottom - visibleBottom) })
+      if (textBottom > visibleBottom) { const dy = textBottom - visibleBottom; shifted.current += dy; useEditor.getState().setView({ panY: useEditor.getState().view.panY - dy }) }
     }
-    vv.addEventListener('resize', onResize)
-    return () => vv.removeEventListener('resize', onResize)
+    vv.addEventListener('resize', onResize); vv.addEventListener('scroll', onResize)
+    return () => { vv.removeEventListener('resize', onResize); vv.removeEventListener('scroll', onResize) }
   }, [top, layer.fontSize, layer.lineHeight])
+  useEffect(() => () => { if (shifted.current) { const v = useEditor.getState().view; useEditor.getState().setView({ panY: v.panY + shifted.current }); shifted.current = 0 } }, [])
   const up = (patch: Partial<Extract<Layer, { type: 'text' }>>) => useEditor.getState().updateLayer(layer.id, patch)
   const setFont = async (fontFamily: string) => { const { ensureFont } = await import('../io'); await ensureFont(fontFamily, layer.fontWeight, layer.italic); up({ fontFamily }) }
   const [fonts, setFonts] = useState<string[]>([])
@@ -2242,6 +2443,7 @@ function TextEditBar({ layer, left, top, width, onDone }: { layer: Extract<Layer
       }}>
         <span className="w-4 h-4 rounded-full border border-white/30" style={{ background: layer.color }} />
       </button>
+      <button className={`${btn} font-bold ${layer.fontWeight >= 600 ? '!bg-void-700' : ''}`} aria-label="Bold" aria-pressed={layer.fontWeight >= 600} onClick={() => { const w = layer.fontWeight >= 600 ? 400 : 700; up({ fontWeight: w }); import('../io').then(m => m.ensureFont(layer.fontFamily, w, layer.italic)).then(() => useEditor.setState(st => ({ docRev: st.docRev + 1 }))).catch(() => {}) }}>B</button>
       <button className={btn} aria-label={`Alignment: ${layer.align}`} title="Alignment" onClick={() => up({ align: layer.align === 'left' ? 'center' : layer.align === 'center' ? 'right' : 'left' })}>{layer.align === 'left' ? <AlignLeft size={15} /> : layer.align === 'center' ? <AlignCenter size={15} /> : <AlignRight size={15} />}</button>
       <button className={`${btn} !bg-accent !text-white ml-0.5`} onClick={onDone}>Done</button>
     </div>

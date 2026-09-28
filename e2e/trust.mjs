@@ -135,7 +135,7 @@ await E(p, id => window.__voidEditor.getState().setActive(id), pa)
 await p.keyboard.press('Control+c'); await p.waitForTimeout(500)
 await E(p, fid => window.__voidEditor.getState().setActiveFrame(fid), bb[1].id)
 await p.keyboard.press('Control+Shift+v'); await p.waitForTimeout(400)
-const pasted = await E(p, () => { const s = window.__voidEditor.getState(); const l = s.layers.at(-1); return { name: l.name, frameId: l.frameId } })
+const pasted = await E(p, () => { const s = window.__voidEditor.getState(); const l = s.active(); return { id: l.id, name: l.name, frameId: l.frameId } })
 ok('paste in place: lands on the board it came from', pasted.frameId === bb[0].id, JSON.stringify(pasted))
 
 // Undoing a new board puts the active board back on one that exists.
@@ -144,7 +144,7 @@ await E(p, () => window.__voidEditor.getState().undo())
 ok('undo: the active board exists after undoing a new board', await E(p, () => { const s = window.__voidEditor.getState(); return s.doc.frames.some(f => f.id === s.activeFrameId) }))
 await E(p, () => { const s = window.__voidEditor.getState(); s.addText(); }); await p.keyboard.type('On a real board'); await p.keyboard.press('Escape'); await p.waitForTimeout(150)
 ok('undo: new text after that lands on a real board', await E(p, () => { const s = window.__voidEditor.getState(); const t = s.layers.filter(l => l.type === 'text').at(-1); return !!t && s.doc.frames.some(f => f.id === t.frameId) }))
-const pastedId = await E(p, () => window.__voidEditor.getState().layers.find(l => l.name === 'Pasted')?.id)
+const pastedId = pasted.id
 await E(p, ([a, b]) => { const s = window.__voidEditor.getState(); s.setActive(a); s.toggleSelect(b) }, [pa, pastedId])
 await E(p, () => window.__voidEditor.getState().addFrame({ name: 'Extra', width: 500, height: 500 }))
 await E(p, () => window.__voidEditor.getState().undo())
@@ -153,10 +153,12 @@ ok('undo: brings back a multi-selection', (await E(p, () => window.__voidEditor.
 // Cut takes the layer when there is no pixel selection.
 await fresh(p, 'Cut')
 const ct = await shape(p, 300, 300)
+const ctBefore = await E(p, id => { const l = window.__voidEditor.getState().layers.find(l => l.id === id); return { name: l.name, x: l.x, y: l.y } }, ct)
 await E(p, id => window.__voidEditor.getState().setActive(id), ct); await p.keyboard.press('Control+x'); await p.waitForTimeout(500)
 ok('cut: removes the layer when nothing is selected', !(await E(p, id => window.__voidEditor.getState().layers.some(l => l.id === id), ct)))
 await p.keyboard.press('Control+Shift+v'); await p.waitForTimeout(400)
-ok('cut: pastes back in place', await E(p, () => window.__voidEditor.getState().layers.some(l => l.name === 'Pasted')))
+const ctAfter = await E(p, () => { const l = window.__voidEditor.getState().active(); return l && { name: l.name, x: l.x, y: l.y } })
+ok('cut: pastes back in place with its name', !!ctAfter && ctAfter.name === ctBefore.name && Math.abs(ctAfter.x - ctBefore.x) < 0.5 && Math.abs(ctAfter.y - ctBefore.y) < 0.5, JSON.stringify([ctBefore, ctAfter]))
 
 // Duplicates are their own layers with sensible names.
 await fresh(p, 'Duplicates')

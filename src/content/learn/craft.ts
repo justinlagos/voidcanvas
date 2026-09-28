@@ -218,7 +218,7 @@ export const articles: Article[] = [
       { t: 'steps', items: [
         'Choose View, Guides, **New guide layout…** and set **Columns**, **Rows**, **Margin (px)** and **Gutter (px)**. The presets fill these in: **12 column web** (12 columns, 40 px margin, 20 px gutter), **Thirds** (3 by 3, no margin), **2 columns print** (60 px margin, 24 px gutter) and **Safe margins** (a single 60 px margin frame). Press **Make guides**.',
         'Turn on **Rulers** ({{Ctrl+R}}) to drag out single guides, or use View, Guides, **New guide…** to place one at an exact pixel position.',
-        'Keep **Snap** on ({{Ctrl+Shift+;}}). Dragged layers snap their edges and centres to the canvas edges and centre, to other layers, and to guides while guides are showing. Hold {{Alt}} while dragging to move freely.',
+        'Keep **Snap** on ({{Ctrl+Shift+;}}). Dragged layers snap their edges and centres to the canvas edges and centre, to other layers, and to guides while guides are showing. Hold Ctrl (Cmd on a Mac) while dragging to move freely.',
         'Select several layers and use Layer, Align: **Left edges**, **Horizontal centres**, **Right edges**, **Top edges**, **Vertical centres**, **Bottom edges**. With three or more selected, **Distribute horizontally** or **Distribute vertically** evens out the gaps.',
         'Hide guides with {{Ctrl+;}} to judge the layout clean. **Lock guides** ({{Ctrl+Alt+;}}) stops you dragging them by accident.',
       ] },

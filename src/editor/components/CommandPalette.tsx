@@ -10,7 +10,7 @@ import type { AdjustmentKind } from '../types'
 import { removeBackground } from './PropertiesPanel'
 import { stageApi } from './Stage'
 import { TOOLS } from './ToolRail'
-import { buildActions, prettyKey } from '../actions'
+import { buildActions, keyFor, prettyKey } from '../actions'
 
 interface Cmd { label: string; hint?: string; group: string; run: () => void }
 
@@ -29,7 +29,7 @@ export function CommandPalette({ onClose, open }: { onClose: () => void; open: (
       ...TOOLS.map(t => ({ label: t.label.split(':')[0], hint: t.key, group: 'Tool', run: () => s().setTool(t.id) })),
       { label: 'Add text', group: 'Add', run: () => s().addText() },
       { label: 'Add photo, shape or blank layer', group: 'Add', run: () => open('add') },
-      ...Object.values(acts).filter(a => !a.enabled || a.enabled()).map(a => ({ label: a.label.replace(/…$/, ''), hint: [prettyKey(a.hotkey ?? a.shortcut), a.keywords].filter(Boolean).join('  ·  ') || undefined, group: groupOf(a.id), run: a.run })),
+      ...Object.values(acts).filter(a => !a.enabled || a.enabled()).map(a => ({ label: a.label.replace(/…$/, ''), hint: [prettyKey(keyFor(a)), a.keywords].filter(Boolean).join('  ·  ') || undefined, group: groupOf(a.id), run: a.run })),
       ...s().layers.slice().reverse().map(l => ({
         label: l.type === 'text' ? (l.text.split('\n')[0] || 'Text') : l.name,
         hint: l.type, group: 'Go to layer',

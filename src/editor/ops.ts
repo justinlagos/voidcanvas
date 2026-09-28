@@ -462,6 +462,31 @@ export function pasteStyle() {
   for (const id of s.selectedIds) s.updateLayer(id, { styles: JSON.parse(JSON.stringify(styleClipboard)) })
   s.commit('Paste layer style')
 }
+// Appearance: everything about how a layer looks, without what it is. Copy from one layer, paste onto any
+// number of others; each takes the parts that fit it (text takes type settings, shapes take fill and stroke).
+type Appearance = { common: Partial<Layer>; text?: Partial<TextLayer>; shape?: Partial<ShapeLayer> }
+let appearanceClip: Appearance | null = null
+export function copyAppearance() {
+  const l = st().active(); if (!l) { st().notify('Select a layer first.'); return }
+  const deep = <T,>(v: T): T => (v == null ? v : JSON.parse(JSON.stringify(v)))
+  const a: Appearance = { common: { opacity: l.opacity, blend: l.blend, styles: deep(l.styles ?? null), fillOpacity: l.fillOpacity } }
+  if (l.type === 'text') a.text = { fontFamily: l.fontFamily, fontSize: l.fontSize, fontWeight: l.fontWeight, italic: l.italic, color: l.color, align: l.align, lineHeight: l.lineHeight, letterSpacing: l.letterSpacing, shadow: deep(l.shadow), outline: deep(l.outline) } as Partial<TextLayer>
+  if (l.type === 'shape') a.shape = { fill: l.fill, stroke: l.stroke, strokeWidth: l.strokeWidth, radius: l.radius } as Partial<ShapeLayer>
+  appearanceClip = a
+  st().notify('Appearance copied. Paste it onto other layers with Paste appearance.')
+}
+export function pasteAppearance() {
+  const s = st(); const a = appearanceClip; if (!a) { s.notify('Copy an appearance first.'); return }
+  const ids = s.selectedIds.filter(id => !s.layers.find(l => l.id === id)?.locked)
+  if (!ids.length) { s.notify('Select the layers to paste onto.'); return }
+  s.updateLayers(ids.map(id => {
+    const l = s.layers.find(x => x.id === id)!
+    return { id, patch: { ...a.common, ...(l.type === 'text' && a.text ? a.text : {}), ...(l.type === 'shape' && a.shape ? a.shape : {}) } as Partial<Layer> }
+  }))
+  s.commit('Paste appearance')
+  import('./io').then(m => { for (const id of ids) { const l = st().layers.find(x => x.id === id); if (l?.type === 'text') m.ensureFont(l.fontFamily, l.fontWeight, l.italic) } }).then(() => useEditor.setState(x => ({ docRev: x.docRev + 1 }))).catch(() => {})
+}
+
 export function clearStyle() { const s = st(); for (const id of s.selectedIds) s.updateLayer(id, { styles: null }); s.commit('Clear layer style') }
 
 // ─── Link layers ───────────────────────────────────────────────────

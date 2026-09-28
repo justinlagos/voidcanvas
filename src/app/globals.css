@@ -237,3 +237,11 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 48px; }
 .lp-prose > h2 + *, .lp-prose > h3 + * { margin-top: 0.7em; }
 .lp-prose > aside, .lp-prose > div, .lp-prose > ol, .lp-prose > ul, .lp-prose > blockquote { margin-top: 1.4em; }
 .lp-prose > * + aside, .lp-prose > aside + * { margin-top: 1.5em; }
+
+/* Phone inspector: the desktop panels inside a sheet, with finger-sized controls. */
+.vc-phone-panel .vc-slider-track { height: 30px; }
+.vc-phone-panel select { height: 40px; }
+.vc-phone-panel input[type="color"] { width: 36px; height: 36px; }
+.vc-phone-panel input[type="number"], .vc-phone-panel input[type="text"] { min-height: 36px; }
+.vc-phone-panel button { min-height: 36px; }
+.vc-touch .vc-row { min-height: 44px; }

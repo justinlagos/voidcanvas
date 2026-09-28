@@ -7,7 +7,7 @@ import { FONTS, canvasToBlob, downloadBlob, getBrand, saveBrand, saveDesign, zip
 import { SIZE_PRESETS } from '../presets'
 import { resizeDesign } from '../resize'
 import { useEditor } from '../store'
-import { buildActions, prettyKey } from '../actions'
+import { buildActions, keyFor, prettyKey } from '../actions'
 import { TOOLS } from './ToolRail'
 import { Button, Modal, focusRing } from './ui'
 
@@ -137,7 +137,7 @@ export function ShortcutSheet({ onClose }: { onClose: () => void }) {
   const acts = Object.values(buildActions()).filter(a => a.hotkey || a.shortcut)
   const groups: [string, [string, string][]][] = [
     ['Tools', TOOLS.map(t => [t.key, t.label.split(':')[0]] as [string, string])],
-    ['Menus', acts.map(a => [prettyKey(a.hotkey ?? a.shortcut), a.label.replace(/…$/, '')] as [string, string])],
+    ['Menus', acts.map(a => [prettyKey(keyFor(a)), a.label.replace(/…$/, '')] as [string, string])],
     ['Canvas', [['Space + drag', 'Pan'], ['Ctrl + wheel', 'Zoom'], ['[ and ]', 'Brush size, or layer order'], ['0 to 9', 'Opacity (brush or layer)'], ['Alt + drag', 'Move without snapping'], ['Shift + drag', 'Keep straight or even'], ['\\ (hold)', 'See before adjustments'], ['Enter', 'Edit text, finish path'], ['Esc', 'Cancel, deselect'], ['Q', 'Quick mask'], ['X / D', 'Swap / reset colours'], ['Ctrl+2 to 5', 'View RGB, red, green, blue'], ['Two-finger tap', 'Undo (touch)'], ['Three-finger tap', 'Redo (touch)']]],
   ]
   const match = (k: string, v: string) => !q || (k + ' ' + v).toLowerCase().includes(q.toLowerCase())

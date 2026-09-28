@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, CornerDownRight, Eye, EyeOff, Folder, FolderPlus, FunctionSquare, LayoutGrid, Link, Lock, LockKeyhole, Move, Paintbrush, Plus, Search, Shapes, SlidersHorizontal, SquareDashedBottom, Trash2, Type, Unlock, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, CornerDownRight, Eye, EyeOff, Folder, FolderPlus, FunctionSquare, GripVertical, LayoutGrid, Link, Lock, LockKeyhole, Move, Paintbrush, Plus, Search, Shapes, SlidersHorizontal, SquareDashedBottom, Trash2, Type, Unlock, X } from 'lucide-react'
 import { ctx2d, drawLayerContent, layerSize } from '../engine'
 import * as ops from '../ops'
 import { ADJUSTMENT_LABELS, groupChain, groupDepth, inGroup, useEditor } from '../store'
@@ -10,6 +10,7 @@ import { BLEND_MODES, type AdjustmentKind, type Frame, type Group, type Layer } 
 import { openModal } from '../actions'
 import { Floating } from './ColorPicker'
 import { IconButton, focusRing } from './ui'
+import { LONG_PRESS_MS, touchCanvas } from '../touch'
 
 const LABELS: Record<string, string> = { red: '#f25f5c', orange: '#f7a24a', yellow: '#f1d24a', green: '#51c47a', blue: '#4f8ff7', violet: '#9b7cff', gray: '#8a8a95' }
 
@@ -54,19 +55,86 @@ function deleteLayer(id: string) {
   useEditor.getState().removeSelected()
 }
 
+/** Touch: a finger resting on a row opens that layer's actions (the phone shell listens for vc:longpress). */
+function useRowLongPress(id: string) {
+  const t = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number; fired: boolean } | null>(null)
+  const cancel = () => { if (t.current) { clearTimeout(t.current.timer); } }
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      if (e.pointerType !== 'touch') return
+      cancel()
+      const st = { x: e.clientX, y: e.clientY, fired: false, timer: setTimeout(() => { st.fired = true; const s = useEditor.getState(); if (!s.selectedIds.includes(id)) s.setActive(id); window.dispatchEvent(new CustomEvent('vc:longpress', { detail: { id, under: [id] } })) }, LONG_PRESS_MS) }
+      t.current = st
+    },
+    onPointerMove: (e: React.PointerEvent) => { if (t.current && Math.hypot(e.clientX - t.current.x, e.clientY - t.current.y) > 8) cancel() },
+    onPointerUp: () => cancel(),
+    onPointerCancel: () => cancel(),
+    /** True when the touch that just ended was a long press, so the click that follows is ignored. */
+    fired: () => { const f = !!t.current?.fired; if (t.current) t.current.fired = false; return f },
+  }
+}
+
+/** Touch: drag a row by its grip to reorder (HTML drag and drop does not work with fingers). */
+function startTouchReorder(e: React.PointerEvent, id: string, setDragId: (v: string | null) => void, setOver: (v: number | null) => void) {
+  e.preventDefault(); e.stopPropagation()
+  const el = e.currentTarget as HTMLElement
+  el.setPointerCapture(e.pointerId)
+  setDragId(id)
+  let target: { index: number; frame: string | null } | null = null
+  const move = (ev: PointerEvent) => {
+    const row = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest('[data-row-index]') as HTMLElement | null
+    if (!row) return
+    target = { index: Number(row.dataset.rowIndex), frame: row.dataset.frame || null }
+    setOver(target.index)
+  }
+  const up = () => {
+    el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up)
+    if (target) useEditor.getState().moveLayer(id, target.index, target.frame)
+    setDragId(null); setOver(null)
+  }
+  el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up)
+}
+
+/** The picture that follows the pointer while several rows are dragged. */
+function dragLabel(e: React.DragEvent, text: string) {
+  const el = document.createElement('div')
+  el.textContent = text
+  el.style.cssText = 'position:fixed;top:-100px;left:0;padding:4px 10px;border-radius:8px;background:#8b7cff;color:#fff;font:600 12px system-ui'
+  document.body.appendChild(el)
+  e.dataTransfer.setDragImage(el, 10, 10)
+  setTimeout(() => el.remove(), 0)
+}
+
+/** Enter keeps a new name, Escape puts the old one back. */
+function renameKeys(e: React.KeyboardEvent<HTMLInputElement>) {
+  e.stopPropagation()
+  if (e.key === 'Escape') { e.preventDefault(); e.currentTarget.dataset.cancel = '1'; e.currentTarget.blur() }
+  else if (e.key === 'Enter') e.currentTarget.blur()
+}
+
 function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
   const s = useEditor.getState()
+  const press = useRowLongPress(l.id)
   const { layers, activeId, selectedIds, editingMask, renaming, setRenaming, dragId, setDragId, over, setOver } = ctx
   const vmEdit = useEditor(st => st.vmaskEditId)
   const i = layers.indexOf(l)
   const on = selectedIds.includes(l.id)
   const fx = hasActiveStyles(l)
   return (
-    <li role="option" aria-selected={on} style={{ paddingLeft: depth * 14 + (l.clipId ? 14 : 0) }} draggable={renaming !== l.id}
-      onDragStart={e => { setDragId(l.id); e.dataTransfer.setData('text/vc-layer', l.id); e.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => { setDragId(null); setOver(null) }}
+    <li role="option" aria-selected={on} data-row-index={i} data-frame={l.frameId ?? ''} style={{ paddingLeft: depth * 14 + (l.clipId ? 14 : 0) }} draggable={renaming !== l.id}
+      onPointerDown={press.onPointerDown} onPointerMove={press.onPointerMove} onPointerUp={press.onPointerUp} onPointerCancel={press.onPointerCancel}
+      onDragStart={e => { setDragId(l.id); e.dataTransfer.setData('text/vc-layer', l.id); e.dataTransfer.effectAllowed = 'move'; const n = selectedIds.includes(l.id) ? selectedIds.length : 1; if (n > 1) dragLabel(e, `${n} layers`) }} onDragEnd={() => { setDragId(null); setOver(null) }}
       onDragOver={e => { if (!dragId) return; e.preventDefault(); setOver(i) }}
-      onDrop={e => { e.preventDefault(); if (dragId && dragId !== l.id) s.moveLayer(dragId, i, l.frameId ?? null); setOver(null) }}
+      onDrop={e => {
+        e.preventDefault(); setOver(null)
+        if (!dragId || dragId === l.id) return
+        // Dragging one of several selected rows moves all of them.
+        const sel = useEditor.getState().selectedIds
+        if (sel.length > 1 && sel.includes(dragId)) s.moveLayers(sel, i, l.frameId ?? null); else s.moveLayer(dragId, i, l.frameId ?? null)
+      }}
       onClick={e => {
+        if (press.fired()) return
+        if (touchCanvas.several) { s.toggleSelect(l.id); return }
         if ((e.ctrlKey || e.metaKey) && (e.target as HTMLElement).closest('[data-thumb]')) { ops.selectLayerPixels(l.id, e.shiftKey ? 'add' : e.altKey ? 'sub' : 'new'); return }
         if (e.shiftKey && activeId) {
           // Shift selects the range between the active layer and this one.
@@ -106,8 +174,8 @@ function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
         </span>
       )}
       {renaming === l.id ? (
-        <input autoFocus defaultValue={l.name} onClick={e => e.stopPropagation()} onBlur={e => { s.updateLayer(l.id, { name: e.target.value.trim() || l.name }, 'Rename layer'); setRenaming(null) }}
-          onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }}
+        <input autoFocus defaultValue={l.name} onClick={e => e.stopPropagation()} onBlur={e => { const n = e.target.value.trim(); if (!e.target.dataset.cancel && n && n !== l.name) s.updateLayer(l.id, { name: n }, 'Rename layer'); setRenaming(null) }}
+          onKeyDown={renameKeys}
           className={`min-w-0 flex-1 h-6 px-1.5 rounded bg-surface-sunken border border-white/[0.08] text-[12.5px] ${focusRing}`} />
       ) : (
         <span onDoubleClick={() => setRenaming(l.id)} title="Double-click to rename" className={`min-w-0 flex-1 truncate text-[12.5px] ${l.visible ? 'text-void-100' : 'text-void-500'}`}>
@@ -124,12 +192,15 @@ function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
         <button aria-label="Lock layer" title="Lock" onClick={e => { e.stopPropagation(); s.updateLayer(l.id, { locked: true }, 'Lock layer') }} className={rowAct}><Unlock size={12} /></button>
       )}
       <button aria-label="Delete layer" title="Delete" onClick={e => { e.stopPropagation(); deleteLayer(l.id) }} className={`${rowAct} hover:!text-rose-400`}><Trash2 size={12} /></button>
+      <button aria-label="Drag to reorder" title="Drag to reorder" onPointerDown={e => startTouchReorder(e, l.id, setDragId, setOver)} onClick={e => e.stopPropagation()}
+        className={`hidden [@media(pointer:coarse)]:inline-flex w-8 h-9 shrink-0 items-center justify-center rounded text-void-400 touch-none ${focusRing}`}><GripVertical size={16} /></button>
     </li>
   )
 }
 
 function GroupRow({ g, ctx, depth }: { g: Group; ctx: Ctx; depth: number }) {
   const s = useEditor.getState()
+  const isolated = useEditor(st => st.isolatedGroupId)
   const members = ctx.layers.filter(l => inGroup(l, g.id, ctx.groups))
   const allOn = members.length > 0 && members.every(x => ctx.selectedIds.includes(x.id))
   const locked = members.length > 0 && members.every(x => x.locked)
@@ -140,8 +211,9 @@ function GroupRow({ g, ctx, depth }: { g: Group; ctx: Ctx; depth: number }) {
       <button aria-label={g.visible ? 'Hide group' : 'Show group'} onClick={e => { e.stopPropagation(); s.updateGroup(g.id, { visible: !g.visible }, 'Toggle group') }} className={`w-6 h-7 ml-0.5 shrink-0 inline-flex items-center justify-center rounded ${focusRing} ${g.visible ? 'text-void-300' : 'text-void-600'} hover:text-white`}>{g.visible ? <Eye size={14} /> : <EyeOff size={14} />}</button>
       <button aria-label={g.collapsed ? 'Expand group' : 'Collapse group'} onClick={e => { e.stopPropagation(); s.updateGroup(g.id, { collapsed: !g.collapsed }) }} className={`w-4 h-7 shrink-0 inline-flex items-center justify-center text-void-400 hover:text-white rounded ${focusRing}`}>{g.collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}</button>
       <Folder size={15} className="shrink-0 text-accent-light" />
+      {isolated === g.id && <span className="shrink-0 text-[10.5px] px-1.5 rounded bg-accent/30 text-white">On its own</span>}
       {ctx.renaming === g.id ? (
-        <input autoFocus defaultValue={g.name} onClick={e => e.stopPropagation()} onBlur={e => { s.updateGroup(g.id, { name: e.target.value.trim() || g.name }, 'Rename group'); ctx.setRenaming(null) }} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }} className={`min-w-0 flex-1 h-6 px-1.5 rounded bg-surface-sunken border border-white/[0.08] text-[12.5px] ${focusRing}`} />
+        <input autoFocus defaultValue={g.name} onClick={e => e.stopPropagation()} onBlur={e => { const n = e.target.value.trim(); if (!e.target.dataset.cancel && n && n !== g.name) s.updateGroup(g.id, { name: n }, 'Rename group'); ctx.setRenaming(null) }} onKeyDown={renameKeys} className={`min-w-0 flex-1 h-6 px-1.5 rounded bg-surface-sunken border border-white/[0.08] text-[12.5px] ${focusRing}`} />
       ) : <span onDoubleClick={() => ctx.setRenaming(g.id)} title="Double-click to rename" className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-void-100">{g.name}</span>}
       <span className="text-[10.5px] tabular-nums text-void-500 pr-1">{g.blend && g.blend !== 'pass' ? BLEND_MODES.find(b => b.id === g.blend)?.label + ' ' : ''}{g.opacity < 1 ? `${Math.round(g.opacity * 100)}%` : ''}</span>
       <button aria-label={locked ? 'Unlock group' : 'Lock group'} title={locked ? 'Unlock everything in this group' : 'Lock everything in this group'} onClick={e => { e.stopPropagation(); s.setGroupLocked(g.id, !locked) }}
@@ -200,6 +272,9 @@ function ContextMenu({ at, id, onClose }: { at: DOMRect; id: string; onClose: ()
         {item('Select layer pixels', () => ops.selectLayerPixels(id), l.type === 'adjustment')}
         {sep}
         {item('Group layers', () => s.groupSelected())}
+        {l.groupId && item(s.isolatedGroupId ? 'Stop editing the group on its own' : 'Edit the group on its own', () => { if (s.isolatedGroupId) s.setIsolated(null); else { const top = groupChain(l.groupId, s.groups).pop(); if (top) s.setIsolated(top) } })}
+        {l.groupId && item('Move out of the group', () => s.moveToGroup(s.selectedIds.includes(id) ? s.selectedIds : [id], null))}
+        {s.groups.filter(g => g.id !== l.groupId).slice(0, 8).map(g => <Fragment key={g.id}>{item(`Move into “${g.name}”`, () => s.moveToGroup(s.selectedIds.includes(id) ? s.selectedIds : [id], g.id))}</Fragment>)}
         {item('Link layers', () => ops.linkSelected())}
         {item('Copy layer style', ops.copyStyle, !l.styles)}
         {item('Paste layer style', ops.pasteStyle)}
@@ -250,7 +325,7 @@ export function LayersPanel() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [q, setQ] = useState('')
   const [kind, setKind] = useState<'all' | Layer['type']>('all')
-  const [searching, setSearching] = useState(false)
+  const findRef = useRef<HTMLInputElement>(null)
   const [menu, setMenu] = useState<{ at: DOMRect; id: string } | null>(null)
   const [adj, setAdj] = useState<DOMRect | null>(null)
   const active = layers.find(l => l.id === activeId)
@@ -302,17 +377,20 @@ export function LayersPanel() {
             <input aria-label="Group opacity" type="number" min={0} max={100} value={Math.round(grp.opacity * 100)} onChange={e => s.updateGroup(grp.id, { opacity: Math.max(0, Math.min(100, Number(e.target.value))) / 100 })} onBlur={() => s.commit('Group opacity')} className="w-12 h-6 px-1 rounded bg-surface-sunken border border-white/[0.06] text-[11.5px] tabular-nums" />
           </div>
         )}
-        {searching && (
-          <div className="flex items-center gap-1.5">
-            <select aria-label="Filter by kind" value={kind} onChange={e => setKind(e.target.value as any)} className="h-7 px-1 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px]">
-              <option value="all">All</option><option value="raster">Pixels</option><option value="text">Text</option><option value="shape">Shapes</option><option value="adjustment">Adjustments</option>
-            </select>
-            <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Find a layer" className={`flex-1 min-w-0 h-7 px-2 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px] ${focusRing}`} />
-            <button aria-label="Close layer search" onClick={() => { setSearching(false); setQ(''); setKind('all') }} className="text-void-400 hover:text-white"><X size={14} /></button>
-          </div>
-        )}
       </div>}
 
+      {(layers.length > 1 || q) && (
+        <div className="flex items-center gap-1.5 px-2 pt-1.5">
+          <label className="flex-1 min-w-0 flex items-center gap-1.5 h-7 px-2 rounded-md bg-surface-sunken border border-white/[0.06] focus-within:border-accent/60">
+            <Search size={13} className="shrink-0 text-void-500" />
+            <input ref={findRef} value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setQ(''); setKind('all'); e.currentTarget.blur() } }} placeholder="Find a layer" aria-label="Find a layer" className="flex-1 min-w-0 bg-transparent text-[12px] outline-none placeholder:text-void-500" />
+            {(q || kind !== 'all') && <button aria-label="Clear the search" onClick={() => { setQ(''); setKind('all') }} className="text-void-400 hover:text-white"><X size={13} /></button>}
+          </label>
+          <select aria-label="Show only" value={kind} onChange={e => setKind(e.target.value as any)} className="h-7 w-[92px] px-1 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px]">
+            <option value="all">All kinds</option><option value="raster">Pixels</option><option value="text">Text layers</option><option value="shape">Shapes</option><option value="adjustment">Adjustments</option>
+          </select>
+        </div>
+      )}
       <ul className="flex-1 min-h-[80px] overflow-y-auto px-1.5 py-1.5" role="listbox" aria-label="Layers" aria-multiselectable
         onDragOver={e => { if (dragId) e.preventDefault() }} onDrop={e => { e.preventDefault(); if (dragId && over === null) s.moveLayer(dragId, 0) }}>
         {layers.length === 0 && !doc?.frames?.length && <li className="px-3 py-6 text-[12.5px] leading-relaxed text-void-500">Nothing here yet. Use Add above, drop in a photo, or paste an image. Shift-click selects a range, Ctrl-click adds one layer.</li>}
@@ -328,7 +406,7 @@ export function LayersPanel() {
                   <button aria-label={isCol ? 'Expand board' : 'Collapse board'} onClick={e => { e.stopPropagation(); setCollapsed(c => { const n = new Set(c); n.has(f.id) ? n.delete(f.id) : n.add(f.id); return n }) }} className={`w-5 h-7 shrink-0 inline-flex items-center justify-center text-void-400 hover:text-white rounded ${focusRing}`}>{isCol ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</button>
                   <LayoutGrid size={15} className={`shrink-0 ${activeB ? 'text-accent-light' : 'text-void-400'}`} />
                   {renaming === f.id ? (
-                    <input autoFocus defaultValue={f.name} onClick={e => e.stopPropagation()} onBlur={e => { s.renameFrame(f.id, e.target.value.trim() || f.name); setRenaming(null) }} onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }} className={`min-w-0 flex-1 h-7 px-1.5 rounded bg-surface-sunken border border-white/[0.08] text-[12.5px] ${focusRing}`} />
+                    <input autoFocus defaultValue={f.name} onClick={e => e.stopPropagation()} onBlur={e => { const n = e.target.value.trim(); if (!e.target.dataset.cancel && n && n !== f.name) { s.renameFrame(f.id, n); s.commit('Rename board') } setRenaming(null) }} onKeyDown={renameKeys} className={`min-w-0 flex-1 h-7 px-1.5 rounded bg-surface-sunken border border-white/[0.08] text-[12.5px] ${focusRing}`} />
                   ) : <span onDoubleClick={() => setRenaming(f.id)} title="Double-click to rename" className={`min-w-0 flex-1 truncate text-[12.5px] font-semibold ${activeB ? 'text-white' : 'text-void-200'}`}>{f.name}</span>}
                   <span className="text-[10.5px] tabular-nums text-void-500 pr-0.5">{f.width}×{f.height}</span>
                   {doc.frames!.length > 1 && <button aria-label={`Delete board ${f.name}`} title="Delete this board and its layers" onClick={e => { e.stopPropagation(); s.removeFrame(f.id) }} className={`${rowAct} hover:!text-rose-400`}><Trash2 size={12} /></button>}
@@ -342,7 +420,7 @@ export function LayersPanel() {
 
       {/* Footer: link, style, mask, adjustment, group, new layer, delete. */}
       <div className="flex items-center justify-between px-1.5 py-1 border-t border-white/[0.05]">
-        <IconButton label="Find layers" onClick={() => setSearching(v => !v)} active={searching} className="!h-7 !w-7"><Search size={14} /></IconButton>
+        <IconButton label="Find layers" onClick={() => findRef.current?.focus()} className="!h-7 !w-7"><Search size={14} /></IconButton>
         <div className="flex items-center">
           <IconButton label="Link layers" disabled={!active} onClick={ops.linkSelected} className="!h-7 !w-7"><Link size={14} /></IconButton>
           <IconButton label="Layer style" disabled={!active || active.type === 'adjustment'} onClick={() => openModal('layerStyle')} className="!h-7 !w-7"><FunctionSquare size={14} /></IconButton>

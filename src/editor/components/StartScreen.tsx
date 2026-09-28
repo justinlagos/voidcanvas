@@ -53,13 +53,25 @@ function LibrarySection() {
   )
 }
 
+/** "Edited 5 min ago", "Edited yesterday", "Edited 3 Sept". */
+export function edited(at: number, now = Date.now()) {
+  const m = Math.round((now - at) / 60000)
+  if (m < 1) return 'Edited just now'
+  if (m < 60) return `Edited ${m} min ago`
+  const h = Math.round(m / 60)
+  if (h < 24) return `Edited ${h} h ago`
+  const d = new Date(at), y = new Date(now); y.setDate(y.getDate() - 1)
+  if (d.toDateString() === y.toDateString()) return 'Edited yesterday'
+  return 'Edited ' + d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+}
+
 function RecentMenu({ p, onChanged }: { p: ProjectSummary; onChanged: (fn: (r: ProjectSummary[]) => ProjectSummary[]) => void }) {
   const [open, setOpen] = useState(false)
   useEffect(() => { if (!open) return; const h = () => setOpen(false); window.addEventListener('pointerdown', h); return () => window.removeEventListener('pointerdown', h) }, [open])
   return (
     <div className="absolute top-1.5 right-1.5" onPointerDown={e => e.stopPropagation()}>
       <button aria-label={`Actions for ${p.name}`} onClick={() => setOpen(o => !o)}
-        className={`w-7 h-7 rounded-md bg-black/70 text-void-200 hover:text-white items-center justify-center hidden group-hover:flex focus:flex ${open ? '!flex' : ''} ${focusRing}`}><MoreHorizontal size={14} /></button>
+        className={`w-8 h-8 rounded-md bg-black/70 text-void-200 hover:text-white items-center justify-center hidden group-hover:flex focus:flex [@media(hover:none)]:flex ${open ? '!flex' : ''} ${focusRing}`}><MoreHorizontal size={14} /></button>
       {open && (
         <div className="absolute right-0 mt-1 w-40 rounded-lg bg-surface-overlay border border-white/[0.08] shadow-xl py-1 z-10 text-[12.5px]">
           <button onClick={async () => { setOpen(false); await exportProjectPng(p.id) }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-void-200 hover:bg-surface-sunken ${focusRing}`}><Download size={13} />Export PNG</button>
@@ -130,7 +142,7 @@ export function StartScreen() {
                   <button onClick={() => openProject(p.id)} className={`block w-full rounded-xl overflow-hidden bg-void-900 border border-void-800 hover:border-void-600 text-left ${focusRing}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <span className="block aspect-[4/3] bg-void-950"><img src={p.thumb} alt="" className="w-full h-full object-contain" /></span>
-                    <span className="block px-2.5 py-2"><span className="block text-[12.5px] font-medium truncate">{p.name}</span><span className="block text-[11.5px] text-void-500 tabular-nums">{p.width} × {p.height}</span></span>
+                    <span className="block px-2.5 py-2"><span className="block text-[12.5px] font-medium truncate">{p.name}</span><span className="block text-[11.5px] text-void-500 tabular-nums truncate">{edited(p.updatedAt)} · {p.width} × {p.height}</span></span>
                   </button>
                   <RecentMenu p={p} onChanged={setRecent} />
                 </div>

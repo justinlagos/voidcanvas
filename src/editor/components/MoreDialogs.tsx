@@ -225,6 +225,8 @@ export function PreferencesDialog({ onClose, tab: initial }: { onClose: () => vo
           </>}
           {tab === 'history' && <>
             <Slider label="Undo steps kept" value={ui.historyLimit} min={20} max={500} step={10} onChange={v => ui.setPref('historyLimit', v)} />
+            <Slider label="Arrow keys move by (px)" value={ui.nudge ?? 1} min={1} max={20} onChange={v => ui.setPref('nudge', v)} />
+            <Slider label="Shift and arrow keys move by (px)" value={ui.bigNudge ?? 10} min={2} max={100} onChange={v => ui.setPref('bigNudge', v)} />
             <Slider label="Memory for undo" value={ui.historyMemoryMB} min={200} max={4000} step={100} unit=" MB" onChange={v => ui.setPref('historyMemoryMB', v)} />
             <p className="text-[12px] text-void-500 -mt-2">When undo uses more memory than this, the oldest steps are dropped first, so the browser never runs out.</p>
             <Slider label="Automatic version every" value={ui.versionEveryMin} min={0} max={60} unit=" min" onChange={v => ui.setPref('versionEveryMin', v)} />

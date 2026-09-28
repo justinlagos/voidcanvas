@@ -2,9 +2,10 @@ import { effects } from '@/components/EffectSelector'
 import { cloneCanvas, ctx2d, makeCanvas, maskBounds, renderDoc, uid } from './engine'
 import { canvasToBlob, exportVoidFile, importFiles, saveDesign, saveProject } from './io'
 import * as ops from './ops'
-import { ADJUSTMENT_LABELS, base, useEditor } from './store'
+import { ADJUSTMENT_LABELS, base, boardFor, copyName, groupChain, inGroup, prune, useEditor } from './store'
+import { layerBounds } from './engine'
 import { useTabs } from './tabs'
-import type { AdjustmentKind } from './types'
+import type { AdjustmentKind, Group, Layer } from './types'
 import { WORKSPACES, useUi, type PanelId } from './ui-store'
 import { stageApi } from './components/Stage'
 import { toggleQuickMask } from './components/ToolRail'
@@ -23,6 +24,8 @@ export interface Action {
   shortcut?: string
   /** Bound by the generic key handler (keys the older handler already covers only use `shortcut`). */
   hotkey?: string
+  /** A second key for browsers, where the browser keeps `hotkey` for itself (Ctrl+T opens a tab in Chrome). */
+  webHotkey?: string
   run: () => void
   enabled?: () => boolean
   checked?: () => boolean
@@ -46,34 +49,168 @@ const onActive = (fn: (id: string) => void) => () => { const id = s().activeId; 
 let clip: { canvas: HTMLCanvasElement; x: number; y: number } | null = null
 export function internalClip() { return clip }
 
+// Copying layers keeps them editable: text stays text, shapes stay shapes, groups stay groups. A picture of them
+// goes to the system clipboard too, so they paste into other apps; pasting that picture back here pastes the layers.
+let layerClip: { layers: Layer[]; groups: Group[]; box: { x: number; y: number; w: number; h: number }; png: { w: number; h: number } } | null = null
+let lastCopy: 'layers' | 'pixels' | null = null
+export const hasLayerClip = () => !!layerClip && lastCopy === 'layers'
+/** The picture on the system clipboard is the one this page put there when it copied layers. */
+export const isOwnLayerPicture = (w: number, h: number) => !!layerClip && lastCopy === 'layers' && layerClip.png.w === w && layerClip.png.h === h
+
+export async function copyLayers(cut = false) {
+  const st = s(); const doc = st.doc; if (!doc) return
+  const sel = st.layers.filter(l => st.selectedIds.includes(l.id))
+  if (!sel.length) { st.notify('Select a layer to copy.'); return }
+  // Whole groups travel as groups; layers from a group that is only partly selected travel on their own.
+  const whole = (gid: string) => st.layers.filter(l => inGroup(l, gid, st.groups)).every(l => st.selectedIds.includes(l.id))
+  const keep = new Set(st.groups.filter(g => whole(g.id)).map(g => g.id))
+  const groups = st.groups.filter(g => keep.has(g.id)).map(g => ({ ...g, parentId: g.parentId && keep.has(g.parentId) ? g.parentId : null }))
+  const layers = sel.map(l => ({ ...l, groupId: l.groupId && keep.has(l.groupId) ? l.groupId : null } as Layer))
+  const boxes = sel.filter(l => l.type !== 'adjustment').map(l => layerBounds(l, doc))
+  const box = boxes.length ? { x: Math.min(...boxes.map(b => b.x)), y: Math.min(...boxes.map(b => b.y)), w: Math.max(...boxes.map(b => b.x + b.w)) - Math.min(...boxes.map(b => b.x)), h: Math.max(...boxes.map(b => b.y + b.h)) - Math.min(...boxes.map(b => b.y)) } : { x: 0, y: 0, w: doc.width, h: doc.height }
+  const pic = makeCanvas(Math.max(1, Math.round(box.w)), Math.max(1, Math.round(box.h)))
+  const full = makeCanvas(doc.width, doc.height)
+  renderDoc(full, doc, sel.map(l => ({ ...l, visible: true } as Layer)), { groups: st.groups, transparent: true, noCache: true, fullRes: true, frameRects: [] })
+  ctx2d(pic).drawImage(full, -Math.round(box.x), -Math.round(box.y))
+  layerClip = { layers, groups, box, png: { w: pic.width, h: pic.height } }; lastCopy = 'layers'
+  try { const blob = await canvasToBlob(pic); await (navigator.clipboard as any).write([new (window as any).ClipboardItem({ 'image/png': blob })]) } catch { /* the layers are still on the internal clipboard */ }
+  if (cut) {
+    const locked = sel.filter(l => l.locked).length
+    if (locked === sel.length) { st.notify('Copied. The layer is locked, so it was not cut.'); return }
+    st.removeSelected()
+  }
+  st.notify(cut ? 'Cut.' : sel.length > 1 ? `Copied ${sel.length} layers.` : 'Copied.')
+}
+
+/**
+ * Paste copied layers as new, editable layers. In place: exactly where they were. Otherwise where they were if
+ * that spot is in view, else in the middle of the view. They join the board they land on.
+ */
+export function pasteLayers(inPlace: boolean, view?: { x: number; y: number; w: number; h: number }) {
+  const st = s(); const doc = st.doc; if (!doc || !layerClip) return false
+  const c = layerClip
+  let dx = 0, dy = 0
+  if (!inPlace && view) {
+    const visible = c.box.x < view.x + view.w && c.box.x + c.box.w > view.x && c.box.y < view.y + view.h && c.box.y + c.box.h > view.y
+    if (!visible) { dx = view.x + view.w / 2 - (c.box.x + c.box.w / 2); dy = view.y + view.h / 2 - (c.box.y + c.box.h / 2) }
+  }
+  const gMap = new Map(c.groups.map(g => [g.id, uid()]))
+  const groups: Group[] = c.groups.map(g => ({ ...g, id: gMap.get(g.id)!, parentId: g.parentId ? gMap.get(g.parentId) ?? null : null }))
+  const idMap = new Map<string, string>()
+  const taken = new Set(st.layers.map(l => l.name))
+  const made = c.layers.map(l => {
+    const id = uid(); idMap.set(l.id, id)
+    const name = st.layers.some(x => x.name === l.name) ? copyName(l.name, taken) : l.name; taken.add(name)
+    return { ...l, id, name, srcId: null, linkId: null, groupId: l.groupId ? gMap.get(l.groupId) ?? null : null, frameId: undefined, x: l.x + (l.type === 'adjustment' ? 0 : dx), y: l.y + (l.type === 'adjustment' ? 0 : dy), rev: Date.now() + Math.random() } as Layer
+  })
+  for (const m of made) { if (m.clipId) m.clipId = idMap.get(m.clipId) ?? null; if (doc.frames?.length) m.frameId = boardFor(doc, m, st.activeFrameId) }
+  // Above the active layer, outside any group it is in, so the pasted block never splits a group.
+  let at = st.layers.length
+  const act = st.active()
+  if (act) {
+    const top = groupChain(act.groupId, st.groups).pop()
+    at = top ? Math.max(...st.layers.map((l, i) => (inGroup(l, top, st.groups) ? i : -1))) + 1 : st.layers.findIndex(l => l.id === act.id) + 1
+  }
+  const layers = [...st.layers]; layers.splice(at, 0, ...made)
+  useEditor.setState({ layers, groups: prune([...st.groups, ...groups], layers), selectedIds: made.map(m => m.id), activeId: made[made.length - 1]?.id ?? null, keyObjectId: null, docRev: st.docRev + 1 })
+  st.commit(made.length > 1 ? 'Paste layers' : 'Paste layer')
+  return true
+}
+
 export async function copyPixels(merged: boolean, cut = false) {
   const st = s(); const doc = st.doc; if (!doc) return
+  // No pixel selection: copying a layer copies the layers themselves, so they paste back editable.
+  if (!merged && !st.selection) { await copyLayers(cut); return }
   const src = makeCanvas(doc.width, doc.height)
-  if (merged) renderDoc(src, doc, st.layers, { groups: st.groups, noCache: true, fullRes: true, transparent: true, frameRects: [] })
+  const board = doc.frames?.length ? doc.frames.find(f => f.id === st.activeFrameId) ?? doc.frames[0] : null
+  if (merged) renderDoc(src, doc, board ? st.layers.filter(l => l.frameId === board.id || !l.frameId) : st.layers, { groups: st.groups, noCache: true, fullRes: true, transparent: true, ...(board ? {} : { frameRects: [] }) })
   else {
     const l = st.active(); if (!l || l.type === 'adjustment') { st.notify('Select a layer to copy from.'); return }
     renderDoc(src, doc, [{ ...l, visible: true, opacity: 1, blend: 'source-over' } as any], { transparent: true, noCache: true, frameRects: [] })
   }
-  let box = { x: 0, y: 0, w: doc.width, h: doc.height }
+  // Copy merged on a design with boards copies the active board, as it looks, not the whole pasteboard.
+  let box = merged && board ? { x: board.x, y: board.y, w: board.width, h: board.height } : { x: 0, y: 0, w: doc.width, h: doc.height }
   if (st.selection) {
     const x = ctx2d(src); x.globalCompositeOperation = 'destination-in'; x.drawImage(st.selection, 0, 0)
     box = maskBounds(st.selection) ?? box
-  } else box = maskBounds(src) ?? box
+  } else if (!(merged && board)) box = maskBounds(src) ?? box
   const out = makeCanvas(box.w, box.h); ctx2d(out).drawImage(src, -box.x, -box.y)
-  clip = { canvas: out, x: box.x, y: box.y }
+  clip = { canvas: out, x: box.x, y: box.y }; lastCopy = 'pixels'
   try { const blob = await canvasToBlob(out); await (navigator.clipboard as any).write([new (window as any).ClipboardItem({ 'image/png': blob })]) } catch { /* internal clipboard still works */ }
-  if (cut && !merged) {
-    const l = st.active()
-    if (st.selection) st.clearSelectionPixels()
-    // With no pixel selection, Cut takes the whole layer.
-    else if (l) { if (l.locked) { st.notify('Copied. The layer is locked, so it was not cut.'); return } st.removeLayer(l.id) }
-  }
-  st.notify(cut ? 'Cut.' : merged ? 'Copied everything visible.' : 'Copied.')
+  if (cut && !merged && st.selection) st.clearSelectionPixels()
+  st.notify(cut ? 'Cut.' : merged ? (board ? `Copied board “${board.name}” as it looks.` : 'Copied everything visible.') : 'Copied.')
 }
 
 export function pasteInPlace() {
-  const st = s(); if (!clip || !st.doc) { st.notify('Nothing copied yet.'); return }
+  const st = s()
+  if (hasLayerClip()) { pasteLayers(true); return }
+  if (!clip || !st.doc) { st.notify('Nothing copied yet.'); return }
   st.addLayer({ ...base('Pasted'), type: 'raster', canvas: cloneCanvas(clip.canvas), x: clip.x, y: clip.y }, 'Paste')
+}
+
+// ─── Duplicate, and do it again ────────────────────────────────────
+// Ctrl+D (with no pixel selection) and Alt-drag duplicate everything selected. Move a copy and press Ctrl+D again:
+// the next copy lands the same distance on (step and repeat).
+
+let lastDup: { copies: string[]; from: Map<string, { x: number; y: number }> } | null = null
+export function noteDuplicate(copies: string[], sources: string[]) {
+  const st = s()
+  const from = new Map<string, { x: number; y: number }>()
+  copies.forEach((id, i) => { const src = st.layers.find(l => l.id === sources[i]); if (src) from.set(id, { x: src.x, y: src.y }) })
+  lastDup = { copies, from }
+}
+export function smartDuplicate() {
+  const st = s(); if (!st.selectedIds.length) { st.notify('Select a layer to duplicate.'); return }
+  let dx = 16, dy = 16
+  const sel = st.selectedIds
+  if (lastDup && lastDup.copies.length === sel.length && sel.every(id => lastDup!.copies.includes(id))) {
+    const first = st.layers.find(l => l.id === sel[0]); const o = lastDup.from.get(sel[0])
+    if (first && o) { dx = first.x - o.x; dy = first.y - o.y }
+  }
+  const sources = st.layers.filter(l => sel.includes(l.id)).map(l => l.id)
+  const copies = st.duplicateSelected({ dx, dy, label: 'Duplicate' })
+  // Copies come back in stack order, the same order as their sources.
+  noteDuplicate(copies, sources)
+}
+
+// ─── Arrange within the group ──────────────────────────────────────
+
+function arrange(where: 'front' | 'back' | 'up' | 'down') {
+  const st = s()
+  const ids = st.layers.filter(l => st.selectedIds.includes(l.id)).map(l => l.id)
+  if (!ids.length) return
+  if (where === 'up' || where === 'down') { for (const id of where === 'up' ? [...ids].reverse() : ids) s().nudgeOrder(id, where === 'up' ? 1 : -1); return }
+  // Front and back move within the group a layer is in, so it never falls out of its group.
+  const order = where === 'front' ? ids : [...ids].reverse()
+  for (const id of order) {
+    const cur = s(); const l = cur.layers.find(x => x.id === id); if (!l) continue
+    const span = l.groupId ? cur.layers.map((x, i) => (inGroup(x, l.groupId!, cur.groups) ? i : -1)).filter(i => i >= 0) : null
+    const target = where === 'front' ? (span ? Math.max(...span) : cur.layers.length) : (span ? Math.min(...span) : 0)
+    cur.moveLayer(id, target)
+  }
+  useEditor.setState({ selectedIds: ids, activeId: ids[ids.length - 1] })
+}
+
+/** Every layer on the active board (every layer without boards), locked and hidden ones left out. */
+export function selectAllLayers() {
+  const st = s(); const doc = st.doc; if (!doc) return
+  const board = doc.frames?.length ? st.activeFrameId : undefined
+  const ids = st.layers.filter(l => l.visible && !l.locked && (board === undefined || l.frameId === board)).map(l => l.id)
+  useEditor.setState({ selectedIds: ids, activeId: ids[ids.length - 1] ?? null, keyObjectId: null })
+}
+
+// ─── Select the same ───────────────────────────────────────────────
+
+export function selectSame(kind: 'fill' | 'stroke' | 'font' | 'kind' | 'style') {
+  const st = s(); const a = st.active(); if (!a) { st.notify('Select a layer first.'); return }
+  const fillOf = (l: Layer) => (l.type === 'shape' ? l.fill : l.type === 'text' ? l.color : undefined)
+  const key = (l: Layer): unknown => kind === 'fill' ? fillOf(l) : kind === 'stroke' ? (l.type === 'shape' ? l.stroke : undefined) : kind === 'font' ? (l.type === 'text' ? l.fontFamily : undefined) : kind === 'kind' ? l.type : JSON.stringify(l.styles ?? null)
+  const want = key(a)
+  if (want === undefined || want === null) { st.notify(kind === 'font' ? 'Select a text layer first.' : kind === 'stroke' ? 'Select a shape with a stroke first.' : 'Select a layer with a colour first.'); return }
+  const board = st.doc?.frames?.length ? a.frameId : undefined
+  const ids = st.layers.filter(l => l.visible && !l.locked && (board === undefined || l.frameId === board) && key(l) === want).map(l => l.id)
+  useEditor.setState({ selectedIds: ids, activeId: a.id, keyObjectId: null })
+  st.notify(`${ids.length} ${ids.length === 1 ? 'layer' : 'layers'} selected.`)
 }
 
 // ─── Files ─────────────────────────────────────────────────────────
@@ -120,11 +257,6 @@ function addStyle(kind: string) {
   openModal('layerStyle', { focus: kind })
 }
 
-function arrange(where: 'front' | 'back' | 'up' | 'down') {
-  const st = s(); const id = st.activeId; if (!id) return
-  if (where === 'up' || where === 'down') { st.nudgeOrder(id, where === 'up' ? 1 : -1); return }
-  st.moveLayer(id, where === 'front' ? st.layers.length : 0)
-}
 
 const PANEL_LABELS: Record<PanelId, string> = { properties: 'Properties', layers: 'Layers', channels: 'Channels', paths: 'Paths', history: 'History', swatches: 'Colour and swatches', adjustments: 'Adjustments', character: 'Character', paragraph: 'Paragraph', info: 'Info', brand: 'Brand kit', navigator: 'Navigator', styles: 'Layer styles', brief: 'Brief' }
 export { PANEL_LABELS }
@@ -136,7 +268,7 @@ export function buildActions(): Record<string, Action> {
     // File
     { id: 'file.new', label: 'New design…', hotkey: 'Ctrl+Alt+N', run: async () => { await saveProject().catch(() => {}); s().closeDoc() } },
     { id: 'file.open', label: 'Open…', hotkey: 'Ctrl+O', run: openFilePicker, keywords: 'psd pdf import' },
-    { id: 'file.place', label: 'Place image as layer…', hotkey: 'Ctrl+Shift+P', run: placeImage, enabled: hasDoc, keywords: 'import photo' },
+    { id: 'file.place', label: 'Place image as layer…', hotkey: 'Ctrl+Shift+P', webHotkey: 'Alt+Shift+P', run: placeImage, enabled: hasDoc, keywords: 'import photo' },
     { id: 'file.save', label: 'Save', shortcut: 'Ctrl+S', run: () => import('./disk').then(m => m.saveNow()), enabled: hasDoc },
     { id: 'file.saveDisk', label: 'Save to disk…', hotkey: 'Ctrl+Shift+S', run: () => import('./disk').then(m => m.saveToDiskAs()), enabled: hasDoc, keywords: 'save as file folder backup void computer' },
     { id: 'file.version', label: 'Save a version', hotkey: 'Ctrl+Alt+S', run: () => saveVersion('Saved by you').then(ok => ok && s().notify('Version saved. Find it in File, Version history.')), enabled: hasDoc, keywords: 'snapshot backup' },
@@ -158,11 +290,14 @@ export function buildActions(): Record<string, Action> {
     { id: 'edit.cut', label: 'Cut', hotkey: 'Ctrl+X', run: () => copyPixels(false, true), enabled: hasLayer },
     { id: 'edit.copy', label: 'Copy', hotkey: 'Ctrl+C', run: () => copyPixels(false), enabled: hasLayer },
     { id: 'edit.copyMerged', label: 'Copy merged', hotkey: 'Ctrl+Shift+C', run: () => copyPixels(true), enabled: hasDoc },
-    { id: 'edit.paste', label: 'Paste', shortcut: 'Ctrl+V', run: () => { if (clip) pasteInPlace(); else s().notify('Press Ctrl+V to paste an image from your clipboard.') }, enabled: hasDoc },
-    { id: 'edit.pasteInPlace', label: 'Paste in place', hotkey: 'Ctrl+Shift+V', run: pasteInPlace, enabled: () => !!clip },
+    { id: 'edit.paste', label: 'Paste', shortcut: 'Ctrl+V', run: () => { if (hasLayerClip()) pasteLayers(false, stageApi.viewRect()); else if (clip) pasteInPlace(); else s().notify('Press Ctrl+V to paste an image or text from your clipboard.') }, enabled: hasDoc },
+    { id: 'edit.pasteInPlace', label: 'Paste in place', hotkey: 'Ctrl+Shift+V', run: pasteInPlace, enabled: () => !!clip || hasLayerClip() },
+    { id: 'edit.duplicate', label: 'Duplicate', shortcut: 'Ctrl+D', run: smartDuplicate, enabled: () => !!s().selectedIds.length, keywords: 'copy again step and repeat' },
+    { id: 'style.copyAppearance', label: 'Copy appearance', run: ops.copyAppearance, enabled: hasLayer, keywords: 'copy style properties format painter' },
+    { id: 'style.pasteAppearance', label: 'Paste appearance', run: ops.pasteAppearance, enabled: hasLayer, keywords: 'paste style properties format painter' },
     { id: 'edit.fill', label: 'Fill…', hotkey: 'Shift+F5', run: () => openModal('fill'), enabled: hasDoc },
     { id: 'edit.stroke', label: 'Stroke selection…', run: () => openModal('stroke'), enabled: hasSel },
-    { id: 'edit.freeTransform', label: 'Free transform', hotkey: 'Ctrl+T', run: () => ops.beginTransform('free'), enabled: hasLayer, keywords: 'scale rotate distort' },
+    { id: 'edit.freeTransform', label: 'Free transform', hotkey: 'Ctrl+T', webHotkey: 'Alt+T', run: () => ops.beginTransform('free'), enabled: hasLayer, keywords: 'scale rotate distort' },
     { id: 'edit.skew', label: 'Skew', run: () => ops.beginTransform('skew'), enabled: hasLayer },
     { id: 'edit.distort', label: 'Distort', run: () => ops.beginTransform('distort'), enabled: hasLayer },
     { id: 'edit.perspective', label: 'Perspective', run: () => ops.beginTransform('perspective'), enabled: hasLayer },
@@ -191,8 +326,11 @@ export function buildActions(): Record<string, Action> {
     { id: 'adj.lut', label: 'Colour lookup (.cube LUT)…', run: loadLut, enabled: hasDoc, keywords: 'grade film' },
 
     // Layer
-    { id: 'layer.new', label: 'New layer', hotkey: 'Ctrl+Shift+N', run: () => s().addBlank(), enabled: hasDoc },
-    { id: 'layer.duplicate', label: 'Duplicate layer', shortcut: 'Ctrl+J', run: onActive(id => s().duplicateLayer(id)), enabled: hasLayer },
+    { id: 'layer.new', label: 'New layer', hotkey: 'Ctrl+Shift+N', webHotkey: 'Alt+Shift+N', run: () => s().addBlank(), enabled: hasDoc },
+    { id: 'layer.duplicate', label: 'Duplicate layer', shortcut: 'Ctrl+J', run: () => { const st = s(); const src = st.layers.filter(l => st.selectedIds.includes(l.id)).map(l => l.id); noteDuplicate(st.duplicateSelected({ dx: 16, dy: 16 }), src) }, enabled: hasLayer },
+    { id: 'layer.lock', label: 'Lock', run: () => { const st = s(); const sel = st.layers.filter(l => st.selectedIds.includes(l.id)); if (!sel.length) return; const lock = !sel.every(l => l.locked); st.updateLayers(sel.map(l => ({ id: l.id, patch: { locked: lock } }))); st.commit(lock ? 'Lock' : 'Unlock') }, enabled: hasLayer, checked: () => { const st = s(); const sel = st.layers.filter(l => st.selectedIds.includes(l.id)); return sel.length > 0 && sel.every(l => l.locked) } },
+    { id: 'layer.hide', label: 'Hide', run: () => { const st = s(); const sel = st.layers.filter(l => st.selectedIds.includes(l.id)); if (!sel.length) return; st.updateLayers(sel.map(l => ({ id: l.id, patch: { visible: false } }))); st.commit('Hide') }, enabled: hasLayer },
+    { id: 'layer.isolate', label: 'Edit group on its own', run: () => { const st = s(); if (st.isolatedGroupId) { st.setIsolated(null); return } const a = st.active(); const g = a ? groupChain(a.groupId, st.groups).pop() : null; if (g) st.setIsolated(g); else st.notify('Select a layer in a group first.') }, enabled: hasLayer, checked: () => !!s().isolatedGroupId, keywords: 'isolation focus enter group' },
     { id: 'layer.delete', label: 'Delete layer', shortcut: 'Delete', run: () => s().removeSelected(), enabled: hasLayer },
     { id: 'layer.style', label: 'Blending options…', run: () => openModal('layerStyle'), enabled: hasLayer, keywords: 'fx effects layer style' },
     ...STYLE_KINDS.map(k => ({ id: 'style.' + k, label: STYLE_LABELS[k] + '…', run: () => addStyle(k), enabled: hasLayer, keywords: 'layer style fx' })),
@@ -232,6 +370,12 @@ export function buildActions(): Record<string, Action> {
 
     // Select
     { id: 'sel.all', label: 'All', shortcut: 'Ctrl+A', run: () => s().selectAll(), enabled: hasDoc },
+    { id: 'sel.allLayers', label: 'All layers', hotkey: 'Ctrl+Alt+A', run: selectAllLayers, enabled: hasDoc, keywords: 'select every layer' },
+    { id: 'sel.sameFill', label: 'Same fill colour', run: () => selectSame('fill'), enabled: hasLayer, keywords: 'select similar same colour' },
+    { id: 'sel.sameStroke', label: 'Same stroke', run: () => selectSame('stroke'), enabled: hasLayer, keywords: 'select similar' },
+    { id: 'sel.sameFont', label: 'Same font', run: () => selectSame('font'), enabled: hasLayer, keywords: 'select similar typeface' },
+    { id: 'sel.sameKind', label: 'Same kind of layer', run: () => selectSame('kind'), enabled: hasLayer, keywords: 'select similar type text shape image' },
+    { id: 'sel.sameStyle', label: 'Same layer style', run: () => selectSame('style'), enabled: hasLayer, keywords: 'select similar effects' },
     { id: 'sel.none', label: 'Deselect', shortcut: 'Ctrl+D', run: () => s().setSelection(null, 'Deselect'), enabled: hasSel },
     { id: 'sel.reselect', label: 'Reselect', hotkey: 'Ctrl+Shift+D', run: () => { const h = [...s().history].reverse().find(x => x.selection); if (h?.selection) s().setSelection(h.selection, 'Reselect') }, enabled: hasDoc },
     { id: 'sel.inverse', label: 'Inverse', shortcut: 'Ctrl+Shift+I', run: () => s().invertSelection(), enabled: hasSel },
@@ -326,10 +470,10 @@ export function buildActions(): Record<string, Action> {
 
 export const MENUS: { label: string; items: MenuItem[] }[] = [
   { label: 'File', items: ['file.new', 'file.open', 'file.place', '-', 'file.save', 'file.saveDisk', 'file.version', 'file.versions', 'file.template', '-', 'file.export', 'file.void', 'file.voidPng', 'file.resize', { label: 'Boards', items: ['file.boards', '-', 'board.duplicate', 'board.empty', 'board.organise'] }, '-', 'file.close'] },
-  { label: 'Edit', items: ['edit.undo', 'edit.redo', '-', 'edit.cut', 'edit.copy', 'edit.copyMerged', 'edit.paste', 'edit.pasteInPlace', '-', 'edit.fill', 'edit.stroke', '-', 'edit.freeTransform', { label: 'Transform', items: ['edit.skew', 'edit.distort', 'edit.perspective', 'edit.warp', '-', 'edit.rotate90', 'edit.rotate180', '-', 'edit.flipH', 'edit.flipV'] }, '-', 'edit.brand', 'edit.prefs', 'edit.account'] },
+  { label: 'Edit', items: ['edit.undo', 'edit.redo', '-', 'edit.cut', 'edit.copy', 'edit.copyMerged', 'edit.paste', 'edit.pasteInPlace', 'edit.duplicate', '-', 'style.copyAppearance', 'style.pasteAppearance', '-', 'edit.fill', 'edit.stroke', '-', 'edit.freeTransform', { label: 'Transform', items: ['edit.skew', 'edit.distort', 'edit.perspective', 'edit.warp', '-', 'edit.rotate90', 'edit.rotate180', '-', 'edit.flipH', 'edit.flipV'] }, '-', 'edit.brand', 'edit.prefs', 'edit.account'] },
   { label: 'Image', items: [{ label: 'Adjustments', items: [...ADJ_ORDER.map(k => 'adj.' + k), '-', 'adj.lut'] }, '-', 'image.size', 'image.canvas', 'image.expand', { label: 'Image rotation', items: ['image.rot90', 'image.rot-90', 'image.rot180', '-', 'image.flipH', 'image.flipV'] }, 'image.crop', 'image.trim', '-', 'image.flatten'] },
-  { label: 'Layer', items: ['layer.new', 'layer.duplicate', 'layer.delete', '-', { label: 'Layer style', items: ['layer.style', '-', ...STYLE_KINDS.map(k => 'style.' + k), '-', 'style.copy', 'style.paste', 'style.clear'] }, { label: 'Layer mask', items: ['mask.add', 'mask.hide', 'mask.fromPath', '-', 'mask.invert', 'mask.toggle', 'mask.delete'] }, { label: 'Vector mask', items: ['vmask.add', 'vmask.fromPath', 'vmask.edit', '-', 'vmask.rasterize', 'vmask.delete'] }, 'layer.clip', { label: 'Formats', items: ['formats.sync', 'formats.relay'] }, { label: 'Pathfinder', items: ['pf.unite', 'pf.minusFront', 'pf.minusBack', 'pf.intersect', 'pf.exclude', 'pf.divide', '-', 'path.expand'] }, { label: 'Path', items: ['path.outline', 'type.onPath', '-', 'path.toSel', 'path.shape', 'path.fromLayer', '-', 'path.fill', 'path.stroke', 'path.strokeTaper', '-', 'path.close', 'path.reverse', 'path.simplify', '-', 'path.opAdd', 'path.opSub', 'path.opInt', 'path.opXor', '-', 'path.copySvg', 'path.exportSvg'] }, '-', 'layer.group', 'layer.ungroup', 'layer.link', { label: 'Arrange', items: ['layer.front', 'layer.up', 'layer.down', 'layer.back'] }, { label: 'Align', items: ['align.left', 'align.hcenter', 'align.right', '-', 'align.top', 'align.vcenter', 'align.bottom', '-', 'dist.h', 'dist.v'] }, '-', 'layer.removeBg', 'layer.rasterize', 'layer.mergeDown', 'layer.mergeVisible', 'layer.stamp', 'image.flatten'] },
-  { label: 'Select', items: ['sel.all', 'sel.none', 'sel.reselect', 'sel.inverse', '-', 'sel.subject', 'sel.object', 'sel.colorRange', 'sel.layer', '-', 'sel.mask', { label: 'Modify', items: ['sel.expand', 'sel.contract', 'sel.feather', 'sel.smooth', 'sel.border'] }, '-', 'sel.save', 'sel.path', 'sel.quickMask'] },
+  { label: 'Layer', items: ['layer.new', 'layer.duplicate', 'layer.delete', 'layer.lock', 'layer.hide', '-', { label: 'Layer style', items: ['layer.style', '-', ...STYLE_KINDS.map(k => 'style.' + k), '-', 'style.copy', 'style.paste', 'style.clear'] }, { label: 'Layer mask', items: ['mask.add', 'mask.hide', 'mask.fromPath', '-', 'mask.invert', 'mask.toggle', 'mask.delete'] }, { label: 'Vector mask', items: ['vmask.add', 'vmask.fromPath', 'vmask.edit', '-', 'vmask.rasterize', 'vmask.delete'] }, 'layer.clip', { label: 'Formats', items: ['formats.sync', 'formats.relay'] }, { label: 'Pathfinder', items: ['pf.unite', 'pf.minusFront', 'pf.minusBack', 'pf.intersect', 'pf.exclude', 'pf.divide', '-', 'path.expand'] }, { label: 'Path', items: ['path.outline', 'type.onPath', '-', 'path.toSel', 'path.shape', 'path.fromLayer', '-', 'path.fill', 'path.stroke', 'path.strokeTaper', '-', 'path.close', 'path.reverse', 'path.simplify', '-', 'path.opAdd', 'path.opSub', 'path.opInt', 'path.opXor', '-', 'path.copySvg', 'path.exportSvg'] }, '-', 'layer.group', 'layer.ungroup', 'layer.isolate', 'layer.link', { label: 'Arrange', items: ['layer.front', 'layer.up', 'layer.down', 'layer.back'] }, { label: 'Align', items: ['align.left', 'align.hcenter', 'align.right', '-', 'align.top', 'align.vcenter', 'align.bottom', '-', 'dist.h', 'dist.v'] }, '-', 'layer.removeBg', 'layer.rasterize', 'layer.mergeDown', 'layer.mergeVisible', 'layer.stamp', 'image.flatten'] },
+  { label: 'Select', items: ['sel.all', 'sel.allLayers', { label: 'Same', items: ['sel.sameFill', 'sel.sameStroke', 'sel.sameFont', 'sel.sameKind', 'sel.sameStyle'] }, 'sel.none', 'sel.reselect', 'sel.inverse', '-', 'sel.subject', 'sel.object', 'sel.colorRange', 'sel.layer', '-', 'sel.mask', { label: 'Modify', items: ['sel.expand', 'sel.contract', 'sel.feather', 'sel.smooth', 'sel.border'] }, '-', 'sel.save', 'sel.path', 'sel.quickMask'] },
   { label: 'Filter', items: ['filter.gallery', 'filter.remove', '-', ...(['artistic', 'stylize', 'color', 'distortion', 'enhance'] as const).map(cat => ({ label: { artistic: 'Artistic', stylize: 'Stylize', color: 'Colour', distortion: 'Distort', enhance: 'Enhance' }[cat], items: effects.filter(e => e.category === cat).map(e => 'fx.' + e.id) }))] },
   { label: 'View', items: ['view.zoomIn', 'view.zoomOut', 'view.fit', 'view.100', 'view.fitSel', 'view.fitBoard', '-', 'view.rulers', 'view.guides', 'view.lockGuides', 'view.snap', 'view.pixelGrid', { label: 'Guides', items: ['view.newGuide', 'view.guideLayout', 'view.clearGuides'] }, '-', 'view.before', 'view.contextBar', 'view.status', 'view.touch'] },
   { label: 'Window', items: [...(Object.keys(PANEL_LABELS) as PanelId[]).map(p => 'panel.' + p), '-', 'tools.float', { label: 'Workspace', items: () => [...Object.keys(WORKSPACES).map(n => 'ws.' + n), ...Object.keys(useUi.getState().saved).filter(n => !WORKSPACES[n]).map(n => 'ws.saved.' + n), '-', 'ws.save', 'ws.reset'] }, { label: 'Interface size', items: ['scale.0.9', 'scale.1', 'scale.1.1', 'scale.1.25', 'scale.1.4', 'scale.1.5', '-', 'density.compact', 'density.comfortable'] }] },
@@ -337,8 +481,42 @@ export const MENUS: { label: string; items: MenuItem[] }[] = [
 ]
 
 /** Saved workspaces are dynamic, so their actions are made on the fly. */
+/** What the right-click menu on the canvas offers, for the layers under the pointer and the current selection. */
+export function canvasMenu(under: string[]): MenuItem[] {
+  const st = s()
+  const sel = st.layers.filter(l => st.selectedIds.includes(l.id))
+  const pick: MenuItem[] = under.length > 1 ? [{ label: 'Select layer', items: under.slice(0, 16).map(id => 'layer.pick.' + id) }, '-'] : []
+  if (st.selection && !['move', 'text', 'shape', 'hand', 'zoom'].includes(st.tool)) {
+    return [...pick, 'edit.cut', 'edit.copy', 'edit.paste', '-', 'sel.none', 'sel.inverse', 'sel.feather', 'sel.mask', '-', 'edit.fill', 'edit.stroke', 'sel.save', 'sel.path']
+  }
+  if (!sel.length) return [...pick, 'edit.paste', 'edit.pasteInPlace', '-', 'sel.allLayers', 'layer.new', 'file.place', '-', 'view.fit', 'view.fitBoard']
+  const inGroup = sel.some(l => l.groupId)
+  return [
+    ...pick,
+    'edit.cut', 'edit.copy', 'edit.paste', 'edit.duplicate', 'layer.delete', '-',
+    'style.copyAppearance', 'style.pasteAppearance', '-',
+    'layer.group', ...(inGroup ? ['layer.ungroup', 'layer.isolate'] : []), 'layer.clip',
+    { label: 'Arrange', items: ['layer.front', 'layer.up', 'layer.down', 'layer.back'] },
+    ...(sel.length > 1 ? [{ label: 'Align', items: ['align.left', 'align.hcenter', 'align.right', '-', 'align.top', 'align.vcenter', 'align.bottom', '-', 'dist.h', 'dist.v'] } as MenuItem] : []),
+    { label: 'Select same', items: ['sel.sameFill', 'sel.sameStroke', 'sel.sameFont', 'sel.sameKind', 'sel.sameStyle'] }, '-',
+    'edit.freeTransform', 'edit.flipH', 'edit.flipV', '-',
+    'layer.lock', 'layer.hide', 'layer.rasterize', 'layer.mergeDown',
+  ]
+}
+
+/** The key to show for a command: in a browser tab, the second key when the browser keeps the first for itself. */
+export function keyFor(a: Action): string | undefined {
+  if (a.webHotkey && typeof window !== 'undefined' && !(window as any).voidDesktop) return a.webHotkey
+  return a.hotkey ?? a.shortcut
+}
+
 export function resolveAction(actions: Record<string, Action>, id: string): Action | null {
   if (actions[id]) return actions[id]
+  // The layers under the pointer, for the canvas right-click menu.
+  if (id.startsWith('layer.pick.')) {
+    const lid = id.slice(11), l = s().layers.find(x => x.id === lid)
+    return l ? { id, label: l.name, run: () => s().setActive(lid), checked: () => s().selectedIds.includes(lid) } : null
+  }
   if (id.startsWith('ws.saved.')) { const n = id.slice(9); return { id, label: n, run: () => useUi.getState().applyWorkspace(n), checked: () => useUi.getState().workspace.name === n } }
   return null
 }
