@@ -103,7 +103,7 @@ E['0'] = ("We've received your application", "We'll reply by Monday 5 October.",
   facts([('Your reference', '{$study_ref}'), ('We reply by', 'Monday 5 October')]) +
   p('We review every application and reply to everyone, whether or not you are selected. You don’t need to do anything in the meantime.') +
   p('If you have a question, reply to this email and include your reference.'), stage=1))
-E['1'] = ("You're invited to the Voidcanvas Working Designer Study", "Two weeks, one real client job, £15 when you finish.", page("Two weeks, one real client job, £15 when you finish.",
+E['1'] = ("You're invited to the Voidcanvas Working Designer Study", "Two weeks, one real client job, £10 when you finish.", page("Two weeks, one real client job, £10 when you finish.",
   'You are invited', 'We’d like you to take part',
   p(HI) + p('Thank you for applying. Based on your answers, we would like to invite you to take part in the Voidcanvas Working Designer Study.') +
   p('The study looks at one part of design work: what happens after a client approves the key visual. Adapting it into every format, checking it, naming the files and delivering them. We want to measure how long that takes today, and whether Voidcanvas Studio makes it faster.') +
@@ -111,7 +111,7 @@ E['1'] = ("You're invited to the Voidcanvas Working Designer Study", "Two weeks,
     ('Six questions', 'About your last multi-format job, by voice note or text. About 15 minutes.'),
     ('One real client job, 6 to 20 October', 'Take it through Voidcanvas Studio, from key visual to delivery package.'),
     ('Three closing questions', 'When you finish. About 2 minutes.')]) +
-  h('What you receive') + facts([('Payment', '£15 or the naira equivalent'), ('Paid within', '7 days of finishing'), ('Findings summary', 'By Friday 6 November')]) +
+  h('What you receive') + facts([('Payment', '£10 or the naira equivalent'), ('Paid within', '7 days of finishing'), ('Findings summary', 'By Friday 6 November')]) +
   note('There is nothing to buy. Voidcanvas is free, runs in your browser, and your design files stay on your device. We never upload or see them.') +
   p('Please read the ' + link('participant information sheet', f'{SITE}/research/information') + ' and the ' + link('incentive terms', f'{SITE}/research/terms') + ' before you accept.') +
   btn('Read and accept', f'{SITE}/research/consent?p={{$study_token}}') +
@@ -134,7 +134,7 @@ E['3'] = ("You're in. Here's how the study works", "Start with the six questions
     ('Three questions, straight after', 'They appear when you download the delivery package. About 2 minutes.')]) +
   note('The study link records timing and usage only. It does not record your designs, text, images or file names. Choose a job with some slack in the deadline, and keep your usual tools open in case you need them.') +
   h('If something goes wrong') + p('Use Help, then Report a problem, inside Voidcanvas, or reply to this email. Problems are useful to the study, so please don’t hold back.') +
-  h('Payment') + p('When all three steps are done, we will email you to confirm how you would like to receive your £15.'), stage=3))
+  h('Payment') + p('When all three steps are done, we will email you to confirm how you would like to receive your £10.'), stage=3))
 E['4'] = ("The study closes on 20 October", "Your place is still open.", page("Your place is still open.",
   'Reminder', 'Your place is still open',
   p(HI) + p('We haven’t seen a job from you yet. The study closes at 23:59 UK time on Tuesday 20 October.') +
@@ -143,10 +143,10 @@ E['4'] = ("The study closes on 20 October", "Your place is still open.", page("Y
   p('Your ' + link('study page', me) + ' shows anything else that is left, including the six questions.') +
   note('If you no longer have time, that’s fine. You can withdraw from your study page, or reply “withdraw”, and we will delete your study data within 30 days.') +
   p('This is the only reminder we will send.', 14.5), stage=3))
-E['5'] = ("Thank you. Your part of the study is complete", "Confirm how you'd like to receive your £15.", page("Confirm how you'd like to receive your £15.",
+E['5'] = ("Thank you. Your part of the study is complete", "Confirm how you'd like to receive your £10.", page("Confirm how you'd like to receive your £10.",
   'Study complete', 'Your part is done. Thank you.',
   p(HI) + p('We have your answers, your job and your closing questions. That completes your part of the Voidcanvas Working Designer Study.') +
-  p('To receive your £15, please confirm your payout details. You can choose a UK bank transfer, a Nigerian bank transfer in naira, or PayPal.') +
+  p('To receive your £10, please confirm your payout details. You can choose a UK bank transfer, a Nigerian bank transfer in naira, or PayPal.') +
   btn('Confirm payout details', f'{SITE}/research/payout?p={{$study_token}}') +
   facts([('Paid within', '7 days of your details'), ('Findings summary', 'By Friday 6 November')]) +
   note('<strong style="color:' + INK + ';">For your security.</strong> We will never ask for a password, card number, PIN or one-time code, and we will never ask you to pay anything to receive this payment. If anyone contacts you asking for these in our name, forward the message to research@voidcanvas.app.'), stage=4))

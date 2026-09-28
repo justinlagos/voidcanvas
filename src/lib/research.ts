@@ -9,7 +9,7 @@ export const COMPANY = 'MotionPlay Labs Ltd'
 export const COMPANY_LINE = 'MotionPlay Labs Ltd, registered in England and Wales (no. 17304660) and in Nigeria (RC 9621200)'
 export const REGISTERED_OFFICE = '66 Paul Street, London, EC2A 4NA, United Kingdom'
 export const PLACES = 20
-export const INCENTIVE = '£15'
+export const INCENTIVE = '£10'
 
 /** Dates are UK time. `closesAt` is the moment applications stop being accepted. */
 export const DATES = {

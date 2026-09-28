@@ -169,7 +169,7 @@ export function ResearchAdmin() {
 
 function Detail({ p, answers, jobs, pay, admin, act, busy }: { p: Person; answers: Answer[]; jobs: Job[]; pay?: { method: string; details: Record<string, string> }; admin: <T>(op: string, body?: Record<string, unknown>) => Promise<T>; act: (op: string, body: Record<string, unknown>, done: string) => Promise<void>; busy: boolean }) {
   const [audio, setAudio] = useState<Record<string, string>>({})
-  const [amount, setAmount] = useState(p.country === 'Nigeria' ? '' : '£15.00')
+  const [amount, setAmount] = useState(p.country === 'Nigeria' ? '' : '£10.00')
   const [method, setMethod] = useState(pay ? ({ uk_bank: 'UK bank transfer', ng_bank: 'Nigerian bank transfer', paypal: 'PayPal' } as Record<string, string>)[pay.method] : '')
   const [ref, setRef] = useState('')
   const [note, setNote] = useState(p.notes || '')

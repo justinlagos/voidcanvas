@@ -2,7 +2,7 @@
 
 Paid research with up to 20 working designers in the UK and Nigeria. Each takes one real client job through Studio,
 from approved key visual to delivery package, answers six interview questions and three closing questions, and
-receives £15. Run by MotionPlay Labs Ltd. Programme pack (documents, emails, pass marks): the "Voidcanvas Working
+receives £10. Run by MotionPlay Labs Ltd. Programme pack (documents, emails, pass marks): the "Voidcanvas Working
 Designer Study: programme pack" doc in the Claude project.
 
 ## Dates (UK time)
