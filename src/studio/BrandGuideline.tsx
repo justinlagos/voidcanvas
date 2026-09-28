@@ -2,31 +2,36 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, AlertCircle, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe, ImagePlus, Layers, Lock, Unlock, Monitor, Printer, RefreshCw, RotateCcw, Upload } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, AlertCircle, ChevronDown, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe, ImagePlus, Layers, Lock, Unlock, Monitor, Printer, RefreshCw, RotateCcw, Upload } from 'lucide-react'
 import { Button, focusRing } from '@/editor/components/ui'
 import { canvasToBlob, downloadBlob, sendHandoff, type LayeredItem, type LayeredPage } from '@/editor/io'
-import { extractPalette } from '@/editor/engine'
 import { guardUnload, useBrand } from './brand/store'
 import { FONT_SUGGESTIONS, HARMONIES, PERSONALITIES, SCALES, buildBrand, resolve, type ArtDirection, type Brand, type FontRef, type TokKey } from './brand/tokens'
 import { RAMP_STEPS, isHex } from './brand/color'
 import { loadFont, registerLocalFont } from './brand/fonts'
 import { fileSlug, toAse, toCss, toJson, toTailwind } from './brand/export'
 import { PAGE_DEFS, SIZES, eachPage, recordPages, renderPage, type Orientation, type PageSpec } from './brand-pages'
-import { analyseLogo, logoChecks, logoPlacements, type LogoInfo } from './brand/logo'
+import { MODE_LABEL, MODE_OF, VARIANT_OF, analyseLogo, grayMark, logoChecks, logoPlacements, logoVariants, monoMark, type LogoDecisions, type LogoInfo } from './brand/logo'
 import { PRINT_TRIM } from './brand-pdf'
+import { describeProfile } from '@/lib/intelligence/asset'
+import { VARIANT_LABEL, VARIANT_USE, type VariantId } from '@/lib/intelligence/logo'
+import { suggestLogoName } from '@/lib/intelligence/naming'
+import { brandHealth, healthSummary, type HealthGroup } from '@/lib/intelligence/brand'
+import type { Level } from '@/lib/intelligence/contrast'
 
 function Page({ spec, pageNo, pageCount, brand, logo, o, cssWidth }: { spec: PageSpec; pageNo: number; pageCount: number; brand: Brand; logo: LogoInfo | null; o: Orientation; cssWidth: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const d = useBrand(s => s.decisions)
   useEffect(() => {
     let live = true
     const big = cssWidth > 400
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
     const scale = Math.min(2, Math.max(0.25, (cssWidth * dpr) / SIZES[o].w))
     const t = setTimeout(() => {
-      renderPage(spec, pageNo, pageCount, brand, logo, o, scale).then(c => { if (!live || !ref.current) return; const x = ref.current.getContext('2d')!; ref.current.width = c.width; ref.current.height = c.height; x.drawImage(c, 0, 0) })
+      renderPage(spec, pageNo, pageCount, brand, logo, o, scale, d).then(c => { if (!live || !ref.current) return; const x = ref.current.getContext('2d')!; ref.current.width = c.width; ref.current.height = c.height; x.drawImage(c, 0, 0) })
     }, big ? 0 : 80)
     return () => { live = false; clearTimeout(t) }
-  }, [spec, pageNo, pageCount, brand, logo, o, cssWidth])
+  }, [spec, pageNo, pageCount, brand, logo, o, cssWidth, d])
   const ar = SIZES[o].h / SIZES[o].w
   return <canvas ref={ref} className="block rounded-md shadow-lg bg-white" style={{ width: cssWidth, height: cssWidth * ar }} />
 }
@@ -45,10 +50,10 @@ function LockBtn({ k, label }: { k: TokKey; label: string }) {
     </button>
   )
 }
-function Field({ label, k, hint, children }: { label: string; k?: TokKey; hint?: string; children: ReactNode }) {
+function Field({ label, k, hint, children }: { label: ReactNode; k?: TokKey; hint?: string; children: ReactNode }) {
   return (
     <div>
-      <div className="flex items-center justify-between mb-1.5 min-h-6"><span className="text-[12px] text-void-400">{label}</span>{k && <LockBtn k={k} label={label.replace(/ \d+%$/, '')} />}</div>
+      <div className="flex items-center justify-between mb-1.5 min-h-6"><span className="text-[12px] text-void-400">{label}</span>{k && <LockBtn k={k} label={typeof label === 'string' ? label.replace(/ \d+%$/, '') : k} />}</div>
       {children}
       {hint && <p className="mt-1 text-[11.5px] text-void-500 leading-snug">{hint}</p>}
     </div>
@@ -92,36 +97,104 @@ function MiniRamp({ ramp, src }: { ramp: Record<number, string>; src?: number })
 }
 
 // ── tabs ──
-function IdentityTab({ logo, onLogo, brand, logoErr }: { logo: LogoInfo | null; onLogo: (f: File) => void; brand: Brand; logoErr: string }) {
+const LEVEL_TEXT: Record<Level, string> = { good: 'text-emerald-300', check: 'text-amber-300', attention: 'text-rose-300' }
+const LEVEL_WORD: Record<Level, string> = { good: 'Pass', check: 'Marginal', attention: 'Fails' }
+/** "Suggested" or "Set by you", so nothing pretends to be the client's rule. */
+function Source({ locked }: { locked: boolean }) {
+  return <span className={`text-[10.5px] px-1.5 py-0.5 rounded ${locked ? 'bg-accent-soft text-accent-light' : 'bg-void-800 text-void-400'}`}>{locked ? 'Set by you' : 'Suggested'}</span>
+}
+
+/** Thumbnail of one logo version on a checkerboard or a colour. */
+function VariantThumb({ logo, mode, brand, bg }: { logo: LogoInfo; mode: keyof typeof MODE_LABEL; brand: Brand; bg?: string }) {
+  const url = useMemo(() => {
+    const c = mode === 'original' ? logo.img : mode === 'grayscale' ? grayMark(logo) : monoMark(logo, mode === 'white' ? '#ffffff' : mode === 'brand' ? brand.roles[0].hex : brand.surfaces.inkOnLight)
+    return c.toDataURL('image/png')
+  }, [logo, mode, brand.roles, brand.surfaces.inkOnLight])
+  const dark = mode === 'white'
+  // eslint-disable-next-line @next/next/no-img-element
+  return <div className={`h-14 rounded-md flex items-center justify-center p-1.5 ${bg ? '' : dark ? 'bg-void-950' : 'bg-[repeating-conic-gradient(#2a2a31_0_25%,#1f1f25_0_50%)] bg-[length:12px_12px]'}`} style={bg ? { background: bg } : undefined}><img src={url} alt="" className="max-h-full max-w-full" /></div>
+}
+
+function IdentityTab({ logo, onLogo, brand, logoErr, suggestedColor, onUseColor }: { logo: LogoInfo | null; onLogo: (f: File) => void; brand: Brand; logoErr: string; suggestedColor: string | null; onUseColor: () => void }) {
   const t = useBrand(s => s.tokens), set = useBrand(s => s.set), setTok = useBrand(s => s.setTok)
+  const decisions = useBrand(s => s.decisions), toggleVariant = useBrand(s => s.toggleVariant), chooseBackground = useBrand(s => s.chooseBackground)
   const r = useMemo(() => resolve(t), [t])
   const file = useRef<HTMLInputElement>(null)
+  const variants = useMemo(() => logoVariants(brand, logo, decisions), [brand, logo, decisions])
+  const validModes = variants.filter(v => v.valid).map(v => v.id)
+  const places = useMemo(() => logoPlacements(brand, logo, decisions), [brand, logo, decisions])
+  const [showAllBg, setShowAllBg] = useState(false)
+  const minPx = r.logoMin.value, minMm = r.logoMinPrint.value
   return (
     <div className="space-y-4">
       <Field label="Brand name"><input value={t.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Northbound" className={input} /></Field>
       <Field label="Tagline"><input value={t.tagline} onChange={e => set('tagline', e.target.value)} placeholder="What it stands for" className={input} /></Field>
-      <Field label="Logo" hint={logo ? (logo.knockedOut ? 'Flat background removed so the mark sits on any colour.' : undefined) : 'SVG, PNG or JPG. Adding a logo also sets the brand colour from it.'}>
+      <Field label="Logo" hint={logo ? `${describeProfile(logo.profile)} The original file is kept as supplied; versions below are made from it.` : 'SVG, PNG or JPG. The artwork is measured so the guideline can say where each version works.'}>
         <input ref={file} type="file" accept="image/*,.svg" hidden onChange={e => { const f = e.target.files?.[0]; if (f) onLogo(f); e.target.value = '' }} />
         {logo && <div className="mb-2 h-20 rounded-lg bg-[repeating-conic-gradient(#2a2a31_0_25%,#1f1f25_0_50%)] bg-[length:14px_14px] flex items-center justify-center p-3"><img src={logo.img.toDataURL()} alt="Your logo" className="max-h-full max-w-full" /></div>}
+        {logo && <p className="mb-2 text-[11.5px] text-void-400 truncate" title={logo.fileName}>{suggestLogoName(logo.fileName, logo.profile)} <span className="text-void-600">· {logo.fileName}</span></p>}
         <Button onClick={() => file.current?.click()} className="w-full"><ImagePlus size={15} />{logo ? 'Replace logo' : 'Add logo'}</Button>
         {logoErr && <p className="mt-1 text-[11.5px] text-rose-300">{logoErr}</p>}
+        {suggestedColor && (
+          <div className="mt-2 flex items-center gap-2 px-2.5 py-2 rounded-lg border border-void-800 bg-void-900/60 text-[12px]">
+            <span className="w-5 h-5 rounded shrink-0" style={{ background: suggestedColor }} />
+            <span className="flex-1 min-w-0 text-void-300">Brand colour from the logo: <span className="font-mono text-void-100">{suggestedColor.toUpperCase()}</span></span>
+            <button onClick={onUseColor} className={`text-accent-light hover:text-white rounded ${focusRing}`}>Use it</button>
+          </div>
+        )}
       </Field>
-      <Field label="Clear space" k="logoClear" hint="Measured from the height of the mark, H.">
+      {logo && (
+        <Field label="Versions" hint="Only versions that keep the mark honest are made. A flat one-colour version is refused when the detail between colours would melt; ask the client for that artwork instead.">
+          <ul className="space-y-1.5">
+            {variants.map(v => {
+              const off = decisions.off.includes(v.id), derivedBad = !v.valid && !off
+              return (
+                <li key={v.id} className={`rounded-lg border border-void-800 p-2 ${derivedBad ? 'opacity-70' : ''}`}>
+                  <div className="flex items-start gap-2">
+                    <div className="w-20 shrink-0">{v.valid ? <VariantThumb logo={logo} mode={MODE_OF[v.id]} brand={brand} /> : <div className="h-14 rounded-md border border-dashed border-void-700 flex items-center justify-center text-[10px] text-void-500">Not made</div>}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[12.5px] text-void-100">{VARIANT_LABEL[v.id]}</span>
+                        <span className="text-[10.5px] px-1.5 py-0.5 rounded bg-void-800 text-void-400">{v.id === 'primary' ? 'Supplied' : !v.derived ? 'Same as the file' : v.valid ? 'Derived' : 'Refused'}</span>
+                        {v.id !== 'primary' && v.derived && (v.valid || off) && <button onClick={() => toggleVariant(v.id)} className={`ml-auto text-[11.5px] rounded ${focusRing} ${off ? 'text-accent-light' : 'text-void-500 hover:text-white'}`}>{off ? 'Include' : 'Leave out'}</button>}
+                      </div>
+                      <p className="text-[11px] text-void-500 leading-snug mt-0.5">{off ? 'Left out by you.' : !v.valid ? v.reason : v.id === 'primary' && /reversed version/.test(v.reason) ? v.reason : VARIANT_USE[v.id]}</p>
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </Field>
+      )}
+      <Field label={<span className="inline-flex items-center gap-1.5">Clear space <Source locked={t.logoClear.locked} /></span>} k="logoClear" hint="Measured from the height of the mark, H. Suggested from its shape: wide wordmarks need less, open symbols more.">
         <div className="grid grid-cols-3 gap-1.5">{[[0.25, '¼ H'], [0.5, '½ H'], [1, '1 H']].map(([v, l]) => <button key={v} onClick={() => setTok('logoClear', v as number)} aria-pressed={r.logoClear.value === v} className={seg(r.logoClear.value === v)}>{l}</button>)}</div>
       </Field>
-      <Field label="Minimum width" k="logoMin">
-        <div className="grid grid-cols-4 gap-1.5">{[16, 24, 32, 48].map(v => <button key={v} onClick={() => setTok('logoMin', v)} aria-pressed={r.logoMin.value === v} className={seg(r.logoMin.value === v)}>{v}px</button>)}</div>
+      <Field label={<span className="inline-flex items-center gap-1.5">Minimum size <Source locked={t.logoMin.locked} /></span>} k="logoMin" hint={logo ? `Suggested so the thinnest stroke stays at least 1 px on screen and 0.3 mm in print.` : 'Width on screen, and in print.'}>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex items-center gap-1.5 text-[12px] text-void-400"><input type="number" min={12} max={600} value={minPx} onChange={e => setTok('logoMin', Math.max(12, Math.min(600, +e.target.value || 0)))} aria-label="Minimum width on screen" className={`${input} font-mono`} /><span className="shrink-0">px</span></label>
+          <label className="flex items-center gap-1.5 text-[12px] text-void-400"><input type="number" min={4} max={200} value={minMm} onChange={e => setTok('logoMinPrint', Math.max(4, Math.min(200, +e.target.value || 0)))} aria-label="Minimum width in print" className={`${input} font-mono`} /><span className="shrink-0">mm</span></label>
+        </div>
+        <div className="mt-1.5 grid grid-cols-4 gap-1.5">{[24, 32, 48, 64].map(v => <button key={v} onClick={() => setTok('logoMin', v)} aria-pressed={minPx === v} className={seg(minPx === v)}>{v}px</button>)}</div>
       </Field>
-      {logo && <Field label="Logo contrast">
+      {logo && <Field label="Logo on backgrounds" hint="Full colour wherever it clears the target; otherwise the best honest version. Change any row to set your own rule.">
         <ul className="rounded-lg border border-void-800 divide-y divide-void-800/70">
-          {logoPlacements(brand, logo).map(p => (
-            <li key={p.bgName} className="flex items-center gap-2 px-2.5 py-1.5 text-[12px]">
-              <span className="w-7 h-5 shrink-0 rounded" style={{ background: p.bg, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)' }} />
-              <span className="flex-1 min-w-0 truncate text-void-300">{p.bgName}</span>
-              <span className="text-void-500">{p.mode === 'original' ? 'Full colour' : p.mode === 'white' ? 'Reversed' : 'Dark mono'}</span>
-              <span className={`w-11 text-right font-mono ${p.ok ? 'text-emerald-300' : 'text-rose-300'}`}>{p.ratio.toFixed(1)}</span>
+          {(showAllBg ? places : places.slice(0, 5)).map(p => (
+            <li key={p.id} className="px-2.5 py-1.5 text-[12px]">
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-5 shrink-0 rounded" style={{ background: p.bg, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)' }} />
+                <span className="flex-1 min-w-0 truncate text-void-300">{p.bgName}</span>
+                <select value={p.designer ? VARIANT_OF[p.mode] : ''} onChange={e => chooseBackground(p.id, (e.target.value || null) as VariantId | null)} aria-label={`Logo version on ${p.bgName}`}
+                  className={`h-7 max-w-[128px] px-1.5 rounded-md bg-void-900 border border-void-800 text-[11.5px] ${p.designer ? 'text-accent-light' : 'text-void-300'} ${focusRing}`}>
+                  <option value="">{MODE_LABEL[p.mode]}{p.designer ? '' : ' (suggested)'}</option>
+                  {validModes.map(v => <option key={v} value={v}>{VARIANT_LABEL[v]}</option>)}
+                </select>
+                <span className={`w-9 text-right font-mono ${LEVEL_TEXT[p.level]}`} title={LEVEL_WORD[p.level]}>{p.ratio.toFixed(1)}</span>
+              </div>
+              {p.level !== 'good' && <p className={`mt-1 text-[11px] leading-snug ${p.level === 'check' ? 'text-amber-200/80' : 'text-rose-200/80'}`}>{p.why}</p>}
             </li>))}
         </ul>
+        {places.length > 5 && <button onClick={() => setShowAllBg(v => !v)} className={`mt-1.5 text-[11.5px] text-void-400 hover:text-white rounded ${focusRing}`}>{showAllBg ? 'Fewer backgrounds' : `All ${places.length} backgrounds`}</button>}
       </Field>}
       <Field label="Personality" hint="Steers the fonts, scale and corners the generator reaches for.">
         <div className="grid grid-cols-3 gap-1.5">{PERSONALITIES.map((p, i) => <button key={p} onClick={() => set('personality', i)} aria-pressed={t.personality === i} className={seg(t.personality === i)}>{p}</button>)}</div>
@@ -234,19 +307,38 @@ function ExportTab({ brand, o, onPdf, onPrint, onHtml, onEditor, onSave, busy, c
   )
 }
 
-function Diagnostics({ checks }: { checks: Brand['checks'] }) {
+function Diagnostics({ checks, health }: { checks: Brand['checks']; health: HealthGroup[] }) {
   const [open, setOpen] = useState(false)
   const bad = checks.filter(c => !c.ok)
+  const sum = healthSummary(health)
+  const level: Level = bad.length ? 'attention' : sum.level
+  const tone = level === 'attention' ? 'border-amber-400/40 text-amber-200 bg-amber-400/10' : level === 'check' ? 'border-void-700 text-void-200 bg-void-900' : 'border-emerald-400/30 text-emerald-200 bg-emerald-400/10'
+  const label = bad.length ? `${bad.length} ${bad.length === 1 ? 'issue' : 'issues'}` : sum.level === 'good' ? 'Brand complete' : sum.text
+  const dot = (l: Level) => <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${l === 'good' ? 'bg-emerald-400' : l === 'check' ? 'bg-amber-300' : 'bg-rose-400'}`} />
   return (
     <div className="relative">
-      <button onClick={() => setOpen(v => !v)} aria-expanded={open} className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12px] border ${focusRing} ${bad.length ? 'border-amber-400/40 text-amber-200 bg-amber-400/10' : 'border-emerald-400/30 text-emerald-200 bg-emerald-400/10'}`}>
-        {bad.length ? <AlertCircle size={13} /> : <Check size={13} />}
-        {bad.length ? `${bad.length} ${bad.length === 1 ? 'issue' : 'issues'}` : <><span className="sm:hidden">{checks.length} pass</span><span className="hidden sm:inline">All {checks.length} checks pass</span></>}
+      <button onClick={() => setOpen(v => !v)} aria-expanded={open} data-brand-health className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12px] border ${focusRing} ${tone}`}>
+        {level === 'attention' ? <AlertCircle size={13} /> : <Check size={13} />}
+        <span className="sm:hidden">{bad.length ? bad.length : sum.level === 'good' ? 'Complete' : sum.text.split(' ')[0]}</span><span className="hidden sm:inline">{label}</span>
       </button>
       {open && (
-        <div className="absolute right-0 top-10 z-40 w-[340px] rounded-xl bg-[#17171c] border border-void-700 shadow-2xl p-2">
-          <ul className="max-h-80 overflow-auto">{[...bad, ...checks.filter(c => c.ok)].map((c, i) => (
-            <li key={i} className="flex gap-2 px-2 py-1.5 text-[12px] leading-snug">{c.ok ? <Check size={13} className="mt-0.5 shrink-0 text-emerald-300" /> : <AlertCircle size={13} className="mt-0.5 shrink-0 text-amber-300" />}<span className={c.ok ? 'text-void-400' : 'text-void-100'}>{c.text}</span></li>
+        <div className="absolute right-0 top-10 z-40 w-[360px] max-w-[92vw] rounded-xl bg-[#17171c] border border-void-700 shadow-2xl p-3 max-h-[70vh] overflow-auto">
+          <p className="text-[11px] uppercase tracking-wide text-void-500 mb-2">Brand health</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            {health.map(g => (
+              <div key={g.title}>
+                <p className="text-[12px] font-medium text-void-200 mb-1">{g.title}</p>
+                <ul className="space-y-1">{g.items.map(it => (
+                  <li key={it.label} className="text-[11.5px] leading-snug">
+                    <span className="inline-flex items-center gap-1.5 text-void-300">{dot(it.level)}{it.label}</span>
+                    {it.note && it.level !== 'good' && <span className="block pl-3 text-void-500">{it.note}</span>}
+                  </li>))}</ul>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] uppercase tracking-wide text-void-500 mt-4 mb-1">Checks</p>
+          <ul>{[...bad, ...checks.filter(c => c.ok)].map((c, i) => (
+            <li key={i} className="flex gap-2 px-0.5 py-1 text-[12px] leading-snug">{c.ok ? <Check size={13} className="mt-0.5 shrink-0 text-emerald-300" /> : <AlertCircle size={13} className="mt-0.5 shrink-0 text-amber-300" />}<span className={c.ok ? 'text-void-400' : 'text-void-100'}>{c.text}</span></li>
           ))}</ul>
         </div>
       )}
@@ -355,13 +447,17 @@ function Preview({ brand, logo, o, active, setActive }: { brand: Brand; logo: Lo
 }
 
 const TABS = ['Identity', 'Colour', 'Type', 'Export'] as const
+const initialColor = '#3d5afe'
 
 export function BrandGuideline({ onBack }: { onBack: () => void }) {
   const router = useRouter()
   const tokens = useBrand(s => s.tokens), set = useBrand(s => s.set), newTake = useBrand(s => s.newTake), pages = useBrand(s => s.pages)
   const logo = useBrand(s => s.logo), setLogoInfo = useBrand(s => s.setLogo), hydration = useBrand(s => s.hydration), hydrate = useBrand(s => s.hydrate), startOver = useBrand(s => s.startOver)
+  const decisions = useBrand(s => s.decisions)
   const [tab, setTab] = useState<(typeof TABS)[number]>('Identity')
   const [logoErr, setLogoErr] = useState('')
+  const [suggestedColor, setSuggestedColor] = useState<string | null>(null)
+  const [takeMenu, setTakeMenu] = useState(false)
   const [restoredNote, setRestoredNote] = useState<'show' | 'confirm' | 'hidden'>('show')
   useEffect(() => { hydrate(); return guardUnload() }, [hydrate])
   const [o, setO] = useState<Orientation>('landscape')
@@ -369,48 +465,72 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
   const [active, setActive] = useState(0)
   const [err, setErr] = useState<string | null>(null)
   const brand = useMemo(() => buildBrand(tokens), [tokens])
-  const checks = useMemo(() => [...brand.checks, ...logoChecks(brand, logo)], [brand, logo])
+  const checks = useMemo(() => [...brand.checks, ...logoChecks(brand, logo, decisions)], [brand, logo, decisions])
+  const health = useMemo(() => brandHealth({
+    colors: [{ hex: brand.roles[0].hex, role: 'primary' }, { hex: brand.roles[1].hex, role: 'secondary' }, { hex: brand.surfaces.light, role: 'background' }, { hex: brand.surfaces.inkOnLight, role: 'text' }],
+    display: brand.fonts.heading.family, body: brand.fonts.body.family,
+    logos: logo ? logoVariants(brand, logo, decisions).filter(v => v.valid).map(v => ({ name: VARIANT_LABEL[v.id], variant: v.id, derivedFrom: v.id === 'primary' ? null : 'logo', profile: v.id === 'primary' ? logo.profile : null })) : [],
+    logoRules: { clearSpace: { value: brand.logo.clearSpace, source: brand.logo.sources.clearSpace }, minWidth: { value: brand.logo.minWidth, source: brand.logo.sources.minWidth }, minPrint: { value: brand.logo.minPrint, source: brand.logo.sources.minPrint }, backgrounds: logo ? logoPlacements(brand, logo, decisions).map(p => ({ hex: p.bg, name: p.bgName, use: VARIANT_OF[p.mode], level: p.level, source: p.designer ? 'designer' as const : 'suggested' as const })) : [] },
+  }), [brand, logo, decisions])
   const visible = pages.filter(p => p.on)
 
   useEffect(() => { loadFont(brand.fonts.heading); loadFont(brand.fonts.body); loadFont(brand.fonts.mono, [400]) }, [brand.fonts.heading, brand.fonts.body, brand.fonts.mono])
 
   const onLogo = async (f: File) => {
-    setLogoErr('')
+    setLogoErr(''); setSuggestedColor(null)
     try {
       const info = await analyseLogo(f); setLogoInfo(info, f)
-      const c = document.createElement('canvas'); c.width = 64; c.height = 64; const x = c.getContext('2d')!
-      x.fillStyle = '#fff'; x.fillRect(0, 0, 64, 64); x.drawImage(info.img, 0, 0, 64, 64)
-      // Only take a colour that has some chroma. A white, grey or black logo leaves the brand colour alone.
-      const pick = extractPalette(c, 4).find(h => { const v = parseInt(h.slice(1), 16); const r = v >> 16, g = (v >> 8) & 255, b = v & 255; return Math.max(r, g, b) - Math.min(r, g, b) > 30 })
-      if (pick) set('brandColor', pick)
+      // The mark's main chromatic colour. Taken as the brand colour only while the brand colour is still the default; otherwise suggested.
+      const pick = info.profile.colors.find(c => c.chroma > 0.12 && c.share >= 0.05)?.hex ?? null
+      if (pick && pick.toLowerCase() !== tokens.brandColor.toLowerCase()) {
+        if (tokens.brandColor === initialColor) set('brandColor', pick); else setSuggestedColor(pick)
+      }
     } catch { setLogoErr('That file could not be read as an image. Try SVG, PNG or JPG.') }
   }
   const base = fileSlug(brand.name)
   const run = async (label: string, fn: () => Promise<void>) => { setBusy(label); setErr(null); try { await fn() } catch (e) { console.error(e); setErr(`${label.replace(/^Building /, 'The ')} could not be built. ${(e as Error)?.message || 'Try again.'}`) } finally { setBusy(null) } }
-  const exportPdf = () => run('Building screen PDF', async () => { const { exportBrandPdf } = await import('./brand-pdf'); await exportBrandPdf(brand, logo, pages, o, `${base}-guidelines-${o}.pdf`) })
-  const exportPrint = () => run('Building print PDF', async () => { const { exportPrintPdf } = await import('./brand-pdf'); await exportPrintPdf(brand, logo, pages, o, `${base}-guidelines-print-${o}.pdf`) })
+  const exportPdf = () => run('Building screen PDF', async () => { const { exportBrandPdf } = await import('./brand-pdf'); await exportBrandPdf(brand, logo, pages, o, `${base}-guidelines-${o}.pdf`, decisions) })
+  const exportPrint = () => run('Building print PDF', async () => { const { exportPrintPdf } = await import('./brand-pdf'); await exportPrintPdf(brand, logo, pages, o, `${base}-guidelines-print-${o}.pdf`, decisions) })
   const exportHtml = () => run('Building HTML handoff', async () => {
     const { buildHandoffHtml } = await import('./brand/handoff')
     const { inlineGoogleFontFaces } = await import('./brand/fonts')
     const slides: string[] = []
-    await eachPage(pages, brand, logo, o, 1, async c => { slides.push(c.toDataURL('image/jpeg', 0.85)) })
+    await eachPage(pages, brand, logo, o, 1, async c => { slides.push(c.toDataURL('image/jpeg', 0.85)) }, decisions)
     // Fonts go into the file, so it reads the same offline. Anything that cannot be fetched is linked instead.
     setBusy('Embedding fonts')
     const google = Array.from(new Set([brand.fonts.heading, brand.fonts.body, brand.fonts.mono].filter(f => f.source === 'google').map(f => f.family)))
     const { css, missing } = await inlineGoogleFontFaces(google)
-    downloadBlob(new Blob([buildHandoffHtml(brand, logo, slides, css, missing)], { type: 'text/html' }), `${base}-brand.html`)
+    downloadBlob(new Blob([buildHandoffHtml(brand, logo, slides, css, missing, decisions)], { type: 'text/html' }), `${base}-brand.html`)
     if (missing.length) setErr(`Saved. ${missing.join(', ')} could not be embedded, so the file loads ${missing.length === 1 ? 'it' : 'them'} from Google when online.`)
   })
   // Brand memory: the resolved system becomes a client brand Studio jobs can check against.
   const saveAsClient = async () => {
     const { newBrand, useJobs } = await import('./jobs')
     const roleOf = (i: number) => (i === 0 ? 'primary' : i === 1 ? 'secondary' : 'accent') as 'primary' | 'secondary' | 'accent'
-    const logos = logo ? [{ id: 'logo', name: logo.fileName || 'Logo', blob: await canvasToBlob(logo.img), w: logo.width, h: logo.height }] : []
+    // The logo system travels with the brand: the supplied file, every honest version, the measured profile and the rules with their source.
+    const logos: import('./jobs').BrandLogo[] = []
+    if (logo) {
+      const { plainProfile } = await import('@/lib/intelligence/dom')
+      const profile = plainProfile(logo.profile)
+      logos.push({ id: 'logo', name: suggestLogoName(logo.fileName, logo.profile), blob: await canvasToBlob(logo.img), w: logo.width, h: logo.height, variant: 'primary', profile })
+      for (const v of logoVariants(brand, logo, decisions)) {
+        if (v.id === 'primary' || !v.valid || !v.derived) continue
+        const mode = MODE_OF[v.id]
+        const c = mode === 'grayscale' ? grayMark(logo) : monoMark(logo, mode === 'white' ? '#ffffff' : mode === 'brand' ? brand.roles[0].hex : brand.surfaces.inkOnLight)
+        logos.push({ id: `logo-${v.id}`, name: suggestLogoName(logo.fileName, logo.profile, v.id), blob: await canvasToBlob(c), w: logo.width, h: logo.height, variant: v.id, derivedFrom: 'logo', profile: plainProfile(v.profile), onDark: v.id === 'reversed' })
+      }
+    }
+    const rules: import('@/lib/intelligence/brand').LogoRules = {
+      clearSpace: { value: brand.logo.clearSpace, source: brand.logo.sources.clearSpace },
+      minWidth: { value: brand.logo.minWidth, source: brand.logo.sources.minWidth },
+      minPrint: { value: brand.logo.minPrint, source: brand.logo.sources.minPrint },
+      backgrounds: logo ? logoPlacements(brand, logo, decisions).map(p => ({ hex: p.bg, name: p.bgName, use: VARIANT_OF[p.mode], level: p.level, source: p.designer ? 'designer' as const : 'suggested' as const, why: p.why })) : [],
+    }
     const b = newBrand({
       name: brand.name, client: brand.name,
       colors: [...brand.roles.map((r, i) => ({ hex: r.hex, role: roleOf(i) })), { hex: brand.surfaces.light, role: 'background' as const }, { hex: brand.surfaces.inkOnLight, role: 'text' as const }, ...(brand.neutrals[4] ? [{ hex: brand.neutrals[4], role: 'neutral' as const }] : [])],
       display: brand.fonts.heading.family, body: brand.fonts.body.family, scale: { base: brand.baseSize, ratio: brand.ratio },
-      logos, logoMin: Math.max(40, Math.round(brand.logo.minWidth)), clearSpace: Math.min(2, Math.max(0.1, brand.logo.clearSpace > 3 ? brand.logo.clearSpace / 100 : brand.logo.clearSpace)),
+      logos, logoMin: Math.round(brand.logo.minWidth), clearSpace: Math.min(2, Math.max(0.1, brand.logo.clearSpace)), logoRules: rules,
       voice: brand.voice.tone.split(/,\s*/), dos: brand.voice.dos, donts: brand.voice.donts,
     })
     await useJobs.getState().saveBrand(b)
@@ -421,7 +541,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
     setBusy('Opening in Editor'); setErr(null)
     try {
       // Pages go over as real layers: text stays text, shapes stay shapes, the logo stays an image.
-      const recorded = await recordPages(pages, brand, logo, o, (i, n) => setBusy(`Building page ${i + 1} of ${n}`))
+      const recorded = await recordPages(pages, brand, logo, o, (i, n) => setBusy(`Building page ${i + 1} of ${n}`), decisions)
       if (!recorded.length) throw new Error('Every page is hidden. Include at least one page in the page list.')
       setBusy('Opening in Editor')
       const layered: LayeredPage[] = []
@@ -448,12 +568,23 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
         <span className="text-void-700">/</span>
         <h1 className="text-[13.5px] font-semibold truncate max-w-[40vw]">{tokens.name || 'Untitled brand'}</h1>
         <div className="ml-auto flex items-center gap-2">
-          <Diagnostics checks={checks} />
+          <Diagnostics checks={checks} health={health} />
           <div className="flex rounded-lg border border-void-800 p-0.5">
             <button onClick={() => setO('landscape')} aria-label="Deck" aria-pressed={o === 'landscape'} className={`h-7 px-2 rounded-md text-[12px] inline-flex items-center gap-1.5 ${focusRing} ${o === 'landscape' ? 'bg-void-800 text-white' : 'text-void-400 hover:text-white'}`}><Monitor size={13} /><span className="hidden sm:inline">Deck</span></button>
             <button onClick={() => setO('portrait')} aria-label="Document" aria-pressed={o === 'portrait'} className={`h-7 px-2 rounded-md text-[12px] inline-flex items-center gap-1.5 ${focusRing} ${o === 'portrait' ? 'bg-void-800 text-white' : 'text-void-400 hover:text-white'}`}><FileText size={13} /><span className="hidden sm:inline">Document</span></button>
           </div>
-          <Button onClick={newTake} className="px-2.5 sm:px-3.5"><RefreshCw size={14} /><span className="sr-only sm:not-sr-only">New take</span></Button>
+          <div className="relative">
+            <div className="flex rounded-lg border border-void-800 overflow-hidden">
+              <button onClick={() => newTake('layout')} title="A variation: keeps colours, type and scale, redraws the composition" className={`h-8 px-2.5 sm:px-3 inline-flex items-center gap-1.5 text-[12.5px] bg-void-900 text-void-100 hover:bg-void-800 ${focusRing}`}><RefreshCw size={14} /><span className="sr-only sm:not-sr-only">Vary layout</span></button>
+              <button onClick={() => setTakeMenu(v => !v)} aria-expanded={takeMenu} aria-label="More takes" className={`h-8 w-7 inline-flex items-center justify-center border-l border-void-800 bg-void-900 text-void-300 hover:text-white ${focusRing}`}><ChevronDown size={13} /></button>
+            </div>
+            {takeMenu && (
+              <div className="absolute right-0 top-10 z-40 w-[290px] rounded-xl bg-[#17171c] border border-void-700 shadow-2xl p-1.5 text-[12.5px]">
+                <button onClick={() => { newTake('layout'); setTakeMenu(false) }} className={`w-full text-left px-2.5 py-2 rounded-lg hover:bg-void-800 ${focusRing}`}><span className="block text-void-100">Vary the layout</span><span className="block text-[11.5px] text-void-500">Keeps the logo, colours, type and scale. Changes art direction, corners, spacing and grid.</span></button>
+                <button onClick={() => { newTake('all'); setTakeMenu(false) }} className={`w-full text-left px-2.5 py-2 rounded-lg hover:bg-void-800 ${focusRing}`}><span className="block text-void-100">New take of everything</span><span className="block text-[11.5px] text-void-500">Regenerates every unlocked token, colours and fonts included.</span></button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -470,21 +601,21 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
           </>}
         </div>
       )}
-      <div className="flex-1 flex flex-col lg:flex-row min-h-0">
-        <aside className="order-last lg:order-none lg:w-[330px] shrink-0 border-t lg:border-t-0 lg:border-r border-void-800/60 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row lg:min-h-0 overflow-y-auto lg:overflow-visible">
+        <aside className="order-last lg:order-none lg:w-[330px] shrink-0 border-t lg:border-t-0 lg:border-r border-void-800/60 flex flex-col lg:min-h-0">
           <div role="tablist" className="grid grid-cols-4 gap-1 p-2 border-b border-void-800/60">
             {TABS.map(t => <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`h-8 rounded-md text-[12.5px] ${focusRing} ${tab === t ? 'bg-void-800 text-white' : 'text-void-400 hover:text-white'}`}>{t}</button>)}
           </div>
           <div className="p-4 lg:overflow-y-auto overscroll-contain flex-1 min-h-0">
-            {tab === 'Identity' && <IdentityTab logo={logo} onLogo={onLogo} brand={brand} logoErr={logoErr} />}
+            {tab === 'Identity' && <IdentityTab logo={logo} onLogo={onLogo} brand={brand} logoErr={logoErr} suggestedColor={suggestedColor} onUseColor={() => { if (suggestedColor) set('brandColor', suggestedColor); setSuggestedColor(null) }} />}
             {tab === 'Colour' && <ColourTab brand={brand} />}
             {tab === 'Type' && <TypeTab brand={brand} />}
             {tab === 'Export' && <ExportTab brand={brand} o={o} onPdf={exportPdf} onPrint={exportPrint} onHtml={exportHtml} onEditor={openInEditor} onSave={saveAsClient} busy={!!busy} count={visible.length} />}
           </div>
-          <p className="px-4 py-2.5 border-t border-void-800/60 text-[11.5px] text-void-500 leading-snug">New take changes anything unlocked. Editing a value locks it. Page order and layouts are always kept.</p>
+          <p className="px-4 py-2.5 border-t border-void-800/60 text-[11.5px] text-void-500 leading-snug">Vary layout keeps the identity. New take changes anything unlocked. Editing a value locks it. Page order and layouts are always kept.</p>
         </aside>
 
-        <section className="flex-1 min-w-0 flex flex-col lg:flex-row min-h-0">
+        <section className="lg:flex-1 min-w-0 flex flex-col lg:flex-row shrink-0 lg:shrink lg:min-h-0">
           <Outliner brand={brand} logo={logo} o={o} active={active} setActive={setActive} />
           <Preview brand={brand} logo={logo} o={o} active={active} setActive={setActive} />
         </section>

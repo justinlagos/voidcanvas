@@ -110,7 +110,7 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Common problems' },
       { t: 'list', items: [
-        '**Export failed. Try a smaller size.** Very large canvases can exhaust browser memory. Close other heavy tabs and try again at 1×.',
+        '**Could not draw N px on the long side.** Very large canvases can exhaust browser memory. The message names the scale that will work; close other heavy tabs and export at that size.',
         '**The cut-out has a halo.** Click the Subject mask thumbnail and paint along the edge with Eraser at low Hardness to pull the mask in.',
         '**Colours look duller on paper.** Exports are RGB. Ask the printer to convert with their profile and send you a proof.',
         '**The headline disappears behind the subject.** Move the text layer above Subject in the Layers panel, or move the subject over.',
@@ -356,7 +356,7 @@ export const articles: Article[] = [
         'Any fonts the client already owns, as .woff2, .woff, .ttf or .otf files, or Google Fonts names.',
       ] },
       { t: 'h', text: 'Result' },
-      { t: 'p', text: 'A guideline of up to 13 pages as a screen PDF, a print PDF with bleed and crop marks, and a single HTML file the client opens in a browser. Plus CSS, Tailwind and JSON tokens, an .ase swatch file, the pages as editable Editor boards, and the brand saved in Studio so every future job is checked against it.' },
+      { t: 'p', text: 'A guideline of up to 15 pages as a screen PDF, a print PDF with bleed and crop marks, and a single HTML file the client opens in a browser. Plus CSS, Tailwind and JSON tokens, an .ase swatch file, the pages as editable Editor boards, and the brand saved in Studio so every future job is checked against it.' },
 
       { t: 'h', text: '1. Open the builder' },
       { t: 'steps', items: [
@@ -368,12 +368,13 @@ export const articles: Article[] = [
       { t: 'h', text: '2. Identity: logo and the rules around it' },
       { t: 'steps', items: [
         'Fill in **Brand name** and **Tagline**.',
-        'Under **Logo**, click **Add logo**. If the logo has colour, the builder takes the brand colour from it. A flat background is removed so the mark sits on any colour.',
-        'Set **Clear space** (¼ H, ½ H or 1 H, measured from the height of the mark) and **Minimum width** (16, 24, 32 or 48 px).',
-        'Read **Logo contrast**. It lists each background with the logo version that works on it (Full colour, Reversed or Dark mono) and a contrast figure. Red means the logo is too faint there.',
+        'Under **Logo**, click **Add logo**. The artwork is measured and a flat background is removed; the original is kept as supplied. If the brand colour is still the default it is taken from the mark, otherwise it is offered with **Use it**.',
+        'Read **Versions**. Primary is the file as supplied; Reversed, Mono dark, One colour and Greyscale are derived only where they stay honest. When a version is refused, the reason names the two colours a flat version would melt together: ask the client for that artwork.',
+        'Check **Clear space** (¼ H, ½ H or 1 H, measured from the height of the mark) and **Minimum size** (px on screen, mm in print). Both are **Suggested** from the artwork until you set them; set the client\'s own rules if they have them.',
+        'Read **Logo on backgrounds**. It lists white, black, grey, the brand colours, surfaces and tints, each with the version that works there and its ratio. Amber is marginal, red means no version clears it, with the scrim that would. Change a row to set your own rule.',
         'Pick a **Personality**, an **Art direction** (editorial, graphic or systematic), **Corner radius**, **Spacing unit** and **Grid**.',
       ] },
-      { t: 'p', text: 'Clear space measured from the mark itself, not in pixels, is what keeps the rule true at every size. Minimum width is the size below which the mark stops being recognisable; test it by zooming the preview out.' },
+      { t: 'p', text: 'Clear space measured from the mark itself, not in pixels, is what keeps the rule true at every size. Minimum size is the size below which the mark stops being recognisable; the **Minimum size** page shows it at actual size and at half, so you can see the detail go.' },
 
       { t: 'h', text: '3. Colour: a system, not a list' },
       { t: 'steps', items: [
@@ -393,11 +394,11 @@ export const articles: Article[] = [
       ] },
       { t: 'p', text: 'A small ratio suits dense material like reports and apps, where many levels of heading must stay close. A large ratio suits posters and campaigns, where the headline has to dominate. The preview under the controls shows the whole scale in the chosen fonts.' },
 
-      { t: 'h', text: '5. Explore with New take, then lock' },
-      { t: 'p', text: '**New take** in the top bar generates fresh choices for anything unlocked. Use it early to show the client options you would not have tried. Each field has a lock button; once the client approves a colour or font, lock it so later takes keep it. Page order and layouts are always kept.' },
+      { t: 'h', text: '5. Explore with Vary layout and New take, then lock' },
+      { t: 'p', text: '**Vary layout** in the top bar redraws the composition (art direction, corners, spacing, grid) and keeps the logo, colours and type. **New take of everything**, under the arrow beside it, generates fresh choices for anything unlocked, colours and fonts included. Use them early to show the client options you would not have tried. Each field has a lock button; once the client approves a colour or font, lock it so later takes keep it. Page order and layouts are always kept.' },
 
       { t: 'h', text: '6. Check before you show anyone' },
-      { t: 'p', text: 'The button in the top bar reads **All N checks pass** or **N issues**. Click it for the list. It covers colour contrast and the logo checks, and it is quicker to fix issues now than after the PDF is in the client\'s inbox.' },
+      { t: 'p', text: 'The button in the top bar reads **N issues** when a check fails, otherwise the brand health: **Brand complete**, **N worth checking** or **N need attention**. Click it for the list. It covers colour contrast, the logo on every background, which logo versions exist and whether each rule is suggested or set by you, and it is quicker to fix issues now than after the PDF is in the client\'s inbox.' },
 
       { t: 'h', text: '7. Shape the document' },
       { t: 'steps', items: [

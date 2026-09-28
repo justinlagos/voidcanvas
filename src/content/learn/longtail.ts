@@ -1299,11 +1299,11 @@ export const articles: Article[] = [
       ] },
       { t: 'h', text: 'Where each item lives in the guideline builder' },
       { t: 'table', head: ['Item', 'Builder'], rows: [
-        ['Logo, clear space, minimum width, logo on each background', 'Identity tab: Logo, Clear space (¼, ½ or 1 H), Minimum width, Logo contrast'],
+        ['Logo and its versions, clear space, minimum size, logo on each background', 'Identity tab: Logo, Versions, Clear space (¼, ½ or 1 H), Minimum size (px and mm), Logo on backgrounds'],
         ['Colours, ramps, contrast pairs', 'Colour tab: Brand colour, Harmony, Secondary, Accent, Neutral warmth, Contrast list'],
         ['Fonts and scale', 'Type tab: Headings, Body, Data and code; Scale; Base size'],
         ['Spacing, grid, radius, principles, voice', 'Identity tab: Spacing unit, Grid, Corner radius, Art direction, Personality'],
-        ['The guideline pages', '13 pages from Cover to Close, as a deck or a document'],
+        ['The guideline pages', '15 pages from Cover to Close, including Minimum size and Do not, as a deck or a document'],
         ['Files', 'Export tab: screen and print PDF, HTML handoff, CSS, Tailwind, JSON tokens, .ase swatches'],
       ] },
       { t: 'product', text: 'The guideline builder covers every item above, checks contrast and logo legibility, and exports the files each reader needs. Save it as a client brand and the Editor checks new designs against it.', label: 'Open the brand guideline builder', href: '/studio' },
@@ -1345,8 +1345,8 @@ export const articles: Article[] = [
         'Write both down: a screen minimum in px and a print minimum in mm. If the full logo fails early, define a simplified version (a mark without the tagline) for small sizes.',
       ] },
       { t: 'h', text: 'Make the rules checkable' },
-      { t: 'p', text: 'In the guideline builder, **Clear space** (¼ H, ½ H or 1 H) and **Minimum width** (16, 24, 32 or 48 px) go on the Identity tab and onto the Clear space page of the guideline. Save the brand to **Client brands** in Studio, where **Clear space** is a share of the logo height and **Smallest size** is measured on a 1080 px wide design, so one rule works for a post, a story and a banner. On any job using that brand, the Editor lists **logos under the minimum size** and **layers inside the logo\'s clear space**, with a button that selects the offending layer.' },
-      { t: 'product', text: 'Clear space and minimum size are set once, drawn in the guideline, and checked in every design that uses the brand. A layer counts as a logo when its name contains "logo".', label: 'Open the brand guideline builder', href: '/studio' },
+      { t: 'p', text: 'In the guideline builder, **Clear space** (¼ H, ½ H or 1 H) and **Minimum size** (px on screen and mm in print) are on the Identity tab. Both start as **Suggested**: clear space from the shape of the mark, minimum size so the thinnest stroke stays at least 1 px on screen and 0.3 mm in print. Pick your own and they read **Set by you**. They are drawn on the **Clear space** page (with a correct and an incorrect example) and the **Minimum size** page (the mark at actual sizes, with the thinnest stroke magnified). Save the brand to **Client brands** in Studio, where **Clear space** is a share of the logo height and **Smallest on screen** is measured on a 1080 px wide design, so one rule works for a post, a story and a banner. On any job using that brand, the Editor lists **logos under the minimum size** and **layers inside the logo\'s clear space**, with a button that selects the offending layer. A photo the logo sits on does not count as crowding it.' },
+      { t: 'product', text: 'Clear space and minimum size are set once, drawn in the guideline, and checked in every design that uses the brand. A layer counts as a logo when it was placed from the brand, when its role is Logo, or when its name contains "logo".', label: 'Open the brand guideline builder', href: '/studio' },
       { t: 'faq', items: [
         { q: 'Does the clear space include the tagline?', a: 'Decide and say so. Most guidelines measure from the mark and wordmark together, with the tagline counted as part of the logo when it is shown.' },
         { q: 'Can text touch the logo if it is part of a lockup?', a: 'Only in a lockup the guideline defines, such as a partner logo at a set distance. Everything else stays outside the clear space.' },
@@ -1376,7 +1376,7 @@ export const articles: Article[] = [
         'Brief: who the customers are, what the business promises them, three words for how it should feel (warm, precise, playful…).',
         'Name treatment: set the name in five or six fonts that match the three words. Pick one, adjust the letter spacing, and that is the wordmark. Add a mark only if a simple one suggests itself.',
         'Colour: choose one brand colour that suits the words and the competitors\' colours (be different from the business next door).',
-        'In Studio\'s **Brand guideline builder**, enter the name, add the wordmark as a logo, set the brand colour and pick the **Personality** that matches. It builds the secondary, accent, neutrals, a font pairing and a type scale, and checks the contrast. Press **New take** until it feels right; lock what you like.',
+        'In Studio\'s **Brand guideline builder**, enter the name, add the wordmark as a logo, set the brand colour and pick the **Personality** that matches. It builds the secondary, accent, neutrals, a font pairing and a type scale, and checks the contrast. Press **Vary layout** to try compositions, or **New take of everything** to try colours and fonts too, until it feels right; lock what you like.',
       ] },
       { t: 'h', text: 'Day two: make it usable' },
       { t: 'steps', items: [
@@ -1415,7 +1415,7 @@ export const articles: Article[] = [
     keywords: 'brand guidelines online free generator style guide maker template brand book pdf no account exports tokens ase',
     guide: { next: ['brand-guidelines', 'brand-guideline-exports'], also: [{ when: 'you want to know what a guideline must include', slug: 'brand-identity-checklist' }] },
     body: [
-      { t: 'answer', text: 'Open Studio and choose **Brand guideline builder**. Add the brand name, the **logo** (SVG, PNG or JPG; a flat background is removed), a **brand colour** and a **personality**. The builder generates a colour system in OKLCH ramps with contrast checks, a font pairing and type scale, logo rules and thirteen guideline pages. **Lock** what you have decided and press **New take** to explore the rest. Export a **screen PDF**, a **print PDF** with bleed and crop marks, a single-file **HTML handoff**, **CSS**, **Tailwind** and **JSON** tokens, and **.ase** swatches. It is free, needs no account, and runs on your device.' },
+      { t: 'answer', text: 'Open Studio and choose **Brand guideline builder**. Add the brand name, the **logo** (SVG, PNG or JPG; a flat background is removed), a **brand colour** and a **personality**. The builder generates a colour system in OKLCH ramps with contrast checks, a font pairing and type scale, logo versions tested on every background, logo rules and fifteen guideline pages. **Lock** what you have decided; **Vary layout** explores the composition and **New take of everything** explores the rest. Export a **screen PDF**, a **print PDF** with bleed and crop marks, a single-file **HTML handoff**, **CSS**, **Tailwind** and **JSON** tokens, and **.ase** swatches. It is free, needs no account, and runs on your device.' },
       { t: 'h', text: 'What you put in, what you get' },
       { t: 'table', head: ['You give it', 'It makes'], rows: [
         ['Brand name, tagline, logo', 'Cover, logo page, clear space page, logo versions (full colour, reversed, dark mono) checked on each background'],
@@ -2195,7 +2195,7 @@ export const articles: Article[] = [
         'In Studio, press **Client brands**, **New brand**, and name it.',
         'Colours: add each one with its role (primary, secondary, accent, neutral, background, text) and the hex from the guideline. Six-digit hex only; if the guideline gives only CMYK or Pantone, ask for the screen values.',
         'Type: the **Headlines** and **Text** fonts, by their Google Fonts name. If the brand uses a commercial font, add it by file in each design (Character panel) or use the closest Google font.',
-        'Logos: add each file and mark it **On light** or **On dark**. Set **Smallest size** (px on a 1080 px wide design) and **Clear space** (a share of the logo height, 0.5 is half).',
+        'Logos: under **Logo system**, add the supplied files. Each is measured and named (such as **Logo / Horizontal / Primary**); when you add a primary, the versions that can honestly be made from it are derived with it. Set what a file is (Primary, Reversed, Mono dark and so on) from the menu under it. Then set **Smallest on screen** (px on a 1080 px wide design), **Smallest in print** (mm) and **Clear space** (a share of the logo height, 0.5 is half) from the agency guideline, so they read **Set by you** rather than Suggested.',
         'Voice: the voice words and the do and don\'t lists.',
         'Press **Use as the Editor brand kit**, and on each job choose the brand under **Which brand is this for?**',
       ] },

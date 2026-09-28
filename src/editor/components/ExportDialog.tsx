@@ -1,12 +1,25 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, Copy, Download } from 'lucide-react'
+import { AlertCircle, Check, ChevronDown, Copy, Download } from 'lucide-react'
+import { exportPreflight, type Finding, type PreflightBoard, type PreflightLayer } from '@/lib/intelligence/preflight'
+import { layerBounds } from '../engine'
+import { fontAvailable } from './MoreDialogs'
 import { downloadBlob, exportBoards, exportVoidFile, renderFrame } from '../io'
 import { exportBoards as boardList, formatRange, parseRange, resultLabel, scaleOptions, type ExportFormat } from '../export'
 import { useEditor } from '../store'
 import { Button, Modal, Slider, focusRing } from './ui'
 import { noteExportForPrompt, track } from '@/lib/analytics'
+
+/** Where the file is going decides the settings. Advanced controls stay underneath. */
+interface Preset { id: string; label: string; format: ExportFormat; scale: number; quality: number; transparent: boolean; help: string }
+const PRESETS: Preset[] = [
+  { id: 'social', label: 'PNG · Social', format: 'png', scale: 1, quality: 0.92, transparent: false, help: 'Board size, sharp, flat background. Instagram, WhatsApp, LinkedIn.' },
+  { id: 'transparent', label: 'PNG · Transparent', format: 'png', scale: 1, quality: 0.92, transparent: true, help: 'Board colours left out, for placing on other work.' },
+  { id: 'web', label: 'JPG · Web', format: 'jpeg', scale: 1, quality: 0.85, transparent: false, help: 'Small files for websites and email.' },
+  { id: 'print', label: 'PDF · Print', format: 'pdf', scale: 1, quality: 0.95, transparent: false, help: 'One page per board at its own size. Studio delivery adds bleed and crop marks for print sizes.' },
+  { id: 'proof', label: 'PDF · Client proof', format: 'pdf', scale: 0.5, quality: 0.8, transparent: false, help: 'Half size, lighter file, one page per board. For approvals, not production.' },
+]
 
 const FORMATS: { id: ExportFormat; label: string; help: string }[] = [
   { id: 'png', label: 'PNG', help: 'Sharpest. Keeps transparency.' },
@@ -36,11 +49,28 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const [numbered, setNumbered] = useState(last.numbered)
   const [more, setMore] = useState(false)
   const [progress, setProgress] = useState<[number, number] | null>(null)
+  const [preset, setPreset] = useState<string | null>(null)
+  const applyPreset = (p: Preset) => { setPreset(p.id); setFormat(p.format); setScale(p.scale); setQuality(p.quality); setTransparent(p.transparent) }
 
   const chosen = picked.map(i => boards[i]).filter(Boolean)
-  const scales = useMemo(() => scaleOptions(chosen.length ? chosen : [boards[activeIdx]]), [chosen.map(b => b.id).join(), boards, activeIdx]) // eslint-disable-line react-hooks/exhaustive-deps
-  const k = scales.includes(scale) ? scale : scales[scales.length - 1] >= 1 ? 1 : scales[0]
   const canTransparent = format === 'png' || format === 'webp'
+  const scales = useMemo(() => scaleOptions(chosen.length ? chosen : [boards[activeIdx]]), [chosen.map(b => b.id).join(), boards, activeIdx]) // eslint-disable-line react-hooks/exhaustive-deps
+  const k = scales.includes(scale) ? scale : scale < 1 && preset === 'proof' ? scale : scales[scales.length - 1] >= 1 ? 1 : scales[0]
+  // Preflight: what will happen to these boards at this size, said before the file is made.
+  const layers = useEditor(s => s.layers)
+  const [mmById, setMmById] = useState<Record<string, { w: number; h: number }>>({})
+  useEffect(() => {
+    // Print sizes come from the Studio job's formats when the design belongs to one.
+    if (!doc.jobId) return
+    import('@/studio/jobs').then(m => m.getJob(doc.jobId!)).then(j => { if (!j) return; const out: Record<string, { w: number; h: number }> = {}; for (const f of doc.frames ?? []) { const d = j.deliverables.find(x => x.id === f.deliverableId); if (d?.mm) out[f.id] = d.mm } setMmById(out) }).catch(() => {})
+  }, [doc.jobId, doc.frames])
+  const findings = useMemo<Finding[]>(() => {
+    const pb: PreflightBoard[] = boards.map(b => ({ id: b.id, name: b.name, width: b.width, height: b.height, background: b.background, mm: mmById[b.id] ?? (doc.dpi && doc.dpi >= 150 ? { w: Math.round((b.width / doc.dpi) * 25.4), h: Math.round((b.height / doc.dpi) * 25.4) } : null) }))
+    const pl: PreflightLayer[] = layers.map(l => { const bb = layerBounds(l, doc); const f = doc.frames?.find(x => x.id === l.frameId); const rel = f ? { x: bb.x - f.x, y: bb.y - f.y, w: bb.w, h: bb.h } : bb; return { id: l.id, name: l.name, type: l.type, visible: l.visible, frameId: l.frameId ?? (boards[0]?.id === '__doc' ? '__doc' : l.frameId), bounds: rel, pixels: l.type === 'raster' ? { w: l.canvas.width, h: l.canvas.height } : undefined, text: l.type === 'text' ? l.text : undefined, fontFamily: l.type === 'text' ? l.fontFamily : undefined, role: l.role ?? null } })
+    const missing = Array.from(new Set(layers.filter(l => l.type === 'text' && l.visible).map(l => (l as any).fontFamily as string))).filter(f => f && !fontAvailable(f))
+    return exportPreflight({ boards: pb, layers: pl, boardIds: chosen.map(b => b.id), format, scale: k, transparent: canTransparent && transparent, missingFonts: missing })
+  }, [boards, layers, doc, chosen.map(b => b.id).join(), format, k, transparent, mmById]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [showAll, setShowAll] = useState(false)
   const working = !!progress
 
   const setPick = (idx: number[]) => { const s = Array.from(new Set(idx)).sort((a, b) => a - b); setPicked(s); setRange(formatRange(s)); setRangeBad(false) }
@@ -70,7 +100,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
       onClose()
     } catch {
       track('export.failed', { format, scale: k, boards: chosen.length })
-      useEditor.getState().notify('Export failed. Try a smaller size.')
+      const big = chosen.reduce((a, b) => Math.max(a, Math.max(b.width, b.height) * k), 0)
+      useEditor.getState().notify(big > 8000 ? `Could not draw ${Math.round(big)} px on the long side. Export at ${Math.max(1, Math.floor(k / 2))}× or fewer boards at once.` : 'Export could not be written. Try one board at a time.')
     } finally { setProgress(null) }
   }
 
@@ -112,9 +143,16 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           </section>
         )}
 
+        <section aria-label="Where it is going">
+          <div className="flex flex-wrap gap-1.5">
+            {PRESETS.map(p => <button key={p.id} onClick={() => applyPreset(p)} aria-pressed={preset === p.id} className={`h-8 px-3 rounded-lg text-[12.5px] border transition-colors ${focusRing} ${preset === p.id ? 'border-accent bg-accent-soft text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`}>{p.label}</button>)}
+          </div>
+          <p className="mt-2 text-[12px] text-void-500">{preset ? PRESETS.find(p => p.id === preset)!.help : 'Pick where the file is going, or set the type and size yourself below.'}</p>
+        </section>
+
         <section aria-label="File type">
           <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-void-900 border border-void-800" role="radiogroup">
-            {FORMATS.map(f => <button key={f.id} role="radio" aria-checked={format === f.id} className={seg(format === f.id)} onClick={() => setFormat(f.id)}>{f.label}</button>)}
+            {FORMATS.map(f => <button key={f.id} role="radio" aria-checked={format === f.id} className={seg(format === f.id)} onClick={() => { setFormat(f.id); setPreset(null) }}>{f.label}</button>)}
           </div>
           <p className="mt-2 text-[12px] text-void-500">{FORMATS.find(f => f.id === format)!.help}</p>
         </section>
@@ -122,7 +160,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         <section aria-label="Size">
           <div className="flex items-center gap-3">
             <div className="flex gap-1 p-1 rounded-xl bg-void-900 border border-void-800" role="radiogroup">
-              {scales.map(s => <button key={s} role="radio" aria-checked={k === s} className={`${seg(k === s)} px-3.5 tabular-nums`} onClick={() => setScale(s)}>{s}×</button>)}
+              {scales.map(s => <button key={s} role="radio" aria-checked={k === s} className={`${seg(k === s)} px-3.5 tabular-nums`} onClick={() => { setScale(s); if (preset === 'proof') setPreset(null) }}>{s}×</button>)}
             </div>
             <span className="text-[12px] text-void-400 tabular-nums">{sizeNote}</span>
           </div>
@@ -146,6 +184,20 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
             </div>
           )}
         </section>
+
+        {findings.length > 0 && (
+          <section aria-label="Before you export" data-preflight className="rounded-xl border border-void-800 bg-void-900/60 divide-y divide-void-800/70">
+            {(showAll ? findings : findings.slice(0, 4)).map((f, i) => (
+              <div key={i} className="flex items-start gap-2.5 px-3 py-2 text-[12.5px]">
+                <span className={`mt-[3px] w-2 h-2 rounded-full shrink-0 ${f.level === 'attention' ? 'bg-rose-400' : f.level === 'check' ? 'bg-amber-300' : 'bg-emerald-400'}`} />
+                <span className={`flex-1 leading-snug ${f.level === 'attention' ? 'text-void-100' : 'text-void-300'}`}>{f.text}</span>
+                {f.layerId && <button onClick={() => { useEditor.getState().setActive(f.layerId!); if (f.boardId && f.boardId !== '__doc') useEditor.getState().setActiveFrame(f.boardId); onClose() }} className={`shrink-0 text-void-400 hover:text-white rounded ${focusRing}`}>{f.action ?? 'Select'}</button>}
+                {!f.layerId && f.action === 'Review fonts' && <button onClick={() => { window.dispatchEvent(new CustomEvent('vc:open', { detail: { name: 'missingFonts', props: { fonts: [f.text.split(' is not')[0]] } } })); onClose() }} className={`shrink-0 text-void-400 hover:text-white rounded ${focusRing}`}>Review fonts</button>}
+              </div>
+            ))}
+            {findings.length > 4 && <button onClick={() => setShowAll(v => !v)} className={`w-full text-left px-3 py-1.5 text-[12px] text-void-500 hover:text-white ${focusRing}`}>{showAll ? 'Fewer' : `${findings.length - 4} more`}</button>}
+          </section>
+        )}
 
         <div className="flex gap-2">
           <Button primary disabled={working || !chosen.length || rangeBad} onClick={() => run(false)} className="flex-1">

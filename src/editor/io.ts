@@ -1,3 +1,4 @@
+import { suggestImageName } from '@/lib/intelligence/naming'
 import { ctx2d, makeCanvas, renderDoc, uid } from './engine'
 import { layoutFrames } from './frames'
 import { nextRev, useEditor } from './store'
@@ -185,8 +186,10 @@ export async function importFiles(files: File[] | Blob[], names?: string[]) {
     try {
       const c = await blobToCanvas(f)
       const name = names?.[i] ?? (f as File).name ?? 'Image'
+      // The document and its first layer arrive in the same tick, so the phone shell opens with the photo already selected.
       if (!useEditor.getState().doc) useEditor.getState().newDoc({ name: name.replace(/\.[a-z0-9]+$/i, ''), width: c.width, height: c.height, background: null })
-      useEditor.getState().addImage(c, c.width, c.height, name)
+      // A camera or screenshot name says nothing; the layer is named by what it is instead.
+      useEditor.getState().addImage(c, c.width, c.height, suggestImageName(name, c.width, c.height))
     } catch (e) { ed.notify((e as Error).message) }
     i++
   }

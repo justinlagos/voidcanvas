@@ -619,7 +619,7 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Fonts' },
       { t: 'list', items: [
-        "**Some fonts are missing.** A design or PSD uses fonts that are not on this device or on Google Fonts. Pick a replacement for each and click **Replace**, or click **Add font file** and choose the font file from your computer. Fonts added from files are saved inside the design, so they travel with it.",
+        "**Some fonts are missing.** A design or PSD uses fonts that are not on this device or on Google Fonts. Each one comes with a **Closest match** (the same kind of face) and a **Safer fallback**; pick and click **Replace**, or click **Add font file** and choose the font file from your computer. Fonts added from files are saved inside the design, so they travel with it.",
         "**Text shows in a plain stand-in font for a moment.** Web fonts load from Google Fonts the first time you use them. On a slow connection this takes a second; offline, a font you have never used cannot load.",
         "**Spacing shifted after opening a PSD.** The replacement font has different widths. Adjust size or tracking, or add the original font file.",
         "**That font file could not be read.** The file is damaged or not a font. Try another copy of it.",
@@ -627,7 +627,7 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Exports' },
       { t: 'list', items: [
-        "**Export failed. Try a smaller size.** The browser ran out of room for the canvas. Choose a smaller scale in **Size**. Scales that would go past 8192 pixels on the long side are not offered.",
+        "**Could not draw N px on the long side.** The browser ran out of room for the canvas. The message says which scale to drop to, or to export fewer boards at once. Scales that would go past the browser's limit are not offered.",
         "**The JPG has a white background.** JPG has no transparency. Use PNG or WebP. For PNG and WebP with a background colour set, tick **Leave out the background colour**.",
         "**Copy image did nothing, or failed.** Some browsers do not allow copying images to the clipboard. Use **Download** instead.",
         "**The PDF looks soft.** PDF export is image based. Designs larger than 2000 pixels on the long side are treated as print work at 300 dpi; smaller ones are sized for screen. Start print work from a Print size. See [Export for print](/learn/export-for-print).",
@@ -766,7 +766,7 @@ export const articles: Article[] = [
       ] },
       { t: 'list', items: [
         "**Number the steps**, starting from something anyone can do, such as ‘Pick Instagram post on the start screen’.",
-        "**Copy any message word for word.** Messages such as **Export failed. Try a smaller size.** point straight at the cause.",
+        "**Copy any message word for word.** Messages such as **Could not draw 27000 px on the long side** point straight at the cause.",
         "**Give sizes.** The design size, the size of the photo you added, the export scale. Many problems only appear with large files.",
         "**Say whether it used to work.** ‘This worked last week’ narrows the search a lot.",
         "**One problem per report.** Two bugs in one report often means one gets missed.",

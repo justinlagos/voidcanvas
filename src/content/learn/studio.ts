@@ -377,10 +377,10 @@ export const articles: Article[] = [
   {
     slug: 'delivering-files',
     title: 'Deliver every format, named and ready for the printer',
-    summary: "The Deliver tab renders every format at full size in the file types you tick, names each file by client, job, format and version, adds print PDFs with bleed and crop marks, and zips it all with a delivery note.",
+    summary: "The Deliver tab checks the job is ready, renders every format at full size in the file types you tick, names each file by client, job, format and version, adds print PDFs with bleed and crop marks, and zips it all with a delivery note.",
     category: 'studio',
     level: 'Intermediate',
-    updated: '2026-09-25',
+    updated: '2026-09-27',
     related: ['export-for-print', 'directions-and-review', 'start-a-job-from-a-brief', 'designing-for-print'],
     keywords: 'deliver final files handover export zip package file naming version numbers print pdf bleed crop marks delivery note brand sheet artwork hand off',
     body: [
@@ -388,6 +388,7 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Before you deliver' },
       { t: 'p', text: "Delivery works from the key visual design and its format boards. A format with no board is greyed out with **Not built yet**; build it on the **Key visual** tab first (see [Start a job from the client's brief](/learn/start-a-job-from-a-brief)). The top of the panel shows how many formats are ready, for example **3 of 4 formats ready**." },
+      { t: 'p', text: "Next to the package title is a readiness read: **Ready to deliver**, or **3 things need attention** with the list under it. It looks for formats not built, print formats with no print PDF ticked, a latest version that is not approved or came back with changes, client comments not marked done, open to-do items, a review link still open, and duplicate file names. Each line has a button to the tab that fixes it. Nothing is blocked; it is there so you do not find out after sending." },
 
       { t: 'h', text: 'Choose file types for each format' },
       { t: 'p', text: "Each ready format has four boxes: **PNG**, **JPG**, **WebP** and **Print PDF**. Studio ticks sensible ones for you:" },
@@ -445,10 +446,10 @@ export const articles: Article[] = [
   {
     slug: 'brands-library',
     title: 'Save client brands and reuse them on every job',
-    summary: "Keep each client's colours, fonts, logos, logo rules and voice as a brand in Studio. Pick it on a job and the Editor checks the design against it, flagging off-brand colours, wrong fonts, small logos and crowded clear space.",
+    summary: "Keep each client's logo system, colours, fonts, logo rules and voice as a brand in Studio. Pick it on a job and the Editor checks the design against it: off-brand colours, wrong fonts, a logo too small, crowded clear space, or a logo losing contrast on what is behind it, with the right version one click away.",
     category: 'studio',
     level: 'Beginner',
-    updated: '2026-09-25',
+    updated: '2026-09-27',
     related: ['brand-guidelines', 'brand-kit', 'delivering-files', 'building-a-brand-identity'],
     keywords: 'client brands brand library brand memory brand colours brand fonts logos on brand off brand check brand compliance clear space minimum size voice tone',
     body: [
@@ -467,25 +468,33 @@ export const articles: Article[] = [
         ['Brand and Client', 'The brand name and whose it is'],
         ['Colours', 'Each colour with a role: primary, secondary, accent, neutral, background or text. Pick with the colour chip or type a six-digit hex'],
         ['Type', 'A **Headlines** font and a **Text** font. Any Google font name works; it loads when a design uses it'],
-        ['Logos', 'Logo files, each marked **On light** or **On dark** so you know which version goes where'],
-        ['Smallest size', 'The narrowest the logo may be, in px on a 1080 px wide design. Starts at 80'],
-        ['Clear space', 'The empty margin the logo needs, as a share of its height. 0.5 means half the logo height on every side'],
+        ['Logo system', 'The supplied logo and every version of it: Primary, Reversed, Mono dark, One colour, Greyscale. Add the file and it is measured, named (such as **Logo / Horizontal / Primary**) and the versions that can honestly be made from it are derived; each one says whether it was **supplied** or **derived**'],
+        ['Smallest on screen, in print', 'The narrowest the logo may be, in px on a 1080 px wide design and in mm. Marked **Suggested** when read from the thinnest stroke in the artwork, **Set by you** once you type a value'],
+        ['Clear space', 'The empty margin the logo needs, as a share of its height. 0.5 means half the logo height on every side. Suggested from the shape of the mark until you set it'],
+        ["On this brand's colours", 'Which version to use on each brand colour, with a dot for pass, marginal or fail. **Test the logo** works it out; a row you chose by hand in the guideline builder says **set by you**'],
         ['Voice', "**Voice words**, **Do** and **Don't**, one per line"],
       ] },
       { t: 'tip', text: "Measuring the logo's minimum size against a 1080 px wide design means one rule works for a story, a post and a banner, whatever their actual pixel size." },
 
+      { t: 'h', text: 'Brand health' },
+      { t: 'p', text: "The panel at the top of a brand is a quiet read of what is there: logo versions, colour roles, type, and whether the rules are suggested or set. A grey dot is worth checking, a red one needs attention. A reversed version that cannot be made from the artwork (because the mark's meaning sits between two colours) says so and asks you to get it from the client, rather than faking one." },
+
       { t: 'h', text: 'Use a brand on a job' },
       { t: 'p', text: "On the job's **Brief** tab, choose the brand under **Which brand is this for?** (it only appears once you have a brand). When you start the key visual, the brand's colours and fonts are used if no direction has been chosen, and the Editor's **Brief** panel shows a **Brand:** section for the design." },
+
+      { t: 'h', text: 'Place the logo from the brand' },
+      { t: 'p', text: "In the Editor's **Add** menu, a design that belongs to a job shows the brand's logo versions first. Pick one and it goes in small, about a fifth of the shorter side, in the emptiest corner, with the brand's clear space kept from the edge, named **Logo · Primary** (or Reversed, and so on) with its role set to Logo. Move and resize it as you like." },
 
       { t: 'h', text: 'What the Editor checks' },
       { t: 'p', text: "The brand section shows the brand's colours (click one to make it your main colour) and either **On brand** or a count of things to check:" },
       { t: 'list', items: [
+        "**A logo losing contrast.** The pixels behind the logo are read for tone and busyness, and the logo's own colours are judged against them: \"sits on a dark area and drops to 1.2:1. It may disappear.\" If the brand has a version that would hold there, it is offered: **Use reversed** swaps the pixels for that version at the same size and place. **Keep** says you meant it, and the check stays quiet for that spot.",
         "**Off-brand colours**: text colours and shape fills and outlines that are not close to a brand colour. White and black always count as allowed. **Fix** changes every layer using that colour to the nearest brand colour.",
         "**Fonts that are not brand fonts**. **Fix** sets larger text to the headline font and smaller text to the text font.",
-        "**Logos under the minimum size**, measured as if the board were 1080 px wide.",
-        "**Layers inside the logo's clear space**. A layer that covers most of the board, such as a background photo, does not count.",
+        "**Logos under the minimum size**, measured as if the board were 1080 px wide. The message says whether the minimum is the brand's or a suggested one.",
+        "**Layers inside the logo's clear space**. A layer the logo sits on (a photo behind it) is its ground, not a neighbour, and does not count.",
       ] },
-      { t: 'p', text: "A layer counts as a logo when its **Role in formats** is Logo, or when its name contains the word logo. Name your logo layers, and the checks work without any setup. **Select** jumps to the logo layer in question." },
+      { t: 'p', text: "A layer counts as a logo when it was placed from the brand, when its **Role in formats** is Logo, or when its name contains the word logo. **Select** jumps to the logo layer in question." },
       { t: 'note', text: "Only text and shape layers are checked for colour. The colours inside photos and image layers are not checked, since a photo is never going to be all brand colours." },
 
       { t: 'h', text: "Load a brand into the Editor's brand kit" },
@@ -499,7 +508,8 @@ export const articles: Article[] = [
       { t: 'list', items: [
         "Brands are stored in this browser, like jobs. To move one to another computer, build it in the guideline builder there, or rebuild it by hand.",
         "Deleting a brand asks first. Jobs that used it lose their brand checks.",
-        "Logo files can be SVG, PNG or JPG. For **On dark** logos, a PNG or SVG with a transparent background shows best.",
+        "Logo files can be SVG, PNG or JPG. A JPG on a flat white background is knocked out for you, but a PNG or SVG with real transparency is cleaner; the health panel says when a file had no transparency.",
+        "Removing a supplied logo also removes the versions derived from it.",
       ] },
     ],
   },
@@ -508,10 +518,10 @@ export const articles: Article[] = [
   {
     slug: 'brand-guidelines',
     title: 'Build a brand guideline with locks and new takes',
-    summary: "The brand guideline builder turns a brand colour, a logo and a personality into a full system: colour ramps, contrast pairings, a type scale, logo rules and a paged guideline. Lock what you have decided, and New take explores everything else.",
+    summary: "The brand guideline builder turns a brand colour, a logo and a personality into a full system: honest logo versions tested on every background, colour ramps, contrast pairings, a type scale, clear space, minimum size and misuse pages, and a paged guideline. Lock what you have decided; Vary layout explores the composition and New take explores everything else.",
     category: 'studio',
     level: 'Intermediate',
-    updated: '2026-09-25',
+    updated: '2026-09-27',
     related: ['brand-guideline-exports', 'brands-library', 'colour-that-works', 'workflow-client-brand-guideline'],
     keywords: 'brand guidelines brand book style guide identity guidelines design system colour ramps oklch wcag contrast type scale modular scale logo clear space minimum size generator',
     body: [
@@ -519,11 +529,11 @@ export const articles: Article[] = [
       { t: 'try', label: 'Open Studio', href: '/studio' },
       { t: 'p', text: "Open it from the Studio home screen with **Brand guideline builder**. The controls are on the left in four tabs (Identity, Colour, Type, Export), the page list is in the middle and the page preview on the right." },
 
-      { t: 'h', text: 'Locks and New take' },
-      { t: 'p', text: "Every value in the system is either locked, because you set it, or free, generated for you. **New take** regenerates everything free and leaves everything locked alone. It is how you explore: lock the parts the client has agreed, and keep pressing New take until the rest clicks." },
+      { t: 'h', text: 'Locks, Vary layout and New take' },
+      { t: 'p', text: "Every value in the system is either locked, because you set it, or free, generated for you. Two kinds of take explore the free values. **Vary layout** (the main button) is a variation: it keeps the logo, colours, type and scale and redraws the composition, so art direction, corners, spacing and grid change. **New take of everything** (under the arrow beside it) is a mutation: it regenerates every unlocked token, colours and fonts included. Lock the parts the client has agreed, then take until the rest clicks." },
       { t: 'list', items: [
         "**Choosing a value locks it.** Pick a harmony, a font or a radius and its padlock closes.",
-        "**The padlock beside a field** toggles it. Locking a free value keeps what is showing now; unlocking lets New take change it.",
+        "**The padlock beside a field** toggles it. Locking a free value keeps what is showing now; unlocking lets a take change it.",
         "Page order, which pages are included, and their layouts are always kept.",
       ] },
       { t: 'warn', text: "Free values are generated from the brand colour, the brand name and the personality. Changing any of those three gives the free values a fresh set, just like New take. Lock what you like before you rename the brand or try another brand colour." },
@@ -531,16 +541,19 @@ export const articles: Article[] = [
       { t: 'h', text: 'Identity' },
       { t: 'table', head: ['Control', 'What it does'], rows: [
         ['Brand name, Tagline', 'Shown on the cover and throughout'],
-        ['Logo', 'SVG, PNG or JPG. The logo is trimmed to its visible edges; a flat background (a JPG on white) is removed so the mark sits on any colour. If the logo has a clear colour, it becomes the brand colour'],
-        ['Clear space', '¼ H, ½ H or 1 H: the margin around the logo, measured from the height of the mark'],
-        ['Minimum width', '16px, 24px, 32px or 48px on screen'],
-        ['Logo contrast', 'For the light surface, brand colour, dark surface and secondary colour: which version of the logo to use there and its contrast ratio'],
+        ['Logo', 'SVG, PNG or JPG. The artwork is measured: its colours (from solid pixels, never the soft edges), whether it is a symbol, a wordmark or a lockup, its thinnest stroke. A flat background (a JPG on white) is removed. The original file is kept as supplied and a name such as **Logo / Horizontal / Primary** is suggested. If the brand colour is still the default, the mark\'s main colour becomes it; otherwise it is offered as **Brand colour from the logo** with a **Use it** button'],
+        ['Versions', 'Primary as supplied, then Reversed (white), Mono dark, One colour (brand colour) and Greyscale, each **Derived** or **Refused** with the reason. **Leave out** drops a derived version you do not want'],
+        ['Clear space', '¼ H, ½ H or 1 H: the margin around the logo, measured from the height of the mark. **Suggested** from its shape (wide wordmarks need less, open symbols more) until you pick one, then **Set by you**'],
+        ['Minimum size', 'Width in px on screen and mm in print. Suggested so the thinnest stroke stays at least 1 px on screen and 0.3 mm in print; type your own to set it'],
+        ['Logo on backgrounds', 'White, black, neutral grey, the brand colours, light and dark surfaces and three tints: which version to use on each, its ratio, and a line of why when it is marginal or fails. Change any row to set your own rule; it is then marked set by you'],
         ['Personality', 'Bold, Refined, Playful, Minimal, Warm or Technical. Steers the fonts, scale and corners the generator reaches for, and writes the voice'],
         ['Art direction', 'Editorial, Graphic or Systematic. Sets the three design principles'],
         ['Corner radius', '0, 4, 8, 12 or Pill'],
         ['Spacing unit, Grid', '4px or 8px; 6, 8 or 12 columns'],
       ] },
-      { t: 'p', text: "The logo check keeps the logo in full colour wherever its outer edge reaches 3:1 against the background, the WCAG minimum for graphics. Where it does not, it recommends the **Reversed** (white) or **Dark mono** version, whichever reads better. Details enclosed inside the mark do not count, only the colours that meet the background." },
+      { t: 'h3', text: 'Honest versions' },
+      { t: 'p', text: "A reversed or mono logo is every pixel of the mark in one colour. That is only honest when the mark reads as a silhouette. When its meaning sits in a boundary between two colours (a dot inside a disc, a two-tone wordmark), a flat version melts it into a blob, so the builder refuses it and says which two colours would be lost: ask the client for their reversed artwork, or keep full colour on a holding shape. Greyscale keeps every boundary as a tone, so it is offered unless two colours would land on the same grey." },
+      { t: 'p', text: "The contrast check judges every colour that meets the background, and takes the weakest. A wordmark or lockup is held to 4.5:1, a symbol to 3:1. Colours enclosed inside the mark do not count. Where no version clears the target, the page shows the lightest scrim (a light or dark holding shape behind the logo) that would, and what the ratio becomes on it." },
 
       { t: 'h', text: 'Colour' },
       { t: 'list', items: [
@@ -560,11 +573,17 @@ export const articles: Article[] = [
       ] },
       { t: 'p', text: "The preview shows the full scale, Display, H1 to H4, Body, Small and Caption, with sizes. Line height and letter spacing are set per size: big headings get tighter leading and tracking, small text a little more room. Small and Caption never go below 13 and 12 px, so a steep scale cannot produce unreadable captions. See [Typography fundamentals](/learn/typography-fundamentals)." },
 
-      { t: 'h', text: 'Checks' },
-      { t: 'p', text: "The button at the top right reads **All N checks pass** or **N issues**. Open it for the list: every contrast pairing, whether body text is at least 16 px (smaller is hard to read on screen), whether the accent reads as distinct from the brand colour, and the logo on each background. Fix issues by locking a different colour or font, or with New take." },
+      { t: 'h', text: 'Brand health and checks' },
+      { t: 'p', text: "The button at the top right reads **Brand complete**, **N worth checking** or **N issues**. Open it for two things. **Brand health** is a quiet read in four groups (Logo, Colours, Typography, Rules): which logo versions exist, whether a reversed version can be made, whether colour roles are set, and whether each rule is suggested or set by you. **Checks** lists every contrast pairing, whether body text is at least 16 px, whether the accent reads as distinct from the brand colour, and the logo on each background. A background the guideline has an answer for (a version, or a scrim) is not an issue; one with no answer is." },
 
       { t: 'h', text: 'Pages' },
-      { t: 'p', text: "The guideline has 13 pages: Cover, Principles, Logo, Clear space, Colour, Tints, Contrast, Typography, Type scale, In use, Voice, Tokens and Close. Choose **Deck** for landscape slides (1600 × 900) or **Document** for portrait pages (1240 × 1754)." },
+      { t: 'p', text: "The guideline has 15 pages: Cover, Principles, Logo, Clear space, Minimum size, Do not, Colour, Tints, Contrast, Typography, Type scale, In use, Voice, Tokens and Close. Choose **Deck** for landscape slides (1600 × 900) or **Document** for portrait pages (1240 × 1754)." },
+      { t: 'list', items: [
+        "**Logo** (Backgrounds layout) shows the mark on every background in the palette with the version to use, a Pass, Marginal or Fails badge, and the scrim drawn in where one is needed.",
+        "**Clear space** shows the exclusion zone, then a Correct and an Incorrect example with a headline crowding the mark.",
+        "**Minimum size** shows the mark at twice the minimum, at the minimum, at half and at a quarter, at actual size on the deck, with the minimum magnified so you can see the thinnest stroke, and the on-screen and print rules with their source.",
+        "**Do not** is made from the actual logo: stretched, rotated, recoloured, on a low-contrast colour, cropped, crowded, with effects, and over busy imagery.",
+      ] },
       { t: 'list', items: [
         "**Reorder** by dragging a thumbnail, or with the up and down arrows that show when you hover it.",
         "**Leave a page out** of every export with its eye button. It stays in the list, faded.",
@@ -581,7 +600,7 @@ export const articles: Article[] = [
       { t: 'note', text: "The builder holds one brand at a time. To keep a finished brand while you start another, press **Save as a client brand in Studio** on the Export tab first, and export the files you need." },
 
       { t: 'h', text: 'On a phone' },
-      { t: 'p', text: "On a narrow screen the preview comes first, the page list scrolls sideways under it, and the controls follow below. Everything works; it is just a longer scroll." },
+      { t: 'p', text: "On a narrow screen the page is one scrolling column: the preview first, the page list scrolling sideways under it, then the controls. Everything works; it is just a longer scroll." },
     ],
   },
 
@@ -625,7 +644,7 @@ export const articles: Article[] = [
       { t: 'p', text: "One self-contained file the client opens in any browser, with no hosting and no account. It has:" },
       { t: 'list', items: [
         "The guideline pages as slides, moved with the left and right arrow keys.",
-        "Logo downloads: **Full colour PNG**, **Reversed white PNG**, **Dark mono PNG**, and **Original SVG** when you added an SVG.",
+        "Logo downloads: **Full colour PNG**, then the versions that can honestly be made from the artwork (**Reversed white PNG**, **Dark mono PNG**, **One colour PNG**, **Greyscale PNG**), and **Original SVG** when you added an SVG. A refused version is left out and the reason is printed under the buttons.",
         "Every colour, click to copy as HEX, RGB or OKLCH, and every ramp step, click to copy its hex.",
         "Type, contrast pairings, and the CSS, Tailwind and JSON tokens with a **Copy** button.",
       ] },
@@ -636,7 +655,7 @@ export const articles: Article[] = [
       { t: 'warn', text: "Changes made in the Editor do not flow back to the builder. Settle the system first, then open it in the Editor for final touches." },
 
       { t: 'h', text: 'Save as a client brand in Studio' },
-      { t: 'p', text: "Saves the resolved system as a brand in **Client brands**: brand, secondary and accent colours, the light surface as background, the ink colour as text, a mid neutral, the heading and body fonts, the type scale, the logo with its minimum size and clear space, and the voice with its do and don't lists. Pick it on a job and the Editor checks every design against it. See [Save client brands and reuse them](/learn/brands-library)." },
+      { t: 'p', text: "Saves the resolved system as a brand in **Client brands**: brand, secondary and accent colours, the light surface as background, the ink colour as text, a mid neutral, the heading and body fonts, the type scale, the logo system (the supplied file, every derived version, the measured artwork), the rules for clear space and minimum size with their source (suggested or set by you), the version to use on each background, and the voice with its do and don't lists. Pick it on a job and the Editor checks every design against it, and offers the right version when the logo loses contrast. See [Save client brands and reuse them](/learn/brands-library)." },
 
       { t: 'h', text: 'Tokens for developers' },
       { t: 'p', text: "Switch between **CSS**, **Tailwind** and **JSON** to see the code, then **Copy** it or **Save file**." },

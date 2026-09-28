@@ -8,6 +8,7 @@ import { fileName, slug, useJobs, type ClientBrand, type Deliverable, type Job }
 import { boardCanvas, boardsOf, loadDesign, toBlob, type LoadedDesign } from '../render'
 import { printPdf } from '../pdf'
 import { Btn, Empty, Panel, focusRing, fmtDate } from '../ui'
+import { deliveryPreflight } from '@/lib/intelligence/preflight'
 import type { TabProps } from './JobView'
 import { LinkBox, SignInToShare, useCanShare } from './LinkBox'
 import { clearActiveStudyJob, jobActiveSeconds, studyEvent, studyToken, type StudyView } from '@/lib/research'
@@ -17,7 +18,7 @@ type Kind = 'png' | 'jpg' | 'webp' | 'pdf'
 const KIND_LABEL: Record<Kind, string> = { png: 'PNG', jpg: 'JPG', webp: 'WebP', pdf: 'Print PDF' }
 const defaults = (d: Deliverable): Kind[] => (d.group === 'Print' || d.group === 'Outdoor' ? ['pdf', 'jpg'] : ['png', 'jpg'])
 
-export function DeliverTab({ job, update, toast }: TabProps) {
+export function DeliverTab({ job, update, toast, go }: TabProps) {
   const [design, setDesign] = useState<LoadedDesign | null>(null)
   const [loading, setLoading] = useState(true)
   const [pick, setPick] = useState<Record<string, Kind[]>>({})
@@ -32,6 +33,12 @@ export function DeliverTab({ job, update, toast }: TabProps) {
   const ready = rows.filter(r => r.f)
   const fileList = useMemo(() => ready.flatMap(r => r.kinds.map(k => fileName(job, r.d, version, k === 'jpg' ? 'jpg' : k))), [ready, job, version])
 
+  // Readiness: what would embarrass you if it went out like this. Quiet, and never a block.
+  const readiness = useMemo(() => deliveryPreflight({
+    deliverables: rows.map(r => ({ id: r.d.id, label: r.d.label, group: r.d.group, built: !!r.f, kinds: r.kinds })),
+    versions: job.versions.map(v => ({ n: v.n, label: v.label, status: v.status, openPins: Object.values(v.pins ?? {}).flat().filter(p => !p.done).length, openTodos: (v.todo ?? []).filter(t => !t.done).length, hasOpenLink: !!v.share })),
+    fileNames: fileList, hasBrand: !!brand,
+  }), [rows, job.versions, fileList, brand])
   const canShare = useCanShare()
   const [signIn, setSignIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -111,7 +118,18 @@ export function DeliverTab({ job, update, toast }: TabProps) {
         </div>
       )}
       <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-5">
-        <Panel title={`Package v${version}`} action={<span className="text-[11.5px] text-void-500">{ready.length} of {job.deliverables.length} formats ready</span>}>
+        <Panel title={<span className="flex items-center gap-2">Package v{version} <span data-delivery-readiness className={`text-[11px] font-normal px-1.5 py-0.5 rounded ${readiness.level === 'good' ? 'bg-emerald-400/10 text-emerald-300' : readiness.level === 'check' ? 'bg-amber-400/10 text-amber-200' : 'bg-rose-400/10 text-rose-200'}`}>{readiness.summary}</span></span>} action={<span className="text-[11.5px] text-void-500">{ready.length} of {job.deliverables.length} formats ready</span>}>
+          {readiness.findings.length > 0 && (
+            <ul className="mb-3 rounded-xl border border-void-800 divide-y divide-void-800/70">
+              {readiness.findings.map((f, i) => (
+                <li key={i} className="flex items-start gap-2.5 px-3 py-2 text-[12.5px]">
+                  <span className={`mt-[4px] w-2 h-2 rounded-full shrink-0 ${f.level === 'attention' ? 'bg-rose-400' : 'bg-amber-300'}`} />
+                  <span className={`flex-1 leading-snug ${f.level === 'attention' ? 'text-void-100' : 'text-void-300'}`}>{f.text}</span>
+                  {f.tab && <button onClick={() => go(f.tab as never)} className={`shrink-0 text-void-400 hover:text-white rounded ${focusRing}`}>{f.action ?? 'Open'}</button>}
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="rounded-xl border border-void-800 overflow-hidden divide-y divide-void-800">
             {rows.map(({ d, f, kinds }) => (
               <div key={d.id} className={`flex flex-wrap items-center gap-3 px-3 py-2.5 bg-void-950 ${f ? '' : 'opacity-50'}`}>

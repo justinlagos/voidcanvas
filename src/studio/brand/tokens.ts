@@ -15,6 +15,8 @@ export interface BrandTokens {
   brandColor: string
   personality: number
   salt: number
+  /** Bumped by a Variation take: only layout tokens (direction, radius, spacing, grid) redraw from it. */
+  layoutSalt?: number
   harmony: Tok<Harmony>
   secondary: Tok<string>
   accent: Tok<string>
@@ -30,8 +32,9 @@ export interface BrandTokens {
   gridCols: Tok<number>
   logoClear: Tok<number>        // clear space as a fraction of the mark height
   logoMin: Tok<number>          // minimum on-screen width in px
+  logoMinPrint: Tok<number>     // minimum width in print, mm
 }
-export type TokKey = { [K in keyof BrandTokens]: BrandTokens[K] extends Tok<unknown> ? K : never }[keyof BrandTokens]
+export type TokKey = { [K in keyof BrandTokens]-?: NonNullable<BrandTokens[K]> extends Tok<unknown> ? K : never }[keyof BrandTokens]
 
 const free = <T,>(value: T): Tok<T> => ({ value, locked: false })
 const g = (family: string): FontRef => ({ family, source: 'google' })
@@ -43,7 +46,7 @@ export function initialTokens(): BrandTokens {
     heading: free(g('Inter')), body: free(g('Inter')), mono: free(g('JetBrains Mono')),
     scaleRatio: free(1.25), baseSize: free(16),
     direction: free('editorial'), radius: free(8), spaceBase: free(8), gridCols: free(12),
-    logoClear: free(0.5), logoMin: free(32),
+    logoClear: free(0.5), logoMin: free(40), logoMinPrint: free(15),
   }
 }
 
@@ -85,6 +88,8 @@ export const FONT_SUGGESTIONS = Array.from(new Set([...Object.values(PAIRS).flat
 export function resolve(t: BrandTokens): BrandTokens {
   const key = `${t.brandColor}|${t.name}|${t.personality}|${t.salt}`
   const s = (k: string) => rng(key + ':' + k)
+  // Layout tokens also listen to the Variation take, so a variation changes composition and keeps the identity.
+  const ls = (k: string) => rng(key + ':' + k + ':' + (t.layoutSalt ?? 0))
   const personality = PERSONALITIES[t.personality % PERSONALITIES.length]
   const [L0, C0, H0] = hexToOklch(t.brandColor)
   const out: BrandTokens = { ...t }
@@ -107,10 +112,10 @@ export function resolve(t: BrandTokens): BrandTokens {
   const loud = personality === 'Bold' || personality === 'Playful'
   if (!t.scaleRatio.locked) out.scaleRatio = free(pick(s('scale'), loud ? [1.333, 1.414, 1.5, 1.618] : [1.2, 1.25, 1.333]))
   if (!t.baseSize.locked) out.baseSize = free(pick(s('base'), [16, 16, 17, 18]))
-  if (!t.direction.locked) out.direction = free(pick(s('direction'), ['editorial', 'graphic', 'systematic'] as ArtDirection[]))
-  if (!t.radius.locked) out.radius = free(pick(s('radius'), personality === 'Playful' ? [12, 18, 999] : personality === 'Technical' || personality === 'Minimal' ? [0, 2, 4] : [4, 8, 12]))
-  if (!t.spaceBase.locked) out.spaceBase = free(pick(s('space'), [4, 8]))
-  if (!t.gridCols.locked) out.gridCols = free(pick(s('grid'), [12, 12, 6, 8]))
+  if (!t.direction.locked) out.direction = free(pick(ls('direction'), ['editorial', 'graphic', 'systematic'] as ArtDirection[]))
+  if (!t.radius.locked) out.radius = free(pick(ls('radius'), personality === 'Playful' ? [12, 18, 999] : personality === 'Technical' || personality === 'Minimal' ? [0, 2, 4] : [4, 8, 12]))
+  if (!t.spaceBase.locked) out.spaceBase = free(pick(ls('space'), [4, 8]))
+  if (!t.gridCols.locked) out.gridCols = free(pick(ls('grid'), [12, 12, 6, 8]))
   return out
 }
 
@@ -139,7 +144,7 @@ export interface Brand {
   scale: TypeStep[]
   spacing: number[]; radius: number
   grid: { cols: number; gutter: number; margin: number }
-  logo: { clearSpace: number; minWidth: number }
+  logo: { clearSpace: number; minWidth: number; minPrint: number; sources: { clearSpace: 'suggested' | 'designer'; minWidth: 'suggested' | 'designer'; minPrint: 'suggested' | 'designer' } }
   voice: { tone: string; dos: string[]; donts: string[] }
   principles: { title: string; body: string }[]
   ratios: { hex: string; pct: number; name: string }[]
@@ -229,7 +234,7 @@ export function buildBrand(raw: BrandTokens): Brand {
     fonts: { heading: t.heading.value, body: t.body.value, mono: t.mono.value, pairing },
     ratio: t.scaleRatio.value, ratioLabel: scaleLabel(t.scaleRatio.value), baseSize: t.baseSize.value, scale,
     spacing: [1, 2, 3, 4, 6, 8, 12, 16].map(n => n * sb), radius: t.radius.value, grid,
-    logo: { clearSpace: t.logoClear.value, minWidth: t.logoMin.value },
+    logo: { clearSpace: t.logoClear.value, minWidth: t.logoMin.value, minPrint: t.logoMinPrint.value, sources: { clearSpace: t.logoClear.locked ? 'designer' : 'suggested', minWidth: t.logoMin.locked ? 'designer' : 'suggested', minPrint: t.logoMinPrint.locked ? 'designer' : 'suggested' } },
     voice: VOICE[personality], principles: PRINCIPLES[t.direction.value].map(([title, body]) => ({ title, body })),
     ratios: [{ hex: roles[0].hex, pct: 60, name: 'Brand' }, { hex: surfaces.light, pct: 25, name: 'Surface' }, { hex: roles[2].hex, pct: 10, name: 'Accent' }, { hex: surfaces.dark, pct: 5, name: 'Dark' }],
     pairs, checks,

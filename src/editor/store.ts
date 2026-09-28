@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { defaultParams, type EffectType } from '@/store/useStore'
 import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, layerBounds, layerMatrix, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
 import { boardGap, occupied, placeBeside, type Side } from './frames'
-import type { AdjustmentKind, AdjustmentLayer, Doc, Frame, Group, Layer, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
+import type { AdjustmentKind, AdjustmentLayer, Doc, Frame, Group, Layer, LayerRole, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
 import { useUi } from './ui-store'
 
 // Revisions are globally unique so a given (id, rev) always means the same pixels, even across undo branches.
@@ -19,6 +19,15 @@ export const base = (name: string) => ({
   id: uid(), name, visible: true, locked: false, opacity: 1, blend: 'source-over' as const,
   x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, mask: null, maskEnabled: true, rev: nextRev(),
 })
+
+export interface AddImageOptions {
+  /** 'fit' centres the picture at the largest size that fits (the default). 'corner' places it as a logo: small, in the emptiest corner. */
+  placement?: 'fit' | 'corner'
+  role?: LayerRole | null
+  brandLogoId?: string | null
+  /** Clear space as a share of the logo height, kept from the board edge. */
+  clearSpace?: number
+}
 
 export const ADJUSTMENT_LABELS: Record<AdjustmentKind, string> = {
   brightnessContrast: 'Brightness and contrast',
@@ -130,7 +139,7 @@ interface EditorState {
   removeSelected: () => void
   addLayer: (l: Layer, label?: string) => void
   addBlank: () => void
-  addImage: (src: CanvasImageSource, w: number, h: number, name: string) => void
+  addImage: (src: CanvasImageSource, w: number, h: number, name: string, opts?: AddImageOptions) => void
   addText: (x?: number, y?: number, boxWidth?: number | null) => void
   addShape: (shape: ShapeLayer['shape'], x: number, y: number, w: number, h: number, extra?: Partial<ShapeLayer>) => string
   addAdjustment: (kind: AdjustmentKind, effect?: EffectType) => void
@@ -630,14 +639,34 @@ export const useEditor = create<EditorState>((set, get) => ({
     get().addLayer({ ...base(`Layer ${n}`), type: 'raster', canvas: makeCanvas(doc.width, doc.height) })
   },
 
-  addImage: (src, w, h, name) => {
-    const { doc } = get(); if (!doc) return
+  addImage: (src, w, h, name, opts = {}) => {
+    const { doc, layers, activeFrameId } = get(); if (!doc) return
     const c = makeCanvas(w, h)
     ctx2d(c).drawImage(src, 0, 0, w, h)
-    const fit = Math.min(1, doc.width / w, doc.height / h)
+    const frame = doc.frames?.find(f => f.id === activeFrameId) ?? doc.frames?.[0] ?? null
+    const box = frame ? { x: frame.x, y: frame.y, w: frame.width, h: frame.height } : { x: 0, y: 0, w: doc.width, h: doc.height }
+    const label = name.replace(/\.[a-z0-9]+$/i, '').slice(0, 40) || 'Image'
+    if (opts.placement === 'corner') {
+      // A logo: about a fifth of the shorter side, in the emptiest corner, with its clear space kept from the edge.
+      const short = Math.min(box.w, box.h)
+      const k = Math.min(1, (short * 0.22) / w, (short * 0.22) / h)
+      const lw = w * k, lh = h * k
+      const margin = Math.max(lh * (opts.clearSpace ?? 0.5), short * 0.05)
+      const corners = [
+        { x: box.x + margin, y: box.y + margin }, { x: box.x + box.w - margin - lw, y: box.y + margin },
+        { x: box.x + margin, y: box.y + box.h - margin - lh }, { x: box.x + box.w - margin - lw, y: box.y + box.h - margin - lh },
+      ]
+      const others = layers.filter(l => l.visible && l.type !== 'adjustment' && (!frame || l.frameId === frame.id) && l.role !== 'background').map(l => layerBounds(l, doc)).filter(b => b.w * b.h < box.w * box.h * 0.8)
+      const overlap = (p: { x: number; y: number }) => others.reduce((a, b) => a + Math.max(0, Math.min(p.x + lw, b.x + b.w) - Math.max(p.x, b.x)) * Math.max(0, Math.min(p.y + lh, b.y + b.h) - Math.max(p.y, b.y)), 0)
+      const at = corners.reduce((best, p) => (overlap(p) < overlap(best) ? p : best), corners[0])
+      get().addLayer({ ...base(label), type: 'raster', canvas: c, source: 'photo', scaleX: k, scaleY: k, x: at.x, y: at.y, role: opts.role ?? 'logo', brandLogoId: opts.brandLogoId ?? null, frameId: frame?.id ?? null }, 'Add logo')
+      set({ tool: 'move' })
+      return
+    }
+    const fit = Math.min(1, box.w / w, box.h / h)
     get().addLayer({
-      ...base(name.replace(/\.[a-z0-9]+$/i, '').slice(0, 40) || 'Image'), type: 'raster', canvas: c, source: 'photo',
-      scaleX: fit, scaleY: fit, x: (doc.width - w * fit) / 2, y: (doc.height - h * fit) / 2,
+      ...base(label), type: 'raster', canvas: c, source: 'photo',
+      scaleX: fit, scaleY: fit, x: box.x + (box.w - w * fit) / 2, y: box.y + (box.h - h * fit) / 2, ...(frame ? { frameId: frame.id } : {}), ...(opts.role ? { role: opts.role } : {}), ...(opts.brandLogoId ? { brandLogoId: opts.brandLogoId } : {}),
     }, 'Add image')
     set({ tool: 'move' })
   },

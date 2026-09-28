@@ -209,7 +209,7 @@ export const articles: Article[] = [
       ] },
       { t: 'p', text: 'When anything was changed or left out, a report opens titled **Opened** and the file name. It lists what was **Kept**, what was **Changed so it would open** and what is **Not supported yet**. Read it before you edit, so nothing surprises you later.' },
       { t: 'h3', text: 'Missing fonts' },
-      { t: 'p', text: 'If the PSD uses fonts that are not on your device or on Google Fonts, **Some fonts are missing** opens. For each font it shows how many text layers use it. Pick a replacement, keep the font with a stand-in for now, or click **Add font file** to load a .ttf, .otf, .woff or .woff2 file. Fonts you add are saved inside the design, so it looks the same next time.' },
+      { t: 'p', text: 'If the PSD uses fonts that are not on your device or on Google Fonts, **Some fonts are missing** opens. Each font is read for what kind of face it is (a geometric sans, a high-contrast serif, a condensed face, a script) from its name, style words and common abbreviations such as BdCn, and two replacements are offered: **Closest match**, the nearest available face of the same kind and width, and **Safer fallback**, the plainest face of that kind. The list under them ranks every available font with a reason. Or click **Add font file** to load a .ttf, .otf, .woff or .woff2 file. Fonts you add are saved inside the design, so it looks the same next time.' },
 
       { t: 'h', text: 'PDF' },
       { t: 'p', text: 'Each page of a PDF becomes its own pixel layer, named Page 1, Page 2 and so on, with page 1 at the bottom of the stack. Only page 1 is visible at first. Turn the others on in the Layers panel. The design takes the size of page 1 and gets a white background.' },
@@ -255,9 +255,27 @@ export const articles: Article[] = [
       { t: 'h', text: 'Export in four steps' },
       { t: 'steps', items: [
         'Choose **File, Export as…** or press {{Ctrl+E}} (Cmd+E on a Mac).',
-        'Under **File type**, pick PNG, JPG, WebP or PDF.',
-        'Under **Size**, pick a scale. Each button shows the pixel size you will get.',
+        'Pick where the file is going: **PNG · Social**, **PNG · Transparent**, **JPG · Web**, **PDF · Print** or **PDF · Client proof**. Each sets the file type, size and quality for that destination. Or set them yourself under **File type** and **Size**.',
+        'Read the preflight list, if one appears, and fix or accept what it says.',
         'Click **Download**, or **Copy image** to put it on your clipboard.',
+      ] },
+      { t: 'h', text: 'Destinations' },
+      { t: 'table', head: ['Destination', 'What it sets'], rows: [
+        ['PNG · Social', 'PNG at board size, flat background. Instagram, WhatsApp, LinkedIn.'],
+        ['PNG · Transparent', 'PNG with board colours left out, for placing on other work.'],
+        ['JPG · Web', 'JPG at board size, 85% quality. Websites and email.'],
+        ['PDF · Print', 'One page per board at its own size, 95% quality. Studio delivery adds bleed and crop marks for print sizes.'],
+        ['PDF · Client proof', 'Half size, 80% quality, one page per board. For approvals, not production.'],
+      ] },
+      { t: 'h', text: 'Preflight' },
+      { t: 'p', text: "Before the button, the dialog says what will happen to these boards at this size, only when there is something to say. A red dot needs attention, an amber one is worth checking. It never blocks the export." },
+      { t: 'list', items: [
+        "**A picture that will print soft**: a photo that is 640 px wide and prints at 11.7 in comes out at about 55 ppi, said in those words, with **Replace image** to jump to the layer. Print sizes come from the Studio job's formats, or from the design's dpi when it is 150 or more.",
+        "**Text running past the edge** of the board, which will be cut off. **Select** jumps to it.",
+        "**Empty text layers** and **hidden layers**, which will not export.",
+        "**A board at a size the browser cannot draw**, with the scale that would work.",
+        "**A missing font** drawn in a stand-in, with **Review fonts**.",
+        "**A print size exported as PNG or JPG**: a print PDF adds bleed and crop marks; images do not.",
       ] },
       { t: 'p', text: 'The file is named after your design. Rename the design first if you want a better file name.' },
 
@@ -304,7 +322,7 @@ export const articles: Article[] = [
       { t: 'h', text: 'Good to know' },
       { t: 'list', items: [
         'Each Download also saves an automatic restore point called "Exported" in [Version history](/learn/templates-and-versions).',
-        'If export fails, you will see "Export failed. Try a smaller size." Pick a smaller scale; very large images can exceed what the browser can draw.',
+        'If export fails, the message says what was too big and what will work, such as the scale to drop to or exporting fewer boards at once.',
         'Voidcanvas does not export SVG of a whole design. A single path can be exported with **Layer, Path, Export path as SVG…**.',
       ] },
       { t: 'try', label: 'Open the Editor', href: '/editor' },

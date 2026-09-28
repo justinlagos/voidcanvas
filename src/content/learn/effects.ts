@@ -40,6 +40,7 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Tune the settings' },
       { t: 'p', text: 'Under **Parameters** you get the sliders for the active effect, with a count of how many there are. Each slider shows its current value, and colour settings show a swatch and hex code. Changes apply live. On heavier effects the canvas shows a quick low-resolution version while you drag and the sharp version a moment after you let go, and the header shows **Processing** while it works.' },
+      { t: 'p', text: 'Above the sliders sit **starting points**: a row of named settings for the look you want before you know the numbers. Halftone has Print, Editorial, Poster and Subtle; Grain has Film, Subtle and Heavy; Vignette has Soft, Classic and Heavy; Duotone has Ink and paper, Night and Heat; Glitch, Pixelate, Blur, Sharpen, Dither and Noise have their own. Every other effect gets Subtle, Balanced and Strong, set from its own ranges. A starting point sets the sliders and lights up while they match; move a slider and it is yours again. The same row appears on a filter layer in the Editor.' },
       { t: 'p', text: 'Every effect has an **Opacity** slider as its last setting. It fades the effect back towards your original photo, which is often the quickest way to make a strong effect usable.' },
 
       { t: 'h3', text: 'Randomise' },

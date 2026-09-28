@@ -729,12 +729,12 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'How to do it in Voidcanvas' },
       { t: 'steps', items: [
-        'Open Studio and choose **Brand guideline builder**. On the **Identity** tab enter the name and drop in the logo; if the logo has a clear colour it becomes the brand colour.',
+        'Open Studio and choose **Brand guideline builder**. On the **Identity** tab enter the name and drop in the logo. Its main colour becomes the brand colour while that is still the default; after that it is offered with **Use it**.',
         'On the **Colour** tab, set the **Brand colour** (hex or picker) and a **Harmony**: Analogous, Complementary, Triadic or Split complement. The **Secondary** and **Accent** are built from it and darkened or lightened until white or dark text reads on them. Set either by hand to lock it.',
         'Set **Neutral warmth** to decide how much of the brand hue shows in the greys.',
         'Read the ramps: every colour gets ten steps from 50 to 900, built in OKLCH, plus success, warning and error colours.',
-        'Open the **Contrast** list: each recommended pairing (body text on the light surface, button labels on the accent, secondary text and so on) with its ratio and grade, AAA, AA, AA large or Fail. The button at the top right reads **All N checks pass** or **N issues**; it also checks that body text is at least 16 px and that the accent reads as distinct from the brand colour.',
-        'Fix a failure by locking a different step or colour, or press **New take** to regenerate everything you have not locked.',
+        'Open the **Contrast** list: each recommended pairing (body text on the light surface, button labels on the accent, secondary text and so on) with its ratio and grade, AAA, AA, AA large or Fail. The button at the top right reads **N issues** when a pairing fails, otherwise the brand health; its list also checks that body text is at least 16 px and that the accent reads as distinct from the brand colour.',
+        'Fix a failure by locking a different step or colour, or press **New take of everything** (under the arrow beside **Vary layout**) to regenerate everything you have not locked.',
         'On the **Export** tab, export the guideline (PDF, HTML), the tokens (CSS, Tailwind, JSON), the .ase swatches, and press **Save as a client brand in Studio** so every job and the Editor\'s brand kit use the same values.',
       ] },
       { t: 'product', text: 'The builder turns one brand colour into a full system of ramps in OKLCH, checks every pairing against WCAG, flags the logo on each background, and exports the result for people and for code. All on your device.', label: 'Open the brand guideline builder', href: '/studio' },

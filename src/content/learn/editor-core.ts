@@ -721,6 +721,7 @@ export const articles: Article[] = [
       { t: 'h3', text: 'Logos' },
       { t: 'list', items: [
         "Click **Add** in the menu bar. Your logos appear under **Your logos**. Click one to place it as a new layer.",
+        "In a design that belongs to a Studio job with a client brand, the Add menu shows that brand's logo versions instead. They go in small, in the emptiest corner, with the brand's clear space. See [Save client brands and reuse them](/learn/brands-library).",
       ] },
 
       { t: 'h', text: 'Good to know' },

@@ -2,6 +2,9 @@ import { create } from 'zustand'
 import { idb } from '@/editor/io'
 import { uid } from '@/editor/engine'
 import type { RefAnalysis } from './analyze'
+import type { AssetProfile } from '@/lib/intelligence/asset'
+import type { LogoRules } from '@/lib/intelligence/brand'
+import type { VariantId } from '@/lib/intelligence/logo'
 
 // Studio's data. A job is one piece of client work from brief to delivery. Everything lives
 // in the browser's IndexedDB: nothing is uploaded, nothing needs an account.
@@ -130,10 +133,18 @@ export interface ClientBrand {
   body: string
   /** Type scale ratio and base size in px, for the Editor's type checks. */
   scale?: { base: number; ratio: number }
-  logos: { id: string; name: string; blob: Blob; w: number; h: number; onDark?: boolean }[]
-  /** Smallest the logo may be, in px on a 1080-wide design, and clear space as a share of logo height. */
+  /**
+   * The logo system. `variant` says what a file is (primary, reversed, mono dark, one colour, greyscale);
+   * `derivedFrom` points at the primary a version was made from; `profile` is the measured artwork
+   * (colours, shape, thinnest stroke) the Editor and Studio check against. `onDark` is the older
+   * hand-set flag and still honoured when there is no variant.
+   */
+  logos: BrandLogo[]
+  /** Smallest the logo may be, in px on a 1080-wide design, and clear space as a share of logo height. Mirrors logoRules for older readers. */
   logoMin: number
   clearSpace: number
+  /** Rules with their source (suggested from the artwork, or set by the designer) and the treatment per background. */
+  logoRules?: LogoRules | null
   voice: string[]
   dos: string[]
   donts: string[]
@@ -144,6 +155,13 @@ export interface ClientBrand {
   syncedAt?: string | null
   pushedAt?: number
 }
+export interface BrandLogo { id: string; name: string; blob: Blob; w: number; h: number; onDark?: boolean; variant?: VariantId; derivedFrom?: string | null; profile?: AssetProfile | null }
+
+/** The primary logo of a brand: the one marked primary, else the first that is not derived, else the first. */
+export const primaryLogo = (b: Pick<ClientBrand, 'logos'>) => b.logos.find(l => (l.variant ?? 'primary') === 'primary') ?? b.logos.find(l => !l.derivedFrom) ?? b.logos[0] ?? null
+/** A version of the logo by variant, honouring the older onDark flag for reversed. */
+export const logoVariant = (b: Pick<ClientBrand, 'logos'>, v: VariantId) => b.logos.find(l => l.variant === v) ?? (v === 'reversed' ? b.logos.find(l => !l.variant && l.onDark) ?? null : v === 'primary' ? primaryLogo(b) : null)
+
 export function newBrand(partial: Partial<ClientBrand> = {}): ClientBrand {
   return { id: uid(), name: 'New brand', client: '', colors: [], display: 'Inter', body: 'Inter', logos: [], logoMin: 80, clearSpace: 0.5, voice: [], dos: [], donts: [], updatedAt: Date.now(), ...partial }
 }

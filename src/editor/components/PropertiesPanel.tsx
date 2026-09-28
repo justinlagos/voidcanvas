@@ -6,6 +6,7 @@ const ROLE_OPTIONS = Object.entries(ROLE_LABEL).map(([id, label]) => ({ id, labe
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, Eclipse, FolderPlus, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
 import { effectParams } from '@/components/ParamControls'
+import { matchPreset, presetsFor } from '@/components/effect-presets'
 import { defaultParams, type EffectParams } from '@/store/useStore'
 import { ADJUSTMENT_DEFAULTS, HUE_BANDS, layerBounds, layerSize } from '../engine'
 import { ColorButton, hexToRgb } from './ColorPicker'
@@ -328,9 +329,15 @@ function AdjustmentProps({ layer }: { layer: AdjustmentLayer }) {
     const cfg = effectParams[layer.effect] ?? []
     const p = layer.effectParams ?? defaultParams
     const set = (k: keyof EffectParams, v: number | string) => s.updateLayer(layer.id, { effectParams: { ...p, [k]: v } } as Partial<AdjustmentLayer>)
+    const presets = presetsFor(layer.effect), current = matchPreset(layer.effect, p as EffectParams)
     return (
       <Section title="Filter settings" action={<button aria-label="Reset" title="Reset" onClick={() => s.updateLayer(layer.id, { effectParams: { ...defaultParams } } as Partial<AdjustmentLayer>, 'Reset filter')} className={`text-void-400 hover:text-white rounded ${focusRing}`}><RotateCcw size={14} /></button>}>
         <div className="space-y-3">
+          {presets.length > 0 && (
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Starting points">
+              {presets.map(pr => <button key={pr.label} onClick={() => s.updateLayer(layer.id, { effectParams: { ...p, ...pr.values } } as Partial<AdjustmentLayer>, `${pr.label} preset`)} aria-pressed={current === pr.label} className={`h-7 px-2.5 rounded-md text-[12px] border ${focusRing} ${current === pr.label ? 'border-accent bg-accent-soft text-white' : 'border-white/[0.06] bg-surface-sunken text-void-300 hover:text-white'}`}>{pr.label}</button>)}
+            </div>
+          )}
           {cfg.filter(c => c.key !== 'opacity').map(c => c.type === 'color'
             ? <ColorField key={c.key} label={c.label} value={p[c.key] as string} onChange={v => v && set(c.key, v)} onCommit={() => s.commit('Filter colour')} />
             : <Slider key={c.key} label={c.label} value={p[c.key] as number} min={c.min ?? 0} max={c.max ?? 100} unit={c.unit} onChange={v => set(c.key, v)} onCommit={() => s.commit('Filter setting')} />)}

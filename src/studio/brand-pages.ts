@@ -1,6 +1,8 @@
 import type { Brand } from './brand/tokens'
 import { recordPage, type RecordedPage } from './brand/record'
-import { logoPlacements, markContrast, monoMark, type LogoInfo, type MarkMode } from './brand/logo'
+import { MODE_LABEL, MODE_OF, NO_DECISIONS, grayMark, logoPlacements, logoVariants, markContrast, monoMark, type LogoDecisions, type LogoInfo, type MarkMode } from './brand/logo'
+import { placeOn } from '@/lib/intelligence/backgrounds'
+import { strokeAt } from '@/lib/intelligence/brand'
 import { loadFont } from './brand/fonts'
 import { RAMP_STEPS, contrast, fmtOklch, luminance } from './brand/color'
 import { colorSpecLine, toCss } from './brand/export'
@@ -16,7 +18,7 @@ export const SIZES = { landscape: { w: 1600, h: 900 }, portrait: { w: 1240, h: 1
 
 
 type Ctx = CanvasRenderingContext2D
-interface Env { x: Ctx; w: number; h: number; b: Brand; logo: LogoInfo | null; o: Orientation; pageNo: number; pageCount: number }
+interface Env { x: Ctx; w: number; h: number; b: Brand; logo: LogoInfo | null; o: Orientation; pageNo: number; pageCount: number; d: LogoDecisions }
 
 const clampText = (x: Ctx, s: string, max: number) => { let t = s; while (x.measureText(t).width > max && t.length > 1) t = t.slice(0, -1); return t === s ? s : t.slice(0, -1) + '…' }
 function wrap(x: Ctx, text: string, maxW: number): string[] {
@@ -38,14 +40,21 @@ function monoOf(info: LogoInfo, hex: string) {
   if (!m.has(hex)) m.set(hex, monoMark(info, hex))
   return m.get(hex)!
 }
+/** The mark's pixels for a treatment. */
+function markCanvas(e: Env, mode: MarkMode): HTMLCanvasElement {
+  const { logo, b } = e
+  if (!logo) throw new Error('no logo')
+  if (mode === 'original') return logo.img
+  if (mode === 'grayscale') return grayMark(logo)
+  return monoOf(logo, mode === 'white' ? '#ffffff' : mode === 'brand' ? b.roles[0].hex : b.surfaces.inkOnLight)
+}
 function drawMark(e: Env, bx: number, by: number, bw: number, bh: number, onColor: string, invert: boolean | MarkMode = false) {
   const { x, logo, b } = e
   const mode: MarkMode = invert === true ? 'white' : invert === false ? 'original' : invert
   if (logo) {
     const s = Math.min(bw / logo.width, bh / logo.height)
     const lw = logo.width * s, lh = logo.height * s, lx = bx + (bw - lw) / 2, ly = by + (bh - lh) / 2
-    const src = mode === 'original' ? logo.img : monoOf(logo, mode === 'white' ? '#ffffff' : b.surfaces.inkOnLight)
-    x.drawImage(src, lx, ly, lw, lh)
+    x.drawImage(markCanvas(e, mode), lx, ly, lw, lh)
     return { x: lx, y: ly, w: lw, h: lh }
   }
   const r = Math.min(bw, bh) * 0.32
@@ -58,10 +67,14 @@ function drawMark(e: Env, bx: number, by: number, bw: number, bh: number, onColo
   x.textAlign = 'left'; x.textBaseline = 'alphabetic'
   return { x: bx + bw / 2 - r, y: by + bh / 2 - r, w: r * 2, h: r * 2 }
 }
-/** Which version of the mark to use on a background: full colour if it clears 3:1, else the better mono. */
+/** Which version of the mark to use on a background: full colour wherever it clears the target, else the best version that can honestly be made. */
 function modeFor(e: Env, bg: string): MarkMode {
-  if (markContrast(e.logo, e.b.roles[0].hex, bg) >= 3) return 'original'
-  return contrast('#ffffff', bg) >= contrast(e.b.surfaces.inkOnLight, bg) ? 'white' : 'dark'
+  if (!e.logo) { if (markContrast(null, e.b.roles[0].hex, bg) >= 3) return 'original'; return contrast('#ffffff', bg) >= contrast(e.b.surfaces.inkOnLight, bg) ? 'white' : 'dark' }
+  // A palette background the designer decided on keeps that decision.
+  const decided = logoPlacements(e.b, e.logo, e.d).find(p => p.bg.toLowerCase() === bg.toLowerCase() && p.designer)
+  if (decided) return decided.mode
+  const variants = logoVariants(e.b, e.logo, e.d).map(v => ({ id: v.id, valid: v.valid, profile: v.profile }))
+  return MODE_OF[placeOn({ id: 'x', name: '', hex: bg, group: 'neutral' }, variants).use]
 }
 /** Aspect of the mark, so layouts can size boxes to it. */
 const markAspect = (e: Env) => (e.logo ? e.logo.width / e.logo.height : 1)
@@ -155,51 +168,68 @@ function badge(e: Env, text: string, ok: boolean, rx: number, y: number) {
 function pageLogo(e: Env) {
   const { x, w, h, b, o } = e
   x.fillStyle = '#fff'; x.fillRect(0, 0, w, h)
-  sectionLabel(e, e.pageNo - 1, 'Logo')
-  const m = b.grid.margin, top = m + 96, gap = b.grid.gutter
-  const cols = o === 'landscape' ? 4 : 2
+  sectionLabel(e, e.pageNo - 1, 'Logo on backgrounds')
+  const m = b.grid.margin, top = m + 84, gap = b.grid.gutter * 0.8
+  const places = logoPlacements(b, e.logo, e.d)
+  const cols = o === 'landscape' ? 5 : 3, rows = Math.ceil(places.length / cols)
   const cw = (w - m * 2 - gap * (cols - 1)) / cols
-  const ch = o === 'landscape' ? 300 : cw * 0.78
-  const places = logoPlacements(b, e.logo)
+  const labelH = o === 'landscape' ? 66 : 74
+  const maxRowH = (h - top - m * 1.9 - (o === 'landscape' ? 70 : 90)) / rows
+  const ch = Math.min(o === 'landscape' ? 210 : cw * 0.8, maxRowH - labelH)
   places.forEach((p, i) => {
-    const bx = m + (i % cols) * (cw + gap), by = top + Math.floor(i / cols) * (ch + 86)
-    x.fillStyle = p.bg; roundRect(x, bx, by, cw, ch, Math.min(b.radius, 16)); x.fill()
-    if (p.bg === b.surfaces.light) { x.strokeStyle = 'rgba(0,0,0,0.08)'; x.lineWidth = 1; x.stroke() }
-    drawMark(e, bx + cw * 0.22, by + ch * 0.22, cw * 0.56, ch * 0.56, b.roles[0].hex, p.mode)
-    x.fillStyle = ink(e); x.font = `600 ${o === 'landscape' ? 18 : 20}px "${b.fonts.body.family}"`; x.fillText(p.bgName, bx, by + ch + 32)
-    x.fillStyle = 'rgba(0,0,0,0.5)'; x.font = `400 ${o === 'landscape' ? 15 : 17}px "${b.fonts.body.family}"`
-    x.fillText(p.mode === 'original' ? 'Full colour' : p.mode === 'white' ? 'Reversed white' : 'Dark mono', bx, by + ch + 56)
-    badge(e, `${p.ratio.toFixed(2)}:1`, p.ok, bx + cw, by + ch + 14)
+    const bx = m + (i % cols) * (cw + gap), by = top + Math.floor(i / cols) * (ch + labelH)
+    x.fillStyle = p.bg; roundRect(x, bx, by, cw, ch, Math.min(b.radius, 14)); x.fill()
+    if (luminance(p.bg) > 0.8) { x.strokeStyle = 'rgba(0,0,0,0.08)'; x.lineWidth = 1; x.stroke() }
+    // A failing cell shows the fix the guideline suggests: the lightest scrim that would work, or a holding shape.
+    if (p.level === 'attention' && p.fix) { x.fillStyle = p.fix.color; x.globalAlpha = p.fix.opacity; roundRect(x, bx + cw * 0.14, by + ch * 0.16, cw * 0.72, ch * 0.68, 8); x.fill(); x.globalAlpha = 1 }
+    drawMark(e, bx + cw * 0.22, by + ch * 0.24, cw * 0.56, ch * 0.52, b.roles[0].hex, p.mode)
+    x.fillStyle = ink(e); x.font = `600 ${o === 'landscape' ? 15 : 17}px "${b.fonts.body.family}"`; x.fillText(clampText(x, p.bgName, cw - 70), bx, by + ch + 26)
+    x.fillStyle = 'rgba(0,0,0,0.5)'; x.font = `400 ${o === 'landscape' ? 13 : 15}px "${b.fonts.body.family}"`
+    const sub = p.level === 'attention' ? (p.fix ? `${MODE_LABEL[p.mode]} on a ${Math.round(p.fix.opacity * 100)}% scrim` : 'Avoid') : MODE_LABEL[p.mode]
+    x.fillText(clampText(x, sub + (p.designer ? ' · set by you' : ''), cw - 4), bx, by + ch + 46)
+    const scrimmed = p.level === 'attention' && p.fix
+    const lvl = scrimmed ? 'on scrim' : p.level === 'good' ? 'Pass' : p.level === 'check' ? 'Marginal' : 'Fails'
+    badgeLevel(e, `${(scrimmed ? p.fix!.ratio : p.ratio).toFixed(1)}:1 ${lvl}`, scrimmed ? 'check' : p.level, bx + cw, by + ch + 8)
   })
-  const rows = Math.ceil(places.length / cols), ry = top + rows * (ch + 86) + 24
-  x.fillStyle = ink(e); x.font = `700 ${o === 'landscape' ? 24 : 28}px "${b.fonts.heading.family}"`; x.fillText('Use', m, ry)
+  const ry = top + rows * (ch + labelH) + 18
+  x.fillStyle = ink(e); x.font = `700 ${o === 'landscape' ? 20 : 24}px "${b.fonts.heading.family}"`; x.fillText('Use', m, ry)
+  const worst = places.filter(p => p.level !== 'good')
   const note = e.logo
-    ? 'Use full colour wherever it clears 3:1 against the background. Where it does not, use the version shown. Do not stretch, rotate, recolour outside these versions, or add effects.'
+    ? `Full colour is the default wherever it clears the target (${e.logo.profile.kind === 'mark' ? '3:1 for a symbol' : '4.5:1 for a wordmark'}). Where it does not, use the version shown; the ratio is the weakest colour that meets the background.${worst.length ? ' ' + worst.slice(0, 2).map(p => `${p.bgName}: ${p.why}`).join(' ') : ''} These are suggested from the artwork, not the client's rules.`
     : 'Add a logo to test it against every background in the palette. Until then this page shows a placeholder mark.'
-  para(x, note, o === 'landscape' ? 19 : 22, m, ry + 38, o === 'landscape' ? w * 0.62 : w - m * 2, 'rgba(0,0,0,0.6)', b.fonts.body.family)
+  para(x, note, o === 'landscape' ? 15 : 18, m, ry + 28, w - m * 2, 'rgba(0,0,0,0.6)', b.fonts.body.family, 1.4)
   footer(e)
+}
+
+function badgeLevel(e: Env, text: string, level: 'good' | 'check' | 'attention', rx: number, y: number) {
+  const { x, b } = e
+  x.font = `600 12px "${b.fonts.mono.family}"`; const bw = x.measureText(text).width + 16
+  x.fillStyle = level === 'good' ? b.semantic[0].ramp[700] : level === 'check' ? b.semantic[1].ramp[700] : b.semantic[2].ramp[600]; roundRect(x, rx - bw, y, bw, 22, 11); x.fill()
+  x.fillStyle = '#fff'; x.fillText(text, rx - bw + 8, y + 15)
 }
 
 function pageLogoHero(e: Env) {
   const { x, w, h, b, o } = e
-  const p = logoPlacements(b, e.logo)[1]
+  const places = logoPlacements(b, e.logo, e.d)
+  const p = places.find(q => q.id === 'brand') ?? places[0]
   x.fillStyle = p.bg; x.fillRect(0, 0, w, h)
   const lt = onLight(p.bg)
   sectionLabel(e, e.pageNo - 1, 'Logo', lt ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.45)')
   const bw = w * (o === 'landscape' ? 0.42 : 0.62), bh = h * (o === 'landscape' ? 0.46 : 0.36)
+  if (p.level === 'attention' && p.fix) { x.fillStyle = p.fix.color; x.globalAlpha = p.fix.opacity; roundRect(x, (w - bw) / 2 - 60, (h - bh) / 2 - h * 0.02 - 40, bw + 120, bh + 80, 24); x.fill(); x.globalAlpha = 1 }
   drawMark(e, (w - bw) / 2, (h - bh) / 2 - h * 0.02, bw, bh, b.roles[0].hex, p.mode)
   x.fillStyle = lt ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.6)'; x.font = `400 ${o === 'landscape' ? 20 : 24}px "${b.fonts.body.family}"`
-  x.textAlign = 'center'; x.fillText(`The primary mark, ${p.mode === 'original' ? 'in full colour' : p.mode === 'white' ? 'reversed' : 'in dark mono'} on brand ${b.roles[0].hex.toUpperCase()}`, w / 2, h - b.grid.margin * 1.4); x.textAlign = 'left'
+  x.textAlign = 'center'; x.fillText(`The primary mark, ${MODE_LABEL[p.mode].toLowerCase()} on brand ${b.roles[0].hex.toUpperCase()}${p.level === 'attention' && p.fix ? `, on a ${Math.round(p.fix.opacity * 100)}% scrim` : ''}`, w / 2, h - b.grid.margin * 1.4); x.textAlign = 'left'
   footer(e, lt)
 }
 
 function pageClearSpace(e: Env) {
   const { x, w, h, b, o } = e
   x.fillStyle = '#fff'; x.fillRect(0, 0, w, h)
-  sectionLabel(e, e.pageNo - 1, 'Clear space and minimum size')
+  sectionLabel(e, e.pageNo - 1, 'Clear space')
   const m = b.grid.margin, top = m + 90
   const panelW = o === 'landscape' ? w * 0.58 - m : w - m * 2
-  const panelH = o === 'landscape' ? h - top - m * 1.3 : h * 0.5
+  const panelH = o === 'landscape' ? h - top - m * 1.3 : h * 0.44
   const px = m, py = top
   // Blueprint panel with a fine grid.
   x.fillStyle = b.neutral[50]; roundRect(x, px, py, panelW, panelH, 12); x.fill()
@@ -242,17 +272,115 @@ function pageClearSpace(e: Env) {
   let ry = o === 'landscape' ? top + 24 : py + panelH + 70
   const rule = (title: string, body: string) => {
     x.fillStyle = ink(e); x.font = `700 ${o === 'landscape' ? 26 : 30}px "${b.fonts.heading.family}"`; x.fillText(title, rx, ry)
-    ry = para(x, body, o === 'landscape' ? 18 : 21, rx, ry + 36, rw, 'rgba(0,0,0,0.6)', b.fonts.body.family) + 34
+    ry = para(x, body, o === 'landscape' ? 18 : 21, rx, ry + 36, rw, 'rgba(0,0,0,0.6)', b.fonts.body.family) + 30
   }
   const frac = cs === 0.25 ? 'a quarter of' : cs === 0.5 ? 'half' : cs === 1 ? 'the full' : `${cs} ×`
-  rule('Clear space', `x equals ${frac} the height of the mark (H). Keep at least x clear on every side. Nothing enters the hatched zone: text, images, other logos or the edge of the page.`)
-  const mm = (b.logo.minWidth * 25.4) / 96
-  rule('Minimum size', `Never smaller than ${b.logo.minWidth}px wide on screen, or ${mm.toFixed(1)}mm in print. Below that, detail is lost.`)
-  // Actual-size sample. One page pixel is one CSS pixel on the landscape deck.
-  const sw = b.logo.minWidth, sh = sw / ar
-  x.strokeStyle = 'rgba(0,0,0,0.12)'; x.strokeRect(rx, ry - 6, sw + 24, sh + 24)
-  drawMark(e, rx + 12, ry + 6, sw, sh, b.roles[0].hex, modeFor(e, '#ffffff'))
-  x.fillStyle = 'rgba(0,0,0,0.5)'; x.font = `400 15px "${b.fonts.body.family}"`; x.fillText(`${b.logo.minWidth}px, shown at minimum`, rx + sw + 40, ry + 6 + sh / 2 + 5)
+  const src = b.logo.sources.clearSpace === 'designer' ? 'Set by the brand.' : 'Suggested from the shape of the mark; confirm it with the client.'
+  rule('Clear space', `x equals ${frac} the height of the mark (H). Keep at least x clear on every side. Nothing enters the hatched zone: text, images, other logos or the edge of the page. ${src}`)
+
+  // Correct and incorrect, side by side: the mark with its space, then a headline crowding it.
+  const exW = (rw - 20) / 2, exH = Math.min(o === 'landscape' ? 150 : 200, h - ry - m * 1.6)
+  if (exH > 80) {
+    const draw = (ex: number, bad: boolean) => {
+      x.fillStyle = bad ? b.semantic[2].ramp[50] : b.semantic[0].ramp[50]; roundRect(x, ex, ry, exW, exH, 10); x.fill()
+      const lh = exH * 0.34, lw = lh * ar, lx = ex + (bad ? 16 : exW * 0.5 - lw / 2), ly = ry + exH * 0.5 - lh / 2
+      drawMark(e, lx, ly, lw, lh, b.roles[0].hex, modeFor(e, bad ? b.semantic[2].ramp[50] : b.semantic[0].ramp[50]))
+      if (bad) {
+        // A headline sitting inside the clear space.
+        x.fillStyle = ink(e); x.font = `700 ${Math.round(lh * 0.55)}px "${b.fonts.heading.family}"`
+        x.fillText(clampText(x, b.name || 'Headline', exW - lw - 24), lx + lw + 6, ly + lh * 0.72)
+      } else {
+        x.strokeStyle = b.semantic[0].ramp[400]; x.setLineDash([5, 4]); x.lineWidth = 1; x.strokeRect(lx - lh * cs, ly - lh * cs, lw + lh * cs * 2, lh + lh * cs * 2); x.setLineDash([])
+      }
+      x.fillStyle = bad ? b.semantic[2].ramp[700] : b.semantic[0].ramp[700]; x.font = `600 14px "${b.fonts.body.family}"`
+      x.fillText(bad ? 'Incorrect: crowded' : 'Correct', ex + 12, ry + exH - 12)
+    }
+    draw(rx, false); draw(rx + exW + 20, true)
+  }
+  footer(e)
+}
+
+/** Minimum size: the mark at its minimum, then smaller, so the loss of detail is seen rather than described. */
+function pageMinSize(e: Env) {
+  const { x, w, h, b, o } = e
+  x.fillStyle = '#fff'; x.fillRect(0, 0, w, h)
+  sectionLabel(e, e.pageNo - 1, 'Minimum size')
+  const m = b.grid.margin, top = m + 110, ar = markAspect(e)
+  const minW = b.logo.minWidth, minMm = b.logo.minPrint
+  // Samples at actual size on the deck (one page pixel is one CSS pixel at 1600 wide): 2× minimum, minimum, half, quarter.
+  const steps = [{ k: 2, label: `${minW * 2} px` }, { k: 1, label: `${minW} px, the minimum` }, { k: 0.5, label: `${Math.round(minW / 2)} px, too small` }, { k: 0.25, label: `${Math.round(minW / 4)} px` }]
+  let cx = m
+  const rowY = top + 10
+  const maxH = o === 'landscape' ? 260 : 300
+  let tallest = 110
+  steps.forEach(st => {
+    const sw = Math.min(minW * st.k, w * 0.3), sh = sw / ar
+    const boxW = Math.max(sw + 40, 150), boxH = Math.min(maxH, Math.max(sh + 40, 110))
+    if (cx + boxW > w - m) return
+    tallest = Math.max(tallest, boxH)
+    x.fillStyle = b.neutral[50]; roundRect(x, cx, rowY, boxW, boxH, 10); x.fill()
+    x.strokeStyle = 'rgba(0,0,0,0.08)'; x.lineWidth = 1; x.stroke()
+    drawMark(e, cx + (boxW - sw) / 2, rowY + (boxH - sh) / 2, sw, sh, b.roles[0].hex, modeFor(e, b.neutral[50]))
+    x.fillStyle = st.k < 1 ? b.semantic[2].ramp[700] : ink(e); x.font = `${st.k === 1 ? 600 : 400} 15px "${b.fonts.body.family}"`
+    x.fillText(clampText(x, st.label, boxW), cx, rowY + boxH + 26)
+    cx += boxW + b.grid.gutter
+  })
+  // The thinnest stroke, magnified, so "0.6 px" means something.
+  if (e.logo) {
+    const zx = cx + 20, zw = Math.min(w - m - zx, 420), zh = tallest
+    if (zw > 160) {
+      x.save(); roundRect(x, zx, rowY, zw, zh, 10); x.clip()
+      x.fillStyle = b.neutral[50]; x.fillRect(zx, rowY, zw, zh)
+      const s = 6, lw = minW * s, lh = lw / ar
+      x.imageSmoothingEnabled = false
+      drawMark(e, zx + zw * 0.5 - lw * 0.5, rowY + zh / 2 - lh / 2, lw, lh, b.roles[0].hex, modeFor(e, b.neutral[50]))
+      x.imageSmoothingEnabled = true
+      x.restore()
+      x.strokeStyle = 'rgba(0,0,0,0.08)'; x.lineWidth = 1; roundRect(x, zx, rowY, zw, zh, 10); x.stroke()
+      x.fillStyle = 'rgba(0,0,0,0.5)'; x.font = `400 15px "${b.fonts.body.family}"`; x.fillText(`The minimum at ${s}× magnification`, zx, rowY + zh + 26)
+    }
+  }
+  let ry = rowY + tallest + 84
+  const rule = (title: string, body: string) => {
+    x.fillStyle = ink(e); x.font = `700 ${o === 'landscape' ? 26 : 30}px "${b.fonts.heading.family}"`; x.fillText(title, m, ry)
+    ry = para(x, body, o === 'landscape' ? 18 : 21, m, ry + 36, o === 'landscape' ? w * 0.6 : w - m * 2, 'rgba(0,0,0,0.6)', b.fonts.body.family) + 30
+  }
+  const srcW = b.logo.sources.minWidth === 'designer' ? 'Set by the brand.' : 'Suggested from the thinnest stroke in the artwork.'
+  rule('On screen', `Never narrower than ${minW} px. ${srcW}${e.logo ? ` At ${minW} px the thinnest stroke is about ${strokeAt(e.logo.profile, minW).toFixed(1)} px; at ${Math.round(minW / 2)} px it drops to ${strokeAt(e.logo.profile, minW / 2).toFixed(1)} px and fine detail goes.` : ''}`)
+  const srcP = b.logo.sources.minPrint === 'designer' ? 'Set by the brand.' : 'Suggested so the thinnest stroke prints at 0.3 mm or more.'
+  rule('In print', `Never narrower than ${minMm} mm. ${srcP}${e.logo && e.logo.profile.minStroke < 0.03 ? ' The mark has fine detail: a simplified version for very small sizes (favicons, stamps) is worth asking for.' : ''}`)
+  footer(e)
+}
+
+/** Misuse: the real logo, mistreated, so the rules are seen. Every example is made from the artwork. */
+function pageMisuse(e: Env) {
+  const { x, w, h, b, o } = e
+  x.fillStyle = '#fff'; x.fillRect(0, 0, w, h)
+  sectionLabel(e, e.pageNo - 1, 'Do not')
+  const m = b.grid.margin, top = m + 84, gap = b.grid.gutter * 0.8
+  const cols = o === 'landscape' ? 4 : 2, rows = o === 'landscape' ? 2 : 4
+  const cw = (w - m * 2 - gap * (cols - 1)) / cols
+  const ch = (h - top - m * 1.5 - gap * (rows - 1) - 34 * rows) / rows
+  const ar = markAspect(e)
+  const light = b.neutral[50]
+  const bad = b.semantic[2].ramp[600]
+  const cells: { label: string; draw: (cx: number, cy: number) => void }[] = [
+    { label: 'Stretch or squash it', draw: (cx, cy) => { x.fillStyle = light; roundRect(x, cx, cy, cw, ch, 10); x.fill(); const lh = ch * 0.4, lw = Math.min(cw * 0.9, lh * ar * 1.7), sx = lw / (lh * ar); x.save(); roundRect(x, cx, cy, cw, ch, 10); x.clip(); x.translate(cx + cw / 2 - lw / 2, cy + ch / 2 - lh / 2); x.scale(sx, 1); drawMark(e, 0, 0, lh * ar, lh, b.roles[0].hex, modeFor(e, light)); x.restore() } },
+    { label: 'Rotate it', draw: (cx, cy) => { x.fillStyle = light; roundRect(x, cx, cy, cw, ch, 10); x.fill(); const lh = ch * 0.38, lw = lh * ar; x.save(); x.translate(cx + cw / 2, cy + ch / 2); x.rotate(-0.28); drawMark(e, -lw / 2, -lh / 2, lw, lh, b.roles[0].hex, modeFor(e, light)); x.restore() } },
+    { label: 'Recolour it', draw: (cx, cy) => { x.fillStyle = light; roundRect(x, cx, cy, cw, ch, 10); x.fill(); const lh = ch * 0.4, lw = lh * ar; if (e.logo) x.drawImage(monoOf(e.logo, b.semantic[1].hex), cx + cw / 2 - lw / 2, cy + ch / 2 - lh / 2, lw, lh); else drawMark(e, cx + cw / 2 - lw / 2, cy + ch / 2 - lh / 2, lw, lh, b.semantic[1].hex, 'original') } },
+    { label: 'Put it on a low-contrast colour', draw: (cx, cy) => { const bg = e.logo ? (e.logo.profile.luminance > 0.5 ? b.neutral[100] : b.neutral[700]) : b.roles[0].ramp[600]; x.fillStyle = bg; roundRect(x, cx, cy, cw, ch, 10); x.fill(); const lh = ch * 0.4, lw = lh * ar; drawMark(e, cx + cw / 2 - lw / 2, cy + ch / 2 - lh / 2, lw, lh, b.roles[0].hex, 'original') } },
+    { label: 'Crop it', draw: (cx, cy) => { x.fillStyle = light; roundRect(x, cx, cy, cw, ch, 10); x.fill(); const lh = ch * 0.5, lw = lh * ar; x.save(); roundRect(x, cx, cy, cw, ch, 10); x.clip(); drawMark(e, cx + cw * 0.55 - lw / 2, cy + ch / 2 - lh / 2, lw * 1.6, lh * 1.6, b.roles[0].hex, modeFor(e, light)); x.restore() } },
+    { label: 'Crowd it', draw: (cx, cy) => { x.fillStyle = light; roundRect(x, cx, cy, cw, ch, 10); x.fill(); const lh = ch * 0.34, lw = lh * ar; drawMark(e, cx + 14, cy + ch / 2 - lh / 2, lw, lh, b.roles[0].hex, modeFor(e, light)); x.fillStyle = ink(e); x.font = `700 ${Math.round(lh * 0.5)}px "${b.fonts.heading.family}"`; x.fillText(clampText(x, b.name || 'Headline', cw - lw - 24), cx + 14 + lw + 4, cy + ch / 2 + lh * 0.2) } },
+    { label: 'Add effects', draw: (cx, cy) => { x.fillStyle = light; roundRect(x, cx, cy, cw, ch, 10); x.fill(); const lh = ch * 0.4, lw = lh * ar; x.save(); x.shadowColor = 'rgba(0,0,0,0.55)'; x.shadowBlur = 18; x.shadowOffsetX = 8; x.shadowOffsetY = 10; drawMark(e, cx + cw / 2 - lw / 2, cy + ch / 2 - lh / 2, lw, lh, b.roles[0].hex, modeFor(e, light)); x.restore() } },
+    { label: 'Place it over busy imagery', draw: (cx, cy) => { x.save(); roundRect(x, cx, cy, cw, ch, 10); x.clip(); const tones = [b.roles[0].ramp[300], b.roles[1].ramp[500], b.neutral[800], b.roles[2].ramp[400], b.neutral[200]]; let i = 0; for (let yy = cy; yy < cy + ch; yy += 22) for (let xx = cx; xx < cx + cw; xx += 26) { x.fillStyle = tones[(i++ * 7) % tones.length]; x.fillRect(xx, yy, 26, 22) } x.restore(); const lh = ch * 0.4, lw = lh * ar; drawMark(e, cx + cw / 2 - lw / 2, cy + ch / 2 - lh / 2, lw, lh, b.roles[0].hex, 'original') } },
+  ]
+  cells.forEach((c, i) => {
+    const cx = m + (i % cols) * (cw + gap), cy = top + Math.floor(i / cols) * (ch + gap + 34)
+    c.draw(cx, cy)
+    // A quiet red cross marks each one.
+    x.strokeStyle = bad; x.lineWidth = 2; x.beginPath(); x.moveTo(cx + cw - 26, cy + 10); x.lineTo(cx + cw - 10, cy + 26); x.moveTo(cx + cw - 10, cy + 10); x.lineTo(cx + cw - 26, cy + 26); x.stroke()
+    x.fillStyle = ink(e); x.font = `500 ${o === 'landscape' ? 15 : 17}px "${b.fonts.body.family}"`; x.fillText(clampText(x, c.label, cw), cx, cy + ch + 24)
+  })
   footer(e)
 }
 
@@ -679,7 +807,7 @@ function roundRect(x: Ctx, X: number, Y: number, W: number, H: number, r: number
 // ─── BUILD ──────────────────────────────────────────────────────────
 // Every page kind has one or more layouts. The outliner decides order, visibility and layout.
 
-export type PageKind = 'cover' | 'principles' | 'logo' | 'clearspace' | 'colour' | 'ramps' | 'access' | 'type' | 'scale' | 'mockups' | 'voice' | 'tokens' | 'closing'
+export type PageKind = 'cover' | 'principles' | 'logo' | 'clearspace' | 'minsize' | 'misuse' | 'colour' | 'ramps' | 'access' | 'type' | 'scale' | 'mockups' | 'voice' | 'tokens' | 'closing'
 export interface PageSpec { kind: PageKind; variant: number; on: boolean }
 type Variant = { label: string; draw: (e: Env) => void }
 
@@ -688,6 +816,8 @@ export const PAGE_DEFS: Record<PageKind, { title: string; variants: Variant[] }>
   principles: { title: 'Principles', variants: [{ label: 'Columns', draw: pagePrinciples }, { label: 'Statements', draw: principlesStatements }] },
   logo: { title: 'Logo', variants: [{ label: 'Backgrounds', draw: pageLogo }, { label: 'Hero', draw: pageLogoHero }] },
   clearspace: { title: 'Clear space', variants: [{ label: 'Blueprint', draw: pageClearSpace }] },
+  minsize: { title: 'Minimum size', variants: [{ label: 'Steps', draw: pageMinSize }] },
+  misuse: { title: 'Do not', variants: [{ label: 'Grid', draw: pageMisuse }] },
   colour: { title: 'Colour', variants: [{ label: 'Specs', draw: pageColour }, { label: 'Bands', draw: colourBands }] },
   ramps: { title: 'Tints', variants: [{ label: 'Ramps', draw: pageRamps }] },
   access: { title: 'Contrast', variants: [{ label: 'Pairings', draw: pageAccess }] },
@@ -698,16 +828,16 @@ export const PAGE_DEFS: Record<PageKind, { title: string; variants: Variant[] }>
   tokens: { title: 'Tokens', variants: [{ label: 'Code', draw: pageTokens }] },
   closing: { title: 'Close', variants: [{ label: 'Colour', draw: pageClosing }, { label: 'Minimal', draw: closingMinimal }] },
 }
-export const DEFAULT_PAGES: PageSpec[] = (['cover', 'principles', 'logo', 'clearspace', 'colour', 'ramps', 'access', 'type', 'scale', 'mockups', 'voice', 'tokens', 'closing'] as PageKind[]).map(kind => ({ kind, variant: 0, on: true }))
+export const DEFAULT_PAGES: PageSpec[] = (['cover', 'principles', 'logo', 'clearspace', 'minsize', 'misuse', 'colour', 'ramps', 'access', 'type', 'scale', 'mockups', 'voice', 'tokens', 'closing'] as PageKind[]).map(kind => ({ kind, variant: 0, on: true }))
 
-export async function renderPage(spec: PageSpec, pageNo: number, pageCount: number, brand: Brand, logo: LogoInfo | null, o: Orientation, scale = 1): Promise<HTMLCanvasElement> {
+export async function renderPage(spec: PageSpec, pageNo: number, pageCount: number, brand: Brand, logo: LogoInfo | null, o: Orientation, scale = 1, d: LogoDecisions = NO_DECISIONS): Promise<HTMLCanvasElement> {
   await Promise.all([loadFont(brand.fonts.heading, [400, 600, 700]), loadFont(brand.fonts.body, [400, 500, 600]), loadFont(brand.fonts.mono, [400, 500, 600])])
   const size = SIZES[o]
   const c = document.createElement('canvas'); c.width = Math.round(size.w * scale); c.height = Math.round(size.h * scale)
   const x = c.getContext('2d')!
   x.scale(scale, scale); x.textBaseline = 'alphabetic'; x.textAlign = 'left'
   const def = PAGE_DEFS[spec.kind], v = def.variants[Math.min(spec.variant, def.variants.length - 1)]
-  v.draw({ x, w: size.w, h: size.h, b: brand, logo, o, pageNo, pageCount })
+  v.draw({ x, w: size.w, h: size.h, b: brand, logo, o, pageNo, pageCount, d })
   return c
 }
 
@@ -715,22 +845,22 @@ export async function renderPage(spec: PageSpec, pageNo: number, pageCount: numb
  * Render visible pages one at a time, hand each to `fn`, then release its pixels.
  * Holding every page at print resolution at once can exceed Safari's canvas memory limit.
  */
-export async function eachPage(pages: PageSpec[], brand: Brand, logo: LogoInfo | null, o: Orientation, scale: number, fn: (canvas: HTMLCanvasElement, title: string, index: number, count: number) => Promise<void>) {
+export async function eachPage(pages: PageSpec[], brand: Brand, logo: LogoInfo | null, o: Orientation, scale: number, fn: (canvas: HTMLCanvasElement, title: string, index: number, count: number) => Promise<void>, d: LogoDecisions = NO_DECISIONS) {
   const on = pages.filter(p => p.on)
   for (let i = 0; i < on.length; i++) {
-    const c = await renderPage(on[i], i + 1, on.length, brand, logo, o, scale)
+    const c = await renderPage(on[i], i + 1, on.length, brand, logo, o, scale, d)
     try { await fn(c, PAGE_DEFS[on[i].kind].title, i, on.length) } finally { c.width = 0; c.height = 0 }
   }
 }
 
 /** Record visible pages as editable items (text, shapes, images) for the Editor. */
-export async function recordPages(pages: PageSpec[], brand: Brand, logo: LogoInfo | null, o: Orientation, onPage?: (i: number, n: number) => void): Promise<(RecordedPage & { title: string })[]> {
+export async function recordPages(pages: PageSpec[], brand: Brand, logo: LogoInfo | null, o: Orientation, onPage?: (i: number, n: number) => void, d: LogoDecisions = NO_DECISIONS): Promise<(RecordedPage & { title: string })[]> {
   await Promise.all([loadFont(brand.fonts.heading, [400, 600, 700]), loadFont(brand.fonts.body, [400, 500, 600]), loadFont(brand.fonts.mono, [400, 500, 600])])
   const size = SIZES[o], on = pages.filter(p => p.on), out: (RecordedPage & { title: string })[] = []
   for (let i = 0; i < on.length; i++) {
     onPage?.(i, on.length)
     const def = PAGE_DEFS[on[i].kind], v = def.variants[Math.min(on[i].variant, def.variants.length - 1)]
-    const rec = recordPage(size.w, size.h, x => { x.textBaseline = 'alphabetic'; x.textAlign = 'left'; v.draw({ x, w: size.w, h: size.h, b: brand, logo, o, pageNo: i + 1, pageCount: on.length }) })
+    const rec = recordPage(size.w, size.h, x => { x.textBaseline = 'alphabetic'; x.textAlign = 'left'; v.draw({ x, w: size.w, h: size.h, b: brand, logo, o, pageNo: i + 1, pageCount: on.length, d }) })
     out.push({ ...rec, title: def.title })
     await new Promise(r => setTimeout(r, 0)) // let the progress label paint
   }

@@ -2,14 +2,16 @@ import { create } from 'zustand'
 import { initialTokens, resolve, type BrandTokens, type TokKey } from './tokens'
 import { DEFAULT_PAGES, PAGE_DEFS, type PageSpec } from '../brand-pages'
 import { idb, isPrivate } from '@/editor/io'
-import { analyseLogo, type LogoInfo } from './logo'
+import { analyseLogo, NO_DECISIONS, type LogoDecisions, type LogoInfo } from './logo'
+import { suggestRules } from '@/lib/intelligence/brand'
+import type { VariantId } from '@/lib/intelligence/logo'
 
 // The work in progress (tokens, locks, page order, logo file) is kept in the 'brand' IndexedDB store under
 // one record, so a reload, a navigation or a closed tab never loses it. In a private session idb keeps it in
 // memory only, and the builder warns before the page unloads.
 
 const DRAFT_ID = 'guideline-draft'
-interface Draft { id: string; tokens: BrandTokens; pages: PageSpec[]; logo: { blob: Blob; name: string } | null; orientation?: 'landscape' | 'portrait'; updatedAt: number }
+interface Draft { id: string; tokens: BrandTokens; pages: PageSpec[]; logo: { blob: Blob; name: string } | null; decisions?: LogoDecisions; orientation?: 'landscape' | 'portrait'; updatedAt: number }
 
 interface BrandState {
   tokens: BrandTokens
@@ -17,6 +19,11 @@ interface BrandState {
   logo: LogoInfo | null
   logoFile: File | null
   setLogo: (info: LogoInfo | null, file: File | null) => void
+  /** The designer's say over the analysis: variants switched off, treatments chosen per background. */
+  decisions: LogoDecisions
+  toggleVariant: (id: VariantId) => void
+  /** Choose a treatment for a background by hand, or null to go back to the suggestion. */
+  chooseBackground: (bgId: string, v: VariantId | null) => void
   /** 'loading' until the saved draft has been read, then 'fresh' (nothing saved) or 'restored'. */
   hydration: 'loading' | 'fresh' | 'restored'
   hydrate: () => Promise<void>
@@ -29,7 +36,8 @@ interface BrandState {
   setTok: <K extends TokKey>(k: K, v: BrandTokens[K]['value']) => void
   /** Lock at the value currently showing, or free it to regenerate. */
   toggleLock: (k: TokKey) => void
-  newTake: () => void
+  /** 'layout' keeps colours, type and scale and redraws composition (a variation). 'all' regenerates every unlocked token (a mutation). */
+  newTake: (kind?: 'layout' | 'all') => void
   unlockAll: () => void
   // Outliner. Page order, visibility and layout are the designer's, so New take never touches them.
   pages: PageSpec[]
@@ -44,7 +52,20 @@ export const useBrand = create<BrandState>((set, get) => ({
   tokens: initialTokens(),
   logo: null,
   logoFile: null,
-  setLogo: (logo, logoFile) => set({ logo, logoFile }),
+  setLogo: (logo, logoFile) => set(s => {
+    // Rules the designer has not set follow the artwork: clear space from its shape, minimum size from its thinnest stroke.
+    const r = suggestRules(logo?.profile ?? null)
+    const t = { ...s.tokens }
+    if (!t.logoClear.locked) t.logoClear = { value: r.clearSpace.value, locked: false }
+    if (!t.logoMin.locked) t.logoMin = { value: r.minWidth.value, locked: false }
+    if (!t.logoMinPrint.locked) t.logoMinPrint = { value: r.minPrint.value, locked: false }
+    // Decisions were made about one artwork; a different file starts clean.
+    const same = logo && s.logo && logo.fileName === s.logo.fileName && logo.width === s.logo.width && logo.height === s.logo.height
+    return { logo, logoFile, tokens: t, decisions: same ? s.decisions : NO_DECISIONS }
+  }),
+  decisions: NO_DECISIONS,
+  toggleVariant: id => set(s => ({ decisions: { ...s.decisions, off: s.decisions.off.includes(id) ? s.decisions.off.filter(x => x !== id) : [...s.decisions.off, id] } })),
+  chooseBackground: (bgId, v) => set(s => { const b = { ...s.decisions.backgrounds }; if (v) b[bgId] = v; else delete b[bgId]; return { decisions: { ...s.decisions, backgrounds: b } } }),
   hydration: 'loading',
   hydrate: async () => {
     if (get().hydration !== 'loading') return
@@ -57,14 +78,14 @@ export const useBrand = create<BrandState>((set, get) => ({
         }
         // Page kinds may have changed between versions: keep only pages that still exist, add any new ones at the end.
         const pages = [...d.pages.filter(p => p.kind in PAGE_DEFS), ...DEFAULT_PAGES.filter(p => !d.pages.some(q => q.kind === p.kind))]
-        set({ tokens: { ...initialTokens(), ...d.tokens }, pages, logo, logoFile, hydration: 'restored' })
+        set({ tokens: { ...initialTokens(), ...d.tokens }, pages, logo, logoFile, decisions: d.decisions ?? NO_DECISIONS, hydration: 'restored' })
         return
       }
     } catch { /* storage unavailable; work in memory */ }
     set({ hydration: 'fresh' })
   },
   startOver: async () => {
-    set({ tokens: initialTokens(), pages: DEFAULT_PAGES, logo: null, logoFile: null, hydration: 'fresh' })
+    set({ tokens: initialTokens(), pages: DEFAULT_PAGES, logo: null, logoFile: null, decisions: NO_DECISIONS, hydration: 'fresh' })
     try { await idb.del('brand', DRAFT_ID) } catch { /* ignore */ }
   },
   dirty: () => {
@@ -78,7 +99,7 @@ export const useBrand = create<BrandState>((set, get) => ({
     if (cur.locked) set({ tokens: { ...t, [k]: { ...cur, locked: false } } })
     else set({ tokens: { ...t, [k]: { value: resolve(t)[k].value, locked: true } } })
   },
-  newTake: () => set(s => ({ tokens: { ...s.tokens, salt: s.tokens.salt + 1 } })),
+  newTake: (kind = 'all') => set(s => (kind === 'layout' ? { tokens: { ...s.tokens, layoutSalt: (s.tokens.layoutSalt ?? 0) + 1 } } : { tokens: { ...s.tokens, salt: s.tokens.salt + 1 } })),
   pages: DEFAULT_PAGES,
   movePage: (from, to) => set(s => {
     if (to < 0 || to >= s.pages.length || from === to) return s
@@ -99,13 +120,13 @@ export const useBrand = create<BrandState>((set, get) => ({
 let timer: ReturnType<typeof setTimeout> | null = null
 useBrand.subscribe((s, prev) => {
   if (s.hydration === 'loading') return
-  if (s.tokens === prev.tokens && s.pages === prev.pages && s.logoFile === prev.logoFile) return
+  if (s.tokens === prev.tokens && s.pages === prev.pages && s.logoFile === prev.logoFile && s.decisions === prev.decisions) return
   if (timer) clearTimeout(timer)
   timer = setTimeout(() => {
     const cur = useBrand.getState()
     // Defaults are not worth a record (and would bring back the "picked up" note after Start over).
     if (!cur.dirty()) { idb.del('brand', DRAFT_ID).catch(() => {}); return }
-    const d: Draft = { id: DRAFT_ID, tokens: cur.tokens, pages: cur.pages, logo: cur.logoFile ? { blob: cur.logoFile, name: cur.logoFile.name } : null, updatedAt: Date.now() }
+    const d: Draft = { id: DRAFT_ID, tokens: cur.tokens, pages: cur.pages, logo: cur.logoFile ? { blob: cur.logoFile, name: cur.logoFile.name } : null, decisions: cur.decisions, updatedAt: Date.now() }
     idb.put('brand', d).catch(() => { /* storage full or blocked; the session keeps working in memory */ })
   }, 500)
 })

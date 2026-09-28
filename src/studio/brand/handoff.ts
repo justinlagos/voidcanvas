@@ -1,7 +1,7 @@
 import { RAMP_STEPS, fmtOklch, rgb255 } from './color'
 import { toCss, toJson, toTailwind, fileSlug } from './export'
 import { localFontFace } from './fonts'
-import { logoPlacements, monoMark, type LogoInfo } from './logo'
+import { MODE_LABEL, MODE_OF, NO_DECISIONS, grayMark, logoPlacements, logoVariants, monoMark, type LogoDecisions, type LogoInfo, type MarkMode } from './logo'
 import type { Brand, FontRef } from './tokens'
 
 // One self-contained HTML file the client opens locally. No hosting, no account.
@@ -14,21 +14,29 @@ const fam = (f: FontRef, fb: string) => `"${f.family.replace(/"/g, '')}", ${fb}`
  * @param inlineFonts Google font files embedded as @font-face data URLs (from inlineGoogleFontFaces), so the file
  * works offline. Families listed in `linkFonts` could not be fetched and are linked from Google instead.
  */
-export function buildHandoffHtml(b: Brand, logo: LogoInfo | null, slides: string[], inlineFonts = '', linkFonts?: string[]): string {
+export function buildHandoffHtml(b: Brand, logo: LogoInfo | null, slides: string[], inlineFonts = '', linkFonts?: string[], d: LogoDecisions = NO_DECISIONS): string {
   const fonts = [b.fonts.heading, b.fonts.body, b.fonts.mono]
   const google = linkFonts ?? Array.from(new Set(fonts.filter(f => f.source === 'google').map(f => f.family)))
   const localCss = [inlineFonts, ...Array.from(new Set(fonts.filter(f => f.source === 'local').map(f => f.family))).map(localFontFace)].filter(Boolean).join('\n')
   const gLink = google.length ? `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?${google.map(g => `family=${encodeURIComponent(g).replace(/%20/g, '+')}:wght@400;600;700`).join('&')}&display=swap">` : ''
   const slug = fileSlug(b.name)
 
-  const logoFiles: { label: string; href: string; file: string }[] = []
+  // Only versions that can honestly be made from the artwork are offered; a refused knockout says why.
+  const logoFiles: { label: string; href: string; file: string; mode: MarkMode }[] = []
+  const refused: string[] = []
   if (logo) {
-    logoFiles.push({ label: 'Full colour PNG', href: logo.img.toDataURL('image/png'), file: `${slug}-logo.png` })
-    logoFiles.push({ label: 'Reversed white PNG', href: monoMark(logo, '#ffffff').toDataURL('image/png'), file: `${slug}-logo-white.png` })
-    logoFiles.push({ label: 'Dark mono PNG', href: monoMark(logo, b.surfaces.inkOnLight).toDataURL('image/png'), file: `${slug}-logo-dark.png` })
-    if (logo.svg) logoFiles.push({ label: 'Original SVG', href: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(logo.svg), file: `${slug}-logo.svg` })
+    logoFiles.push({ label: 'Full colour PNG', href: logo.img.toDataURL('image/png'), file: `${slug}-logo.png`, mode: 'original' })
+    for (const v of logoVariants(b, logo, d)) {
+      if (v.id === 'primary') continue
+      if (!v.valid) { if (v.id === 'reversed' || v.id === 'mono-dark') refused.push(v.reason); continue }
+      const mode = MODE_OF[v.id]
+      const c = mode === 'grayscale' ? grayMark(logo) : monoMark(logo, mode === 'white' ? '#ffffff' : mode === 'brand' ? b.roles[0].hex : b.surfaces.inkOnLight)
+      const label = mode === 'white' ? 'Reversed white PNG' : mode === 'dark' ? 'Dark mono PNG' : mode === 'brand' ? 'One colour PNG' : 'Greyscale PNG'
+      logoFiles.push({ label, href: c.toDataURL('image/png'), file: `${slug}-logo-${mode === 'white' ? 'white' : mode === 'dark' ? 'dark' : mode}.png`, mode })
+    }
+    if (logo.svg) logoFiles.push({ label: 'Original SVG', href: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(logo.svg), file: `${slug}-logo.svg`, mode: 'original' })
   }
-  const logoSrc = (mode: string) => logoFiles.find(f => (mode === 'original' ? f.file.endsWith('logo.png') : mode === 'white' ? f.file.endsWith('white.png') : f.file.endsWith('dark.png')))?.href
+  const logoSrc = (mode: string) => (logoFiles.find(f => f.mode === mode && f.file.endsWith('.png')) ?? logoFiles[0])?.href
 
   const swatch = (hex: string, name: string, ink: string) => {
     const [r, g, bl] = rgb255(hex)
@@ -39,7 +47,7 @@ export function buildHandoffHtml(b: Brand, logo: LogoInfo | null, slides: string
   }
   const rampRow = (name: string, ramp: Record<number, string>) => `<div class="ramp"><span class="rn">${esc(name)}</span><div class="cells">${RAMP_STEPS.map(s => `<button style="background:${ramp[s]}" data-copy="${ramp[s].toUpperCase()}" title="${esc(name)} ${s} ${ramp[s]}"><i>${s}</i></button>`).join('')}</div></div>`
 
-  const places = logoPlacements(b, logo)
+  const places = logoPlacements(b, logo, d)
   const code = { css: toCss(b), tailwind: toTailwind(b), json: toJson(b) }
 
   return `<!doctype html>
@@ -84,10 +92,11 @@ pre{background:var(--dark);color:#e8e8ee;border-radius:var(--r);padding:20px;ove
 <div class="viewer"><img id="slide" src="${slides[0] ?? ''}" alt="Guideline page 1">
 <div class="vbar"><button id="prev" aria-label="Previous page">Previous</button><button id="next" aria-label="Next page">Next</button><span class="count" id="count">1 / ${slides.length}</span></div></div></section>
 
-<section id="logo"><h2>Logo</h2><p class="lead">Keep clear space of ${b.logo.clearSpace} × the mark height on every side. Never smaller than ${b.logo.minWidth}px wide on screen. Use the version shown for each background.</p>
+<section id="logo"><h2>Logo</h2><p class="lead">Keep clear space of ${b.logo.clearSpace} × the mark height on every side (${b.logo.sources.clearSpace === 'designer' ? 'set by the brand' : 'suggested'}). Never smaller than ${b.logo.minWidth}px wide on screen or ${b.logo.minPrint} mm in print (${b.logo.sources.minWidth === 'designer' ? 'set by the brand' : 'suggested'}). Use the version shown for each background.</p>
 <div class="grid">${places.map(p => `<div><div class="tile" style="background:${p.bg}">${logoSrc(p.mode) ? `<img src="${logoSrc(p.mode)}" alt="">` : `<span style="width:64px;height:64px;border-radius:50%;background:${p.mode === 'white' ? '#fff' : p.mode === 'dark' ? b.surfaces.inkOnLight : b.roles[0].hex}"></span>`}</div>
-<div class="cap"><b>${esc(p.bgName)}</b><span class="${p.ok ? 'pass' : 'fail'}">${p.mode === 'original' ? 'Full colour' : p.mode === 'white' ? 'Reversed' : 'Dark mono'}, ${p.ratio.toFixed(2)}:1</span></div></div>`).join('')}</div>
-${logoFiles.length ? `<div class="dl">${logoFiles.map(f => `<a class="btn ghost" href="${f.href}" download="${f.file}">${esc(f.label)}</a>`).join('')}</div>` : ''}</section>
+<div class="cap"><b>${esc(p.bgName)}</b><span class="${p.ok ? 'pass' : 'fail'}">${esc(MODE_LABEL[p.mode])}${p.level === 'attention' && p.fix ? ` on a ${Math.round(p.fix.opacity * 100)}% scrim` : ''}, ${p.ratio.toFixed(1)}:1${p.level === 'check' ? ', marginal' : ''}</span></div></div>`).join('')}</div>
+${logoFiles.length ? `<div class="dl">${logoFiles.map(f => `<a class="btn ghost" href="${f.href}" download="${f.file}">${esc(f.label)}</a>`).join('')}</div>` : ''}
+${refused.length ? `<p class="lead" style="margin-top:16px">${esc(refused[0])}</p>` : ''}</section>
 
 <section id="colour"><h2>Colour</h2><p class="lead">Click any value to copy it.</p>
 <div class="grid">${b.roles.map(r => swatch(r.hex, r.name, r.ink)).join('')}${swatch(b.surfaces.light, 'Light surface', b.surfaces.inkOnLight)}${swatch(b.surfaces.dark, 'Dark surface', '#ffffff')}</div>

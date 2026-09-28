@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Cpu, Download, Link2, RotateCcw, Trash2, Unlink } from 'lucide-react'
+import { CLASS_WORD, suggestReplacements, type FontSuggestion } from '@/lib/intelligence/fonts'
 import * as ops from '../ops'
 import * as ai from '../ai-tools'
 import { FONTS, ensureFont, registerLocalFont } from '../io'
@@ -317,10 +318,13 @@ export function fontAvailable(family: string): boolean {
 }
 
 export function MissingFontsDialog({ onClose, fonts }: { onClose: () => void; fonts: string[] }) {
-  const [choice, setChoice] = useState<Record<string, string>>(() => Object.fromEntries(fonts.map(f => [f, 'Inter'])))
+  // Like for like: a geometric sans stands in for Gotham, a high-contrast serif for Bodoni. Never Inter for everything.
+  const suggestions = useMemo(() => Object.fromEntries(fonts.map(f => [f, suggestReplacements(f, FONTS)])) as Record<string, FontSuggestion>, [fonts])
+  const [choice, setChoice] = useState<Record<string, string>>(() => Object.fromEntries(fonts.map(f => [f, suggestions[f].closest])))
   const layers = useEditor(s => s.layers)
   const s = useEditor.getState()
   const count = (f: string) => layers.filter(l => l.type === 'text' && l.fontFamily === f).length
+  useEffect(() => { for (const f of fonts) { ensureFont(suggestions[f].closest).catch(() => {}); ensureFont(suggestions[f].safer).catch(() => {}) } }, [fonts, suggestions])
   const replace = async () => {
     for (const f of fonts) {
       const to = choice[f]; if (!to || to === f) continue
@@ -334,22 +338,30 @@ export function MissingFontsDialog({ onClose, fonts }: { onClose: () => void; fo
     i.onchange = async () => { const file = i.files?.[0]; if (!file) return; try { await registerLocalFont(fam, file); setChoice(c => ({ ...c, [fam]: fam })); s.setDoc({}); useEditor.setState(st => ({ docRev: st.docRev + 1, layers: st.layers.map(l => l.type === 'text' ? { ...l, rev: l.rev + 1 } : l) })) } catch { s.notify('That font file could not be read.') } }
     i.click()
   }
+  const pick = (on: boolean) => `h-8 px-2.5 rounded-lg text-[12px] border text-left ${focusRing} ${on ? 'border-accent bg-accent-soft text-white' : 'border-void-800 bg-void-900 text-void-300 hover:text-white'}`
   return (
     <Modal title="Some fonts are missing" onClose={onClose}>
       <div className="p-5 space-y-3">
-        <p className="text-[12.5px] text-void-400 leading-relaxed">These fonts are not on this device or on Google Fonts, so the text would show in a stand-in font and spacing may shift. Pick a replacement, or add the font file. Added fonts are saved inside this design.</p>
-        {fonts.map(f => (
-          <div key={f} className="p-3 rounded-lg bg-surface-sunken border border-white/[0.05] space-y-2">
-            <p className="text-[13px] text-void-100">{f} <span className="text-void-500">· {count(f)} text layer{count(f) === 1 ? '' : 's'}</span></p>
-            <div className="flex items-center gap-2">
-              <select value={choice[f]} onChange={e => setChoice(c => ({ ...c, [f]: e.target.value }))} className={`${FIELD} !h-8 flex-1`}>
-                <option value={f}>Keep {f} (use a stand-in for now)</option>
-                {FONTS.map(x => <option key={x} value={x}>{x}</option>)}
-              </select>
-              <Button onClick={() => loadFile(f)} className="!h-8 shrink-0">Add font file</Button>
+        <p className="text-[12.5px] text-void-400 leading-relaxed">These fonts are not on this device or on Google Fonts. Each one is read for what kind of face it is, and the closest available face is suggested; a safer fallback is the plainest face of that kind. Or add the font file: it is saved inside this design.</p>
+        {fonts.map(f => {
+          const sg = suggestions[f]
+          return (
+            <div key={f} className="p-3 rounded-lg bg-surface-sunken border border-white/[0.05] space-y-2">
+              <p className="text-[13px] text-void-100">{f} <span className="text-void-500">· {count(f)} text layer{count(f) === 1 ? '' : 's'} · reads as a {CLASS_WORD[sg.missing.cls]}{sg.missing.weight >= 700 ? ', bold' : ''}</span></p>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button onClick={() => setChoice(c => ({ ...c, [f]: sg.closest }))} aria-pressed={choice[f] === sg.closest} className={pick(choice[f] === sg.closest)}><span className="block text-[10.5px] uppercase tracking-wide text-void-500">Closest match</span><span style={{ fontFamily: `"${sg.closest}"` }}>{sg.closest}</span></button>
+                <button onClick={() => setChoice(c => ({ ...c, [f]: sg.safer }))} aria-pressed={choice[f] === sg.safer} className={pick(choice[f] === sg.safer)}><span className="block text-[10.5px] uppercase tracking-wide text-void-500">Safer fallback</span><span style={{ fontFamily: `"${sg.safer}"` }}>{sg.safer}</span></button>
+              </div>
+              <div className="flex items-center gap-2">
+                <select value={choice[f]} onChange={e => setChoice(c => ({ ...c, [f]: e.target.value }))} aria-label={`Replacement for ${f}`} className={`${FIELD} !h-8 flex-1`}>
+                  <option value={f}>Keep {f} (use a stand-in for now)</option>
+                  {sg.ranked.map(x => <option key={x.family} value={x.family}>{x.family}: {x.why}</option>)}
+                </select>
+                <Button onClick={() => loadFile(f)} className="!h-8 shrink-0">Add font file</Button>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
       <Foot><Button onClick={onClose}>Keep as is</Button><Button primary onClick={replace}>Replace</Button></Foot>
     </Modal>

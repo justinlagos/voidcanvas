@@ -11,6 +11,9 @@ import { importFiles } from '../io'
 import { ADJUSTMENT_LABELS, useEditor } from '../store'
 import type { AdjustmentKind } from '../types'
 import { Modal, focusRing } from './ui'
+import { brandFor, placeBrandLogo } from '../brand-logo'
+import type { ClientBrand } from '@/studio/jobs'
+import { VARIANT_LABEL } from '@/lib/intelligence/logo'
 
 const ADJUSTMENTS: { kind: AdjustmentKind; hint: string }[] = [
   { kind: 'brightnessContrast', hint: 'Lighter, darker, punchier' },
@@ -56,6 +59,13 @@ function FilterThumb({ effect, base, stamp, fallback }: { effect: EffectType; ba
   return url ? <img src={url} alt="" className="w-full aspect-[4/3] object-cover rounded-lg" /> : <span className="w-full aspect-[4/3] rounded-lg bg-void-800 flex items-center justify-center text-[18px] text-void-500" aria-hidden>{fallback}</span>
 }
 
+function BrandLogoThumb({ blob, dark }: { blob: Blob; dark: boolean }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => { const u = URL.createObjectURL(blob); setUrl(u); return () => URL.revokeObjectURL(u) }, [blob])
+  // eslint-disable-next-line @next/next/no-img-element
+  return <span className={`block h-12 rounded-lg p-1.5 ${dark ? 'bg-void-950' : 'bg-white'}`}>{url && <img src={url} alt="" className="w-full h-full object-contain" />}</span>
+}
+
 function BrandLogo({ blob, name, onPick }: { blob: Blob; name: string; onPick: () => void }) {
   const [url, setUrl] = useState('')
   useEffect(() => { const u = URL.createObjectURL(blob); setUrl(u); return () => URL.revokeObjectURL(u) }, [blob])
@@ -72,6 +82,10 @@ export function AddMenu({ onClose, filtersOnly }: { onClose: () => void; filters
   const done = (fn: () => void) => () => { fn(); onClose() }
   const [brand, setBrand] = useState<BrandKit | null>(null)
   useEffect(() => { getBrand().then(setBrand).catch(() => {}) }, [])
+  // The job's client brand comes first: its logo system is what the checks read.
+  const brandId = useEditor(st => st.doc?.brandId)
+  const [client, setClient] = useState<ClientBrand | null>(null)
+  useEffect(() => { brandFor(brandId).then(setClient) }, [brandId])
   // A small copy of the current design, so every filter previews on the user's own work.
   const { base, stamp } = useMemo(() => {
     const st = useEditor.getState(); if (!st.doc || !st.layers.length) return { base: null, stamp: '' }
@@ -95,7 +109,18 @@ export function AddMenu({ onClose, filtersOnly }: { onClose: () => void; filters
           </div>
         )}
 
-        {!filtersOnly && brand && brand.logos.length > 0 && (
+        {!filtersOnly && client && client.logos.length > 0 && (
+          <div>
+            <h3 className="text-[13px] font-semibold mb-0.5">{client.name} logo</h3>
+            <p className="text-[12px] text-void-400 mb-2.5">Placed small in a clear corner, with the brand&apos;s clear space. Pick the version for the background it will sit on.</p>
+            <div className="flex gap-2 overflow-x-auto pb-1">{client.logos.map(l => (
+              <button key={l.id} onClick={() => { placeBrandLogo(l, client); onClose() }} title={`Add ${l.name}`} className={`shrink-0 w-24 rounded-xl bg-void-900 hover:bg-void-800 border border-void-800 p-1.5 text-left ${focusRing}`}>
+                <BrandLogoThumb blob={l.blob} dark={l.variant === 'reversed' || !!l.onDark} />
+                <span className="block mt-1 text-[11px] text-void-300 truncate">{VARIANT_LABEL[l.variant ?? (l.onDark ? 'reversed' : 'primary')]}</span>
+              </button>))}</div>
+          </div>
+        )}
+        {!filtersOnly && !client && brand && brand.logos.length > 0 && (
           <div>
             <h3 className="text-[13px] font-semibold mb-2.5">Your logos</h3>
             <div className="flex gap-2 overflow-x-auto pb-1">{brand.logos.map(l => <BrandLogo key={l.id} blob={l.blob} name={l.name} onPick={() => { importFiles([l.blob], [l.name]); onClose() }} />)}</div>

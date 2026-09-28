@@ -14,6 +14,12 @@ import { openModal } from '../actions'
 import { ColorButton, ColorPicker } from './ColorPicker'
 import { stageApi } from './Stage'
 import { Button, IconButton, Section, Select, Slider, focusRing } from './ui'
+import { logoVariant, type BrandLogo, type ClientBrand } from '@/studio/jobs'
+import { markOnTone, readPhoto } from '@/lib/intelligence/photo'
+import { profileCanvas } from '@/lib/intelligence/dom'
+import { swapLogoVersion } from '../brand-logo'
+import type { AssetProfile } from '@/lib/intelligence/asset'
+import type { Level } from '@/lib/intelligence/contrast'
 
 const Empty = ({ children }: { children: React.ReactNode }) => <p className="px-4 py-5 text-[12.5px] leading-relaxed text-void-500">{children}</p>
 
@@ -563,25 +569,105 @@ function contrastRatio(a: string, b: string) {
 
 // ─── Brand checks (Studio brand memory) ────────────────────────────
 
+/** Suggestions the designer said no to, per layer and the version offered, for this session. Designer control wins. */
+const declined = new Set<string>()
+const profileCache = new WeakMap<HTMLCanvasElement, AssetProfile>()
+
+export interface LogoContrastFinding { id: string; level: Level; text: string; offer: BrandLogo | null; key: string }
+
+/**
+ * What is behind each logo, and whether the logo still reads there. The pixels under the logo's box
+ * (every visible layer below it on the same board) are rendered small and read for tone and busyness;
+ * the logo's own colours are then judged against that tone. Where it fails and the brand has a
+ * version that would hold, that version is offered.
+ */
+export function logoContrastFindings(brand: ClientBrand, layers: Layer[], doc: import('../types').Doc, groups: import('../types').Group[]): LogoContrastFinding[] {
+  const out: LogoContrastFinding[] = []
+  for (let i = 0; i < layers.length; i++) {
+    const l = layers[i]
+    if (!l.visible || l.type !== 'raster' || !(l.role === 'logo' || l.brandLogoId || /logo/i.test(l.name))) continue
+    const asset = l.brandLogoId ? brand.logos.find(x => x.id === l.brandLogoId) : null
+    let profile = asset?.profile ?? null
+    if (!profile) { profile = profileCache.get(l.canvas) ?? null; if (!profile) { try { profile = profileCanvas(l.canvas, 200); profileCache.set(l.canvas, profile) } catch { continue } } }
+    const frame = doc.frames?.find(f => f.id === l.frameId) ?? null
+    // Only the part of the logo that is on the board is judged; past the edge there is nothing behind it.
+    const lb = layerBoundsOf(l, doc), board = frame ? { x: frame.x, y: frame.y, w: frame.width, h: frame.height } : { x: 0, y: 0, w: doc.width, h: doc.height }
+    const x0 = Math.max(lb.x, board.x), y0 = Math.max(lb.y, board.y), x1 = Math.min(lb.x + lb.w, board.x + board.w), y1 = Math.min(lb.y + lb.h, board.y + board.h)
+    const b = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+    if (b.w < 2 || b.h < 2) continue
+    const below = layers.slice(0, i).filter(o => (o.frameId ?? null) === (l.frameId ?? null))
+    const k = Math.min(1, 48 / Math.max(b.w, b.h))
+    const c = makeCanvas(Math.max(1, Math.round(b.w * k)), Math.max(1, Math.round(b.h * k)))
+    try { renderDoc(c, doc, below, { region: b, scale: k, noCache: true, groups, noShadow: true, frameRects: frame ? [frame] : [] }) } catch { continue }
+    const x = ctx2d(c, true)
+    const px = x.getImageData(0, 0, c.width, c.height)
+    // Transparent ground (nothing below on a transparent board) counts as the white it will most likely be seen on.
+    let alpha = 0; for (let o = 3; o < px.data.length; o += 4) alpha += px.data[o]
+    const ground = alpha / (px.data.length / 4) < 40 ? null : readPhoto(px.data, c.width, c.height)
+    const lum = ground ? ground.luminance : 1, busy = ground ? ground.busy : 0
+    const r = markOnTone(profile, lum)
+    const level: Level = r.level === 'good' && busy > 0.08 ? 'check' : r.level
+    if (level === 'good') continue
+    // Which version would hold here? The brand's own versions, judged on the same tone.
+    const cands: BrandLogo[] = ['reversed', 'mono-dark', 'grayscale', 'primary'].map(v => logoVariant(brand, v as never)).filter((v): v is BrandLogo => !!v && v.id !== l.brandLogoId && !!v.profile)
+    let offer: BrandLogo | null = null
+    for (const v of cands) { const rr = markOnTone(v.profile!, lum); if (rr.level === 'good' || (rr.level === 'check' && r.level === 'attention' && !offer)) { offer = v; if (rr.level === 'good') break } }
+    const key = `${l.id}:${offer?.id ?? 'none'}:${Math.round(lum * 10)}`
+    if (declined.has(key)) continue
+    const where = ground ? `${lum >= 0.6 ? 'a light' : lum <= 0.2 ? 'a dark' : 'a mid-tone'}${busy > 0.08 ? ', busy' : ''} area` : 'a transparent board'
+    const text = r.level === 'attention'
+      ? `"${l.name}" sits on ${where} and drops to ${r.ratio.toFixed(1)}:1. It may disappear.`
+      : busy > 0.08 && r.level === 'good' ? `"${l.name}" sits on a busy area. It reads at ${r.ratio.toFixed(1)}:1 but the detail behind it fights the mark.` : `"${l.name}" is ${r.ratio.toFixed(1)}:1 on ${where}, under the ${r.need}:1 target.`
+    out.push({ id: l.id, level, text, offer, key })
+  }
+  return out
+}
+export const declineLogoFinding = (key: string) => declined.add(key)
+// Test hook: `?vcdebug` exposes the check so browser tests can read what it saw.
+if (typeof window !== 'undefined' && ((window as any).__vcDebugOn || /vcdebug/.test(window.location.search))) (window as any).__vcLogoCheck = async () => { const st = useEditor.getState(); const b = st.doc?.brandId ? await (await import('@/editor/io')).idb.get<ClientBrand>('brands', st.doc.brandId) : null; return b && st.doc ? logoContrastFindings(b, st.layers, st.doc, st.groups).map(f => ({ ...f, offer: f.offer?.name })) : 'no brand' }
+
 function BrandChecks({ brandId }: { brandId: string }) {
-  const [brand, setBrand] = useState<import('@/studio/jobs').ClientBrand | null>(null)
+  const [brand, setBrand] = useState<ClientBrand | null>(null)
   const layers = useEditor(s => s.layers)
   const doc = useEditor(s => s.doc)
-  useEffect(() => { import('@/editor/io').then(m => m.idb.get<import('@/studio/jobs').ClientBrand>('brands', brandId)).then(b => setBrand(b ?? null)).catch(() => {}) }, [brandId])
+  const groups = useEditor(s => s.groups)
+  useEffect(() => { import('@/editor/io').then(m => m.idb.get<ClientBrand>('brands', brandId)).then(b => setBrand(b ?? null)).catch(() => {}) }, [brandId])
   const report = useMemo(() => {
     if (!brand || !doc) return null
     return brandReport(brand, layers, doc)
   }, [brand, layers, doc])
+  // Contrast reads pixels, so it runs a beat after the last change rather than on every keystroke.
+  const [contrast, setContrast] = useState<LogoContrastFinding[]>([])
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    if (!brand || !doc) return
+    const t = setTimeout(() => { try { setContrast(logoContrastFindings(brand, layers, doc, groups)) } catch { setContrast([]) } }, 350)
+    return () => clearTimeout(t)
+  }, [brand, layers, doc, groups, tick])
   if (!brand || !report) return null
   const s = useEditor.getState()
-  const ok = !report.colors.length && !report.fonts.length && !report.logos.length
+  const count = report.colors.length + report.fonts.length + report.logos.length + contrast.length
+  const attention = contrast.some(c => c.level === 'attention') || report.logos.length > 0
+  const versions = brand.logos.length
   return (
     <div className="p-3 space-y-2.5 border-b border-white/[0.05]">
       <div className="flex items-center justify-between">
         <span className="text-[12.5px] font-semibold text-void-100">Brand: {brand.name}</span>
-        <span className={`text-[11.5px] ${ok ? 'text-emerald-400' : 'text-amber-300'}`}>{ok ? 'On brand' : `${report.colors.length + report.fonts.length + report.logos.length} to check`}</span>
+        <span className={`text-[11.5px] ${!count ? 'text-emerald-400' : attention ? 'text-amber-300' : 'text-void-300'}`}>{!count ? 'On brand' : `${count} to check`}</span>
       </div>
       <div className="flex gap-1">{brand.colors.map(c => <button key={c.hex + c.role} title={`${c.role} ${c.hex}`} onClick={() => s.setFg(c.hex)} className="flex-1 h-6 rounded border border-white/10" style={{ background: c.hex }} />)}</div>
+      {versions > 0 && <p className="text-[11.5px] text-void-500">{versions === 1 ? 'One logo version' : `${versions} logo versions`} in the brand. Add one from the + menu; it goes in small, in a clear corner.</p>}
+      {contrast.map(f => (
+        <div key={f.key} className="rounded-lg bg-surface-sunken border border-white/[0.05] p-2 text-[12px] space-y-1.5">
+          <p className={f.level === 'attention' ? 'text-void-100' : 'text-void-300'}>{f.text}</p>
+          <div className="flex items-center gap-2">
+            {f.offer && <button onClick={async () => { await swapLogoVersion(f.id, f.offer!); setTick(t => t + 1) }} className={`h-7 px-2.5 rounded-md bg-void-800 hover:bg-void-700 text-[12px] text-void-100 ${focusRing}`}>Use {f.offer.name.split('/').pop()?.trim().toLowerCase()}</button>}
+            {!f.offer && <span className="text-[11.5px] text-void-500">No version of the logo clears it. Try a scrim or a calmer spot.</span>}
+            <button onClick={() => s.setActive(f.id)} className="text-void-400 hover:text-white">Select</button>
+            <button onClick={() => { declineLogoFinding(f.key); setTick(t => t + 1) }} className="ml-auto text-void-500 hover:text-white" title="Keep it as it is">Keep</button>
+          </div>
+        </div>
+      ))}
       {report.colors.map(c => (
         <div key={c.hex} className="flex items-center gap-2 text-[12px]">
           <span className="w-4 h-4 rounded border border-white/20 shrink-0" style={{ background: c.hex }} />
@@ -637,17 +723,26 @@ export function brandReport(brand: import('@/studio/jobs').ClientBrand, layers: 
     if (l.type === 'shape') { check(l.fill, l.id); check(l.stroke, l.id) }
   }
   const logos: { id: string; text: string }[] = []
+  const minRule = brand.logoRules?.minWidth, csRule = brand.logoRules?.clearSpace
+  const minW = minRule?.value ?? brand.logoMin, cs = csRule?.value ?? brand.clearSpace
+  const minSrc = minRule?.source === 'designer' ? 'the brand minimum' : 'the suggested minimum'
   for (const l of layers) {
-    if (!l.visible || !(l.role === 'logo' || /logo/i.test(l.name))) continue
+    if (!l.visible || !(l.role === 'logo' || l.brandLogoId || /logo/i.test(l.name))) continue
     const b = layerBoundsOf(l, doc)
     const frame = doc.frames?.find(f => f.id === l.frameId)
     const W = frame?.width ?? doc.width
     const shown = b.w * (1080 / W)
-    if (shown < brand.logoMin) logos.push({ id: l.id, text: `Logo "${l.name}" is ${Math.round(shown)} px wide at 1080; the brand minimum is ${brand.logoMin} px.` })
-    const pad = b.h * brand.clearSpace
+    if (shown < minW) logos.push({ id: l.id, text: `"${l.name}" is ${Math.round(shown)} px wide at 1080, under ${minSrc} of ${minW} px.` })
+    const pad = b.h * cs
     const zone = { x: b.x - pad, y: b.y - pad, w: b.w + pad * 2, h: b.h + pad * 2 }
-    const crowd = layers.find(o => o.id !== l.id && o.visible && o.type !== 'adjustment' && o.frameId === l.frameId && o.role !== 'background' && (() => { const ob = layerBoundsOf(o, doc); const big = ob.w * ob.h > (frame ? frame.width * frame.height : doc.width * doc.height) * 0.8; return !big && ob.x < zone.x + zone.w && ob.x + ob.w > zone.x && ob.y < zone.y + zone.h && ob.y + ob.h > zone.y })())
-    if (crowd) logos.push({ id: l.id, text: `"${crowd.name}" is inside the logo's clear space.` })
+    // A neighbour crowds the logo when it enters the zone. A layer the logo sits on (one that holds the whole zone) is its ground, not a neighbour.
+    const crowd = layers.find(o => o.id !== l.id && o.visible && o.type !== 'adjustment' && o.frameId === l.frameId && o.role !== 'background' && (() => {
+      const ob = layerBoundsOf(o, doc)
+      const big = ob.w * ob.h > (frame ? frame.width * frame.height : doc.width * doc.height) * 0.8
+      const holds = ob.x <= zone.x && ob.y <= zone.y && ob.x + ob.w >= zone.x + zone.w && ob.y + ob.h >= zone.y + zone.h
+      return !big && !holds && ob.x < zone.x + zone.w && ob.x + ob.w > zone.x && ob.y < zone.y + zone.h && ob.y + ob.h > zone.y
+    })())
+    if (crowd) logos.push({ id: l.id, text: `"${crowd.name}" is inside the logo's clear space (${csRule?.source === 'designer' ? 'set by the brand' : 'suggested'}: ${cs} × its height).` })
   }
   return { colors: Array.from(colors.values()), fonts: Array.from(fonts.values()), logos }
 }

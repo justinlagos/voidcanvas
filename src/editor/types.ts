@@ -66,6 +66,8 @@ interface LayerBase {
   srcId?: string | null
   /** Vector mask: a path in layer-local pixels. Shows the layer inside the path. Stays sharp at any size. */
   vmask?: VectorMask | null
+  /** Placed from a client brand: the brand logo (or version) this layer shows, so checks know its artwork. */
+  brandLogoId?: string | null
 }
 
 export type LayerRole = 'background' | 'image' | 'headline' | 'subhead' | 'body' | 'detail' | 'cta' | 'logo' | 'decoration'

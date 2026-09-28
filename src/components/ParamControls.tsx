@@ -2,6 +2,7 @@
 
 import { useStore, EffectType } from '@/store/useStore'
 import { RotateCcw } from 'lucide-react'
+import { matchPreset, presetsFor } from './effect-presets'
 
 export type ParamConfig = {
   key: 'intensity' | 'scale' | 'threshold' | 'amount' | 'frequency' | 'amplitude'
@@ -311,6 +312,8 @@ export const effectParams: Record<EffectType, ParamConfig[]> = {
 export function ParamControls() {
   const { activeEffect, params, setParam, resetParams, originalImage } = useStore()
   const config = effectParams[activeEffect]
+  const presets = presetsFor(activeEffect)
+  const current = matchPreset(activeEffect, params)
 
   if (!originalImage || config.length === 0) {
     return (
@@ -345,6 +348,14 @@ export function ParamControls() {
           Reset
         </button>
       </div>
+      {presets.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-1" role="group" aria-label="Starting points">
+          {presets.map(p => (
+            <button key={p.label} onClick={() => { for (const [k, v] of Object.entries(p.values)) setParam(k as any, v as any) }} aria-pressed={current === p.label}
+              className={`h-7 px-2.5 rounded-md text-[12px] border transition-colors ${current === p.label ? 'border-accent bg-accent-soft text-white' : 'border-void-800 bg-void-900/60 text-void-300 hover:text-white'}`}>{p.label}</button>
+          ))}
+        </div>
+      )}
       <div className="space-y-4 bg-void-900/60 border border-void-800/50 rounded-lg p-4">
         {config.map((param) => (
           <div key={param.key} className="space-y-2">
