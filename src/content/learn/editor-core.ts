@@ -126,7 +126,7 @@ export const articles: Article[] = [
       { t: 'h', text: 'Selecting layers' },
       { t: 'list', items: [
         "Click a row to select that layer. **Shift-click** selects every layer between the current one and the one you click. **Ctrl-click** adds or removes one layer.",
-        "On the canvas, with the Move tool ({{V}}), click something to select it. Shift-click adds another. Drag across empty canvas to select every layer the box touches.",
+        "On the canvas, with the Move tool ({{V}}), click something to select it. Shift-click adds another. Drag across empty canvas to select every layer the box touches. Locked layers and layers in hidden groups are left out.",
         "If **Auto-select** is off (in the options bar under Move settings), Ctrl-click on the canvas still picks the layer under the pointer.",
       ] },
 
@@ -136,8 +136,9 @@ export const articles: Article[] = [
       { t: 'h', text: 'Rename, duplicate and delete' },
       { t: 'list', items: [
         "**Rename:** double-click the name, or right-click and choose Rename. Press Enter to finish.",
-        "**Duplicate:** {{Ctrl+J}}, Layer, Duplicate layer, or the floating action bar. The copy is named with \"copy\" on the end and sits 16 pixels down and to the right, so you can see it.",
-        "**Delete:** press Delete, click the bin on the row or at the bottom of the panel, or drag a layer, group or board onto the bin.",
+        "**Duplicate:** {{Ctrl+J}}, Layer, Duplicate layer, or the floating action bar. The copy is numbered (Rectangle 2, Rectangle 3) and sits 16 pixels down and to the right, so you can see it. It is a layer of its own: not linked to the original.",
+        "**Delete:** press Delete, click the bin on the row or at the bottom of the panel, or drag a layer, group or board onto the bin. Locked layers are not deleted; unlock them first. Layers that were clipped to a deleted layer are released and show in full.",
+        "**Cut:** {{Ctrl+X}} with no pixel selection cuts the whole layer, ready to paste. With a pixel selection it cuts just those pixels.",
       ] },
       { t: 'warn', text: "If there is an active pixel selection, {{Ctrl+J}} copies the selected pixels to a new layer, and Delete clears the selected pixels instead of deleting the layer. Press {{Ctrl+D}} to deselect first if you meant to act on the whole layer." },
 
@@ -153,11 +154,11 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Merge, rasterize and flatten' },
       { t: 'list', items: [
-        "**Merge down** joins the selected layer with the one below into a single image layer, named after the lower one.",
-        "**Merge visible** ({{Ctrl+Shift+E}}) joins everything visible.",
-        "**Stamp visible to new layer** ({{Ctrl+Alt+Shift+E}}) makes a new image layer of everything you can see and leaves the originals alone. Handy before retouching.",
-        "**Rasterize layer** turns a text or shape layer into pixels.",
-        "**Flatten image** joins every layer into one.",
+        "**Merge down** joins the selected layer with the one below into a single image layer, named after the lower one. It keeps the lower layer's board and group, and anything clipped to either layer stays clipped to the result. It will not merge onto a filter layer, because the filter would have nothing left to change.",
+        "**Merge visible** ({{Ctrl+Shift+E}}) joins everything showing into one layer, where the topmost of them was. Hidden layers, including layers in hidden groups, stay as they are. In a design with boards it merges the active board.",
+        "**Stamp visible to new layer** ({{Ctrl+Alt+Shift+E}}) makes a new image layer of everything you can see and leaves the originals alone. Handy before retouching. With boards, it stamps the active board.",
+        "**Rasterize layer** turns a text or shape layer into pixels. The layer keeps its name, board, group, clipping, colour label and layer styles.",
+        "**Flatten image** joins every layer into one. In a design with boards, each board becomes one layer of its own. Hidden layers are removed; the Editor says how many, and Undo brings them back.",
       ] },
       { t: 'warn', text: "Merging or rasterizing turns text and shapes into pixels, and you can no longer retype or restyle them. Stamp visible is the safer choice when you only need a flat copy to work on." },
 

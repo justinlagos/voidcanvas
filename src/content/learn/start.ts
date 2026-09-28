@@ -102,7 +102,7 @@ export const articles: Article[] = [
       { t: 'p', text: "On a Mac, use Cmd wherever this page says Ctrl." },
 
       { t: 'h', text: 'Your design is already saved' },
-      { t: 'p', text: "You did not need to press Save. The Editor autosaves to this browser a couple of seconds after each change, and again when you switch away from the tab. The design appears under **Pick up where you left off** next time you open the Editor. Rename it with the name field at the top of the Editor." },
+      { t: 'p', text: "You did not need to press Save. The Editor autosaves to this browser about a second after you stop changing it, and whenever you leave the design or close the tab. The design appears under **Pick up where you left off** next time you open the Editor. Rename it with the name field at the top of the Editor." },
 
       { t: 'h', text: 'Common problems' },
       { t: 'list', items: [
@@ -127,12 +127,16 @@ export const articles: Article[] = [
       { t: 'p', text: "This page explains where your work is stored, what saves it, what can wipe it, and how to keep a copy that survives. It matters most before you clear your browser, switch computers or hand a design to someone else." },
 
       { t: 'h', text: 'Everything lives in this browser' },
-      { t: 'p', text: "Voidcanvas has no accounts and no cloud storage. Your work is kept in a database inside the browser (IndexedDB, named `voidcanvas`). That one database holds Editor designs, templates, versions, Studio jobs and their boards, client brands, the brand kit, and the inbox used to pass work between modules." },
+      { t: 'p', text: "Designs are not stored in any cloud. Your work is kept in a database inside the browser (IndexedDB, named `voidcanvas`). That one database holds Editor designs, templates, versions, Studio jobs and their boards, client brands, the brand kit, and the inbox used to pass work between modules. An account is optional; it syncs your settings, and a team shares client brands and Studio jobs, all sealed on your device first. Designs stay on the device." },
       { t: 'p', text: "Two consequences follow. Your work never leaves your device unless you export it. And your work is tied to this browser on this device: open Voidcanvas in a different browser, a different computer, or a different browser profile and you will not see it there." },
 
       { t: 'h', text: 'Autosave' },
-      { t: 'p', text: "The Editor saves the open design about two seconds after each change, and again whenever you switch away from the tab. You can still press {{Ctrl+S}} (File, **Save**) if you like; it shows **Saved to this device.** If the design is linked to a file (see Save to disk below), {{Ctrl+S}} updates that file too and says **Saved to this device and to** the file's name. Studio saves jobs as you edit them." },
-      { t: 'p', text: "If the browser or tab closes unexpectedly, the Editor start screen says **Voidcanvas closed unexpectedly last time** and offers to reopen every design that was open." },
+      { t: 'p', text: "The Editor saves the open design about a second after you stop changing it, every few seconds while you keep working (typing a long headline included), and whenever you leave it: going back to the start screen, starting a new design, switching tabs, switching away from the browser, or closing the tab. The top bar shows **Saving** until the last change is stored, then **Saved on this device**. If you close the tab in the moment between a change and its save, the browser asks whether to leave while it finishes." },
+      { t: 'p', text: "You can still press {{Ctrl+S}} (File, **Save**) if you like; it shows **Saved to this device.** If the design is linked to a file (see Save to disk below), {{Ctrl+S}} updates that file too and says **Saved to this device and to** the file's name. Studio saves jobs as you edit them." },
+      { t: 'h', text: 'Coming back to a design' },
+      { t: 'p', text: "Reloading the page reopens the designs you had open. Every design opens where you left it on this device: the same zoom, the same part of the canvas, the same board and the same layers selected." },
+      { t: 'p', text: "A design is edited in one browser tab at a time. If you open a design that is already open in another tab, that tab saves it, closes it and tells you why, and the new tab opens it with every change. Two tabs never overwrite each other." },
+      { t: 'p', text: "If the browser or tab closes unexpectedly, the Editor start screen says **Voidcanvas closed unexpectedly last time** and offers to reopen every design that was open. Another Voidcanvas tab that is still open does not count as a crash." },
 
       { t: 'h', text: 'Finding and managing saved designs' },
       { t: 'p', text: "The Editor start screen lists your recent designs under **Pick up where you left off**. Hover a design (or focus it with the keyboard) and open its **…** menu for:" },
@@ -140,7 +144,7 @@ export const articles: Article[] = [
         "**Export PNG**: downloads the design at full size without opening it.",
         "**Download .void**: downloads the editable design as a .void file without opening it.",
         "**Duplicate**: makes an independent copy named with ' copy' on the end.",
-        "**Delete**: removes it from this device. This cannot be undone.",
+        "**Delete**: removes it and its version history from this device. This cannot be undone.",
       ] },
 
       { t: 'h', text: 'Templates' },

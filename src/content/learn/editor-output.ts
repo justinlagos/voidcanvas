@@ -428,7 +428,7 @@ export const articles: Article[] = [
       { t: 'tip', text: 'Put your brand colours, fonts and logos in the [Brand kit](/learn/brand-kit) as well. A template holds a layout; the brand kit makes your colours and fonts ready in every design, template or not.' },
 
       { t: 'h', text: 'How saving works' },
-      { t: 'p', text: 'Your design autosaves to this device a couple of seconds after each change, and again when you switch away from the tab. {{Ctrl+S}} saves straight away. Versions are extra restore points on top of that.' },
+      { t: 'p', text: 'Your design autosaves to this device about a second after you stop changing it, every few seconds while you keep working, and whenever you leave it or close the tab. {{Ctrl+S}} saves straight away. Versions are extra restore points on top of that. Deleting a design deletes its versions too.' },
 
       { t: 'h', text: 'When versions are made' },
       { t: 'table', head: ['Label in the list', 'When'], rows: [

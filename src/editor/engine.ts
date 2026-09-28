@@ -161,12 +161,18 @@ export function rasterizeToDoc(l: RasterLayer, doc: Doc): Pick<RasterLayer, 'can
   return { canvas: bake(l.canvas), mask: l.mask ? bake(l.mask) : null, x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
 }
 
+/** True when any group around the layer, at any depth, is hidden. */
+export function insideHiddenGroup(l: Layer, groups: Group[]): boolean {
+  let gid = l.groupId ?? null, guard = 0
+  while (gid && guard++ < 64) { const g = groups.find(x => x.id === gid); if (!g) return false; if (!g.visible) return true; gid = g.parentId ?? null }
+  return false
+}
+
 /** Topmost selectable layer under a document point. */
 export function hitLayer(layers: Layer[], x: number, y: number, doc: Doc, groups: Group[] = []): Layer | null {
-  const hidden = new Set(groups.filter(g => !g.visible).map(g => g.id))
   for (let i = layers.length - 1; i >= 0; i--) {
     const l = layers[i]
-    if (!l.visible || l.locked || l.type === 'adjustment' || (l.groupId && hidden.has(l.groupId))) continue
+    if (!l.visible || l.locked || l.type === 'adjustment' || insideHiddenGroup(l, groups)) continue
     const { w, h } = layerSize(l, doc)
     const p = docToLocal(l, x, y, doc)
     if (p.x < 0 || p.y < 0 || p.x >= w || p.y >= h) continue

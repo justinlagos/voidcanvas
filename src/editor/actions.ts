@@ -62,7 +62,12 @@ export async function copyPixels(merged: boolean, cut = false) {
   const out = makeCanvas(box.w, box.h); ctx2d(out).drawImage(src, -box.x, -box.y)
   clip = { canvas: out, x: box.x, y: box.y }
   try { const blob = await canvasToBlob(out); await (navigator.clipboard as any).write([new (window as any).ClipboardItem({ 'image/png': blob })]) } catch { /* internal clipboard still works */ }
-  if (cut && !merged) st.clearSelectionPixels()
+  if (cut && !merged) {
+    const l = st.active()
+    if (st.selection) st.clearSelectionPixels()
+    // With no pixel selection, Cut takes the whole layer.
+    else if (l) { if (l.locked) { st.notify('Copied. The layer is locked, so it was not cut.'); return } st.removeLayer(l.id) }
+  }
   st.notify(cut ? 'Cut.' : merged ? 'Copied everything visible.' : 'Copied.')
 }
 
@@ -164,8 +169,8 @@ export function buildActions(): Record<string, Action> {
     { id: 'edit.warp', label: 'Warp', run: () => ops.beginTransform('warp'), enabled: hasLayer, keywords: 'bend mesh' },
     { id: 'edit.flipH', label: 'Flip layer horizontal', run: onActive(id => s().flip(id, 'h')), enabled: hasLayer, keywords: 'mirror' },
     { id: 'edit.flipV', label: 'Flip layer vertical', run: onActive(id => s().flip(id, 'v')), enabled: hasLayer },
-    { id: 'edit.rotate90', label: 'Rotate layer 90° clockwise', run: onActive(id => { const l = s().layers.find(x => x.id === id)!; s().updateLayer(id, { rotation: l.rotation + Math.PI / 2 }, 'Rotate') }), enabled: hasLayer },
-    { id: 'edit.rotate180', label: 'Rotate layer 180°', run: onActive(id => { const l = s().layers.find(x => x.id === id)!; s().updateLayer(id, { rotation: l.rotation + Math.PI }, 'Rotate') }), enabled: hasLayer },
+    { id: 'edit.rotate90', label: 'Rotate layer 90° clockwise', run: onActive(id => { const l = s().layers.find(x => x.id === id)!; if (l.locked || l.lockPosition) { s().notify('This layer is locked. Unlock it to rotate it.'); return } s().updateLayer(id, { rotation: l.rotation + Math.PI / 2 }, 'Rotate') }), enabled: hasLayer },
+    { id: 'edit.rotate180', label: 'Rotate layer 180°', run: onActive(id => { const l = s().layers.find(x => x.id === id)!; if (l.locked || l.lockPosition) { s().notify('This layer is locked. Unlock it to rotate it.'); return } s().updateLayer(id, { rotation: l.rotation + Math.PI }, 'Rotate') }), enabled: hasLayer },
     { id: 'edit.brand', label: 'Brand kit…', run: () => openModal('brand') },
     { id: 'edit.account', label: 'Account and sync…', run: () => openModal('account'), keywords: 'sign in login email sync settings devices recovery key' },
     { id: 'edit.prefs', label: 'Preferences…', hotkey: 'Ctrl+,', run: () => openModal('prefs'), keywords: 'settings interface scale history' },

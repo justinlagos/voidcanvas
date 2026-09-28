@@ -4,7 +4,7 @@ import { HelpMenu } from '@/components/HelpMenu'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeft, Camera, Check, Copy, Crop, Eclipse, FlipHorizontal, ImageIcon, ImageOff, Layers as LayersIcon, MoreHorizontal, PenLine, Redo2, Share2, Sparkles, Trash2, Type, Undo2, Wand2 } from 'lucide-react'
 import { useEditor } from '../store'
-import { downloadBlob, exportImage, importFiles, isPrivate } from '../io'
+import { downloadBlob, exportImage, importFiles, isPrivate, trackExport } from '../io'
 import type { Layer, ShapeLayer, TextLayer, ToolId } from '../types'
 import { Stage } from './Stage'
 import { LayersPanel } from './LayersPanel'
@@ -304,8 +304,9 @@ function ExportSheet({ onClose }: { onClose: () => void }) {
       const blob = await make(format)
       const ext = format === 'jpeg' ? 'jpg' : format
       const f = new File([blob], `${name}.${ext}`, { type: blob.type })
-      if (canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: name }) }
-      else downloadBlob(blob, `${name}.${ext}`)
+      if (canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: name }); trackExport(f.name, blob, { scale, via: 'share' }) }
+      else downloadBlob(blob, `${name}.${ext}`, { scale, via: 'phone' })
+      import('../versions').then(m => m.saveVersion('Exported', true)).catch(() => {})
       onClose()
     } catch (e) { if ((e as Error)?.name !== 'AbortError') useEditor.getState().notify('Could not export. Try again.') }
     finally { setBusy(null) }

@@ -6,7 +6,7 @@ import { deleteProject, duplicateProject, exportProjectPng, exportProjectVoid, i
 import { SIZE_PRESETS } from '../presets'
 import { useEditor } from '../store'
 import { useTabs } from '../tabs'
-import { clearSession, crashedAtStart } from '../versions'
+import { clearSession, readCrashedSession, type SessionMarker } from '../versions'
 import { Button, focusRing } from './ui'
 import { track } from '@/lib/analytics'
 import { desktop, type LibraryFile } from '@/lib/desktop'
@@ -74,7 +74,9 @@ function RecentMenu({ p, onChanged }: { p: ProjectSummary; onChanged: (fn: (r: P
 
 function RestoreBanner() {
   const [hidden, setHidden] = useState(false)
-  const m = crashedAtStart
+  // Read after mount: the server render has no localStorage, so the banner must not be in the first render.
+  const [m, setM] = useState<SessionMarker | null>(null)
+  useEffect(() => { let live = true; readCrashedSession().then(x => { if (live) setM(x) }).catch(() => {}); return () => { live = false } }, [])
   if (!m || hidden) return null
   const reopen = async () => {
     setHidden(true)

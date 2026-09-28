@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { defaultParams, type EffectType } from '@/store/useStore'
 import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, layerBounds, layerMatrix, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
-import { boardGap, occupied, placeBeside, type Side } from './frames'
+import { boardGap, frameForLayer, occupied, placeBeside, type Side } from './frames'
 import type { AdjustmentKind, AdjustmentLayer, Doc, Frame, Group, Layer, LayerRole, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
 import { useUi } from './ui-store'
 
@@ -9,7 +9,7 @@ import { useUi } from './ui-store'
 let REV = 1
 export const nextRev = () => ++REV
 
-export interface Snapshot { doc: Doc; layers: Layer[]; groups: Group[]; activeId: string | null; selection: HTMLCanvasElement | null; label: string; at?: number }
+export interface Snapshot { doc: Doc; layers: Layer[]; groups: Group[]; activeId: string | null; selection: HTMLCanvasElement | null; label: string; at?: number; selectedIds?: string[]; activeFrameId?: string | null }
 
 type Pt = { x: number; y: number }
 /** An in-progress free transform (skew, distort, perspective, warp) on one layer. */
@@ -147,7 +147,8 @@ interface EditorState {
   updateLayers: (updates: { id: string; patch: Partial<Layer> }[]) => void
   removeLayer: (id: string) => void
   duplicateLayer: (id: string) => void
-  moveLayer: (id: string, toIndex: number) => void
+  /** Move in the stack. `toFrame` (a drop in another board's list) also moves the layer onto that board, keeping its place on the board. */
+  moveLayer: (id: string, toIndex: number, toFrame?: string | null) => void
   nudgeOrder: (id: string, dir: 1 | -1) => void
   mergeDown: (id: string) => void
   rasterize: (id: string) => RasterLayer | null
@@ -212,6 +213,30 @@ export const prune = (groups: Group[], layers: Layer[]) => {
   const used = new Set<string>()
   for (const l of layers) for (const g of groupChain(l.groupId, groups)) used.add(g)
   return groups.filter(g => used.has(g.id))
+}
+
+/** After layers are removed: anything clipped to a layer that is gone is released, never left pointing at nothing. */
+export function releaseOrphans(layers: Layer[]): Layer[] {
+  const ids = new Set(layers.map(l => l.id))
+  return layers.map(l => (l.clipId && !ids.has(l.clipId) ? ({ ...l, clipId: null, rev: nextRev() } as Layer) : l))
+}
+
+/** A layer is shown only if it and every group around it are visible. The renderer uses the same rule. */
+export const isShown = (l: Layer, groups: Group[]) => l.visible && groupChain(l.groupId, groups).every(gid => groups.find(g => g.id === gid)?.visible !== false)
+
+/** Which board a layer belongs on, from where it is: the board under its centre, else the active board. */
+export function boardFor(doc: Doc, l: Layer, activeFrameId: string | null): string | null {
+  if (!doc.frames?.length) return null
+  if (l.type === 'adjustment') return activeFrameId ?? doc.frames[0].id
+  return frameForLayer(doc, l)?.id ?? (activeFrameId && doc.frames.some(f => f.id === activeFrameId) ? activeFrameId : doc.frames[0].id)
+}
+
+/** A name for a copy: "Rectangle" becomes "Rectangle 2", then "Rectangle 3", never "copy copy". */
+export function copyName(name: string, taken: Iterable<string>) {
+  const used = new Set(taken)
+  const stem = name.replace(/( copy)+( \d+)?$/i, '').replace(/ \d+$/, '') || name
+  for (let n = 2; n < 10000; n++) { const c = `${stem} ${n}`; if (!used.has(c)) return c }
+  return `${stem} copy`
 }
 
 /** Rough bytes held by history: every distinct canvas counted once. */
@@ -361,7 +386,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     const f = doc.frames.find(x => x.id === id); if (!f) return
     if (doc.frames.length < 2) { get().notify('A design needs at least one board. Add another board before closing this one.'); return }
     const frames = doc.frames.filter(x => x.id !== id)
-    const next = layers.filter(l => l.frameId !== id)
+    const next = releaseOrphans(layers.filter(l => l.frameId !== id))
     const keep = activeFrameId && activeFrameId !== id ? activeFrameId : frames[frames.length - 1].id
     set({ doc: { ...doc, frames }, layers: next, groups: prune(groups, next), activeFrameId: keep, selectedIds: [], activeId: null, editingMask: false, docRev: get().docRev + 1 })
     get().commit('Delete board')
@@ -398,7 +423,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   removeGroup: (groupId) => {
     const { layers, groups } = get()
     const g = groups.find(x => x.id === groupId); if (!g) return
-    const next = layers.filter(l => !inGroup(l, groupId, groups))
+    if (layers.some(l => inGroup(l, groupId, groups) && l.locked)) { get().notify('This group has locked layers. Unlock them to delete the group.'); return }
+    const next = releaseOrphans(layers.filter(l => !inGroup(l, groupId, groups)))
     const keep = next[next.length - 1]?.id ?? null
     set({ layers: next, groups: prune(groups.filter(x => x.id !== groupId), next), activeId: keep, selectedIds: keep ? [keep] : [], editingMask: false, docRev: get().docRev + 1 })
     get().commit('Delete group')
@@ -442,7 +468,12 @@ export const useEditor = create<EditorState>((set, get) => ({
     const byId = new Map(groups.map(g => [g.id, g]))
     const want = (gid?: string | null) => { let g = gid ? byId.get(gid) : undefined; while (g && !groupMap.has(g.id)) { groupMap.set(g.id, uid()); g = g.parentId ? byId.get(g.parentId) : undefined } }
     srcLayers.forEach(l => want(l.groupId))
-    const copies = srcLayers.map(l => ({ ...l, id: uid(), frameId: nf.id, srcId: undefined, groupId: l.groupId ? groupMap.get(l.groupId)! : null, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer))
+    // Layers linked to each other on the board stay linked in the copy, but not to the originals.
+    const linkMap = new Map<string, string>()
+    const relink = (lid?: string | null) => { if (!lid) return null; if (!linkMap.has(lid)) linkMap.set(lid, uid()); return linkMap.get(lid)! }
+    const copies = srcLayers.map(l => ({ ...l, id: uid(), frameId: nf.id, srcId: undefined, linkId: relink(l.linkId), groupId: l.groupId ? groupMap.get(l.groupId)! : null, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer))
+    const idMap = new Map(srcLayers.map((l, i) => [l.id, copies[i].id]))
+    for (const c of copies) if (c.clipId) c.clipId = idMap.get(c.clipId) ?? null
     const newGroups = groups.filter(g => groupMap.has(g.id)).map(g => ({ ...g, id: groupMap.get(g.id)!, parentId: g.parentId ? groupMap.get(g.parentId) ?? null : null }))
     const r = settleInto({ ...doc, frames: [...doc.frames, nf] }, [...layers, ...copies], get().view)
     set({ doc: r.doc, layers: r.layers, view: r.view, groups: [...groups, ...newGroups], activeFrameId: nf.id, docRev: get().docRev + 1 })
@@ -528,11 +559,21 @@ export const useEditor = create<EditorState>((set, get) => ({
       if (top) { reparent.add(top); return { ...l, rev: nextRev() } as Layer }
       return { ...l, groupId: g.id, rev: nextRev() } as Layer
     })
+    // The new group goes where the topmost selected layer was, but never in the middle of a group it
+    // does not belong to: members of a group always stay next to each other in the stack.
     const topIndex = Math.max(...selectedIds.map(id => layers.findIndex(l => l.id === id)))
-    const anchor = layers[topIndex].id
-    const rest = layers.filter(l => !selectedIds.includes(l.id) || l.id === anchor)
-    const at = rest.findIndex(l => l.id === anchor)
-    rest.splice(at, 1, ...picked)
+    const rest = layers.filter(l => !selectedIds.includes(l.id))
+    let ins = layers.slice(0, topIndex).filter(l => !selectedIds.includes(l.id)).length
+    const anc = new Set(parent ? groupChain(parent, groups) : [])
+    const chainOf = (l: Layer) => groupChain(l.groupId, groups)
+    const blocking = (i: number) => {
+      if (i <= 0 || i >= rest.length) return null
+      const above = new Set(chainOf(rest[i]))
+      const shared = chainOf(rest[i - 1]).filter(gid => above.has(gid) && !anc.has(gid))
+      return shared.length ? shared[shared.length - 1] : null
+    }
+    for (let gB = blocking(ins), guard = 0; gB && guard < 64; gB = blocking(ins), guard++) { while (ins < rest.length && chainOf(rest[ins]).includes(gB)) ins++ }
+    rest.splice(ins, 0, ...picked)
     const nextGroups = [...groups.map(x => reparent.has(x.id) ? { ...x, parentId: g.id } : x), g]
     set({ layers: rest.map(l => ({ ...l, rev: nextRev() } as Layer)), groups: prune(nextGroups, rest), docRev: get().docRev + 1 })
     get().commit('Group layers')
@@ -599,6 +640,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   setLayerBox: (id, box) => {
     const { layers, doc } = get(); if (!doc) return
     const l = layers.find(x => x.id === id); if (!l || l.type === 'adjustment') return
+    if (l.locked || l.lockPosition) { get().notify('This layer is locked. Unlock it to move or resize it.'); return }
     const b = layerBounds(l, doc)
     const patch: any = {}
     if (box.x != null) patch.x = l.x + (box.x - b.x)
@@ -610,10 +652,15 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   removeSelected: () => {
     const { layers, selectedIds, groups } = get(); if (!selectedIds.length) return
-    const next = layers.filter(l => !selectedIds.includes(l.id))
+    // Locked layers are never deleted by a selection; unlock them first.
+    const gone = new Set(layers.filter(l => selectedIds.includes(l.id) && !l.locked).map(l => l.id))
+    const kept = selectedIds.length - gone.size
+    if (!gone.size) { get().notify(kept > 1 ? 'These layers are locked. Unlock them to delete them.' : 'This layer is locked. Unlock it to delete it.'); return }
+    const next = releaseOrphans(layers.filter(l => !gone.has(l.id)))
     const keep = next[next.length - 1]?.id ?? null
     set({ layers: next, groups: prune(groups, next), activeId: keep, selectedIds: keep ? [keep] : [], editingMask: false, docRev: get().docRev + 1 })
-    get().commit(selectedIds.length > 1 ? 'Delete layers' : 'Delete layer')
+    get().commit(gone.size > 1 ? 'Delete layers' : 'Delete layer')
+    if (kept) get().notify(`${kept} locked ${kept > 1 ? 'layers were' : 'layer was'} kept.`)
   },
 
   addLayer: (l, label) => {
@@ -621,7 +668,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     const idx = activeId ? layers.findIndex(x => x.id === activeId) : layers.length - 1
     const next = [...layers]
     const st = get(); const host = idx >= 0 ? layers[idx] : null
-    if (st.doc?.frames?.length && l.frameId === undefined) l = { ...l, frameId: st.activeFrameId ?? st.doc.frames[0].id } as Layer
+    if (st.doc?.frames?.length && l.frameId === undefined) l = { ...l, frameId: boardFor(st.doc, l, st.activeFrameId) } as Layer
     let at = idx + 1
     if (host?.groupId && l.groupId === undefined) {
       // Adjustments land above the whole group so they keep affecting everything beneath them.
@@ -681,7 +728,10 @@ export const useEditor = create<EditorState>((set, get) => ({
       color: fg, align: 'left', lineHeight: boxWidth ? 1.4 : 1.15, letterSpacing: 0, boxWidth: boxWidth ?? null,
     }
     const s = layerSize(l)
-    l.x = x ?? (doc.width - s.w) / 2; l.y = y ?? (doc.height - s.h) / 2
+    // With boards, new text goes in the middle of the board being worked on, not the middle of the pasteboard.
+    const f = doc.frames?.find(fr => fr.id === get().activeFrameId) ?? doc.frames?.[0]
+    const box = f ? { x: f.x, y: f.y, w: f.width, h: f.height } : { x: 0, y: 0, w: doc.width, h: doc.height }
+    l.x = x ?? box.x + (box.w - s.w) / 2; l.y = y ?? box.y + (box.h - s.h) / 2
     get().addLayer(l, 'Add text')
     set({ tool: 'move', editingTextId: l.id })
   },
@@ -725,7 +775,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   removeLayer: (id) => {
     const { layers, activeId } = get()
     const idx = layers.findIndex(l => l.id === id); if (idx < 0) return
-    const next = layers.filter(l => l.id !== id)
+    if (layers[idx].locked) { get().notify('This layer is locked. Unlock it to delete it.'); return }
+    const next = releaseOrphans(layers.filter(l => l.id !== id))
     const act = activeId === id ? (next[Math.max(0, idx - 1)]?.id ?? null) : activeId
     set({ layers: next, groups: prune(get().groups, next), activeId: act, selectedIds: act ? [act] : [], editingMask: false, docRev: get().docRev + 1 })
     get().commit('Delete layer')
@@ -733,21 +784,37 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   duplicateLayer: (id) => {
     const l = get().layers.find(x => x.id === id); if (!l) return
-    const copy = { ...l, id: uid(), name: l.name + ' copy', x: l.x + (l.type === 'adjustment' ? 0 : 16), y: l.y + (l.type === 'adjustment' ? 0 : 16), rev: nextRev() } as Layer
+    // A copy is its own layer: not linked to the original, and not fed from a master format.
+    const copy = { ...l, id: uid(), name: copyName(l.name, get().layers.map(x => x.name)), linkId: null, srcId: null, x: l.x + (l.type === 'adjustment' ? 0 : 16), y: l.y + (l.type === 'adjustment' ? 0 : 16), rev: nextRev() } as Layer
     set({ activeId: id })
     get().addLayer(copy, 'Duplicate layer')
   },
 
-  moveLayer: (id, toIndex) => {
+  moveLayer: (id, toIndex, toFrame) => {
     const layers = [...get().layers]
     const from = layers.findIndex(l => l.id === id); if (from < 0) return
     const [l] = layers.splice(from, 1)
     const at = Math.max(0, Math.min(layers.length, toIndex))
     const below = layers[at - 1], above = layers[at]
-    // Dropped between two members of a group: join it. Dropped away from its own group: leave it.
-    const groupId = below?.groupId && below.groupId === above?.groupId ? below.groupId
-      : l.groupId && (below?.groupId === l.groupId || above?.groupId === l.groupId) ? l.groupId : null
-    layers.splice(at, 0, { ...l, groupId, rev: nextRev() } as Layer)
+    // Dropped inside a group (both neighbours in it): join the innermost group they share, so no group is
+    // split. At the edge of its own group it stays in it. Anywhere else it leaves its group.
+    const groups = get().groups
+    const cb = below ? groupChain(below.groupId, groups) : [], ca = above ? groupChain(above.groupId, groups) : []
+    const shared = cb.find(g => ca.includes(g)) ?? null
+    const own = l.groupId ?? null
+    const ownEdge = !!own && (cb.includes(own) || ca.includes(own)) && (!shared || groupChain(own, groups).includes(shared))
+    const groupId = ownEdge ? own : shared
+    let moved = { ...l, groupId, rev: nextRev() } as Layer
+    const doc = get().doc
+    if (toFrame && doc?.frames?.length && toFrame !== l.frameId) {
+      const src = doc.frames.find(f => f.id === l.frameId), dst = doc.frames.find(f => f.id === toFrame)
+      if (dst) {
+        moved = { ...moved, frameId: dst.id } as Layer
+        if (src && l.type !== 'adjustment') moved = { ...moved, x: l.x + dst.x - src.x, y: l.y + dst.y - src.y } as Layer
+        if (moved.clipId) moved = { ...moved, clipId: null } as Layer
+      }
+    }
+    layers.splice(at, 0, moved)
     // Anything above the moved layer may now sit over different pixels.
     set({ layers: layers.map(x => ({ ...x, rev: nextRev() } as Layer)), groups: prune(get().groups, layers), docRev: get().docRev + 1 })
     get().commit('Reorder layers')
@@ -765,13 +832,19 @@ export const useEditor = create<EditorState>((set, get) => ({
     const { layers, doc } = get(); if (!doc) return
     const i = layers.findIndex(l => l.id === id)
     if (i <= 0) return
+    const lower = layers[i - 1], upper = layers[i]
+    if (lower.type === 'adjustment') { get().notify('Merge down needs a picture, text or shape layer below. The layer below is a filter.'); return }
+    if (lower.locked || upper.locked) { get().notify('One of these layers is locked. Unlock it to merge.'); return }
     const c = makeCanvas(doc.width, doc.height)
+    // Render both at full opacity inside the lower layer's board, then keep the lower layer's place, board and opacity.
     // fullRes: filters are baked at document size, as a 1x export would draw them, not from the 1200 px preview.
-    renderDoc(c, doc, [layers[i - 1], layers[i]].map(l => ({ ...l, visible: true } as Layer)), { transparent: true, noCache: true, fullRes: true })
-    const merged: RasterLayer = { ...base(layers[i - 1].name), type: 'raster', canvas: c, visible: layers[i - 1].visible, groupId: layers[i - 1].groupId ?? null }
+    renderDoc(c, doc, [lower, upper].map(l => ({ ...l, visible: true } as Layer)), { transparent: true, noCache: true, fullRes: true })
+    const merged: RasterLayer = { ...base(lower.name), type: 'raster', canvas: c, visible: lower.visible, groupId: lower.groupId ?? null, frameId: lower.frameId ?? null, clipId: lower.clipId ?? null, role: lower.role, linkId: lower.linkId ?? null }
     const next = [...layers]
     next.splice(i - 1, 2, merged)
-    set({ layers: next, groups: prune(get().groups, next), activeId: merged.id, selectedIds: [merged.id], editingMask: false, docRev: get().docRev + 1 })
+    // Anything clipped to either layer is now clipped to the merged one, so nothing is left clipped to a layer that is gone.
+    const fixed = next.map(l => (l.clipId === lower.id || l.clipId === upper.id) && l.id !== merged.id ? ({ ...l, clipId: merged.id, rev: nextRev() } as Layer) : l)
+    set({ layers: fixed, groups: prune(get().groups, fixed), activeId: merged.id, selectedIds: [merged.id], editingMask: false, docRev: get().docRev + 1 })
     get().commit('Merge down')
   },
 
@@ -785,8 +858,14 @@ export const useEditor = create<EditorState>((set, get) => ({
       return get().layers.find(x => x.id === id) as RasterLayer
     }
     const c = makeCanvas(doc.width, doc.height)
-    renderDoc(c, doc, [{ ...l, opacity: 1, blend: 'source-over', visible: true } as Layer], { transparent: true, noCache: true })
-    const r: RasterLayer = { ...base(l.name), id: l.id, type: 'raster', canvas: c, opacity: l.opacity, blend: l.blend, visible: l.visible, groupId: l.groupId ?? null, rev: nextRev() }
+    // The mask and vector mask are baked into the pixels; layer styles and fill opacity stay live on the new layer.
+    renderDoc(c, doc, [{ ...l, opacity: 1, blend: 'source-over', visible: true, styles: null, fillOpacity: 1, clipId: null } as Layer], { transparent: true, noCache: true, frameRects: [] })
+    // Pixels replace the text or shape; everything else about the layer (board, group, clip, link, role, locks, label, name) stays.
+    const r: RasterLayer = {
+      ...base(l.name), id: l.id, type: 'raster', canvas: c, opacity: l.opacity, blend: l.blend, visible: l.visible, locked: l.locked,
+      groupId: l.groupId ?? null, frameId: l.frameId ?? null, clipId: l.clipId ?? null, linkId: l.linkId ?? null, role: l.role ?? null, label: l.label ?? null,
+      lockAlpha: l.lockAlpha, lockPixels: l.lockPixels, lockPosition: l.lockPosition, styles: l.styles ?? null, fillOpacity: l.fillOpacity, brandLogoId: l.brandLogoId ?? null, rev: nextRev(),
+    }
     set({ layers: layers.map(x => (x.id === id ? r : x)), docRev: get().docRev + 1 })
     return r
   },
@@ -811,6 +890,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   flip: (id, axis) => {
     const l = get().layers.find(x => x.id === id)
     if (!l || l.type === 'adjustment') return
+    if (l.locked || l.lockPixels) { get().notify('This layer is locked. Unlock it to flip it.'); return }
     if (l.type === 'raster') {
       const f = (src: HTMLCanvasElement) => {
         const c = makeCanvas(src.width, src.height); const x = ctx2d(c)
@@ -934,8 +1014,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   setView: (v) => set({ view: { ...get().view, ...v } }),
 
   commit: (label) => {
-    const { doc, layers, activeId, selection, history, historyIndex } = get(); if (!doc) return
-    const snap: Snapshot = { doc: { ...doc }, layers: [...layers], groups: get().groups.map(g => ({ ...g })), activeId, selection, label, at: Date.now() }
+    const { doc, layers, activeId, selection, history, historyIndex, selectedIds, activeFrameId } = get(); if (!doc) return
+    const snap: Snapshot = { doc: { ...doc }, layers: [...layers], groups: get().groups.map(g => ({ ...g })), activeId, selection, label, at: Date.now(), selectedIds: [...selectedIds], activeFrameId }
     const ui = useUi.getState()
     let next = [...history.slice(0, historyIndex + 1), snap].slice(-Math.max(5, ui.historyLimit))
     // Keep history inside its memory budget: drop the oldest steps first, always keeping the last five.
@@ -958,7 +1038,16 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   jumpTo: (index) => {
     const { history } = get(); const s = history[index]; if (!s) return
-    set({ doc: { ...s.doc }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), selectedIds: s.activeId ? [s.activeId] : [], editingTextId: null, activeId: s.activeId, selection: s.selection, historyIndex: index, editingMask: false, transform: null, docRev: get().docRev + 1, selRev: get().selRev + 1, dirty: true })
+    // What is selected, and the board being worked on, stay as they are when they still exist after the
+    // step; otherwise they come back as they were at that step. Nothing ever points at something gone.
+    const ids = new Set(s.layers.map(l => l.id))
+    const now = get()
+    const kept = now.selectedIds.filter(x => ids.has(x))
+    const sel = kept.length ? kept : (s.selectedIds ?? (s.activeId ? [s.activeId] : [])).filter(x => ids.has(x))
+    const frames = s.doc.frames ?? []
+    const frame = frames.length ? (frames.some(f => f.id === now.activeFrameId) ? now.activeFrameId! : frames.some(f => f.id === s.activeFrameId) ? s.activeFrameId! : frames[0].id) : null
+    const act = now.activeId && sel.includes(now.activeId) ? now.activeId : (sel[sel.length - 1] ?? null)
+    set({ doc: { ...s.doc }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), selectedIds: sel.length ? sel : act ? [act] : [], editingTextId: null, activeId: act, activeFrameId: frame, selection: s.selection, historyIndex: index, editingMask: false, transform: null, docRev: get().docRev + 1, selRev: get().selRev + 1, dirty: true })
   },
 
   deleteHistoryStep: (index) => {

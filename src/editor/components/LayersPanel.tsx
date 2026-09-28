@@ -65,7 +65,7 @@ function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
     <li role="option" aria-selected={on} style={{ paddingLeft: depth * 14 + (l.clipId ? 14 : 0) }} draggable={renaming !== l.id}
       onDragStart={e => { setDragId(l.id); e.dataTransfer.setData('text/vc-layer', l.id); e.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => { setDragId(null); setOver(null) }}
       onDragOver={e => { if (!dragId) return; e.preventDefault(); setOver(i) }}
-      onDrop={e => { e.preventDefault(); if (dragId && dragId !== l.id) s.moveLayer(dragId, i); setOver(null) }}
+      onDrop={e => { e.preventDefault(); if (dragId && dragId !== l.id) s.moveLayer(dragId, i, l.frameId ?? null); setOver(null) }}
       onClick={e => {
         if ((e.ctrlKey || e.metaKey) && (e.target as HTMLElement).closest('[data-thumb]')) { ops.selectLayerPixels(l.id, e.shiftKey ? 'add' : e.altKey ? 'sub' : 'new'); return }
         if (e.shiftKey && activeId) {

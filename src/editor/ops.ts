@@ -1,5 +1,5 @@
 import { cloneCanvas, ctx2d, drawLayerContent, fullMaskSized, layerMatrix, layerSize, makeCanvas, maskBounds, paintPathOps, pathPolyline, renderDoc, tracePath, uid, vectorMaskCanvas } from './engine'
-import { base, nextRev, useEditor } from './store'
+import { base, isShown, nextRev, useEditor } from './store'
 import { morph } from './styles'
 import type { Doc, Layer, LayerStyles, PathNode, PathOp, RasterLayer, ShapeLayer, SubPath, TextLayer, VectorPath } from './types'
 import { docSubsToLayerPatch, docSubsToTextPathPatch, docToVmask, layerSubsToDoc, reverseSub, samplePath, simplifySub, toSvgD } from './pen'
@@ -110,28 +110,57 @@ export function cropToSelection() {
 
 export function flatten() {
   const s = st(); const doc = s.doc; if (!doc) return
-  const c = composite({ full: true }); if (!c) return
-  const l: RasterLayer = { ...base('Background'), type: 'raster', canvas: c }
-  s.replaceAll({ layers: [l], groups: [] }, 'Flatten image')
-  useEditor.setState({ activeId: l.id, selectedIds: [l.id] })
+  const hidden = s.layers.filter(l => !isShown(l, s.groups)).length
+  if (doc.frames?.length) {
+    // With boards, each board flattens to one layer of its own, so every board keeps its picture.
+    const out: RasterLayer[] = doc.frames.map(f => {
+      const c = makeCanvas(doc.width, doc.height)
+      renderDoc(c, doc, s.layers.filter(l => l.frameId === f.id), { groups: s.groups, noCache: true, fullRes: true, transparent: true, noShadow: true })
+      return { ...base(f.name), type: 'raster', canvas: c, frameId: f.id } as RasterLayer
+    })
+    s.replaceAll({ layers: out, groups: [] }, 'Flatten image')
+    const act = out.find(l => l.frameId === s.activeFrameId) ?? out[0]
+    useEditor.setState({ activeId: act?.id ?? null, selectedIds: act ? [act.id] : [] })
+  } else {
+    const c = composite({ full: true }); if (!c) return
+    const l: RasterLayer = { ...base('Background'), type: 'raster', canvas: c }
+    s.replaceAll({ layers: [l], groups: [] }, 'Flatten image')
+    useEditor.setState({ activeId: l.id, selectedIds: [l.id] })
+  }
+  if (hidden) st().notify(`${hidden} hidden ${hidden > 1 ? 'layers were' : 'layer was'} removed by flattening. Undo brings ${hidden > 1 ? 'them' : 'it'} back.`)
 }
 
+/** Merge what is showing into one layer. Hidden layers, including those in hidden groups, are kept as they are. With boards, only the active board is merged. */
 export function mergeVisible() {
   const s = st(); const doc = s.doc; if (!doc) return
-  const vis = s.layers.filter(l => l.visible)
-  if (vis.length < 2) return
+  const board = doc.frames?.length ? (s.activeFrameId ?? doc.frames[0].id) : null
+  const vis = s.layers.filter(l => isShown(l, s.groups) && (!board || l.frameId === board))
+  if (vis.length < 2) { s.notify('There is only one visible layer to merge.'); return }
+  if (vis.some(l => l.locked)) { s.notify('Some visible layers are locked. Unlock them to merge.'); return }
   const c = makeCanvas(doc.width, doc.height)
   renderDoc(c, doc, vis, { groups: s.groups, noCache: true, fullRes: true, transparent: true })
-  const l: RasterLayer = { ...base('Merged'), type: 'raster', canvas: c }
-  s.replaceAll({ layers: [...s.layers.filter(x => !x.visible), l], groups: s.groups }, 'Merge visible')
+  const l: RasterLayer = { ...base('Merged'), type: 'raster', canvas: c, ...(board ? { frameId: board } : {}) }
+  const gone = new Set(vis.map(x => x.id))
+  // The merged layer takes the place of the topmost layer it replaces, so hidden layers keep their order around it.
+  const topAt = Math.max(...vis.map(x => s.layers.indexOf(x)))
+  const next: typeof s.layers = []
+  s.layers.forEach((x, i) => { if (i === topAt) next.push(l); if (!gone.has(x.id)) next.push(x.clipId && gone.has(x.clipId) ? ({ ...x, clipId: null } as Layer) : x) })
+  s.replaceAll({ layers: next, groups: s.groups }, 'Merge visible')
   useEditor.setState({ activeId: l.id, selectedIds: [l.id] })
 }
 
-/** Ctrl+Alt+Shift+E: a new layer holding everything visible, layers kept. */
+/** Ctrl+Alt+Shift+E: a new layer holding everything visible, layers kept. With boards, the active board. */
 export function stampVisible() {
   const s = st(); const doc = s.doc; if (!doc) return
+  if (doc.frames?.length) {
+    const board = s.activeFrameId ?? doc.frames[0].id
+    const c = makeCanvas(doc.width, doc.height)
+    renderDoc(c, doc, s.layers.filter(l => l.frameId === board), { groups: s.groups, noCache: true, fullRes: true, transparent: true })
+    s.addLayer({ ...base('Stamped'), type: 'raster', canvas: c, frameId: board, groupId: null }, 'Stamp visible')
+    return
+  }
   const c = composite({ transparent: true, full: true }); if (!c) return
-  s.addLayer({ ...base('Stamped'), type: 'raster', canvas: c }, 'Stamp visible')
+  s.addLayer({ ...base('Stamped'), type: 'raster', canvas: c, groupId: null }, 'Stamp visible')
 }
 
 // ─── Selection ─────────────────────────────────────────────────────

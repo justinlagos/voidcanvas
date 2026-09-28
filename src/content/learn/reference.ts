@@ -257,7 +257,7 @@ export const articles: Article[] = [
       { t: 'list', items: [
         'If a shortcut does nothing, check that you are not typing in a field and that no dialog is open. Click an empty part of the canvas and try again.',
         'Some shortcuts need something to act on: Deselect needs a selection, Ungroup needs a layer in a group, Load path as selection needs a path.',
-        'Ctrl+J and Delete change meaning when a selection is active. That matches Photoshop, but catches people out: press Ctrl+D first if you meant the whole layer.',
+        'Ctrl+J, Ctrl+X and Delete change meaning when a selection is active: they act on the selected pixels. With no selection they act on the whole layer. Press Ctrl+D first if you meant the whole layer.',
         'Number keys set opacity for every selected layer at once, and each press is one undo step.',
         'Coming from Photoshop? Tool keys, bracket keys, number keys, X, D, Q and the arrange shortcuts all behave the same way.',
       ] },

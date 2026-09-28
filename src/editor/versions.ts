@@ -68,22 +68,52 @@ export function startAutoVersions() {
 }
 
 // ─── Session recovery ──────────────────────────────────────────────
-// A small marker in localStorage records the open designs. It is marked clean when the tab closes normally;
-// if the next visit finds it unclean, the browser or tab crashed and we offer to reopen the work.
+// Each tab keeps a small marker in localStorage with the designs it has open, and holds a Web Lock for
+// as long as it lives. A marker left behind by a tab whose lock is gone means that tab crashed or was
+// killed (phones do this to background tabs), so the next visit offers to reopen its designs. Another
+// tab that is simply still open holds its lock, so it is never mistaken for a crash.
 
-const SESSION = 'vc-session'
+const SESSIONS = 'vc-sessions'
 export interface SessionMarker { open: { id: string; name: string }[]; active: string | null; clean: boolean; at: number }
+const TAB = typeof window !== 'undefined' ? Math.random().toString(36).slice(2) : 'server'
+const lockName = (tab: string) => 'vc-tab-' + tab
+let lockHeld = false
+
+function readAll(): Record<string, SessionMarker> { try { return JSON.parse(localStorage.getItem(SESSIONS) || '{}') } catch { return {} } }
+function writeAll(all: Record<string, SessionMarker>) { try { localStorage.setItem(SESSIONS, JSON.stringify(all)) } catch { /* ignore */ } }
 
 export function writeSession(open: { id: string; name: string }[], active: string | null) {
-  try { localStorage.setItem(SESSION, JSON.stringify({ open, active, clean: false, at: Date.now() } as SessionMarker)) } catch { /* ignore */ }
+  if (!lockHeld && typeof navigator !== 'undefined' && (navigator as any).locks) {
+    lockHeld = true
+    ;(navigator as any).locks.request(lockName(TAB), () => new Promise(() => { /* held until the tab goes */ })).catch(() => {})
+  }
+  const all = readAll()
+  if (!open.length) delete all[TAB]
+  else all[TAB] = { open, active, clean: false, at: Date.now() }
+  writeAll(all)
 }
-export function markSessionClean() {
-  try { const raw = localStorage.getItem(SESSION); if (!raw) return; const m = JSON.parse(raw) as SessionMarker; m.clean = true; localStorage.setItem(SESSION, JSON.stringify(m)) } catch { /* ignore */ }
-}
-export function readCrashedSession(): SessionMarker | null {
-  try { const raw = localStorage.getItem(SESSION); if (!raw) return null; const m = JSON.parse(raw) as SessionMarker; return !m.clean && m.open.length ? m : null } catch { return null }
-}
-export function clearSession() { try { localStorage.removeItem(SESSION) } catch { /* ignore */ } }
+export function markSessionClean() { const all = readAll(); if (all[TAB]) { delete all[TAB]; writeAll(all) } }
 
-/** Read once when the app loads, before this session writes its own marker. */
-export const crashedAtStart: SessionMarker | null = typeof window !== 'undefined' ? readCrashedSession() : null
+/** Designs left open by tabs that are gone without closing. Resolves after checking which tabs are still alive. */
+export async function readCrashedSession(): Promise<SessionMarker | null> {
+  try { localStorage.removeItem('vc-session') } catch { /* the old single marker */ }
+  const all = readAll()
+  const others = Object.entries(all).filter(([k, m]) => k !== TAB && !m.clean && m.open.length)
+  if (!others.length) return null
+  const locks = (navigator as any).locks
+  if (!locks?.query) return null
+  const held = new Set(((await locks.query()).held ?? []).map((l: { name: string }) => l.name))
+  const dead = others.filter(([k]) => !held.has(lockName(k)))
+  if (!dead.length) return null
+  const seen = new Set<string>(); const open: SessionMarker['open'] = []
+  for (const [, m] of dead.sort((a, b) => b[1].at - a[1].at)) for (const t of m.open) if (!seen.has(t.id)) { seen.add(t.id); open.push(t) }
+  const newest = dead[0][1]
+  return { open, active: newest.active, clean: false, at: newest.at }
+}
+/** Forget markers of tabs that are gone (after the designer reopened or dismissed them). */
+export async function clearSession() {
+  const all = readAll(); const locks = (navigator as any).locks
+  const held = locks?.query ? new Set(((await locks.query()).held ?? []).map((l: { name: string }) => l.name)) : null
+  for (const k of Object.keys(all)) if (k !== TAB && (!held || !held.has(lockName(k)))) delete all[k]
+  writeAll(all)
+}

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { PanelRight } from 'lucide-react'
-import { blobToCanvas, getBrand, importFiles, openProject, saveProject, takeHandoff } from '../io'
+import { blobToCanvas, flushSave, getBrand, hasUnsaved, importFiles, openProject, saveProject, startAutosave, takeHandoff } from '../io'
+import { checkInvariants } from '../invariants'
 import { useEditor } from '../store'
 import { AddMenu } from './AddMenu'
 import { CommandPalette } from './CommandPalette'
@@ -18,6 +19,7 @@ import { Stage, isTyping, stageApi } from './Stage'
 import { StartScreen } from './StartScreen'
 import { TabBar } from './TabBar'
 import { useTabs } from '../tabs'
+import { frameForLayer } from '../frames'
 import { SIZE_PRESETS } from '../presets'
 import { FloatingTools, TOOL_KEYS, ToolRail, cycleFamily, toggleQuickMask } from './ToolRail'
 import { MenuBar } from './MenuBar'
@@ -65,8 +67,14 @@ export function EditorShell() {
   const [shownToast, setShownToast] = useState<string | null>(null)
   const ui = useUi()
 
-  useEffect(() => { useUi.getState().hydrate() }, [])
-  useEffect(() => { (window as any).__voidEditor = useEditor; (window as any).__voidUi = useUi }, [])
+  useEffect(() => { useUi.getState().hydrate(); startAutosave() }, [])
+  useEffect(() => {
+    const w = window as any
+    w.__voidEditor = useEditor; w.__voidUi = useUi
+    // Browser checks (e2e/trust.mjs) read the design's rules and the save state through these.
+    w.__vcCheck = () => checkInvariants(useEditor.getState())
+    w.__vcSave = { flush: flushSave, unsaved: hasUnsaved }
+  }, [])
 
   const docId = useEditor(s => s.doc?.id)
   useEffect(() => { getBrand().then(applyBrand).catch(() => {}) }, [docId])
@@ -95,10 +103,10 @@ export function EditorShell() {
 
   // Crash recovery marker: records open designs; marked clean when the tab closes normally.
   const tabs = useTabs(s => s.tabs)
-  useEffect(() => { if (!isPrivate()) writeSession(tabs.map(t => ({ id: t.id, name: t.name })), docId ?? null) }, [tabs, docId])
+  useEffect(() => { if (!isPrivate()) { writeSession(tabs.map(t => ({ id: t.id, name: t.name })), docId ?? null); rememberOpen(tabs, docId ?? null) } }, [tabs, docId])
   useEffect(() => {
-    const hide = () => { if (document.visibilityState === 'hidden' && useEditor.getState().dirty && !isPrivate()) saveProject().catch(() => {}) }
-    const leave = () => markSessionClean()
+    const hide = () => { if (document.visibilityState === 'hidden') flushSave() }
+    const leave = () => { flushSave(); markSessionClean() }
     document.addEventListener('visibilitychange', hide); window.addEventListener('pagehide', leave)
     return () => { document.removeEventListener('visibilitychange', hide); window.removeEventListener('pagehide', leave); markSessionClean() }
   }, [])
@@ -120,14 +128,22 @@ export function EditorShell() {
     const q = new URLSearchParams(window.location.search)
     const inbox = q.get('inbox'), project = q.get('project'), preset = q.get('preset')
     if (inbox || project || preset) window.history.replaceState(null, '', '/editor')
-    if (project) { openProject(project); return }
+    if (project) { openProject(project).then(ok => { if (!ok) useEditor.getState().notify('That design is not on this device any more.') }); return }
     // A Learn guide or the size calculator can open the Editor straight onto a preset (/editor?preset=a5).
     if (preset && !inbox) {
       const p = SIZE_PRESETS.find(x => x.id === preset)
       if (p && !useEditor.getState().doc) { track('doc.new', { preset: p.label.slice(0, 40), w: p.width, h: p.height, from: 'link' }); useEditor.getState().newDoc({ width: p.width, height: p.height, background: '#ffffff', name: p.label }) }
       return
     }
-    if (!inbox) return
+    if (!inbox) {
+      // A reload, or coming back to this tab: reopen the designs that were open, at the one you were on.
+      const was = openAtStart; openAtStart = null
+      if (was?.active && !useEditor.getState().doc && !isPrivate()) {
+        useTabs.setState({ tabs: was.tabs })
+        openProject(was.active).then(ok => { if (!ok) { useTabs.setState({ tabs: [] }); rememberOpen([], null) } else import('../versions').then(m => m.clearSession()).catch(() => {}) })
+      }
+      return
+    }
     takeHandoff(inbox).then(async h => {
       if (!h) return
       track('doc.import', { kind: 'from-' + h.from, count: h.images?.length ?? 0 })
@@ -190,14 +206,8 @@ export function EditorShell() {
     })
   }, [])
 
-  // Autosave, and count edits for automatic versions.
-  useEffect(() => {
-    if (!dirty || !hasDoc) return
-    noteEdit()
-    if (isPrivate()) return
-    const t = setTimeout(() => { saveProject().catch(() => useEditor.getState().notify('Could not save. Your browser storage may be full.')) }, 1800)
-    return () => clearTimeout(t)
-  }, [dirty, historyIndex, hasDoc])
+  // Count edits for automatic versions. Saving itself runs in io.ts (startAutosave).
+  useEffect(() => { if (dirty && hasDoc) noteEdit() }, [dirty, historyIndex, hasDoc])
 
   useEffect(() => {
     if (!toast) return
@@ -304,6 +314,9 @@ export function EditorShell() {
         const d = e.shiftKey ? 10 : 1
         const dx = k === 'arrowleft' ? -d : k === 'arrowright' ? d : 0, dy = k === 'arrowup' ? -d : k === 'arrowdown' ? d : 0
         for (const l of s.layers) if (s.selectedIds.includes(l.id) && !l.locked && !l.lockPosition && l.type !== 'adjustment') s.updateLayer(l.id, { x: l.x + dx, y: l.y + dy })
+        // Nudged across a board edge: the layer now belongs to the board it sits on.
+        const doc = useEditor.getState().doc
+        if (doc?.frames?.length) for (const l of useEditor.getState().layers) if (s.selectedIds.includes(l.id) && l.type !== 'adjustment') { const f = frameForLayer(doc, l); if (f && f.id !== l.frameId) s.reassignLayerFrame(l.id, f.id) }
         s.commit('Nudge')
         return
       }
@@ -384,3 +397,16 @@ export function EditorShell() {
 }
 
 export { readCrashedSession }
+
+// The designs open in this browser tab, kept for the length of the tab (a reload reopens them).
+const OPEN_KEY = 'vc-open'
+function rememberOpen(tabs: { id: string; name: string }[], active: string | null) {
+  try { sessionStorage.setItem(OPEN_KEY, JSON.stringify({ tabs: tabs.map(t => ({ id: t.id, name: t.name })), active })) } catch { /* ignore */ }
+}
+function recallOpen(): { tabs: { id: string; name: string }[]; active: string | null } | null {
+  try { const raw = sessionStorage.getItem(OPEN_KEY); return raw ? JSON.parse(raw) : null } catch { return null }
+}
+/** Read once when the page loads, before this page writes its own list; used at most once, and only when
+ *  this load is a reload or a return with Back/Forward. Going to /editor afresh shows the start screen. */
+const navType = typeof performance !== 'undefined' ? (performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming | undefined)?.type : undefined
+let openAtStart = typeof window !== 'undefined' && (navType === 'reload' || navType === 'back_forward') ? recallOpen() : null

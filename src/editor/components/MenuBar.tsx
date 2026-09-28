@@ -125,11 +125,15 @@ export function MenuBar({ onExport, onAdd, onSearch }: { onExport: () => void; o
 
   // Alt alone focuses the menu bar, like Windows apps.
   useEffect(() => {
+    // Only a tap of Alt on its own: a click, drag or scroll while Alt is held (eyedropper, clone source,
+    // zoom out, solo) is a gesture, not a request for the menu.
     let alone = false
-    const kd = (e: KeyboardEvent) => { alone = e.key === 'Alt' }
+    const kd = (e: KeyboardEvent) => { alone = e.key === 'Alt' && !e.repeat ? true : e.key === 'Alt' ? alone : false }
     const ku = (e: KeyboardEvent) => { if (e.key === 'Alt' && alone && !(e.target as HTMLElement)?.closest?.('input,textarea')) { e.preventDefault(); setOpen(o => (o === null ? 1 : null)) } alone = false }
+    const cancel = () => { alone = false }
     window.addEventListener('keydown', kd); window.addEventListener('keyup', ku)
-    return () => { window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku) }
+    window.addEventListener('pointerdown', cancel, true); window.addEventListener('wheel', cancel, true)
+    return () => { window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); window.removeEventListener('pointerdown', cancel, true); window.removeEventListener('wheel', cancel, true) }
   }, [])
 
   const top = [{ label: 'Voidcanvas', items: [] as MenuItem[] }, ...MENUS]

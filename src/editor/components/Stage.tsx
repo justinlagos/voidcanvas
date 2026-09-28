@@ -4,7 +4,7 @@ import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  brushTip, cloneCanvas, ctx2d, floodMask, fontString, healRegion, hitLayer, layerBounds, layerCorners, layerMatrix, layerSize,
+  brushTip, cloneCanvas, ctx2d, floodMask, fontString, healRegion, hitLayer, insideHiddenGroup, layerBounds, layerCorners, layerMatrix, layerSize,
   makeCanvas, maskEdges, polygonPoints, renderDoc, toneStroke, tracePath, type LiveStroke,
 } from '../engine'
 import { importFiles } from '../io'
@@ -13,6 +13,7 @@ import type { Layer, PathNode, Rect, SubPath, ToolId, VectorPath } from '../type
 import { useUi } from '../ui-store'
 import { FloatingBar } from './FloatingBar'
 import { frameAt, frameForLayer } from '../frames'
+import { recallView, rememberView, viewFor } from '../viewmemory'
 import * as ops from '../ops'
 import * as pen from '../pen'
 
@@ -762,6 +763,33 @@ export function Stage() {
     setView({ zoom, panX: R + (w - R - bw * zoom) / 2 - bx * zoom, panY: R + (h - R - bh * zoom) / 2 - by * zoom })
   }, [])
 
+  // Opening a design goes back to where it was left (zoom, place, board, selection) on this device; else it fits.
+  const restoredFor = useRef<string | null>(null)
+  const restoreOrFit = useCallback(() => {
+    const s = useEditor.getState(); const id = s.doc?.id
+    if (!id || !size.current.w) return
+    if (restoredFor.current !== id) {
+      restoredFor.current = id
+      const v = recallView(id)
+      if (v) {
+        const sel = v.sel.filter(x => s.layers.some(l => l.id === x))
+        const frame = v.frame && s.doc!.frames?.some(f => f.id === v.frame) ? v.frame : s.activeFrameId
+        useEditor.setState({ view: viewFor(v, size.current), activeFrameId: frame, ...(sel.length ? { selectedIds: sel, activeId: sel[sel.length - 1] } : {}) })
+        return
+      }
+    }
+    fit()
+  }, [fit])
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | null = null
+    const save = () => { const s = useEditor.getState(); if (s.doc && restoredFor.current === s.doc.id) rememberView(s.doc.id, s.view, size.current, s.activeFrameId, s.selectedIds) }
+    const off = useEditor.subscribe((st, prev) => {
+      if (st.view === prev.view && st.activeFrameId === prev.activeFrameId && st.selectedIds === prev.selectedIds) return
+      if (t) clearTimeout(t); t = setTimeout(save, 400)
+    })
+    return () => { off(); if (t) { clearTimeout(t); save() } }
+  }, [])
+
   const fitBox = useCallback((bx: number, by: number, bw: number, bh: number) => {
     const { setView } = useEditor.getState()
     if (!size.current.w || bw <= 0 || bh <= 0) return
@@ -858,14 +886,15 @@ export function Stage() {
       size.current = { w: r.width, h: r.height, dpr }
       for (const c of [viewC.current!, overC.current!]) { c.width = r.width * dpr; c.height = r.height * dpr }
       // Refit on first show, and when the space changes a lot (phone rotation, window snapped to half).
-      if (!prev || Math.abs(r.width - prev) / prev > 0.25) fit()
+      if (!prev) restoreOrFit()
+      else if (Math.abs(r.width - prev) / prev > 0.25) fit()
       invalidate()
     })
     ro.observe(el)
     return () => ro.disconnect()
-  }, [fit, invalidate])
+  }, [fit, restoreOrFit, invalidate])
 
-  useEffect(() => { fit() }, [docId, fit])
+  useEffect(() => { restoreOrFit() }, [docId, restoreOrFit])
   useEffect(() => { invalidate(true) }, [docRev, compare, editingTextId, transform?.layerId, viewChannel, invalidate])
   useEffect(() => { invalidate() }, [selRev, view, tool, activeId, crop, optSize, transform, quickMask, activePathId, showRulers, showGuides, pixelGrid, invalidate])
   useEffect(() => { if (tool !== 'pen' && tool !== 'curvature') penSub.current = null; if (!isPathTool(tool)) { sel.current = null; hover.current = null; if (useEditor.getState().vmaskEditId) useEditor.setState({ vmaskEditId: null }); pathSnap.current = { v: null, h: null, info: null } } if (tool !== 'polylasso') poly.current = null }, [tool])
@@ -1782,7 +1811,8 @@ export function Stage() {
       const rw = Math.abs(p.x - d.start.x), rh = Math.abs(p.y - d.start.y)
       const hits: string[] = []
       for (const l of s.layers) {
-        if (!l.visible || l.type === 'adjustment') continue
+        // Locked and hidden layers (hidden groups included) are never picked up by a marquee.
+        if (!l.visible || l.locked || l.type === 'adjustment' || insideHiddenGroup(l, s.groups)) continue
         const b = layerBounds(l, s.doc!)
         if (b.x < rx + rw && b.x + b.w > rx && b.y < ry + rh && b.y + b.h > ry) hits.push(l.id)
       }

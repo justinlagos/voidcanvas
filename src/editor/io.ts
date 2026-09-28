@@ -287,9 +287,13 @@ export async function exportImage(o: ExportOptions, frameId?: string | null): Pr
   return (await exportBoards({ boardIds: [id], format: o.format, scale: o.scale, quality: o.quality, transparent: o.transparent })).blob
 }
 
-/** Save a file through the browser. `tracked`: the caller already counted this export (the Export dialog does, with more detail). */
-export function downloadBlob(blob: Blob, filename: string, opts: { tracked?: boolean } = {}) {
-  if (!opts.tracked) import('@/lib/analytics').then(m => { m.track('export', { format: /\.void(\.png)?$/i.test(filename) ? 'void' : (filename.match(/\.([a-z0-9]+)$/i)?.[1] || blob.type.split('/')[1] || '?').toLowerCase(), kb: Math.round(blob.size / 1024) }); m.noteExportForPrompt() }).catch(() => {})
+/** Counts one export. Every way out of the Editor (download, share sheet, clipboard) calls this once. */
+export function trackExport(filename: string, blob: Blob, meta: Record<string, string | number | boolean> = {}) {
+  import('@/lib/analytics').then(m => { m.track('export', { format: /\.void(\.png)?$/i.test(filename) ? 'void' : (filename.match(/\.([a-z0-9]+)$/i)?.[1] || blob.type.split('/')[1] || '?').toLowerCase(), kb: Math.round(blob.size / 1024), ...meta }); m.noteExportForPrompt() }).catch(() => {})
+}
+
+export function downloadBlob(blob: Blob, filename: string, meta?: Record<string, string | number | boolean>) {
+  trackExport(filename, blob, meta)
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob); a.download = filename
   document.body.appendChild(a); a.click(); a.remove()
@@ -331,12 +335,143 @@ async function unpackFonts(fonts: Record<string, Blob> | undefined) {
 export interface ProjectSummary { id: string; name: string; updatedAt: number; width: number; height: number; thumb: string; template?: boolean }
 export interface StoredProject { id: string; doc: Doc; layers: any[]; groups?: Group[]; swatches: string[]; blobs: Record<string, Blob>; fonts?: Record<string, Blob> }
 
-export async function saveProject(): Promise<void> {
-  const { doc, layers, groups, swatches, markSaved } = useEditor.getState()
-  if (!doc) return
-  await saveDesign(doc, layers, groups, swatches)
-  markSaved()
+// ─── Saving the open design ────────────────────────────────────────
+// Every change to the open design bumps a generation number. A save writes the state it finds when it
+// runs, and marks the design saved only if nothing changed while it was writing. Saves run one at a
+// time, in order, so an older save can never land after a newer one. When the open design is closed or
+// replaced (Back, New, a tab switch, another design opened), its last state is written, whatever closed it.
+
+let saveChain: Promise<unknown> = Promise.resolve()
+let gen = 0, savedGen = 0, liveId: string | null = null
+let settling = false, marking = false, autosaveOn = false, failures = 0
+let debounceT: ReturnType<typeof setTimeout> | null = null, maxWaitT: ReturnType<typeof setTimeout> | null = null
+
+function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+  const p = saveChain.then(fn, fn)
+  saveChain = p.catch(() => {})
+  return p
 }
+/** Resolves when every save started so far has finished. Lists of designs wait for this. */
+export const whenSaved = () => saveChain.then(() => {})
+/** True while the open design has changes that are not in storage yet. */
+export const hasUnsaved = () => !PRIVATE && !!liveId && gen !== savedGen
+
+function clearSaveTimers() { if (debounceT) clearTimeout(debounceT); if (maxWaitT) clearTimeout(maxWaitT); debounceT = maxWaitT = null }
+function scheduleSave() {
+  if (debounceT) clearTimeout(debounceT)
+  debounceT = setTimeout(() => { saveOpen().catch(() => {}) }, 1200)
+  // Typing for a long time still saves every few seconds.
+  if (!maxWaitT) maxWaitT = setTimeout(() => { saveOpen().catch(() => {}) }, 5000)
+}
+function setDirtyQuietly(v: boolean) { marking = true; try { useEditor.setState({ dirty: v }) } finally { marking = false } }
+
+function saveFailed(e: unknown) {
+  failures++
+  import('@/lib/analytics').then(m => m.track('save.failed', { n: failures })).catch(() => {})
+  const msg = (e as Error)?.message || ''
+  useEditor.getState().notify(/full/i.test(msg) ? msg : 'Could not save this design. It is still open; export it or free some space, and saving will try again.')
+  if (failures < 4) scheduleSave()
+}
+
+async function saveOpen(): Promise<void> {
+  clearSaveTimers()
+  if (PRIVATE) return
+  return enqueue(async () => {
+    const st = useEditor.getState(); const doc = st.doc
+    if (!doc || doc.id !== liveId || gen === savedGen) return
+    const g = gen
+    try { await saveDesign(doc, st.layers, st.groups, st.swatches); failures = 0 } catch (e) { saveFailed(e); throw e }
+    if (liveId !== doc.id) return
+    savedGen = Math.max(savedGen, g)
+    if (gen === savedGen) { if (useEditor.getState().dirty) setDirtyQuietly(false) } else scheduleSave()
+  })
+}
+
+/** Save the open design now if it has changes, and wait for every save to finish. */
+export async function saveProject(): Promise<void> {
+  const st = useEditor.getState()
+  if (!st.doc) { await saveChain; return }
+  if (!autosaveOn) {
+    // Outside the Editor (no autosave running): a plain save of what is open.
+    await enqueue(() => saveDesign(st.doc!, st.layers, st.groups, st.swatches))
+    st.markSaved(); return
+  }
+  if (liveId !== st.doc.id) { liveId = st.doc.id; gen = 1; savedGen = 0 }
+  if (st.dirty && gen === savedGen) gen++
+  await saveOpen()
+}
+export const flushSave = () => saveProject().catch(() => {})
+
+/** Start watching the open design. Called once by the Editor. */
+export function startAutosave() {
+  if (autosaveOn || typeof window === 'undefined') return
+  autosaveOn = true
+  const s0 = useEditor.getState()
+  liveId = s0.doc?.id ?? null; savedGen = 0; gen = s0.dirty ? 1 : 0
+  useEditor.subscribe((st, prev) => {
+    if (marking) return
+    const id = st.doc?.id ?? null, prevId = prev.doc?.id ?? null
+    // The same design given a new id (a Studio job claiming it): keep its unsaved changes under the new id.
+    if (id && prevId && id !== prevId && st.layers === prev.layers) { liveId = id; if (gen === savedGen) gen++; scheduleSave(); return }
+    const loaded = st.history !== prev.history && st.history.length <= 1
+    if (id !== prevId || loaded) {
+      if (prevId && prevId !== id && prevId === liveId && gen !== savedGen && !PRIVATE) {
+        const d = prev.doc!, L = prev.layers, G = prev.groups, S = prev.swatches
+        enqueue(() => saveDesign(d, L, G, S)).catch(saveFailed)
+      }
+      clearSaveTimers(); gen = 0; savedGen = 0; liveId = id
+      if (id) announceOpen(id)
+      if (!settling && id) {
+        settling = true
+        // Loading sets several things in one go; once it has finished, a design that arrives unsaved (a copy, an import) is saved.
+        queueMicrotask(() => { settling = false; const s = useEditor.getState(); if (s.doc?.id === liveId && s.dirty && gen === savedGen) { gen++; scheduleSave() } })
+      }
+      return
+    }
+    if (!id || settling) return
+    const changed = st.layers !== prev.layers || st.groups !== prev.groups || st.doc !== prev.doc || st.swatches !== prev.swatches || (st.dirty && !prev.dirty)
+    if (!changed) return
+    gen++
+    if (!st.dirty) setDirtyQuietly(true)
+    if (!PRIVATE) scheduleSave()
+  })
+  window.addEventListener('beforeunload', e => {
+    if (!hasUnsaved()) return
+    saveOpen().catch(() => {})
+    // The desktop app saves on quit through its own flush; only the browser needs the warning.
+    if (!(window as any).voidDesktop) { e.preventDefault(); e.returnValue = '' }
+  })
+  initDesignChannel()
+}
+
+// ─── One design, one tab ───────────────────────────────────────────
+// Two tabs editing the same design would overwrite each other. When a design opens in one tab, any
+// other tab that has it open writes its changes and closes it, then the new tab reloads the saved copy.
+
+const TAB_KEY = Math.random().toString(36).slice(2)
+let designChannel: BroadcastChannel | null = null
+function initDesignChannel() {
+  if (typeof BroadcastChannel === 'undefined') return
+  designChannel = new BroadcastChannel('vc-open-designs')
+  designChannel.onmessage = async (ev: MessageEvent) => {
+    const m = ev.data as { t: string; id: string; from: string; wrote?: boolean }
+    if (!m || m.from === TAB_KEY || !m.id || PRIVATE) return
+    const st = useEditor.getState()
+    if (m.t === 'open' && st.doc?.id === m.id) {
+      const name = st.doc.name, wrote = hasUnsaved()
+      await saveProject().catch(() => {})
+      if (useEditor.getState().doc?.id !== m.id) return
+      useEditor.getState().closeDoc()
+      useEditor.getState().notify(`“${name}” was opened in another tab, so it was closed here. Your changes are saved.`)
+      designChannel?.postMessage({ t: 'released', id: m.id, from: TAB_KEY, wrote })
+    } else if (m.t === 'released' && m.wrote && st.doc?.id === m.id && gen === savedGen) {
+      // The other tab had changes this tab did not load yet: reload the saved copy, keeping the view.
+      const view = st.view
+      if (await openProject(m.id)) useEditor.setState({ view })
+    }
+  }
+}
+function announceOpen(id: string) { try { designChannel?.postMessage({ t: 'open', id, from: TAB_KEY }) } catch { /* ignore */ } }
 
 /** Save any design, open or not. Used for autosave, templates and resized copies. */
 export async function saveDesign(doc: Doc, layers: Layer[], groups: Group[], swatches: string[], template = false): Promise<void> {
@@ -347,19 +482,28 @@ export async function saveDesign(doc: Doc, layers: Layer[], groups: Group[], swa
   if (!PRIVATE) import('@/lib/persist').then(m => m.ensurePersistentStorage()).catch(() => {})
 }
 
+// Layer pixels are never changed in place (history keeps references to them), so a canvas that was
+// encoded once can reuse its PNG. Saving then only encodes what changed since the last save.
+const pngCache = new WeakMap<HTMLCanvasElement, Promise<Blob>>()
+function encodePng(c: HTMLCanvasElement): Promise<Blob> {
+  let p = pngCache.get(c)
+  if (!p) { p = canvasToBlob(c); pngCache.set(c, p); p.catch(() => pngCache.delete(c)) }
+  return p
+}
+
 /** Build the stored form of a design (used by saves and by version snapshots). */
 export async function storeDesign(doc: Doc, layers: Layer[], groups: Group[], swatches: string[], template = false): Promise<{ stored: StoredProject; summary: ProjectSummary }> {
   const blobs: Record<string, Blob> = {}
   const meta = await Promise.all(layers.map(async l => {
     const { mask, ...rest } = l as any
-    if (mask) blobs[l.id + ':mask'] = await canvasToBlob(mask)
-    if (l.type === 'raster') { blobs[l.id] = await canvasToBlob(l.canvas); delete rest.canvas }
+    if (mask) blobs[l.id + ':mask'] = await encodePng(mask)
+    if (l.type === 'raster') { blobs[l.id] = await encodePng(l.canvas); delete rest.canvas }
     return { ...rest, hasMask: !!mask }
   }))
   const k = Math.min(1, 360 / Math.max(doc.width, doc.height))
   const thumb = makeCanvas(doc.width * k, doc.height * k)
   renderDoc(thumb, doc, layers, { groups, scale: k, noCache: true })
-  const packed = await packDoc(doc, async (k, c) => { blobs[k] = await canvasToBlob(c) })
+  const packed = await packDoc(doc, async (k, c) => { blobs[k] = await encodePng(c) })
   const stored: StoredProject = { id: doc.id, doc: packed, layers: meta, groups, swatches, blobs, fonts: await packFonts(layers) }
   const summary: ProjectSummary = { id: doc.id, name: doc.name, updatedAt: Date.now(), width: doc.width, height: doc.height, thumb: thumb.toDataURL('image/jpeg', 0.7), template }
   return { stored, summary }
@@ -463,8 +607,13 @@ export async function importVoidFile(file: File): Promise<string | null> {
   return openVoidBytes(new Uint8Array(await file.arrayBuffer()))
 }
 
-export const listProjects = async () => (await idb.all<ProjectSummary>('index')).sort((a, b) => b.updatedAt - a.updatedAt)
-export async function deleteProject(id: string) { await idb.del('projects', id); await idb.del('index', id); await idb.del('handles', id).catch(() => {}) }
+export const listProjects = async () => { await whenSaved(); return (await idb.all<ProjectSummary>('index')).sort((a, b) => b.updatedAt - a.updatedAt) }
+export async function deleteProject(id: string) {
+  await idb.del('projects', id); await idb.del('index', id); await idb.del('handles', id).catch(() => {})
+  // Its version history goes with it, or up to 30 full copies would keep using storage.
+  const versions = (await idb.all<{ id: string; docId: string }>('versionIndex').catch(() => [])).filter(v => v.docId === id)
+  for (const v of versions) { await idb.del('versions', v.id).catch(() => {}); await idb.del('versionIndex', v.id).catch(() => {}) }
+}
 
 /** Duplicate a stored project as a new independent copy (no editor open needed). */
 export async function duplicateProject(id: string): Promise<ProjectSummary | null> {
