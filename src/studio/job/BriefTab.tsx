@@ -1,34 +1,13 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Check, Plus, Trash2 } from 'lucide-react'
+import { Check, Copy, Plus, Trash2, X } from 'lucide-react'
 import { briefItems, readBrief } from '../drafts'
 import { FORMATS, deliverableFrom, useJobs, type Deliverable } from '../jobs'
 import { uid } from '@/editor/engine'
 import { Btn, INPUT, Label, Panel, focusRing } from '../ui'
 import type { TabProps } from './JobView'
-
-/** Formats a brief mentions, so the deliverables list starts itself. */
-function suggestFormats(brief: string): string[] {
-  const t = brief.toLowerCase(), out: string[] = []
-  const add = (id: string, re: RegExp) => { if (re.test(t) && !out.includes(id)) out.push(id) }
-  add('ig-post', /\b(instagram|ig|feed post|social post|carousel)\b/)
-  add('story', /\b(story|stories|reel|status)\b/)
-  add('wa-status', /\bwhatsapp\b/)
-  add('a4', /\b(a4|flyer|handbill)\b/)
-  add('a3', /\b(a3|poster)\b/)
-  add('rollup', /\b(roll ?-?up|pull ?-?up|standee)\b/)
-  add('billboard-48', /\b(billboard|48 ?-?sheet|hoarding)\b/)
-  add('yt', /\b(youtube|thumbnail)\b/)
-  add('x-post', /\b(twitter|x post|tweet)\b/)
-  add('li', /\blinkedin\b/)
-  add('fb-cover', /\bfacebook\b/)
-  add('email', /\b(email|newsletter|mailer)\b/)
-  add('web', /\b(website|web banner|hero|landing)\b/)
-  add('slide', /\b(slide|deck|presentation)\b/)
-  add('card', /\b(business card|complimentary card)\b/)
-  return out
-}
+import { briefCheck, formatsIn, questionsEmail, sizesIn, type BriefSize } from '@/lib/intelligence/brief'
 
 /** Name the job from the brief until the designer names it themselves. */
 function autoName(job: { name: string; brief: string }, brief: string): { brief: string; name?: string } {
@@ -38,12 +17,26 @@ function autoName(job: { name: string; brief: string }, brief: string): { brief:
   return h && h.length >= 3 ? { brief, name: h } : { brief, name: job.name === 'New job' ? 'New job' : job.name }
 }
 
-export function BriefTab({ job, update, onBrands }: TabProps) {
+export function BriefTab({ job, update, toast, onBrands }: TabProps) {
   const brands = useJobs(s => s.brands)
   const [allSizes, setAllSizes] = useState(false)
   const read = useMemo(() => readBrief(job.brief, job.name), [job.brief, job.name])
   const items = useMemo(() => briefItems(read), [read])
-  const suggestions = useMemo(() => suggestFormats(job.brief).filter(id => !job.deliverables.some(d => d.presetId === id)), [job.brief, job.deliverables])
+  // What is missing or does not add up, asked before the work starts.
+  const check = useMemo(() => briefCheck(read, job.brief, new Date(), { hasBrand: !!job.brandId }), [read, job.brief, job.brandId])
+  const questions = check.issues.filter(i => !(job.briefSkip ?? []).includes(i.id))
+  const skipped = check.issues.length - questions.length
+  const has = (w: number, h: number, presetId?: string) => job.deliverables.some(d => (presetId && d.presetId === presetId) || (d.width === w && d.height === h))
+  const sizes = useMemo(() => sizesIn(job.brief, FORMATS).filter(z => !has(z.width, z.height, z.presetId)), [job.brief, job.deliverables]) // eslint-disable-line react-hooks/exhaustive-deps
+  const suggestions = useMemo(() => formatsIn(job.brief).filter(id => !job.deliverables.some(d => d.presetId === id) && !sizes.some(z => z.presetId === id)), [job.brief, job.deliverables, sizes])
+  const addSize = (z: BriefSize) => {
+    if (z.presetId) { addFormat(z.presetId); return }
+    update(j => ({ deliverables: [...j.deliverables, { id: uid(), label: z.mm ? `Print ${z.label}` : z.label, presetId: 'custom', width: z.width, height: z.height, group: z.mm ? 'Print' : 'Custom', ...(z.mm ? { mm: z.mm } : {}), done: false }] }))
+  }
+  const copyQuestions = async () => {
+    const text = questionsEmail(questions, { client: job.client || undefined, job: job.name && job.name !== 'New job' ? job.name : undefined })
+    try { await navigator.clipboard.writeText(text); toast('Questions copied. Paste them into your email to the client.') } catch { toast('Copying is blocked here. Select the questions and copy them.') }
+  }
   const [custom, setCustom] = useState({ label: '', w: 1080, h: 1080 })
   const setD = (id: string, patch: Partial<Deliverable>) => update(j => ({ deliverables: j.deliverables.map(d => (d.id === id ? { ...d, ...patch } : d)) }))
   const addFormat = (id: string) => { const f = FORMATS.find(x => x.id === id); if (f) update(j => ({ deliverables: [...j.deliverables, deliverableFrom(f)] })) }
@@ -62,7 +55,7 @@ export function BriefTab({ job, update, onBrands }: TabProps) {
           ) : null}
           {items.length > 0 && (
             <ul className="mt-4 space-y-1.5 border-t border-void-800/70 pt-3">
-              <li className="text-[11.5px] text-void-500 mb-1">Read from the brief. Goes to the Editor as a checklist.</li>
+              <li className="text-[11.5px] text-void-500 mb-1">Read from the brief. Goes to the Editor as a checklist.{job.designId ? ' Change the date, venue or price here and it changes on every board when you next open the design.' : ''}</li>
               {items.map((it, i) => (
                 <li key={i} className="flex gap-3 text-[12.5px]"><span className="w-24 shrink-0 text-void-500">{it.label}</span><span className="text-void-100">{it.value}</span></li>
               ))}
@@ -81,6 +74,28 @@ export function BriefTab({ job, update, onBrands }: TabProps) {
           )}
         </Panel>
 
+        {job.brief.trim().length >= 12 && (questions.length > 0 || skipped > 0) && (
+          <Panel title="Worth asking the client" action={questions.length ? <Btn onClick={copyQuestions} label="Copy the questions as an email"><Copy size={13} />Copy as questions</Btn> : undefined}>
+            <div data-brief-questions>
+              {questions.length ? (
+                <ul className="space-y-2">
+                  {questions.map(q => (
+                    <li key={q.id} data-brief-question={q.id} className="flex items-start gap-2.5 rounded-xl bg-void-950 border border-void-800 px-3 py-2.5">
+                      <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${q.kind === 'missing' ? 'bg-void-500' : 'bg-amber-400'}`} aria-hidden />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[13px] text-void-100 leading-snug">{q.question}</span>
+                        {q.quote && <span className="block mt-0.5 text-[11.5px] text-void-500">From the brief: <q className="text-void-300">{q.quote}</q></span>}
+                      </span>
+                      <button onClick={() => update(j => ({ briefSkip: [...(j.briefSkip ?? []), q.id] }))} aria-label={`No need to ask: ${q.question}`} title="No need to ask" className={`w-7 h-7 shrink-0 rounded text-void-500 hover:text-white inline-flex items-center justify-center ${focusRing}`}><X size={13} /></button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-[12.5px] text-void-400">Nothing left to ask.</p>}
+              {skipped > 0 && <button onClick={() => update({ briefSkip: [] })} className={`mt-2 h-7 text-[12px] text-void-400 hover:text-white rounded ${focusRing}`}>Show the {skipped} set aside</button>}
+            </div>
+          </Panel>
+        )}
+
         <Panel title={job.deliverables.length ? `Formats (${job.deliverables.length})` : 'Formats'} action={job.deliverables.length ? <span className="text-[11.5px] text-void-500">{job.deliverables.filter(d => d.done).length} done</span> : undefined}>
           {job.deliverables.length ? (
             <div className="rounded-xl border border-void-800 overflow-hidden divide-y divide-void-800">
@@ -95,8 +110,14 @@ export function BriefTab({ job, update, onBrands }: TabProps) {
               ))}
             </div>
           ) : null}
+          {sizes.length > 0 && (
+            <div className={`${job.deliverables.length ? 'mt-3' : ''} flex flex-wrap items-center gap-1.5 text-[12px]`} data-brief-sizes>
+              <span className="text-void-400">Sizes in the brief:</span>
+              {sizes.map(z => { const f = z.presetId ? FORMATS.find(x => x.id === z.presetId) : null; return <button key={z.label} onClick={() => addSize(z)} title={z.quote} className={`h-7 px-2.5 rounded-full bg-accent/15 text-accent-light hover:bg-accent/25 ${focusRing}`}><Plus size={11} className="inline -mt-px mr-0.5" />{f ? `${f.label} (${z.label})` : z.label}</button> })}
+            </div>
+          )}
           {common.length > 0 && (
-            <div className={`${job.deliverables.length ? 'mt-3' : ''} flex flex-wrap items-center gap-1.5 text-[12px]`}>
+            <div className={`${job.deliverables.length || sizes.length ? 'mt-3' : ''} flex flex-wrap items-center gap-1.5 text-[12px]`}>
               <span className="text-void-400">{suggestions.length ? 'The brief mentions:' : 'Usual ones:'}</span>
               {common.map(id => { const f = FORMATS.find(x => x.id === id)!; return <button key={id} onClick={() => addFormat(id)} className={`h-7 px-2.5 rounded-full bg-accent/15 text-accent-light hover:bg-accent/25 ${focusRing}`}><Plus size={11} className="inline -mt-px mr-0.5" />{f.label}</button> })}
               {suggestions.length > 1 && <button onClick={() => suggestions.forEach(addFormat)} className={`h-7 px-2 text-void-300 hover:text-white rounded ${focusRing}`}>Add all</button>}

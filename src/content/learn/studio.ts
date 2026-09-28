@@ -69,10 +69,10 @@ export const articles: Article[] = [
   {
     slug: 'start-a-job-from-a-brief',
     title: "Start a job from the client's brief",
-    summary: "Paste the brief as the client sent it. Studio reads the headline, date, venue, price, call to action, contact and must-haves, suggests the formats it mentions, and carries all of it into the key visual and every format built from it.",
+    summary: "Paste the brief as the client sent it. Studio reads the headline, date, venue, price, call to action, contact and must-haves, lists what is worth asking the client, suggests the formats and sizes it mentions, and carries all of it into the key visual and every format built from it.",
     category: 'studio',
     level: 'Beginner',
-    updated: '2026-09-25',
+    updated: '2026-09-28',
     related: ['studio-overview', 'references-and-palettes', 'directions-and-review', 'resize-to-every-format'],
     keywords: 'brief reader paste brief client brief checklist must include deliverables formats sizes key visual master format build formats linked formats role in formats update formats',
     body: [
@@ -91,7 +91,7 @@ export const articles: Article[] = [
       { t: 'table', head: ['Item', 'How it is found'], rows: [
         ['Headline', "A line labelled Headline, Title, Name or Event; else a quoted phrase; else the job name, once you have typed your own; else the subject of a line like \"a flyer for our harvest thanksgiving\"; else the first short sentence that is not an instruction"],
         ['Subheading', 'A line labelled Subhead, Tagline, Strapline or Theme, or a short sentence that is not the headline and not an instruction'],
-        ['Date', 'A labelled line, or a date written like 12 Oct, Sat 12 October 2026, October 12th or 12/10/26'],
+        ['Date', 'A labelled line, or a date written like 12 Oct, Sat 12 October 2026, October 12th or 12/10/26 (numbers are read day first). A date the files are due by ("need it by 5 October", "deadline 5 Oct") is not taken as the date'],
         ['Time', 'A labelled line, or a time like 8pm, 7:30 or 6pm to 11pm'],
         ['Venue', 'A labelled line (Venue, Where, Location, Address, At), or a place after the word at, such as at The Hub'],
         ['Price', 'A labelled line, or an amount in ₦, N, NGN, £, $, €, GHS or KES, or the word free'],
@@ -103,10 +103,27 @@ export const articles: Article[] = [
       { t: 'tip', text: "Labels always win. If the reader guesses wrong, add a labelled line to the brief, for example **Headline: Lekki Nights** or **Date: Sat 12 Oct**, and it takes that instead. The brief box is yours to edit." },
       { t: 'p', text: "Things said to you rather than things to print are left out on purpose: deadlines, budgets, \"please send drafts\", \"see attached\", thanks and sign-offs. A line that lists the formats wanted (\"Need an IG post, a story and an A3 poster\") is treated as the deliverables, not as copy." },
 
+      { t: 'h', text: 'Worth asking the client' },
+      { t: 'p', text: "Under the brief, **Worth asking the client** lists what is missing or does not add up, as questions you can send. Each clash shows the words from the brief it came from." },
+      { t: 'table', head: ['Kind', 'What is checked'], rows: [
+        ['Missing', 'For an event: the date, the time and the venue. For any job: what people should do (the call to action), how to reach the client, which formats or sizes, whether the logo goes on it (not asked when you picked a client brand, or the brief mentions the logo), and when the files are due'],
+        ['Two dates', 'Two different dates for the event. A range such as 12 to 14 October counts as one'],
+        ['Wrong weekday', 'A day that does not match its date: "Friday 12 October" when 12 October 2026 is a Monday'],
+        ['Passed', 'An event date that has already gone. A date without a year is taken as the next time it comes round, unless it passed in the last two months'],
+        ['Due too late', 'Files due after the event'],
+        ['Two prices', 'Two different prices with nothing saying they are for different tickets (Regular, VIP, early bird, table and so on)'],
+      ] },
+      { t: 'list', items: [
+        "**Copy as questions** copies a short, plain email with the questions numbered, ready to paste.",
+        "The **×** beside a question sets it aside when you already know the answer. **Show the … set aside** brings them back.",
+        "The Editor's **Brief** panel shows the same questions under **worth asking the client**, with its own Copy as questions.",
+      ] },
+
       { t: 'h', text: 'List the formats you owe' },
       { t: 'p', text: "Below the brief, the **Formats** panel is the job's list of deliverables. Every later step works from it: the key visual builds these sizes, and the delivery package renders them." },
       { t: 'list', items: [
         "**The brief mentions:** shows a button for each format the brief names. Instagram gives Instagram post, story or reel gives Story / Reel / Status, poster gives A3 poster, flyer gives A4 flyer, roll-up gives Roll-up banner 85 × 200 cm, billboard gives Billboard 48-sheet, and so on. **Add all** adds every suggestion.",
+        "**Sizes in the brief:** shows a button for each size the brief writes out: pixel sizes such as 1080 x 1350, print sizes such as 85 x 200 cm or 18 x 24 inches, and A0 to A6. A size that matches a known format adds that format; any other adds a custom one (print sizes keep their mm).",
         "When the brief names none, **Usual ones:** offers Instagram post, Story / Reel / Status and A4 flyer.",
         "**All sizes and custom** shows every size, grouped as Social, Screen, Print and Outdoor, plus **Custom size** with a name, width and height in pixels (at least 16 px each way).",
       ] },
@@ -127,7 +144,8 @@ export const articles: Article[] = [
       { t: 'list', items: [
         "**Colours**: the chosen direction's palette goes into your swatches. With no direction chosen, the brand's colours are used instead; with neither, you start plain.",
         "**Type**: the direction's headline and text fonts, or the brand's.",
-        "**Brief**: the checklist appears in the Editor's **Brief** panel. It ticks each item off as soon as matching text is on the design, and **Add** places a missing item as a new text layer. It also shows the contrast of the selected text against its background. When the job has a palette, the panel offers Background, Text, Accent and Muted colours, picked so text reads on the background.",
+        "**Brief**: the checklist appears in the Editor's **Brief** panel. It ticks each item off as soon as matching text is on the design, and **Add** places a missing item as a new text layer on the board you are on. With several boards, each board is checked on its own: the panel shows the count for the board you are on, with a button per board to switch. It also shows the contrast of the selected text against its background. When the job has a palette, the panel offers Background, Text, Accent and Muted colours, picked so text reads on the background.",
+        "**Brief details follow the brief**: change the date, time, venue or price in the job's brief, and the next time the design opens from Studio it is changed on every board, in the text added from the checklist and in any text that still says the old value (capitals are kept, so SAT 12 OCT becomes SAT 19 OCT). The message at the bottom says what changed. **Read brief, Edit the brief** in the panel does the same inside the Editor. Either way it is one undo step.",
       ] },
       { t: 'tip', text: "Choose a direction before you start the key visual, so it opens in the right palette and type. The Key visual tab tells you when none is chosen and links to the Directions tab." },
 
@@ -529,7 +547,7 @@ export const articles: Article[] = [
     summary: "The brand guideline builder turns a brand colour, a logo and a personality into a full system: honest logo versions tested on every background, colour ramps, contrast pairings, a type scale, clear space, minimum size and misuse pages, and a paged guideline. Lock what you have decided; Vary layout explores the composition and New take explores everything else.",
     category: 'studio',
     level: 'Intermediate',
-    updated: '2026-09-27',
+    updated: '2026-09-28',
     related: ['brand-guideline-exports', 'brands-library', 'colour-that-works', 'workflow-client-brand-guideline'],
     keywords: 'brand guidelines brand book style guide identity guidelines design system colour ramps oklch wcag contrast type scale modular scale logo clear space minimum size generator',
     body: [
@@ -554,6 +572,7 @@ export const articles: Article[] = [
         ['Clear space', '¼ H, ½ H or 1 H: the margin around the logo, measured from the height of the mark. **Suggested** from its shape (wide wordmarks need less, open symbols more) until you pick one, then **Set by you**'],
         ['Minimum size', 'Width in px on screen and mm in print. Suggested so the thinnest stroke stays at least 1 px on screen and 0.3 mm in print; type your own to set it'],
         ['Logo on backgrounds', 'White, black, neutral grey, the brand colours, light and dark surfaces and three tints: which version to use on each, its ratio, and a line of why when it is marginal or fails. Change any row to set your own rule; it is then marked set by you'],
+        ['Photography', 'Up to three photos of the brand in use (JPG, PNG or WebP). They add the **On photography** page, are kept with your work, and are saved with the client brand. The × on a photo removes it; with none left, the page goes'],
         ['Personality', 'Bold, Refined, Playful, Minimal, Warm or Technical. Steers the fonts, scale and corners the generator reaches for, and writes the voice'],
         ['Art direction', 'Editorial, Graphic or Systematic. Sets the three design principles'],
         ['Corner radius', '0, 4, 8, 12 or Pill'],
@@ -585,12 +604,13 @@ export const articles: Article[] = [
       { t: 'p', text: "The button at the top right reads **Brand complete**, **N worth checking** or **N issues**. Open it for two things. **Brand health** is a quiet read in four groups (Logo, Colours, Typography, Rules): which logo versions exist, whether a reversed version can be made, whether colour roles are set, and whether each rule is suggested or set by you. **Checks** lists every contrast pairing, whether body text is at least 16 px, whether the accent reads as distinct from the brand colour, and the logo on each background. A background the guideline has an answer for (a version, or a scrim) is not an issue; one with no answer is." },
 
       { t: 'h', text: 'Pages' },
-      { t: 'p', text: "The guideline has 15 pages: Cover, Principles, Logo, Clear space, Minimum size, Do not, Colour, Tints, Contrast, Typography, Type scale, In use, Voice, Tokens and Close. Choose **Deck** for landscape slides (1600 × 900) or **Document** for portrait pages (1240 × 1754)." },
+      { t: 'p', text: "The guideline has 15 pages: Cover, Principles, Logo, Clear space, Minimum size, Do not, Colour, Tints, Contrast, Typography, Type scale, In use, Voice, Tokens and Close, plus **On photography** after Do not while you have added photos. Choose **Deck** for landscape slides (1600 × 900) or **Document** for portrait pages (1240 × 1754)." },
       { t: 'list', items: [
         "**Logo** (Backgrounds layout) shows the mark on every background in the palette with the version to use, a Pass, Marginal or Fails badge, and the scrim drawn in where one is needed.",
         "**Clear space** shows the exclusion zone, then a Correct and an Incorrect example with a headline crowding the mark.",
         "**Minimum size** shows the mark at twice the minimum, at the minimum, at half and at a quarter, at actual size on the deck, with the minimum magnified so you can see the thinnest stroke, and the on-screen and print rules with their source.",
         "**Do not** is made from the actual logo: stretched, rotated, recoloured, on a low-contrast colour, cropped, crowded, with effects, and over busy imagery.",
+        "**On photography** shows each of your photos twice. **Suggested**: the logo in the calmest corner away from the subject, in the version that reads there (the reversed logo on a dark photo), with a light scrim only when it is needed, and a line saying why. **Avoid**: the logo as supplied over the subject or in the busiest corner, with the reason. The Editor uses the same reading when you add a brand logo to a design with a photo: it goes in the corner where it reads, unless your type is already there.",
       ] },
       { t: 'list', items: [
         "**Reorder** by dragging a thumbnail, or with the up and down arrows that show when you hover it.",
@@ -604,7 +624,7 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'Your work is saved as you go' },
-      { t: 'p', text: "The builder saves your brand, locks, page list and logo in this browser a moment after each change. Come back later and it says **Picked up where you left off**. **Start over**, then **Clear and start over**, clears it for a new brand; **Keep it** cancels. In a private session nothing is written to disk, so the browser warns you before you leave the page. See [Private session](/learn/private-session)." },
+      { t: 'p', text: "The builder saves your brand, locks, page list, logo and photos in this browser a moment after each change. Come back later and it says **Picked up where you left off**. **Start over**, then **Clear and start over**, clears it for a new brand; **Keep it** cancels. In a private session nothing is written to disk, so the browser warns you before you leave the page. See [Private session](/learn/private-session)." },
       { t: 'note', text: "The builder holds one brand at a time. To keep a finished brand while you start another, press **Save as a client brand in Studio** on the Export tab first, and export the files you need." },
 
       { t: 'h', text: 'On a phone' },

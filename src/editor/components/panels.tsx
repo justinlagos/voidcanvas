@@ -491,12 +491,32 @@ function BriefBody() {
   const brief = useEditor(s => s.doc?.brief)
   const layers = useEditor(s => s.layers)
   const doc = useEditor(s => s.doc)
+  const activeFrameId = useEditor(s => s.activeFrameId)
   const active = useEditor(s => s.layers.find(l => l.id === s.activeId))
   const [draft, setDraft] = useState('')
   const [showText, setShowText] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [asking, setAsking] = useState(false)
+  // What is worth asking the client, read from the brief text (the readers load when a brief is there).
+  const [questions, setQuestions] = useState<{ id: string; question: string }[]>([])
+  const email = useRef<((q: { id: string; question: string }[], job: string) => string) | null>(null)
+  useEffect(() => {
+    let live = true
+    if (!brief?.text) { setQuestions([]); return }
+    Promise.all([import('@/studio/drafts'), import('@/lib/intelligence/brief')]).then(([d, b]) => {
+      if (!live) return
+      email.current = (q, job) => b.questionsEmail(q as any, { job })
+      setQuestions(b.briefCheck(d.readBrief(brief.text, brief.title), brief.text, new Date(), { hasBrand: !!useEditor.getState().doc?.brandId }).issues)
+    }).catch(() => {})
+    return () => { live = false }
+  }, [brief?.text, brief?.title])
   if (!doc) return null
-  const texts = layers.filter(l => l.type === 'text').map(l => norm((l as TextLayer).text))
   const s = useEditor.getState()
+  // With boards, each board is checked on its own: a format is finished when it carries everything.
+  const boards = doc.frames?.length ? doc.frames : null
+  const board = boards ? boards.find(f => f.id === activeFrameId) ?? boards[0] : null
+  const textsOn = (frameId: string | null) => layers.filter(l => l.type === 'text' && (!frameId || l.frameId === frameId)).map(l => norm((l as TextLayer).text))
+  const texts = textsOn(board?.id ?? null)
 
   if (!brief) {
     return (
@@ -510,13 +530,19 @@ function BriefBody() {
   }
 
   const done = brief.items.filter(i => onDesign(i.value, texts)).length
-  const place = (value: string, label: string) => {
-    s.addText(undefined, undefined, Math.round(doc.width * 0.6))
-    const l = s.active(); if (l?.type === 'text') s.updateLayer(l.id, { text: value, name: label }, `Add ${label.toLowerCase()}`)
+  const place = (value: string, label: string, key?: string) => {
+    s.addText(undefined, undefined, Math.round((board?.width ?? doc.width) * 0.6))
+    const l = s.active(); if (l?.type === 'text') s.updateLayer(l.id, { text: value, name: label, ...(key ? { briefKey: key } : {}) } as Partial<TextLayer>, `Add ${label.toLowerCase()}`)
   }
   const find = (value: string) => {
     const v = norm(value), probe = v.length > 28 ? v.slice(0, 28).replace(/\s\S*$/, '') : v
-    const l = layers.find(x => x.type === 'text' && norm(x.text).includes(probe)); if (l) s.setActive(l.id)
+    const l = layers.find(x => x.type === 'text' && (!board || x.frameId === board.id) && norm(x.text).includes(probe)); if (l) s.setActive(l.id)
+  }
+  const saveBrief = async (text: string) => {
+    const { readBrief, briefItems } = await import('@/studio/drafts')
+    const r = (await import('../ops')).applyBrief({ ...brief, text: text.trim(), items: briefItems(readBrief(text, brief.title || doc.name)) }, 'Edit the brief')
+    setEditing(null)
+    s.notify(r.layers ? `Updated ${r.keys.join(', ')} in ${r.layers} text layer${r.layers === 1 ? '' : 's'} on ${r.boards} board${r.boards === 1 ? '' : 's'}.` : 'Brief updated.')
   }
   // Contrast of the selected text against the board or page behind it.
   const frame = active && doc.frames?.find(f => f.id === active.frameId)
@@ -524,13 +550,33 @@ function BriefBody() {
   const ratio = active?.type === 'text' && /^#[0-9a-f]{6}$/i.test(active.color) && /^#[0-9a-f]{6}$/i.test(ground) ? contrastRatio(active.color, ground) : null
 
   return (
-    <div className="p-3 space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[12.5px] font-semibold text-void-100">{done} of {brief.items.length} on the design</span>
+    <div className="p-3 space-y-3" data-brief-panel>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[12.5px] font-semibold text-void-100" data-brief-count>{board && boards!.length > 1 ? `${board.name}: ` : ''}{done} of {brief.items.length} on {board && boards!.length > 1 ? 'this board' : 'the design'}</span>
         <button onClick={() => setShowText(v => !v)} className={`text-[12px] text-void-400 hover:text-white rounded ${focusRing}`}>{showText ? 'Hide brief' : 'Read brief'}</button>
       </div>
       <div className="h-1.5 rounded-full bg-void-800 overflow-hidden"><div className="h-full bg-emerald-400 transition-all" style={{ width: `${brief.items.length ? (done / brief.items.length) * 100 : 100}%` }} /></div>
-      {showText && <p className="text-[12px] text-void-300 leading-relaxed whitespace-pre-wrap bg-surface-sunken rounded-lg p-2.5 max-h-48 overflow-y-auto">{brief.text}</p>}
+      {boards && boards.length > 1 && (
+        <div className="flex flex-wrap gap-1" data-brief-boards>
+          {boards.map(f => {
+            const n = brief.items.filter(i => onDesign(i.value, textsOn(f.id))).length, full = n === brief.items.length
+            return <button key={f.id} onClick={() => s.setActiveFrame(f.id)} aria-pressed={f.id === board?.id} title={`${f.name}: ${n} of ${brief.items.length}`} className={`h-6 px-2 rounded-full text-[11px] ${focusRing} ${f.id === board?.id ? 'bg-accent/20 text-white' : 'bg-void-900 text-void-400 hover:text-white'}`}>{f.name} <span className={full ? 'text-emerald-400' : 'text-void-500'}>{n}/{brief.items.length}</span></button>
+          })}
+        </div>
+      )}
+      {showText && (editing === null ? (
+        <div className="bg-surface-sunken rounded-lg p-2.5">
+          <p className="text-[12px] text-void-300 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto">{brief.text}</p>
+          <button onClick={() => setEditing(brief.text)} className={`mt-1.5 text-[11.5px] text-accent-light hover:text-white rounded ${focusRing}`}>Edit the brief</button>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <textarea value={editing} onChange={e => setEditing(e.target.value)} onKeyDown={e => e.stopPropagation()} rows={7} aria-label="Brief"
+            className={`w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-white/[0.06] text-[12.5px] leading-relaxed text-void-100 resize-y ${focusRing}`} />
+          <p className="text-[11.5px] text-void-500">A changed date, time, venue or price is changed on every board too.</p>
+          <div className="flex gap-1.5"><Button primary onClick={() => saveBrief(editing)} className="!h-7 !text-[12px]">Update</Button><Button onClick={() => setEditing(null)} className="!h-7 !text-[12px]">Cancel</Button></div>
+        </div>
+      ))}
       <ul className="space-y-1">
         {brief.items.map((it, i) => {
           const ok = onDesign(it.value, texts)
@@ -543,11 +589,22 @@ function BriefBody() {
               </span>
               {ok
                 ? <button onClick={() => find(it.value)} className={`text-[11.5px] text-void-400 hover:text-white rounded px-1 ${focusRing}`}>Select</button>
-                : <button onClick={() => place(it.value, it.label)} className={`text-[11.5px] text-accent-light hover:text-white rounded px-1 ${focusRing}`}>Add</button>}
+                : <button onClick={() => place(it.value, it.label, it.key)} className={`text-[11.5px] text-accent-light hover:text-white rounded px-1 ${focusRing}`}>Add</button>}
             </li>
           )
         })}
       </ul>
+      {questions.length > 0 && (
+        <div data-brief-questions>
+          <button onClick={() => setAsking(v => !v)} aria-expanded={asking} className={`text-[12px] text-amber-200/90 hover:text-white rounded ${focusRing}`}>{questions.length} worth asking the client</button>
+          {asking && (
+            <div className="mt-1.5 space-y-1.5">
+              <ul className="space-y-1">{questions.map(q => <li key={q.id} className="text-[12px] text-void-300 leading-snug">{q.question}</li>)}</ul>
+              <button onClick={async () => { try { await navigator.clipboard.writeText(email.current ? email.current(questions, doc.name) : questions.map(q => q.question).join('\n')); s.notify('Questions copied. Paste them into your email to the client.') } catch { s.notify('Copying is blocked here.') } }} className={`text-[11.5px] text-accent-light hover:text-white rounded ${focusRing}`}>Copy as questions</button>
+            </div>
+          )}
+        </div>
+      )}
       {brief.palette?.length ? (
         <div>
           <span className="block text-[11px] uppercase tracking-wide text-void-500 mb-1.5">Colours (click to use)</span>

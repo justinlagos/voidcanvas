@@ -241,7 +241,7 @@ export function recordPage(W: number, H: number, draw: (ctx: CanvasRenderingCont
       if (clipAllows(s, p.x, p.y, pw, ph)) {
         const c = document.createElement('canvas'); c.width = iw; c.height = ih
         c.getContext('2d')!.drawImage(img, 0, 0)
-        return emit({ kind: 'image', name: 'Logo', canvas: c, x: p.x, y: p.y, scaleX: pw / iw, scaleY: ph / ih, opacity: s.st.globalAlpha })
+        return emit({ kind: 'image', name: (img as unknown as { __vcName?: string }).__vcName ?? 'Logo', canvas: c, x: p.x, y: p.y, scaleX: pw / iw, scaleY: ph / ih, opacity: s.st.globalAlpha })
       }
     }
     replay(s, c => (c.drawImage as any)(img, ...a))

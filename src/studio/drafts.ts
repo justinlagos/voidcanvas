@@ -1,4 +1,5 @@
 import type { LayeredItem, LayeredPage } from '@/editor/io'
+import { datesIn } from '@/lib/intelligence/brief'
 
 // Studio's engine: read a brief into fields, give the palette jobs (background, text, accent)
 // with contrast checked, pick a type pairing, and lay out three editable first drafts.
@@ -41,7 +42,8 @@ export function readBrief(text: string, title = ''): BriefFields {
   // A quote inside "must include ..." is something to print, not the title.
   const quotedIsMust = !!quoted && new RegExp(`\\b(?:include|must|feature|carry|mention|needs? to have)\\b[^.\\n]*${quoted.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(t)
 
-  const date = label('date|when|day') || first(new RegExp(`\\b(?:(?:${DAYS}),?\\s+)?(?:\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${MONTHS})|(?:${MONTHS})\\s+\\d{1,2}(?:st|nd|rd|th)?)(?:,?\\s+\\d{4})?\\b|\\b\\d{1,2}[\\/.]\\d{1,2}[\\/.]\\d{2,4}\\b`, 'i'), t)
+  // The date of the thing itself: a date the files are due by is not printed on the design.
+  const date = label('date|when|day') || datesIn(t).find(d => !d.deadline)?.text || ''
   const time = label('time') || first(/\b\d{1,2}(?::\d{2})?\s?(?:am|pm)(?:\s?(?:-|–|to)\s?\d{1,2}(?::\d{2})?\s?(?:am|pm))?\b|\b\d{1,2}:\d{2}\b(?:\s?(?:-|–|to)\s?\d{1,2}:\d{2})?/i, t)
   const PLACES = 'shop|store|branch|hall|centre|center|church|cathedral|hotel|arena|stadium|club|bar|lounge|gardens?|park|office|studio|campus|school|mall|plaza|restaurant|cafe|kitchen|market|hq|headquarters|gallery|theatre|theater|cinema|beach|resort|lodge|square'
   const venue = label('venue|where|location|address|at')
@@ -269,11 +271,11 @@ export async function renderPage(page: LayeredPage, size: { width: number; heigh
 }
 
 /** The checklist the Editor's Brief panel keeps. */
-export function briefItems(f: BriefFields): { label: string; value: string }[] {
-  const out: { label: string; value: string }[] = []
-  const add = (label: string, value: string) => { if (value.trim()) out.push({ label, value: value.trim() }) }
-  add('Headline', f.headline); add('Subheading', f.subhead); add('Date', f.date); add('Time', f.time); add('Venue', f.venue)
-  add('Price', f.price); add('Call to action', f.cta); add('Contact', f.contact)
+export function briefItems(f: BriefFields): { label: string; value: string; key?: string }[] {
+  const out: { label: string; value: string; key?: string }[] = []
+  const add = (label: string, value: string, key?: string) => { if (value.trim()) out.push({ label, value: value.trim(), ...(key ? { key } : {}) }) }
+  add('Headline', f.headline, 'headline'); add('Subheading', f.subhead, 'subhead'); add('Date', f.date, 'date'); add('Time', f.time, 'time'); add('Venue', f.venue, 'venue')
+  add('Price', f.price, 'price'); add('Call to action', f.cta, 'cta'); add('Contact', f.contact, 'contact')
   f.must.forEach(m => add('Must include', m))
   return out
 }

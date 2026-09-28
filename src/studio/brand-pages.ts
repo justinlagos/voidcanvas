@@ -6,6 +6,7 @@ import { strokeAt } from '@/lib/intelligence/brand'
 import { loadFont } from './brand/fonts'
 import { RAMP_STEPS, contrast, fmtOklch, luminance } from './brand/color'
 import { colorSpecLine, toCss } from './brand/export'
+import { markOnTone, placeOnPhoto, readPhoto, regionsFor, type Corner, type PhotoPlacement } from '@/lib/intelligence/photo'
 
 const onLight = (hex: string) => luminance(hex) < 0.45
 
@@ -18,7 +19,10 @@ export const SIZES = { landscape: { w: 1600, h: 900 }, portrait: { w: 1240, h: 1
 
 
 type Ctx = CanvasRenderingContext2D
-interface Env { x: Ctx; w: number; h: number; b: Brand; logo: LogoInfo | null; o: Orientation; pageNo: number; pageCount: number; d: LogoDecisions }
+interface Env { x: Ctx; w: number; h: number; b: Brand; logo: LogoInfo | null; o: Orientation; pageNo: number; pageCount: number; d: LogoDecisions; photos: GuidePhoto[] }
+
+/** A photograph of the brand in use, decoded, for the photography page. */
+export interface GuidePhoto { id: string; name: string; img: HTMLCanvasElement }
 
 const clampText = (x: Ctx, s: string, max: number) => { let t = s; while (x.measureText(t).width > max && t.length > 1) t = t.slice(0, -1); return t === s ? s : t.slice(0, -1) + '…' }
 function wrap(x: Ctx, text: string, maxW: number): string[] {
@@ -380,6 +384,100 @@ function pageMisuse(e: Env) {
     // A quiet red cross marks each one.
     x.strokeStyle = bad; x.lineWidth = 2; x.beginPath(); x.moveTo(cx + cw - 26, cy + 10); x.lineTo(cx + cw - 10, cy + 26); x.moveTo(cx + cw - 10, cy + 10); x.lineTo(cx + cw - 26, cy + 26); x.stroke()
     x.fillStyle = ink(e); x.font = `500 ${o === 'landscape' ? 15 : 17}px "${b.fonts.body.family}"`; x.fillText(clampText(x, c.label, cw), cx, cy + ch + 24)
+  })
+  footer(e)
+}
+
+/** Where each photo's logo went on the last photography page drawn, for checks. */
+export let lastPhotoPlan: { name: string; suggested: { corner: Corner; use: string; lum: number }; avoid: { corner: Corner; use: string; why: string } }[] = []
+
+/** A photo cropped to fill a box, as its own canvas (so its pixels can be read, and it goes to the Editor as an image). */
+function coverCrop(img: HTMLCanvasElement, w: number, h: number, name: string): HTMLCanvasElement {
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h))
+  const k = Math.max(c.width / img.width, c.height / img.height), sw = c.width / k, sh = c.height / k
+  const x = c.getContext('2d')!; x.imageSmoothingQuality = 'high'
+  x.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, 0, 0, c.width, c.height)
+  ;(c as unknown as { __vcName: string }).__vcName = name
+  return c
+}
+const CORNER_WORDS: Record<Corner, string> = { 'top-left': 'top left', 'top-right': 'top right', 'bottom-left': 'bottom left', 'bottom-right': 'bottom right', centre: 'centre' }
+
+/**
+ * Photography: each photo with the logo where it reads (the calm corner, the version that holds up there, a
+ * scrim only when needed), beside the placement to avoid (over the subject, or the busy corner).
+ */
+function pagePhoto(e: Env) {
+  const { x, w, h, b, o } = e
+  x.fillStyle = '#fff'; x.fillRect(0, 0, w, h)
+  sectionLabel(e, e.pageNo - 1, 'On photography')
+  const m = b.grid.margin, top = m + 84, gap = b.grid.gutter
+  const good = b.semantic[0].ramp[600], bad = b.semantic[2].ramp[600]
+  const photos = e.photos.slice(0, 3)
+  lastPhotoPlan = []
+  if (!photos.length) {
+    para(x, 'Add up to three photos of the brand in use under Identity, Photography. This page then shows where the logo sits on each, and where it should not.', o === 'landscape' ? 22 : 24, m, top + 40, Math.min(w - m * 2, 900), ink(e), b.fonts.body.family)
+    footer(e); return
+  }
+  // Landscape: a column per photo, suggested above and avoid below. Portrait: a row per photo, side by side.
+  const n = photos.length, labelH = o === 'landscape' ? 64 : 70
+  const cols = o === 'landscape' ? n : 2, rows = o === 'landscape' ? 2 : n
+  const cw = (w - m * 2 - gap * (cols - 1)) / cols
+  const ch = (h - top - m * 1.4 - (gap + labelH) * rows + gap) / rows
+  const variants = e.logo ? logoVariants(b, e.logo, e.d).map(v => ({ id: v.id, valid: v.valid, profile: v.profile })) : []
+  photos.forEach((ph, i) => {
+    const cells = o === 'landscape'
+      ? [{ cx: m + i * (cw + gap), cy: top }, { cx: m + i * (cw + gap), cy: top + ch + labelH + gap }]
+      : [{ cx: m, cy: top + i * (ch + labelH + gap) }, { cx: m + cw + gap, cy: top + i * (ch + labelH + gap) }]
+    const crop = coverCrop(ph.img, cw, ch, ph.name || 'Photo')
+    const data = crop.getContext('2d')!.getImageData(0, 0, crop.width, crop.height).data
+    const read = readPhoto(data, crop.width, crop.height)
+    const four: Corner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+    // With no logo yet, the corner is still chosen from the photo: calm and away from the subject.
+    const plan = variants.length ? placeOnPhoto(read, variants, { corners: [...four, 'centre'] }) : four.map(c => ({ corner: c, use: 'primary', ratio: 0, level: 'good', busy: regionsFor(read, c)[0].busy, score: -regionsFor(read, c)[0].busy, why: '', fix: null } as PhotoPlacement)).sort((a, b2) => b2.score - a.score)
+    const best = plan.filter(p => p.corner !== 'centre')[0] ?? plan[0]
+    const worst = read.subject === '1,1' ? plan.find(p => p.corner === 'centre') ?? plan[plan.length - 1] : plan.filter(p => p.corner !== 'centre').slice(-1)[0]
+    const lumAt = (c: Corner) => { const r = regionsFor(read, c); return r.reduce((a, q) => a + q.luminance, 0) / r.length }
+    // The version to avoid is the logo as supplied, dropped in the wrong place.
+    const primary = variants.find(v => v.id === 'primary') ?? variants[0]
+    const badRead = primary ? markOnTone(primary.profile, lumAt(worst.corner)) : null
+    const avoidWhy = worst.corner === 'centre' ? 'Over the subject: the logo fights the picture.' : worst.busy > 0.06 ? `The ${CORNER_WORDS[worst.corner]} is busy, so the logo gets lost.` : badRead && badRead.level !== 'good' ? `Only ${badRead.ratio.toFixed(1)}:1 on the ${CORNER_WORDS[worst.corner]}: too little contrast.` : `The ${CORNER_WORDS[worst.corner]} works less well than the ${CORNER_WORDS[best.corner]}.`
+    lastPhotoPlan.push({ name: ph.name, suggested: { corner: best.corner, use: best.use, lum: lumAt(best.corner) }, avoid: { corner: worst.corner, use: 'primary', why: avoidWhy } })
+
+    const place = (cell: { cx: number; cy: number }, p: PhotoPlacement, mode: MarkMode, scrim: boolean) => {
+      const { cx, cy } = cell
+      x.save(); roundRect(x, cx, cy, cw, ch, 10); x.clip()
+      x.drawImage(crop, cx, cy, cw, ch)
+      const short = Math.min(cw, ch), ar = markAspect(e)
+      let lw = short * 0.3 * Math.min(1.6, Math.sqrt(ar)), lh = lw / ar
+      if (lh > short * 0.22) { lh = short * 0.22; lw = lh * ar }
+      const pad = Math.max(short * 0.06, lh * 0.5)
+      const lx = p.corner === 'centre' ? cx + cw / 2 - lw / 2 : p.corner.endsWith('left') ? cx + pad : cx + cw - pad - lw
+      const ly = p.corner === 'centre' ? cy + ch / 2 - lh / 2 : p.corner.startsWith('top') ? cy + pad : cy + ch - pad - lh
+      if (scrim && p.fix?.kind === 'scrim') {
+        // Just enough scrim: fades from the logo's corner.
+        const gx0 = p.corner.endsWith('left') ? cx : cx + cw, gy0 = p.corner.startsWith('top') ? cy : cy + ch
+        const g = x.createRadialGradient(gx0, gy0, 0, gx0, gy0, Math.max(lw, lh) * 2.4)
+        const c = p.fix.color === '#000000' ? '0,0,0' : '255,255,255'
+        g.addColorStop(0, `rgba(${c},${p.fix.opacity})`); g.addColorStop(0.6, `rgba(${c},${p.fix.opacity * 0.6})`); g.addColorStop(1, `rgba(${c},0)`)
+        x.fillStyle = g; x.fillRect(cx, cy, cw, ch)
+      }
+      drawMark(e, lx, ly, lw, lh, b.roles[0].hex, mode)
+      x.restore()
+    }
+    place(cells[0], best, e.logo ? MODE_OF[best.use as keyof typeof MODE_OF] : lumAt(best.corner) < 0.4 ? 'white' : 'original', true)
+    place(cells[1], worst, 'original', false)
+    // Labels: Suggested with the reason, and a red cross on the one to avoid.
+    const small = o === 'landscape' ? 14 : 16
+    const label = (cell: { cx: number; cy: number }, title: string, why: string, colour: string) => {
+      x.fillStyle = colour; x.font = `600 ${small + 1}px "${b.fonts.body.family}"`; x.fillText(title, cell.cx, cell.cy + ch + 24)
+      x.fillStyle = 'rgba(0,0,0,0.55)'; x.font = `400 ${small}px "${b.fonts.body.family}"`
+      const lines = wrap(x, why, cw); lines.slice(0, 2).forEach((line, k) => x.fillText(k === 1 && lines.length > 2 ? clampText(x, line + '…', cw) : line, cell.cx, cell.cy + ch + 24 + (small + 6) * (k + 1)))
+    }
+    const bestWhy = best.why || `The ${CORNER_WORDS[best.corner]} is the calmest part of the photo.`
+    label(cells[0], 'Suggested', bestWhy, good)
+    label(cells[1], 'Avoid', avoidWhy, bad)
+    const bx = cells[1].cx, by = cells[1].cy
+    x.strokeStyle = bad; x.lineWidth = 3; x.beginPath(); x.moveTo(bx + cw - 30, by + 12); x.lineTo(bx + cw - 12, by + 30); x.moveTo(bx + cw - 12, by + 12); x.lineTo(bx + cw - 30, by + 30); x.stroke()
   })
   footer(e)
 }
@@ -807,7 +905,7 @@ function roundRect(x: Ctx, X: number, Y: number, W: number, H: number, r: number
 // ─── BUILD ──────────────────────────────────────────────────────────
 // Every page kind has one or more layouts. The outliner decides order, visibility and layout.
 
-export type PageKind = 'cover' | 'principles' | 'logo' | 'clearspace' | 'minsize' | 'misuse' | 'colour' | 'ramps' | 'access' | 'type' | 'scale' | 'mockups' | 'voice' | 'tokens' | 'closing'
+export type PageKind = 'cover' | 'principles' | 'logo' | 'clearspace' | 'minsize' | 'misuse' | 'photo' | 'colour' | 'ramps' | 'access' | 'type' | 'scale' | 'mockups' | 'voice' | 'tokens' | 'closing'
 export interface PageSpec { kind: PageKind; variant: number; on: boolean }
 type Variant = { label: string; draw: (e: Env) => void }
 
@@ -818,6 +916,7 @@ export const PAGE_DEFS: Record<PageKind, { title: string; variants: Variant[] }>
   clearspace: { title: 'Clear space', variants: [{ label: 'Blueprint', draw: pageClearSpace }] },
   minsize: { title: 'Minimum size', variants: [{ label: 'Steps', draw: pageMinSize }] },
   misuse: { title: 'Do not', variants: [{ label: 'Grid', draw: pageMisuse }] },
+  photo: { title: 'On photography', variants: [{ label: 'Pairs', draw: pagePhoto }] },
   colour: { title: 'Colour', variants: [{ label: 'Specs', draw: pageColour }, { label: 'Bands', draw: colourBands }] },
   ramps: { title: 'Tints', variants: [{ label: 'Ramps', draw: pageRamps }] },
   access: { title: 'Contrast', variants: [{ label: 'Pairings', draw: pageAccess }] },
@@ -830,14 +929,14 @@ export const PAGE_DEFS: Record<PageKind, { title: string; variants: Variant[] }>
 }
 export const DEFAULT_PAGES: PageSpec[] = (['cover', 'principles', 'logo', 'clearspace', 'minsize', 'misuse', 'colour', 'ramps', 'access', 'type', 'scale', 'mockups', 'voice', 'tokens', 'closing'] as PageKind[]).map(kind => ({ kind, variant: 0, on: true }))
 
-export async function renderPage(spec: PageSpec, pageNo: number, pageCount: number, brand: Brand, logo: LogoInfo | null, o: Orientation, scale = 1, d: LogoDecisions = NO_DECISIONS): Promise<HTMLCanvasElement> {
+export async function renderPage(spec: PageSpec, pageNo: number, pageCount: number, brand: Brand, logo: LogoInfo | null, o: Orientation, scale = 1, d: LogoDecisions = NO_DECISIONS, photos: GuidePhoto[] = []): Promise<HTMLCanvasElement> {
   await Promise.all([loadFont(brand.fonts.heading, [400, 600, 700]), loadFont(brand.fonts.body, [400, 500, 600]), loadFont(brand.fonts.mono, [400, 500, 600])])
   const size = SIZES[o]
   const c = document.createElement('canvas'); c.width = Math.round(size.w * scale); c.height = Math.round(size.h * scale)
   const x = c.getContext('2d')!
   x.scale(scale, scale); x.textBaseline = 'alphabetic'; x.textAlign = 'left'
   const def = PAGE_DEFS[spec.kind], v = def.variants[Math.min(spec.variant, def.variants.length - 1)]
-  v.draw({ x, w: size.w, h: size.h, b: brand, logo, o, pageNo, pageCount, d })
+  v.draw({ x, w: size.w, h: size.h, b: brand, logo, o, pageNo, pageCount, d, photos })
   return c
 }
 
@@ -845,22 +944,22 @@ export async function renderPage(spec: PageSpec, pageNo: number, pageCount: numb
  * Render visible pages one at a time, hand each to `fn`, then release its pixels.
  * Holding every page at print resolution at once can exceed Safari's canvas memory limit.
  */
-export async function eachPage(pages: PageSpec[], brand: Brand, logo: LogoInfo | null, o: Orientation, scale: number, fn: (canvas: HTMLCanvasElement, title: string, index: number, count: number) => Promise<void>, d: LogoDecisions = NO_DECISIONS) {
+export async function eachPage(pages: PageSpec[], brand: Brand, logo: LogoInfo | null, o: Orientation, scale: number, fn: (canvas: HTMLCanvasElement, title: string, index: number, count: number) => Promise<void>, d: LogoDecisions = NO_DECISIONS, photos: GuidePhoto[] = []) {
   const on = pages.filter(p => p.on)
   for (let i = 0; i < on.length; i++) {
-    const c = await renderPage(on[i], i + 1, on.length, brand, logo, o, scale, d)
+    const c = await renderPage(on[i], i + 1, on.length, brand, logo, o, scale, d, photos)
     try { await fn(c, PAGE_DEFS[on[i].kind].title, i, on.length) } finally { c.width = 0; c.height = 0 }
   }
 }
 
 /** Record visible pages as editable items (text, shapes, images) for the Editor. */
-export async function recordPages(pages: PageSpec[], brand: Brand, logo: LogoInfo | null, o: Orientation, onPage?: (i: number, n: number) => void, d: LogoDecisions = NO_DECISIONS): Promise<(RecordedPage & { title: string })[]> {
+export async function recordPages(pages: PageSpec[], brand: Brand, logo: LogoInfo | null, o: Orientation, onPage?: (i: number, n: number) => void, d: LogoDecisions = NO_DECISIONS, photos: GuidePhoto[] = []): Promise<(RecordedPage & { title: string })[]> {
   await Promise.all([loadFont(brand.fonts.heading, [400, 600, 700]), loadFont(brand.fonts.body, [400, 500, 600]), loadFont(brand.fonts.mono, [400, 500, 600])])
   const size = SIZES[o], on = pages.filter(p => p.on), out: (RecordedPage & { title: string })[] = []
   for (let i = 0; i < on.length; i++) {
     onPage?.(i, on.length)
     const def = PAGE_DEFS[on[i].kind], v = def.variants[Math.min(on[i].variant, def.variants.length - 1)]
-    const rec = recordPage(size.w, size.h, x => { x.textBaseline = 'alphabetic'; x.textAlign = 'left'; v.draw({ x, w: size.w, h: size.h, b: brand, logo, o, pageNo: i + 1, pageCount: on.length, d }) })
+    const rec = recordPage(size.w, size.h, x => { x.textBaseline = 'alphabetic'; x.textAlign = 'left'; v.draw({ x, w: size.w, h: size.h, b: brand, logo, o, pageNo: i + 1, pageCount: on.length, d, photos }) })
     out.push({ ...rec, title: def.title })
     await new Promise(r => setTimeout(r, 0)) // let the progress label paint
   }

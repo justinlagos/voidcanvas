@@ -1,5 +1,5 @@
 import { canvasToBlob, downloadBlob } from '@/editor/io'
-import { eachPage, SIZES, type Orientation, type PageSpec } from './brand-pages'
+import { eachPage, SIZES, type GuidePhoto, type Orientation, type PageSpec } from './brand-pages'
 import type { Brand } from './brand/tokens'
 import { NO_DECISIONS, type LogoDecisions, type LogoInfo } from './brand/logo'
 
@@ -42,10 +42,10 @@ export async function assemble(pages: Page[], withFont: boolean): Promise<Blob> 
 const jpegOf = async (c: HTMLCanvasElement, q: number) => new Uint8Array(await (await canvasToBlob(c, 'image/jpeg', q)).arrayBuffer())
 
 /** Screen PDF: fit each slide to a page of the same aspect, 96 dpi baseline. */
-export async function exportBrandPdf(brand: Brand, logo: LogoInfo | null, pages: PageSpec[], o: Orientation, filename: string, d: LogoDecisions = NO_DECISIONS) {
+export async function exportBrandPdf(brand: Brand, logo: LogoInfo | null, pages: PageSpec[], o: Orientation, filename: string, d: LogoDecisions = NO_DECISIONS, photos: GuidePhoto[] = []) {
   const size = SIZES[o], w = (size.w / 96) * 72, h = (size.h / 96) * 72
   const out: Page[] = []
-  await eachPage(pages, brand, logo, o, 2, async c => { out.push({ jpeg: await jpegOf(c, 0.92), pxW: c.width, pxH: c.height, mediaW: w, mediaH: h, imgX: 0, imgY: 0, imgW: w, imgH: h }) }, d)
+  await eachPage(pages, brand, logo, o, 2, async c => { out.push({ jpeg: await jpegOf(c, 0.92), pxW: c.width, pxH: c.height, mediaW: w, mediaH: h, imgX: 0, imgY: 0, imgW: w, imgH: h }) }, d, photos)
   downloadBlob(await assemble(out, false), filename)
 }
 
@@ -73,7 +73,7 @@ export function withBleed(src: HTMLCanvasElement, b: number) {
 export const ascii = (s: string) => s.normalize('NFKD').replace(/[^\x20-\x7e]/g, '').replace(/[()\\]/g, m => '\\' + m)
 
 /** Print PDF: 300 dpi, 3 mm bleed, crop marks in registration, TrimBox and BleedBox for imposition. */
-export async function exportPrintPdf(brand: Brand, logo: LogoInfo | null, pages: PageSpec[], o: Orientation, filename: string, d: LogoDecisions = NO_DECISIONS) {
+export async function exportPrintPdf(brand: Brand, logo: LogoInfo | null, pages: PageSpec[], o: Orientation, filename: string, d: LogoDecisions = NO_DECISIONS, photos: GuidePhoto[] = []) {
   const trim = PRINT_TRIM[o], size = SIZES[o]
   const dpi = 300, pxTrimW = Math.round((trim.w / 25.4) * dpi)
   const scale = pxTrimW / size.w, bleedPx = Math.round((BLEED / 25.4) * dpi)
@@ -100,6 +100,6 @@ export async function exportPrintPdf(brand: Brand, logo: LogoInfo | null, pages:
     const text = `BT /F1 6 Tf 0 0 0 1 k ${f(tx0)} ${f(SLUG * PT * 0.45)} Td (${slug}) Tj ET`
     out.push({ jpeg: await jpegOf(c, 0.95), pxW: c.width, pxH: c.height, mediaW, mediaH, imgX: bx0, imgY: by0, imgW: bx1 - bx0, imgH: by1 - by0, boxes, extra: marks.join('\n') + '\n' + text })
     c.width = 0; c.height = 0
-  }, d)
+  }, d, photos)
   downloadBlob(await assemble(out, true), filename)
 }

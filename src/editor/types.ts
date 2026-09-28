@@ -128,6 +128,8 @@ export interface RasterLayer extends LayerBase {
 export interface TextLayer extends LayerBase {
   type: 'text'
   text: string
+  /** Made from a detail of the brief ('date', 'venue', 'price' …): changing that detail in the brief updates this text. */
+  briefKey?: string | null
   fontFamily: string
   fontSize: number
   fontWeight: number
@@ -321,7 +323,7 @@ export interface Doc {
   effects?: Effect[] | null
 }
 
-export interface DesignBrief { title: string; text: string; items: { label: string; value: string }[]; palette?: { label: string; hex: string }[] }
+export interface DesignBrief { title: string; text: string; items: { label: string; value: string; key?: string }[]; palette?: { label: string; hex: string }[] }
 
 export type ToolId =
   | 'move' | 'brush' | 'eraser' | 'clone' | 'heal' | 'marquee' | 'ellipse'

@@ -29,6 +29,8 @@ export interface AddImageOptions {
   brandLogoId?: string | null
   /** Clear space as a share of the logo height, kept from the board edge. */
   clearSpace?: number
+  /** Corners to try first, best first (read from the photo underneath); one that other layers cover is skipped. */
+  cornerOrder?: ('top-left' | 'top-right' | 'bottom-left' | 'bottom-right')[]
 }
 
 export const ADJUSTMENT_LABELS: Record<AdjustmentKind, string> = {
@@ -1074,7 +1076,10 @@ export const useEditor = create<EditorState>((set, get) => ({
       ]
       const others = layers.filter(l => l.visible && l.type !== 'adjustment' && (!frame || l.frameId === frame.id) && l.role !== 'background').map(l => layerBounds(l, doc)).filter(b => b.w * b.h < box.w * box.h * 0.8)
       const overlap = (p: { x: number; y: number }) => others.reduce((a, b) => a + Math.max(0, Math.min(p.x + lw, b.x + b.w) - Math.max(p.x, b.x)) * Math.max(0, Math.min(p.y + lh, b.y + b.h) - Math.max(p.y, b.y)), 0)
-      const at = corners.reduce((best, p) => (overlap(p) < overlap(best) ? p : best), corners[0])
+      const byName = { 'top-left': corners[0], 'top-right': corners[1], 'bottom-left': corners[2], 'bottom-right': corners[3] }
+      // The photo's best corner, unless type or shapes are already there; else the emptiest corner.
+      const fromPhoto = opts.cornerOrder?.map(c => byName[c]).find(p => overlap(p) < lw * lh * 0.05)
+      const at = fromPhoto ?? corners.reduce((best, p) => (overlap(p) < overlap(best) ? p : best), corners[0])
       get().addLayer({ ...base(label), type: 'raster', canvas: c, source: 'photo', scaleX: k, scaleY: k, x: at.x, y: at.y, role: opts.role ?? 'logo', brandLogoId: opts.brandLogoId ?? null, frameId: frame?.id ?? null }, 'Add logo')
       set({ tool: 'move' })
       return

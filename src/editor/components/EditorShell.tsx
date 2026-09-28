@@ -239,7 +239,12 @@ export function EditorShell() {
         if (!ok) { ed.notify('That design is no longer on this device.'); return }
         if (h.formats?.length) await ops.buildFormats(h.formats, null, !!h.rebuildFormats, h.masterDeliverableId)
         if (h.syncFormats) await ops.syncFormats()
-        if (h.brief) { useEditor.getState().setDoc({ brief: h.brief }); showBriefPanel() }
+        if (h.brief) {
+          // Details changed in Studio's brief (the date, venue, price …) follow into every board.
+          const r = ops.applyBrief(h.brief)
+          if (r.layers) useEditor.getState().notify(`The brief changed: ${r.keys.join(', ')} updated in ${r.layers} text layer${r.layers === 1 ? '' : 's'} on ${r.boards} board${r.boards === 1 ? '' : 's'}.`)
+          showBriefPanel()
+        }
         useEditor.setState({ dirty: true }); await saveProject().catch(() => {})
         return
       }

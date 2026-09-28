@@ -863,3 +863,46 @@ export async function relayFormat(frameId?: string | null) {
   const { prune } = await import('./store')
   s.applyBoards({ ...doc }, layers, prune([...s.groups, ...g.groups], layers), 'Re-lay format', f.id)
 }
+
+/**
+ * A new version of the brief. Text made from a brief detail (the date, venue, price …) follows it on every
+ * board: text tagged with that detail, and any text that still says the old value word for word. Returns how
+ * many text layers changed, and on how many boards.
+ */
+export function applyBrief(next: import('./types').DesignBrief, label = 'Update from the brief'): { layers: number; boards: number; keys: string[] } {
+  const s = st(); const doc = s.doc
+  if (!doc) return { layers: 0, boards: 0, keys: [] }
+  const old = doc.brief
+  const was = new Map((old?.items ?? []).filter(i => i.key).map(i => [i.key!, i.value]))
+  const changes: { key: string; from: string; to: string }[] = []
+  for (const it of next.items) if (it.key && was.has(it.key) && was.get(it.key) !== it.value) changes.push({ key: it.key, from: was.get(it.key)!, to: it.value })
+  const touched = new Set<string>(), boards = new Set<string>(), keys = new Set<string>()
+  const layers = s.layers.map(l => {
+    if (l.type !== 'text') return l
+    let text = l.text
+    for (const c of changes) {
+      if (l.briefKey === c.key || (!l.briefKey && c.from.length >= 3)) text = replaceLike(text, c.from, c.to)
+      if (text !== l.text) keys.add(c.key)
+    }
+    if (text === l.text) return l
+    touched.add(l.id); boards.add(l.frameId ?? '')
+    return { ...l, text, rev: nextRev() } as Layer
+  })
+  useEditor.setState({ layers, doc: { ...doc, brief: next }, docRev: s.docRev + 1, dirty: true })
+  s.commit(label, { ifChanged: true })
+  return { layers: touched.size, boards: boards.size, keys: Array.from(keys) }
+}
+
+/** Replace every `from` in `text`, ignoring case, keeping capitals where the text had them ("SAT 12 OCT"). */
+export function replaceLike(text: string, from: string, to: string): string {
+  if (!from) return text
+  const lo = text.toLowerCase(), f = from.toLowerCase()
+  let out = '', i = 0
+  for (let j = lo.indexOf(f); j >= 0; j = lo.indexOf(f, i)) {
+    const seg = text.slice(j, j + from.length)
+    const upper = seg === seg.toUpperCase() && seg !== seg.toLowerCase() && from !== from.toUpperCase()
+    out += text.slice(i, j) + (upper ? to.toUpperCase() : to)
+    i = j + from.length
+  }
+  return out + text.slice(i)
+}

@@ -126,6 +126,8 @@ export interface Job {
   /** The deliverable the key visual (master board) answers. */
   masterDeliverableId?: string | null
   versions: Version[]
+  /** Questions from the brief check the designer does not need to ask (issue ids). */
+  briefSkip?: string[]
   /** Delivery history. */
   deliveries?: { at: number; files: string[]; link?: ShareLink | null }[]
   /** Shared with this team (workspace id). Synced, sealed with the team key. */
@@ -179,6 +181,8 @@ export interface ClientBrand {
   voice: string[]
   dos: string[]
   donts: string[]
+  /** Photos of the brand in use, from the guideline builder. */
+  imagery?: { id: string; name: string; blob: Blob; w: number; h: number }[]
   updatedAt: number
   /** Shared with this team (workspace id). Synced, sealed with the team key. */
   workspaceId?: string | null

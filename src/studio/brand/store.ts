@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { initialTokens, resolve, type BrandTokens, type TokKey } from './tokens'
-import { DEFAULT_PAGES, PAGE_DEFS, type PageSpec } from '../brand-pages'
+import { DEFAULT_PAGES, PAGE_DEFS, type GuidePhoto, type PageSpec } from '../brand-pages'
 import { idb, isPrivate } from '@/editor/io'
 import { analyseLogo, NO_DECISIONS, type LogoDecisions, type LogoInfo } from './logo'
 import { suggestRules } from '@/lib/intelligence/brand'
@@ -11,7 +11,27 @@ import type { VariantId } from '@/lib/intelligence/logo'
 // memory only, and the builder warns before the page unloads.
 
 const DRAFT_ID = 'guideline-draft'
-interface Draft { id: string; tokens: BrandTokens; pages: PageSpec[]; logo: { blob: Blob; name: string } | null; decisions?: LogoDecisions; orientation?: 'landscape' | 'portrait'; updatedAt: number }
+interface Draft { id: string; tokens: BrandTokens; pages: PageSpec[]; logo: { blob: Blob; name: string } | null; decisions?: LogoDecisions; orientation?: 'landscape' | 'portrait'; photos?: { id: string; name: string; blob: Blob }[]; updatedAt: number }
+
+/** A brand photo: the original file, and a decoded copy for drawing. */
+export interface BrandPhoto extends GuidePhoto { blob: Blob }
+export const MAX_PHOTOS = 3
+
+async function decodePhoto(blob: Blob, max = 1600): Promise<HTMLCanvasElement> {
+  const bmp = await createImageBitmap(blob)
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height))
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k))
+  const x = c.getContext('2d')!; x.imageSmoothingQuality = 'high'; x.drawImage(bmp, 0, 0, c.width, c.height)
+  bmp.close?.()
+  return c
+}
+/** The photography page sits after the logo rules while there are photos, and goes when the last one does. */
+function withPhotoPage(pages: PageSpec[], has: boolean): PageSpec[] {
+  const at = pages.findIndex(p => p.kind === 'photo')
+  if (has && at < 0) { const i = pages.findIndex(p => p.kind === 'misuse'); const next = [...pages]; next.splice(i < 0 ? next.length : i + 1, 0, { kind: 'photo', variant: 0, on: true }); return next }
+  if (!has && at >= 0) return pages.filter(p => p.kind !== 'photo')
+  return pages
+}
 
 interface BrandState {
   tokens: BrandTokens
@@ -39,6 +59,10 @@ interface BrandState {
   /** 'layout' keeps colours, type and scale and redraws composition (a variation). 'all' regenerates every unlocked token (a mutation). */
   newTake: (kind?: 'layout' | 'all') => void
   unlockAll: () => void
+  /** Up to three photos of the brand in use, for the photography page, saved with the client brand. */
+  photos: BrandPhoto[]
+  addPhotos: (files: File[]) => Promise<number>
+  removePhoto: (id: string) => void
   // Outliner. Page order, visibility and layout are the designer's, so New take never touches them.
   pages: PageSpec[]
   movePage: (from: number, to: number) => void
@@ -66,6 +90,17 @@ export const useBrand = create<BrandState>((set, get) => ({
   decisions: NO_DECISIONS,
   toggleVariant: id => set(s => ({ decisions: { ...s.decisions, off: s.decisions.off.includes(id) ? s.decisions.off.filter(x => x !== id) : [...s.decisions.off, id] } })),
   chooseBackground: (bgId, v) => set(s => { const b = { ...s.decisions.backgrounds }; if (v) b[bgId] = v; else delete b[bgId]; return { decisions: { ...s.decisions, backgrounds: b } } }),
+  photos: [],
+  addPhotos: async files => {
+    const room = MAX_PHOTOS - get().photos.length
+    const add: BrandPhoto[] = []
+    for (const f of files.slice(0, Math.max(0, room))) {
+      try { add.push({ id: 'ph' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: f.name.replace(/\.[a-z0-9]+$/i, '') || 'Photo', blob: f, img: await decodePhoto(f) }) } catch { /* not an image; skip it */ }
+    }
+    if (add.length) set(s => { const photos = [...s.photos, ...add].slice(0, MAX_PHOTOS); return { photos, pages: withPhotoPage(s.pages, true) } })
+    return add.length
+  },
+  removePhoto: id => set(s => { const photos = s.photos.filter(p => p.id !== id); return { photos, pages: withPhotoPage(s.pages, photos.length > 0) } }),
   hydration: 'loading',
   hydrate: async () => {
     if (get().hydration !== 'loading') return
@@ -77,20 +112,22 @@ export const useBrand = create<BrandState>((set, get) => ({
           try { logoFile = new File([d.logo.blob], d.logo.name || 'logo', { type: d.logo.blob.type }); logo = await analyseLogo(logoFile) } catch { /* the logo could not be read back; keep the rest */ }
         }
         // Page kinds may have changed between versions: keep only pages that still exist, add any new ones at the end.
-        const pages = [...d.pages.filter(p => p.kind in PAGE_DEFS), ...DEFAULT_PAGES.filter(p => !d.pages.some(q => q.kind === p.kind))]
-        set({ tokens: { ...initialTokens(), ...d.tokens }, pages, logo, logoFile, decisions: d.decisions ?? NO_DECISIONS, hydration: 'restored' })
+        const photos: BrandPhoto[] = []
+        for (const p of d.photos ?? []) { try { photos.push({ id: p.id, name: p.name, blob: p.blob, img: await decodePhoto(p.blob) }) } catch { /* could not be read back */ } }
+        const pages = withPhotoPage([...d.pages.filter(p => p.kind in PAGE_DEFS), ...DEFAULT_PAGES.filter(p => !d.pages.some(q => q.kind === p.kind))], photos.length > 0)
+        set({ tokens: { ...initialTokens(), ...d.tokens }, pages, logo, logoFile, photos, decisions: d.decisions ?? NO_DECISIONS, hydration: 'restored' })
         return
       }
     } catch { /* storage unavailable; work in memory */ }
     set({ hydration: 'fresh' })
   },
   startOver: async () => {
-    set({ tokens: initialTokens(), pages: DEFAULT_PAGES, logo: null, logoFile: null, decisions: NO_DECISIONS, hydration: 'fresh' })
+    set({ tokens: initialTokens(), pages: DEFAULT_PAGES, logo: null, logoFile: null, photos: [], decisions: NO_DECISIONS, hydration: 'fresh' })
     try { await idb.del('brand', DRAFT_ID) } catch { /* ignore */ }
   },
   dirty: () => {
     const s = get()
-    return !!s.logo || s.pages !== DEFAULT_PAGES || JSON.stringify(s.tokens) !== JSON.stringify(initialTokens())
+    return !!s.logo || s.photos.length > 0 || s.pages !== DEFAULT_PAGES || JSON.stringify(s.tokens) !== JSON.stringify(initialTokens())
   },
   set: (k, v) => set(s => ({ tokens: { ...s.tokens, [k]: v } })),
   setTok: (k, v) => set(s => ({ tokens: { ...s.tokens, [k]: { value: v, locked: true } } })),
@@ -120,13 +157,13 @@ export const useBrand = create<BrandState>((set, get) => ({
 let timer: ReturnType<typeof setTimeout> | null = null
 useBrand.subscribe((s, prev) => {
   if (s.hydration === 'loading') return
-  if (s.tokens === prev.tokens && s.pages === prev.pages && s.logoFile === prev.logoFile && s.decisions === prev.decisions) return
+  if (s.tokens === prev.tokens && s.pages === prev.pages && s.logoFile === prev.logoFile && s.decisions === prev.decisions && s.photos === prev.photos) return
   if (timer) clearTimeout(timer)
   timer = setTimeout(() => {
     const cur = useBrand.getState()
     // Defaults are not worth a record (and would bring back the "picked up" note after Start over).
     if (!cur.dirty()) { idb.del('brand', DRAFT_ID).catch(() => {}); return }
-    const d: Draft = { id: DRAFT_ID, tokens: cur.tokens, pages: cur.pages, logo: cur.logoFile ? { blob: cur.logoFile, name: cur.logoFile.name } : null, decisions: cur.decisions, updatedAt: Date.now() }
+    const d: Draft = { id: DRAFT_ID, tokens: cur.tokens, pages: cur.pages, logo: cur.logoFile ? { blob: cur.logoFile, name: cur.logoFile.name } : null, decisions: cur.decisions, photos: cur.photos.map(p => ({ id: p.id, name: p.name, blob: p.blob })), updatedAt: Date.now() }
     idb.put('brand', d).catch(() => { /* storage full or blocked; the session keeps working in memory */ })
   }, 500)
 })

@@ -21,6 +21,7 @@ measurement), or **Set by you**. Nothing claims to be the client's official rule
 | `brand.ts` | `suggestRules(profile)`: clear space from the shape, minimum width so the thinnest stroke stays 1 px, minimum print so it stays 0.3 mm; `brandHealth`: four quiet groups; `LogoRules` with a source per rule |
 | `preflight.ts` | `exportPreflight`: soft images in ppi and inches, text past the edge, empty text, hidden layers, sizes past the canvas limit, missing fonts, off-brand fonts; `deliveryPreflight`: unbuilt formats, print without PDF, unapproved or changed version, open comments and to-dos, open link, duplicate names |
 | `dom.ts` | Browser glue: file or canvas to pixels, variants to canvases, recolour, photo reading |
+| `brief.ts` | `briefCheck(fields, text, today, { hasBrand })`: what is worth asking the client. Missing: date, time and venue (for events), call to action, contact, formats or sizes, logo, deadline. Clashes: two dates (a range is one), two prices with nothing saying they are different tickets, a weekday that does not match its date, a date that has passed, files due after the event. Each finding is a question with the words it came from. `datesIn` reads written and numeric dates (day first) and tells a file deadline ("need it by", "deadline", "due") from the date of the thing; `resolveDate` puts a yearless date in the coming year unless it passed in the last 60 days. `sizesIn`: pixel sizes, print sizes in mm, cm, inches or feet, and A0 to A6, matched to known formats. `formatsIn`: formats named by kind. `questionsEmail`: the questions as a short plain email |
 
 ## Where it is used
 
@@ -49,6 +50,22 @@ measurement), or **Set by you**. Nothing claims to be the client's official rule
 - **Delivery** (`studio/job/DeliverTab.tsx`): readiness next to the package title with a jump per finding.
 - **Missing fonts** (`components/MoreDialogs.tsx`): closest match and safer fallback per missing family.
 - **Effects** (`components/effect-presets.ts`): starting points on the Effects page and on filter layers.
+- **Brief check** (`studio/job/BriefTab.tsx`, `editor/components/panels.tsx`, `editor/ops.ts`): "Worth asking the
+  client" under the brief, each question with the words it came from, set aside per question (`Job.briefSkip`) and
+  Copy as questions; sizes read from the brief as chips that add the format. Brief items carry which detail they are
+  (`key`: headline, date, time, venue, price, cta, contact) and text added from the checklist remembers it
+  (`TextLayer.briefKey`). `applyBrief` runs when a job's design opens from Studio and when the brief is edited in the
+  Editor: a changed detail is replaced in every text made from it, and in any text that still says the old value
+  (ignoring case, keeping capitals), on every board, as one undo step. The Editor's Brief panel checks each board on
+  its own, with a count per board. `readBrief` takes the event date, not the date the files are due.
+- **Photography page** (`brand-pages.ts` `pagePhoto`, `brand/store.ts`): up to three photos in the builder's Identity
+  tab, kept in the draft and saved with the client brand as `imagery`. The page (after Do not, only while there are
+  photos) crops each photo to its cell, reads it with `readPhoto`, and shows the logo where `placeOnPhoto` puts it
+  (Suggested, with the version that reads there and a scrim only when needed) beside the logo as supplied over the
+  subject or in the worst corner (Avoid, with the reason). Without a logo the corner is still chosen from the photo.
+- **Logo on a photo in the Editor** (`brand-logo.ts` `photoCorners`): when a photo covers at least half of the board,
+  the board is read and the logo goes in the best corner for the version picked, unless type or shapes are already
+  there; otherwise the emptiest corner as before.
 
 ## Not done, by design
 

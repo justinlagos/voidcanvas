@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, AlertCircle, ChevronDown, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe, ImagePlus, Layers, Lock, Unlock, Monitor, Printer, RefreshCw, RotateCcw, Upload } from 'lucide-react'
 import { Button, focusRing } from '@/editor/components/ui'
 import { canvasToBlob, downloadBlob, sendHandoff, type LayeredItem, type LayeredPage } from '@/editor/io'
-import { guardUnload, useBrand } from './brand/store'
+import { MAX_PHOTOS, guardUnload, useBrand } from './brand/store'
 import { FONT_SUGGESTIONS, HARMONIES, PERSONALITIES, SCALES, buildBrand, resolve, type ArtDirection, type Brand, type FontRef, type TokKey } from './brand/tokens'
 import { RAMP_STEPS, isHex } from './brand/color'
 import { loadFont, registerLocalFont } from './brand/fonts'
 import { fileSlug, toAse, toCss, toJson, toTailwind } from './brand/export'
-import { PAGE_DEFS, SIZES, eachPage, recordPages, renderPage, type Orientation, type PageSpec } from './brand-pages'
+import { PAGE_DEFS, SIZES, eachPage, lastPhotoPlan, recordPages, renderPage, type Orientation, type PageSpec } from './brand-pages'
 import { MODE_LABEL, MODE_OF, VARIANT_OF, analyseLogo, grayMark, logoChecks, logoPlacements, logoVariants, monoMark, type LogoDecisions, type LogoInfo } from './brand/logo'
 import { PRINT_TRIM } from './brand-pdf'
 import { describeProfile } from '@/lib/intelligence/asset'
@@ -22,16 +22,17 @@ import type { Level } from '@/lib/intelligence/contrast'
 function Page({ spec, pageNo, pageCount, brand, logo, o, cssWidth }: { spec: PageSpec; pageNo: number; pageCount: number; brand: Brand; logo: LogoInfo | null; o: Orientation; cssWidth: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const d = useBrand(s => s.decisions)
+  const photos = useBrand(s => s.photos)
   useEffect(() => {
     let live = true
     const big = cssWidth > 400
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
     const scale = Math.min(2, Math.max(0.25, (cssWidth * dpr) / SIZES[o].w))
     const t = setTimeout(() => {
-      renderPage(spec, pageNo, pageCount, brand, logo, o, scale, d).then(c => { if (!live || !ref.current) return; const x = ref.current.getContext('2d')!; ref.current.width = c.width; ref.current.height = c.height; x.drawImage(c, 0, 0) })
+      renderPage(spec, pageNo, pageCount, brand, logo, o, scale, d, spec.kind === 'photo' ? photos : []).then(c => { if (!live || !ref.current) return; const x = ref.current.getContext('2d')!; ref.current.width = c.width; ref.current.height = c.height; x.drawImage(c, 0, 0) })
     }, big ? 0 : 80)
     return () => { live = false; clearTimeout(t) }
-  }, [spec, pageNo, pageCount, brand, logo, o, cssWidth, d])
+  }, [spec, pageNo, pageCount, brand, logo, o, cssWidth, d, spec.kind === 'photo' ? photos : null]) // eslint-disable-line react-hooks/exhaustive-deps
   const ar = SIZES[o].h / SIZES[o].w
   return <canvas ref={ref} className="block rounded-md shadow-lg bg-white" style={{ width: cssWidth, height: cssWidth * ar }} />
 }
@@ -196,6 +197,7 @@ function IdentityTab({ logo, onLogo, brand, logoErr, suggestedColor, onUseColor 
         </ul>
         {places.length > 5 && <button onClick={() => setShowAllBg(v => !v)} className={`mt-1.5 text-[11.5px] text-void-400 hover:text-white rounded ${focusRing}`}>{showAllBg ? 'Fewer backgrounds' : `All ${places.length} backgrounds`}</button>}
       </Field>}
+      <Photography />
       <Field label="Personality" hint="Steers the fonts, scale and corners the generator reaches for.">
         <div className="grid grid-cols-3 gap-1.5">{PERSONALITIES.map((p, i) => <button key={p} onClick={() => set('personality', i)} aria-pressed={t.personality === i} className={seg(t.personality === i)}>{p}</button>)}</div>
       </Field>
@@ -446,6 +448,40 @@ function Preview({ brand, logo, o, active, setActive }: { brand: Brand; logo: Lo
   )
 }
 
+/** Up to three photos of the brand in use. The photography page shows where the logo sits on each. */
+function Photography() {
+  const photos = useBrand(s => s.photos), addPhotos = useBrand(s => s.addPhotos), removePhoto = useBrand(s => s.removePhoto)
+  const file = useRef<HTMLInputElement>(null)
+  const [msg, setMsg] = useState('')
+  const urls = useMemo(() => photos.map(p => ({ id: p.id, name: p.name, url: (() => { const k = Math.min(1, 240 / Math.max(p.img.width, p.img.height)); const c = document.createElement('canvas'); c.width = Math.round(p.img.width * k); c.height = Math.round(p.img.height * k); c.getContext('2d')!.drawImage(p.img, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', 0.8) })() })), [photos])
+  const onFiles = async (list: FileList | null) => {
+    if (!list?.length) return
+    setMsg('')
+    const files = Array.from(list), room = MAX_PHOTOS - photos.length
+    const n = await addPhotos(files)
+    if (files.length > room) setMsg(`Up to ${MAX_PHOTOS} photos. ${files.length - room} left out.`)
+    else if (n < files.length) setMsg('One of those could not be read as a photo.')
+  }
+  return (
+    <Field label="Photography" hint="Up to three photos of the brand in use. A page shows where the logo sits on each: the calm corner, the version that reads there, and where it should not go.">
+      <input ref={file} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden data-brand-photos-input onChange={e => { onFiles(e.target.files); e.target.value = '' }} />
+      {urls.length > 0 && (
+        <div className="mb-2 grid grid-cols-3 gap-1.5" data-brand-photos>
+          {urls.map(p => (
+            <div key={p.id} className="relative group rounded-md overflow-hidden bg-void-900 aspect-[4/3]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt={p.name} className="w-full h-full object-cover" />
+              <button onClick={() => removePhoto(p.id)} aria-label={`Remove ${p.name}`} className={`absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-[12px] inline-flex items-center justify-center ${focusRing}`}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {photos.length < MAX_PHOTOS && <Button onClick={() => file.current?.click()} className="w-full"><ImagePlus size={15} />{photos.length ? 'Add another photo' : 'Add photos'}</Button>}
+      {msg && <p className="mt-1 text-[11.5px] text-amber-200/80">{msg}</p>}
+    </Field>
+  )
+}
+
 const TABS = ['Identity', 'Colour', 'Type', 'Export'] as const
 const initialColor = '#3d5afe'
 
@@ -454,12 +490,15 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
   const tokens = useBrand(s => s.tokens), set = useBrand(s => s.set), newTake = useBrand(s => s.newTake), pages = useBrand(s => s.pages)
   const logo = useBrand(s => s.logo), setLogoInfo = useBrand(s => s.setLogo), hydration = useBrand(s => s.hydration), hydrate = useBrand(s => s.hydrate), startOver = useBrand(s => s.startOver)
   const decisions = useBrand(s => s.decisions)
+  const photos = useBrand(s => s.photos)
   const [tab, setTab] = useState<(typeof TABS)[number]>('Identity')
   const [logoErr, setLogoErr] = useState('')
   const [suggestedColor, setSuggestedColor] = useState<string | null>(null)
   const [takeMenu, setTakeMenu] = useState(false)
   const [restoredNote, setRestoredNote] = useState<'show' | 'confirm' | 'hidden'>('show')
   useEffect(() => { hydrate(); return guardUnload() }, [hydrate])
+  // For checks: where the photography page put the logo on each photo.
+  useEffect(() => { (window as unknown as { __vcGuide: unknown }).__vcGuide = { photoPlan: () => lastPhotoPlan } }, [])
   const [o, setO] = useState<Orientation>('landscape')
   const [busy, setBusy] = useState<string | null>(null)
   const [active, setActive] = useState(0)
@@ -489,13 +528,13 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
   }
   const base = fileSlug(brand.name)
   const run = async (label: string, fn: () => Promise<void>) => { setBusy(label); setErr(null); try { await fn() } catch (e) { console.error(e); setErr(`${label.replace(/^Building /, 'The ')} could not be built. ${(e as Error)?.message || 'Try again.'}`) } finally { setBusy(null) } }
-  const exportPdf = () => run('Building screen PDF', async () => { const { exportBrandPdf } = await import('./brand-pdf'); await exportBrandPdf(brand, logo, pages, o, `${base}-guidelines-${o}.pdf`, decisions) })
-  const exportPrint = () => run('Building print PDF', async () => { const { exportPrintPdf } = await import('./brand-pdf'); await exportPrintPdf(brand, logo, pages, o, `${base}-guidelines-print-${o}.pdf`, decisions) })
+  const exportPdf = () => run('Building screen PDF', async () => { const { exportBrandPdf } = await import('./brand-pdf'); await exportBrandPdf(brand, logo, pages, o, `${base}-guidelines-${o}.pdf`, decisions, photos) })
+  const exportPrint = () => run('Building print PDF', async () => { const { exportPrintPdf } = await import('./brand-pdf'); await exportPrintPdf(brand, logo, pages, o, `${base}-guidelines-print-${o}.pdf`, decisions, photos) })
   const exportHtml = () => run('Building HTML handoff', async () => {
     const { buildHandoffHtml } = await import('./brand/handoff')
     const { inlineGoogleFontFaces } = await import('./brand/fonts')
     const slides: string[] = []
-    await eachPage(pages, brand, logo, o, 1, async c => { slides.push(c.toDataURL('image/jpeg', 0.85)) }, decisions)
+    await eachPage(pages, brand, logo, o, 1, async c => { slides.push(c.toDataURL('image/jpeg', 0.85)) }, decisions, photos)
     // Fonts go into the file, so it reads the same offline. Anything that cannot be fetched is linked instead.
     setBusy('Embedding fonts')
     const google = Array.from(new Set([brand.fonts.heading, brand.fonts.body, brand.fonts.mono].filter(f => f.source === 'google').map(f => f.family)))
@@ -532,6 +571,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
       display: brand.fonts.heading.family, body: brand.fonts.body.family, scale: { base: brand.baseSize, ratio: brand.ratio },
       logos, logoMin: Math.round(brand.logo.minWidth), clearSpace: Math.min(2, Math.max(0.1, brand.logo.clearSpace)), logoRules: rules,
       voice: brand.voice.tone.split(/,\s*/), dos: brand.voice.dos, donts: brand.voice.donts,
+      imagery: photos.map(p => ({ id: p.id, name: p.name, blob: p.blob, w: p.img.width, h: p.img.height })),
     })
     await useJobs.getState().saveBrand(b)
     setErr(null); setBusy(null)
@@ -541,7 +581,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
     setBusy('Opening in Editor'); setErr(null)
     try {
       // Pages go over as real layers: text stays text, shapes stay shapes, the logo stays an image.
-      const recorded = await recordPages(pages, brand, logo, o, (i, n) => setBusy(`Building page ${i + 1} of ${n}`), decisions)
+      const recorded = await recordPages(pages, brand, logo, o, (i, n) => setBusy(`Building page ${i + 1} of ${n}`), decisions, photos)
       if (!recorded.length) throw new Error('Every page is hidden. Include at least one page in the page list.')
       setBusy('Opening in Editor')
       const layered: LayeredPage[] = []
