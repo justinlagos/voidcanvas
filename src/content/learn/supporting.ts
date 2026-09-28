@@ -46,7 +46,7 @@ export const articles: Article[] = [
       { t: 'steps', items: [
         'Open [Effects](/effects), drop in the photo, choose **Color**, then **Duotone**.',
         'Under **Parameters**, set **Shadow Color** and **Highlight Color**. The starting pair is black and white, which is plain greyscale; pick your own two to see the effect.',
-        'Press **PNG**, **JPG** or **WebP** to download, or **Open in Editor** to carry on with the duotone as a live filter layer.',
+        'Press **PNG**, **JPG** or **WebP** to download, or **Open in Editor** to carry on with the duotone still live on the photo.',
         'In the Editor, the same effect is **Filter, Colour, Duotone**: a filter layer with the two colours in **Filter settings**, which you can fade with the layer\'s opacity or paint out of a face with the Eraser.',
       ] },
       { t: 'product', text: 'Duotone in Voidcanvas is two colour pickers on a live layer. It runs in the browser, the photo stays on your device, and the brand kit puts the exact brand colours one click away.', label: 'Open Effects', href: '/effects?effect=duotone' },
@@ -105,7 +105,7 @@ export const articles: Article[] = [
       { t: 'steps', items: [
         'Open the [Dither tool](/tools/dither) and drop in a photo, or use the sample that is already loaded.',
         'Move **Threshold** under **Adjust** until the balance is right.',
-        'Press **Download PNG** for the full-size file, or **Send to Layer Stack** to open the Editor with the dither as a live filter layer you can colour, mask and combine.',
+        'Press **Download PNG** for the full-size file, or **Send to Layer Stack** to open the Editor with the dither still live on the photo, where you can recolour it, limit it to an area and add more effects.',
         'In the Editor and in Effects the same effect is **Dither** under **Artistic**.',
       ] },
       { t: 'product', text: 'The Dither tool, Effects and the Editor share one implementation. Everything runs in your browser and the photo never leaves your device.', label: 'Open the Dither tool', href: '/tools/dither' },
@@ -164,7 +164,7 @@ export const articles: Article[] = [
         '**Pixel Sort** smears bright or dark runs into streaks, the heavier datamosh look.',
         '**Noise** at low opacity ties the layers together.',
       ] },
-      { t: 'p', text: 'Each of these is a live filter layer in the Editor, so the order and the opacity stay adjustable. [Distortion effects](/learn/distortion-effects) has every setting.' },
+      { t: 'p', text: 'In the Editor each of these stays a live effect, so the order and the strength stay adjustable. [Distortion effects](/learn/distortion-effects) has every setting.' },
 
       { t: 'h', text: 'Where it works, and where it does not' },
       { t: 'p', text: 'Glitch reads best on faces, on type and on clean product shots, because the eye needs something intact to measure the damage against. It works for music artwork, event posters, gaming and tech thumbnails. It ruins small text, busy photos and anything that has to be read in a hurry. On a thumbnail, glitch the background or one edge of the face and leave the words alone.' },
@@ -173,7 +173,7 @@ export const articles: Article[] = [
       { t: 'steps', items: [
         'Open the [Glitch tool](/tools/glitch) and drop in a photo.',
         'Set **Offset** and **Slice height** under **Adjust**. Press **Shuffle** for a new arrangement of slices, or scrub **Randomize**.',
-        'Press **Download PNG**, or **Send to Layer Stack** to open the Editor with the glitch as a live filter layer.',
+        'Press **Download PNG**, or **Send to Layer Stack** to open the Editor with the glitch still live on the photo.',
         'In the Editor, add **Filter, Distort, RGB Shift** and **Filter, Enhance, Scanlines** above it, and paint the glitch out of the eyes with the Eraser on the filter layer.',
       ] },
       { t: 'product', text: 'The Glitch tool, Effects and the Editor share one implementation, and the companions (RGB Shift, Scanlines, CRT, Pixel Sort) are filter layers you can stack, fade and mask. In the browser, on your device.', label: 'Open the Glitch tool', href: '/tools/glitch' },

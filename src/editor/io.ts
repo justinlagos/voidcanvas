@@ -2,7 +2,7 @@ import { suggestImageName } from '@/lib/intelligence/naming'
 import { ctx2d, makeCanvas, renderDoc, uid } from './engine'
 import { layoutFrames } from './frames'
 import { nextRev, useEditor } from './store'
-import type { Doc, Frame, Group, Layer, TextLayer } from './types'
+import type { Doc, Effect, Frame, Group, Layer, TextLayer } from './types'
 import { boardFileName, exportBoards as boardList, pdfPageSize, uniqueNames, type ExportFormat } from './export'
 import { readVoid, VoidFileError, writeVoid, writeVoidPng } from './voidfile'
 import { zipFiles } from './zip'
@@ -133,6 +133,10 @@ export interface Handoff {
   brief?: import('./types').DesignBrief
   /** When set, add the image plus a live, re-editable filter layer on top (from a tool page). */
   liveEffect?: { effect: string; params: Record<string, number | string> }
+  /** The same, for several effects in order (the Effects page stack). */
+  liveEffects?: { effect: string; params: Record<string, number | string> }[]
+  /** Put these effects on what is selected in a design that is already open, instead of starting a new one. */
+  addEffects?: { projectId: string; effects: { effect: string; params: Record<string, number | string> }[] }
 }
 
 export async function sendHandoff(h: Omit<Handoff, 'id'>): Promise<string> {
@@ -494,7 +498,15 @@ function encodePng(c: HTMLCanvasElement): Promise<Blob> {
 /** Build the stored form of a design (used by saves and by version snapshots). */
 export async function storeDesign(doc: Doc, layers: Layer[], groups: Group[], swatches: string[], template = false): Promise<{ stored: StoredProject; summary: ProjectSummary }> {
   const blobs: Record<string, Blob> = {}
-  const meta = await Promise.all(layers.map(async l => {
+  // An effect's mask is pixels: stored beside the layers under the effect's id, with a flag on the effect.
+  const packFx = async (list: Effect[] | null | undefined, owner: string) => !list?.some(e => e.mask) ? list : Promise.all(list.map(async e => {
+    if (!e.mask) return e
+    const { mask, ...rest } = e; blobs[`fx:${owner}:${e.id}:mask`] = await encodePng(mask); return { ...rest, hasMask: true }
+  }))
+  const thumbDoc = doc
+  doc = { ...doc, effects: await packFx(doc.effects, 'doc'), ...(doc.frames ? { frames: await Promise.all(doc.frames.map(async f => (f.effects?.some(e => e.mask) ? { ...f, effects: await packFx(f.effects, 'f' + f.id) } : f))) } : {}) }
+  const meta = await Promise.all(layers.map(async l0 => {
+    const l = l0.effects?.some(e => e.mask) ? ({ ...l0, effects: await packFx(l0.effects, l0.id) } as Layer) : l0
     const { mask, ...rest } = l as any
     if (mask) blobs[l.id + ':mask'] = await encodePng(mask)
     if (l.type === 'raster') { blobs[l.id] = await encodePng(l.canvas); delete rest.canvas }
@@ -502,9 +514,14 @@ export async function storeDesign(doc: Doc, layers: Layer[], groups: Group[], sw
   }))
   const k = Math.min(1, 360 / Math.max(doc.width, doc.height))
   const thumb = makeCanvas(doc.width * k, doc.height * k)
-  renderDoc(thumb, doc, layers, { groups, scale: k, noCache: true })
+  renderDoc(thumb, thumbDoc, layers, { groups, scale: k, noCache: true, fxDraft: true })
   const packed = await packDoc(doc, async (k, c) => { blobs[k] = await encodePng(c) })
-  const stored: StoredProject = { id: doc.id, doc: packed, layers: meta, groups, swatches, blobs, fonts: await packFonts(layers) }
+  // A group's mask is pixels too: stored beside the layers, with a flag on the group.
+  const gs = await Promise.all(groups.map(async g0 => {
+    const g = g0.effects?.some(e => e.mask) ? { ...g0, effects: await packFx(g0.effects, 'g' + g0.id) } : g0
+    if (!g.mask) return g; const { mask, ...rest } = g; blobs['g:' + g.id + ':mask'] = await encodePng(mask); return { ...rest, hasMask: true } as unknown as Group
+  }))
+  const stored: StoredProject = { id: doc.id, doc: packed, layers: meta, groups: gs, swatches, blobs, fonts: await packFonts(layers) }
   const summary: ProjectSummary = { id: doc.id, name: doc.name, updatedAt: Date.now(), width: doc.width, height: doc.height, thumb: thumb.toDataURL('image/jpeg', 0.7), template }
   return { stored, summary }
 }
@@ -517,8 +534,8 @@ async function fromPng(b: Blob): Promise<HTMLCanvasElement> {
   return c
 }
 
-/** Turn a stored project back into live layers. */
-export async function restoreStored(p: StoredProject): Promise<{ doc: Doc; layers: Layer[] }> {
+/** Turn a stored project back into live layers and groups. */
+export async function restoreStored(p: StoredProject): Promise<{ doc: Doc; layers: Layer[]; groups: Group[] }> {
   await unpackFonts(p.fonts)
   const layers: Layer[] = await Promise.all(p.layers.map(async m => {
     const { hasMask, ...rest } = m
@@ -527,7 +544,22 @@ export async function restoreStored(p: StoredProject): Promise<{ doc: Doc; layer
     return l as Layer
   }))
   const doc = await unpackDoc(p.doc, async k => (p.blobs[k] ? fromPng(p.blobs[k]) : null))
-  return { doc, layers }
+  const groups: Group[] = await Promise.all((p.groups ?? []).map(async (g: any) => {
+    const { hasMask, ...rest } = g
+    return { ...rest, ...(hasMask && p.blobs['g:' + g.id + ':mask'] ? { mask: await fromPng(p.blobs['g:' + g.id + ':mask']) } : {}) } as Group
+  }))
+  // Effects of kinds this version does not know (from a newer Voidcanvas) are kept but not drawn; masks come back.
+  const { markUnknown } = await import('./effects')
+  const fx = async (list: Effect[], owner: string) => markUnknown(await Promise.all(list.map(async e => {
+    if (!e.hasMask) return e
+    const { hasMask, ...rest } = e; const b = p.blobs[`fx:${owner}:${e.id}:mask`]
+    return b ? { ...rest, mask: await fromPng(b) } : rest
+  })))
+  for (const l of layers) if (l.effects) l.effects = await fx(l.effects, l.id)
+  for (const g of groups) if (g.effects) g.effects = await fx(g.effects, 'g' + g.id)
+  if (doc.effects) doc.effects = await fx(doc.effects, 'doc')
+  if (doc.frames) doc.frames = await Promise.all(doc.frames.map(async f => (f.effects ? { ...f, effects: await fx(f.effects, 'f' + f.id) } : f)))
+  return { doc, layers, groups }
 }
 
 export async function openProject(id: string, asCopy = false): Promise<boolean> {
@@ -537,8 +569,8 @@ export async function openProject(id: string, asCopy = false): Promise<boolean> 
   const r = await restoreStored(p)
   const layers = r.layers
   const doc = asCopy ? { ...r.doc, id: 'd' + Date.now().toString(36), name: r.doc.name.replace(/ template$/i, '') } : r.doc
-  if (doc.frames?.length) useEditor.getState().loadFramed(doc, layers, p.swatches, p.groups ?? [])
-  else useEditor.getState().loadProject(doc, layers, p.swatches, p.groups ?? [])
+  if (doc.frames?.length) useEditor.getState().loadFramed(doc, layers, p.swatches, r.groups)
+  else useEditor.getState().loadProject(doc, layers, p.swatches, r.groups)
   if (asCopy) useEditor.setState({ dirty: true })
   return true
 }
@@ -596,10 +628,10 @@ export async function openVoidBytes(bytes: Uint8Array): Promise<string | null> {
   try {
     const { project, notes } = await readVoid(bytes)
     const id = 'd' + Date.now().toString(36)
-    const { doc: d, layers } = await restoreStored({ ...project, id, groups: project.groups ?? [] } as StoredProject)
+    const { doc: d, layers, groups } = await restoreStored({ ...project, id, groups: project.groups ?? [] } as StoredProject)
     const doc = { ...d, id }
-    if (doc.frames?.length) ed.loadFramed(doc, layers, project.swatches, project.groups ?? [])
-    else ed.loadProject(doc, layers, project.swatches, project.groups ?? [])
+    if (doc.frames?.length) ed.loadFramed(doc, layers, project.swatches, groups)
+    else ed.loadProject(doc, layers, project.swatches, groups)
     useEditor.setState({ dirty: true })
     ed.notify(notes.length ? notes.join(' ') : 'Opened your Voidcanvas file.')
     return id
@@ -638,14 +670,9 @@ export async function duplicateProject(id: string): Promise<ProjectSummary | nul
 /** Render a stored project to a full-resolution PNG and download it, without opening the editor. */
 export async function exportProjectPng(id: string): Promise<void> {
   const p = await idb.get<StoredProject>('projects', id); if (!p) return
-  const layers: Layer[] = await Promise.all(p.layers.map(async (m: any) => {
-    const { hasMask, ...rest } = m
-    const l: any = { ...rest, rev: nextRev(), mask: hasMask && p.blobs[m.id + ':mask'] ? await blobToCanvas(p.blobs[m.id + ':mask'], 1e6) : null }
-    if (m.type === 'raster') l.canvas = p.blobs[m.id] ? await blobToCanvas(p.blobs[m.id], 1e6) : makeCanvas(1, 1)
-    return l as Layer
-  }))
-  const c = makeCanvas(p.doc.width, p.doc.height)
-  renderDoc(c, p.doc, layers, { groups: p.groups ?? [], scale: 1, noCache: true, fullRes: true })
+  const r = await restoreStored(p)
+  const c = makeCanvas(r.doc.width, r.doc.height)
+  renderDoc(c, r.doc, r.layers, { groups: r.groups, scale: 1, noCache: true, fullRes: true })
   downloadBlob(await canvasToBlob(c), `${p.doc.name.replace(/[^\w\- ]+/g, '') || 'design'}.png`)
 }
 

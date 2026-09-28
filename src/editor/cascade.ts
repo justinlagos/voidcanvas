@@ -25,7 +25,7 @@ export function previewCascade(frameId: string | null, p: { width: number; heigh
   const r = relayout(layers.filter(l => l.frameId === master.id), master, t, doc, groups, x => !skip.has(x.name))
   const scale = Math.min(1, px / Math.max(p.width, p.height))
   const c = makeCanvas(Math.max(1, Math.round(p.width * scale)), Math.max(1, Math.round(p.height * scale)))
-  renderDoc(c, { ...doc, frames: [t] }, r.layers, { groups, scale, noCache: true, noShadow: true, region: { x: 0, y: 0, w: p.width, h: p.height }, frameRects: [t] })
+  renderDoc(c, { ...doc, frames: [t] }, r.layers, { groups, scale, noCache: true, fxDraft: true, noShadow: true, region: { x: 0, y: 0, w: p.width, h: p.height }, frameRects: [t] })
   return { url: c.toDataURL('image/jpeg', 0.75), dropped: r.dropped }
 }
 

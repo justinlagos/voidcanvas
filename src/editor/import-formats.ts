@@ -199,8 +199,10 @@ export async function importPsd(file: Blob, name: string) {
     for (const n of nodes) {
       if (n.children) {
         const g: Group = { id: uid(), name: n.name || 'Group', visible: n.hidden !== true, opacity: n.opacity ?? 1, collapsed: !n.opened, parentId: groupId, blend: n.blendMode === 'pass through' || !n.blendMode ? 'pass' : mapBlend(n.blendMode, report) }
+        // A group mask masks what the group makes, in document pixels.
+        const gm = maskFor(n, W, H, 0, 0)
+        if (gm) { g.mask = gm; g.maskEnabled = true; counts.masks++ }
         groups.push(g); counts.groups++
-        if (n.mask) report.changed.push(`Group mask on "${g.name}" left out`)
         walk(n.children, g.id, frameId)
         continue
       }
@@ -219,7 +221,8 @@ export async function importPsd(file: Blob, name: string) {
         const adj = mapAdjustment(n.adjustment, report)
         if (!adj) continue
         const l = { ...common, type: 'adjustment', kind: adj.kind!, values: { ...(ADJUSTMENT_DEFAULTS[adj.kind!] ?? {}), ...adj.values }, ...adj, mask: maskFor(n, W, H, 0, 0), name: n.name || ADJUSTMENT_LABELS[adj.kind!] } as AdjustmentLayer
-        if (n.clipping) report.changed.push(`Adjustment "${l.name}" was clipped to one layer; it now affects everything below`)
+        // Clipped to the layer below: it changes only that layer, as in Photoshop.
+        if (n.clipping) { const b = clipTo(); if (b) { l.clipId = b; l.reach = 'clip' } else report.changed.push(`Adjustment "${l.name}" was clipped to another adjustment; it now affects everything below`) }
         layers.push(l); counts.adj++
         continue
       }

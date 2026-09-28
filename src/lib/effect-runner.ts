@@ -1,6 +1,6 @@
 import { applyEffect } from './effects'
 import { EXPORT_MAX, scaleParams, workSize } from './effect-scale'
-import type { EffectParams, EffectType } from '@/store/useStore'
+import type { EffectParams, EffectType, StackItem } from '@/store/useStore'
 import type { EffectJob, EffectResult } from './effects.worker'
 
 // Effects run in a Worker so sliders and the rest of the page stay responsive. Only the newest job of a
@@ -64,7 +64,23 @@ export type ImageSource = HTMLImageElement | HTMLCanvasElement | ImageBitmap
  * Render an effect at up to `maxLongEdge` px from a source image. Pixel-based settings are scaled from the
  * working size so the result matches the preview, only at full resolution.
  */
-export async function renderEffectAt(src: ImageSource, effect: EffectType, params: EffectParams, maxLongEdge = EXPORT_MAX): Promise<HTMLCanvasElement> {
+export function renderEffectAt(src: ImageSource, effect: EffectType, params: EffectParams, maxLongEdge = EXPORT_MAX): Promise<HTMLCanvasElement> {
+  return renderStackAt(src, [{ effect, params }], maxLongEdge)
+}
+
+/** Run several effects in order over image data. `k` scales pixel-based settings (see scaleParams). */
+export async function runStack(img: ImageData, list: StackItem[], k = 1): Promise<{ img: ImageData; ms: number }> {
+  let cur = img, ms = 0
+  for (const e of list) {
+    if (e.effect === 'none') continue
+    const r = await runEffect(cur, e.effect, k === 1 ? e.params : scaleParams(e.effect, e.params, k))
+    cur = r.img; ms += r.ms
+  }
+  return { img: cur, ms }
+}
+
+/** An effect stack at up to `maxLongEdge` px, matching the preview (see renderEffectAt). */
+export async function renderStackAt(src: ImageSource, list: StackItem[], maxLongEdge = EXPORT_MAX): Promise<HTMLCanvasElement> {
   const sw = 'naturalWidth' in src ? src.naturalWidth || src.width : src.width
   const sh = 'naturalHeight' in src ? src.naturalHeight || src.height : src.height
   const out = workSize(sw, sh, maxLongEdge)
@@ -74,9 +90,8 @@ export async function renderEffectAt(src: ImageSource, effect: EffectType, param
   const ctx = c.getContext('2d', { willReadFrequently: true })!
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(src, 0, 0, out.width, out.height)
-  if (effect !== 'none') {
-    const img = ctx.getImageData(0, 0, out.width, out.height)
-    const { img: done } = await runEffect(img, effect, scaleParams(effect, params, k))
+  if (list.some(e => e.effect !== 'none')) {
+    const { img: done } = await runStack(ctx.getImageData(0, 0, out.width, out.height), list, k)
     ctx.putImageData(done, 0, 0)
   }
   return c

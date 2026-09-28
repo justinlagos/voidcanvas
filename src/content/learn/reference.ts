@@ -247,7 +247,7 @@ export const articles: Article[] = [
         ['Left and Right arrows', 'Move the compare slider between original and edited (with the slider focused)'],
         ['Home', 'Slider fully to one side'],
         ['End', 'Slider fully to the other side'],
-        ['Shift+click Open in Editor', 'Send one flattened image instead of a live filter layer'],
+        ['Shift+click Open in Editor', 'Send one flattened image instead of the photo with live effects'],
       ] },
       { t: 'h3', text: 'Studio' },
       { t: 'keys', rows: [
@@ -483,9 +483,10 @@ export const articles: Article[] = [
       { t: 'h', text: 'Exporting from Effects and quick tools' },
       { t: 'table', head: ['Where', 'Formats', 'Size and notes'], rows: [
         ['Effects', 'PNG, JPG, WebP', 'Rendered again at the photo’s own size, up to 8000 px on the long side. JPG and WebP at 95% quality'],
-        ['Effects, Open in Editor', 'Live filter layer', 'The photo plus the effect as its own filter layer you can still tune, hide or mask. Shift-click to send one flattened image instead'],
+        ['Effects, Open in Editor', 'Photo with live effects', 'The photo with every effect you stacked on it, still editable under Effects in Properties. Shift-click to send one flattened image instead'],
+        ['Effects, Add to my design', 'Effects on your layer', 'The effects go onto the layer you had selected in the design open in the same tab. Only the effects travel'],
         ['Quick tools, Download PNG', 'PNG', 'Full size, up to 8000 px on the long side'],
-        ['Quick tools, Send to Layer Stack', 'Live filter layer', 'Opens in the Editor with the effect still adjustable'],
+        ['Quick tools, Send to Layer Stack', 'Photo with a live effect', 'Opens in the Editor with the effect on the photo, still adjustable'],
       ] },
 
       { t: 'h', text: 'Exporting from Studio' },

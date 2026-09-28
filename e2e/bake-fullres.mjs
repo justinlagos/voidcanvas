@@ -46,8 +46,9 @@ await p.waitForTimeout(400)
 r = await dotsInRow()
 ok('Stamp visible bakes the filter at document size', r.runs >= 210 && r.runs <= 226, JSON.stringify(r))
 
-// A board exported on its own: the filter was previewed over the whole canvas of boards, so its dots must be scaled from
-// the canvas's long side, not the board's. Two 1200 px boards side by side make a canvas about 2500 px wide.
+// A board exported on its own: a filter on a board runs over that board's area, on the canvas and in export alike, so
+// its dots are scaled from the board's long side, however many boards sit beside it. Adding a second board must not
+// change the first board's look.
 const board = await p.evaluate(() => {
   const S = window.__voidEditor
   S.getState().newDoc({ name: 'Boards test', width: 1200, height: 1200, background: '#ffffff' })
@@ -76,8 +77,8 @@ const exported = await p.evaluate(async b64 => {
   for (let i = 0; i < d.length; i += 4) { const v = d[i] < 128; if (v && !dark) runs++; dark = v }
   return { w: c.width, runs }
 }, png.toString('base64'))
-// Expected cell: floor(44 x long / 1200 / 8) px. The old code used the board's own size (a 5 px cell, 240 dots).
-const cell = Math.floor((44 * board.long / 1200) / 8), want = Math.ceil(1200 / cell)
+// Expected cell: floor(44 x board / 1200 / 8) px with the board 1200 px: a 5 px cell, 240 dots.
+const cell = Math.floor((44 * 1200 / 1200) / 8), want = Math.ceil(1200 / cell)
 ok('a board exports with dots scaled like the preview', board.frames === 2 && exported.w === 1200 && Math.abs(exported.runs - want) <= 3, JSON.stringify({ board, exported, want }))
 
 // A flat PSD: header, empty colour mode data, image resources and layer sections, then raw planar RGB.

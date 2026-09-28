@@ -18,7 +18,7 @@ import { crc32, isZip, unzip, zipFiles } from './zip'
 
 export const VOID_MIME = 'application/vnd.voidcanvas+zip'
 /** The version this build writes. */
-export const VOID_VERSION = 3
+export const VOID_VERSION = 4
 /** The oldest reader that can open what this build writes. Raise it only for a change older readers would get wrong. */
 export const VOID_MIN_READER = 3
 /** Layer types this build knows how to draw. Newer types in a file are left out, with a note. */
@@ -186,8 +186,14 @@ function finish(p: VoidProject, notes: string[]): VoidProject {
   const known = p.layers.filter(l => KNOWN_LAYER_TYPES.includes(l?.type))
   const dropped = p.layers.length - known.length
   if (dropped) notes.push(`${dropped} layer${dropped === 1 ? ' uses a feature' : 's use features'} from a newer Voidcanvas and ${dropped === 1 ? 'was' : 'were'} left out.`)
+  // Effects of kinds this build does not know are kept in the design (so saving does not lose them) but not drawn.
+  const stacks = [p.doc?.effects, ...(p.doc?.frames ?? []).map((f: any) => f?.effects), ...known.map(l => l?.effects), ...(p.groups ?? []).map((g: any) => g?.effects)]
+  const unknown = stacks.reduce((n, list) => n + (Array.isArray(list) ? list.filter((e: any) => !KNOWN_EFFECT_KINDS.includes(e?.kind)).length : 0), 0)
+  if (unknown) notes.push(`${unknown} effect${unknown === 1 ? ' is' : 's are'} from a newer Voidcanvas: kept in the design, but not shown until you update.`)
   return { ...p, layers: known }
 }
+/** Effect kinds this build can draw (see effects.ts). */
+export const KNOWN_EFFECT_KINDS = ['brightnessContrast', 'hueSaturation', 'levels', 'curves', 'temperature', 'blackWhite', 'invert', 'blur', 'vibrance', 'exposure', 'colorBalance', 'channelMixer', 'photoFilter', 'gradientMap', 'posterize', 'threshold', 'lut', 'colorMatch', 'voidEffect']
 
 const dedupe = (a: string[]) => Array.from(new Set(a))
 

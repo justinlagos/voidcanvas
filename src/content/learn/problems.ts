@@ -222,7 +222,7 @@ export const articles: Article[] = [
         'Click **Upload your image** or drop your photo on the preview. Nothing is uploaded anywhere; the page does the work in your browser.',
         'Set **Dot size** and **Contrast** under **Adjust**, using the table above for the size.',
         'Press **Download PNG**. The file is rendered again from your original at its own size (up to 8000 px on the long edge) with the settings scaled to match the preview, and named `halftone-<width>x<height>.png`.',
-        'Or press **Send to Layer Stack** to open the Editor with your photo as one layer and the halftone as a live filter layer above it, ready to recolour and mask.',
+        'Or press **Send to Layer Stack** to open the Editor with your photo as one layer and the halftone as an effect on it, still editable, ready to recolour or limit to part of the photo.',
       ] },
       { t: 'h3', text: 'In the Editor, as an editable layer' },
       { t: 'steps', items: [
@@ -690,13 +690,13 @@ export const articles: Article[] = [
       { t: 'h3', text: 'Quick: one image, no type' },
       { t: 'steps', items: [
         'Open [Effects](/effects) and drop in the photo. In the **Effects** panel choose **Artistic**, then **Halftone**, and set **Dot Size** and **Contrast** under **Parameters**.',
-        'Press **Open in Editor**. The photo arrives with the halftone as a live filter layer.',
+        'Press **Open in Editor**. The photo arrives with the halftone as an effect on the photo layer, still editable under **Effects** in Properties.',
         'Choose **Filter, Colour, Duotone**, above the Halftone layer, and set **Shadow Color** to your ink and **Highlight Color** to your paper colour.',
         'Choose **Filter, Enhance, Film Grain**, keep **Amount** low, and lower the layer\'s **Opacity** if it is too strong. Export as PNG.',
       ] },
       { t: 'h3', text: 'Full: a poster with type in two inks' },
       { t: 'p', text: 'The complete recipe at print size, with the second ink on Multiply, the duplicate nudged out of register, the grain over everything and a PDF at the end, is the workflow [Make a risograph or screen-print look with Effects and the Editor](/learn/workflow-textured-print-look). It uses the same five moves with every menu named.' },
-      { t: 'product', text: 'Halftone, Duotone, Film Grain and RGB Shift are live filter layers in the Editor, so every part of the look stays adjustable, and the Effects page lets you find the settings first on a preview. It runs in the browser and the photo stays on your device.', label: 'Open Effects', href: '/effects' },
+      { t: 'product', text: 'Halftone, Duotone, Film Grain and RGB Shift stay live effects in the Editor, so every part of the look stays adjustable, and the Effects page lets you find the settings first on a preview. It runs in the browser and the photo stays on your device.', label: 'Open Effects', href: '/effects' },
 
       { t: 'h', text: 'Common mistakes' },
       { t: 'list', items: [

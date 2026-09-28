@@ -35,7 +35,7 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'How work moves between modules' },
-      { t: 'p', text: "Every module can hand work to the Editor. Effects has **Open in Editor**, the quick tools have **Send to Layer Stack**, and Studio has buttons such as **Start key visual in the Editor** and **Open as a board**. The work arrives as real layers: a photo with the effect on its own live filter layer, a Studio palette in your swatches, a brand guideline as one board per page." },
+      { t: 'p', text: "Every module can hand work to the Editor. Effects has **Open in Editor**, the quick tools have **Send to Layer Stack**, and Studio has buttons such as **Start key visual in the Editor** and **Open as a board**. The work arrives as real layers: a photo with its effects still live on it, a Studio palette in your swatches, a brand guideline as one board per page." },
       { t: 'p', text: "This handoff happens inside your browser. The sending module writes the images and settings to a local inbox, the Editor opens, takes them out and clears the inbox. Nothing goes over the network. [Moving work between tools](/learn/moving-work-between-tools) covers each route." },
 
       { t: 'h', text: 'Where your work lives' },
@@ -318,7 +318,7 @@ export const articles: Article[] = [
     level: 'Beginner',
     updated: '2026-09-25',
     related: ['what-is-voidcanvas', 'effects-overview', 'quick-tools', 'studio-overview'],
-    keywords: 'handoff open in editor send to editor send to layer stack transfer import from effects studio live filter layer inbox',
+    keywords: 'handoff open in editor send to editor send to layer stack add to my design transfer import from effects studio live effect inbox',
     body: [
       { t: 'p', text: "Effects, the quick tools and Studio are good at one job each. When you want to add type, combine images or lay out a page, you take the work into the Editor. This page shows every route across and what you get when it lands." },
 
@@ -327,15 +327,16 @@ export const articles: Article[] = [
       { t: 'note', text: "Most routes open a new design rather than adding to the one you have open. Studio's **Open in the Editor** is the exception: it reopens the job's saved design. Your other designs stay saved either way." },
 
       { t: 'h', text: 'From Effects' },
-      { t: 'p', text: "In Effects, load a photo and pick an effect, then use **Open in Editor** in the top bar. On a phone the button in the bottom bar is labelled **Editor**." },
+      { t: 'p', text: "In Effects, load a photo and pick an effect (or stack several), then use **Open in Editor** in the top bar. On a phone the button in the bottom bar is labelled **Editor**." },
       { t: 'list', items: [
-        "**Click** sends the original photo plus the effect as a live filter layer on top. The Editor says **Added as a live filter layer. Adjust it any time in the layers panel.** You can change the effect's settings, mask it, lower its opacity or hide it later.",
+        "**Click** sends the original photo with your effects on the photo layer, still live. The Editor tells you they are under **Effects** in Properties, where you can change their settings, limit them to an area, lower their strength or switch them off later.",
+        "**Add to my design** (shown when a design is open in the Editor in the same tab) sends only the effects, onto the layer you had selected in that design.",
         "**Shift-click** sends one flattened image with the effect baked in. Use this when you want pixels to paint on rather than a filter to tweak.",
         "If no effect is picked, the plain photo is sent.",
       ] },
 
       { t: 'h', text: 'From the quick tools' },
-      { t: 'p', text: "The Halftone, Dither and Glitch pages have **Send to Layer Stack**. It sends the original image and adds the tool's effect as a live filter layer with the same settings you chose on the page, so you can keep adjusting it in the Editor." },
+      { t: 'p', text: "The Halftone, Dither and Glitch pages have **Send to Layer Stack**. It sends the original image with the tool's effect on it, at the same settings you chose on the page, so you can keep adjusting it in the Editor." },
 
       { t: 'h', text: 'From Studio' },
       { t: 'p', text: "Studio sends more than images. Depending on where you start, the Editor receives the job's palette, fonts and the brief as well." },

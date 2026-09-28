@@ -2,9 +2,9 @@
 
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { motion } from 'framer-motion'
-import { useStore } from '@/store/useStore'
-import { makeChannel, runEffect } from '@/lib/effect-runner'
-import { FX_WORK, scaleParams, workSize } from '@/lib/effect-scale'
+import { useStore, fullStack, type StackItem } from '@/store/useStore'
+import { makeChannel, runStack } from '@/lib/effect-runner'
+import { FX_WORK, workSize } from '@/lib/effect-scale'
 import { ZoomIn, ZoomOut, Maximize2, SplitSquareHorizontal } from 'lucide-react'
 
 export function Canvas() {
@@ -16,7 +16,7 @@ export function Canvas() {
   const wrapperRef = useRef<HTMLDivElement>(null)
 
   const {
-    originalImage, activeEffect, params, setIsProcessing,
+    originalImage, activeEffect, params, below, above, setIsProcessing,
     zoom, setZoom, showComparison, setShowComparison, comparisonPosition, setComparisonPosition,
   } = useStore()
 
@@ -34,45 +34,61 @@ export function Canvas() {
   const SLOW_MS = 120
 
   const drawSource = (ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number) => { ctx.imageSmoothingQuality = 'high'; ctx.drawImage(img, 0, 0, w, h) }
+  // The effects under the one being edited only change when the stack does, so their result is kept.
+  const baseCache = useRef(new Map<string, { key: unknown[]; img: ImageData }>())
+  const sourceWith = async (img: HTMLImageElement, w: number, h: number, list: StackItem[], k: number): Promise<ImageData> => {
+    const key = [img, w, h, list, k]
+    const slot = w + 'x' + h, c = baseCache.current.get(slot)
+    if (c && c.key.length === key.length && c.key.every((v, i) => v === key[i])) return new ImageData(new Uint8ClampedArray(c.img.data), w, h)
+    const work = document.createElement('canvas'); work.width = w; work.height = h
+    const wctx = work.getContext('2d', { willReadFrequently: true })!
+    drawSource(wctx, img, w, h)
+    let data = wctx.getImageData(0, 0, w, h)
+    if (list.length) data = (await runStack(data, list, k)).img
+    if (baseCache.current.size > 3) baseCache.current.clear()
+    baseCache.current.set(slot, { key, img: new ImageData(new Uint8ClampedArray(data.data), w, h) })
+    return data
+  }
+  const stale = (effect: string, p: unknown, b: unknown, a: unknown) => { const cur = useStore.getState(); return cur.activeEffect !== effect || cur.params !== p || cur.below !== b || cur.above !== a }
 
   const renderFull = useCallback(() => {
     const canvas = canvasRef.current, img = originalImageRef.current
     if (!canvas || !img) return
-    const effect = activeEffect, p = params
+    const effect = activeEffect, p = params, b = below, a = above
     fullChan.current.request(async () => {
       const ctx = canvas.getContext('2d', { willReadFrequently: true }); if (!ctx) return
       setIsProcessing(true)
       try {
-        if (effect === 'none') { drawSource(ctx, img, canvas.width, canvas.height); lastFullMs.current = 0; return }
-        const work = document.createElement('canvas'); work.width = canvas.width; work.height = canvas.height
-        const wctx = work.getContext('2d', { willReadFrequently: true })!
-        drawSource(wctx, img, work.width, work.height)
-        const { img: done, ms } = await runEffect(wctx.getImageData(0, 0, work.width, work.height), effect, p)
-        lastFullMs.current = ms
+        const under = b.filter(x => x.effect !== 'none'), over = [...(effect === 'none' ? [] : [{ effect, params: p }]), ...a.filter(x => x.effect !== 'none')]
+        if (!under.length && !over.length) { drawSource(ctx, img, canvas.width, canvas.height); lastFullMs.current = 0; return }
+        const t0 = performance.now()
+        const base = await sourceWith(img, canvas.width, canvas.height, under, 1)
+        const { img: done } = over.length ? await runStack(base, over) : { img: base }
+        lastFullMs.current = performance.now() - t0
         // Drop the result if the user has moved on.
-        const cur = useStore.getState(); if (cur.activeEffect !== effect || cur.params !== p) return
+        if (stale(effect, p, b, a)) return
         ctx.putImageData(done, 0, 0)
       } finally { setIsProcessing(false) }
     })
-  }, [activeEffect, params, setIsProcessing])
+  }, [activeEffect, params, below, above, setIsProcessing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderPreview = useCallback(() => {
     const canvas = canvasRef.current, img = originalImageRef.current
-    if (!canvas || !img || activeEffect === 'none') return
-    const effect = activeEffect, p = params
+    if (!canvas || !img || !fullStack({ activeEffect, params, below, above }, true).length) return
+    const effect = activeEffect, p = params, b = below, a = above
     previewChan.current.request(async () => {
       const ctx = canvas.getContext('2d', { willReadFrequently: true }); if (!ctx) return
       const small = workSize(canvas.width, canvas.height, PREVIEW_MAX)
       const k = Math.max(small.width, small.height) / Math.max(canvas.width, canvas.height)
+      const under = b.filter(x => x.effect !== 'none'), over = [...(effect === 'none' ? [] : [{ effect, params: p }]), ...a.filter(x => x.effect !== 'none')]
+      const base = await sourceWith(img, small.width, small.height, under, k)
+      const { img: done } = await runStack(base, over, k)
+      if (stale(effect, p, b, a)) return
       const work = document.createElement('canvas'); work.width = small.width; work.height = small.height
-      const wctx = work.getContext('2d', { willReadFrequently: true })!
-      drawSource(wctx, img, work.width, work.height)
-      const { img: done } = await runEffect(wctx.getImageData(0, 0, work.width, work.height), effect, scaleParams(effect, p, k))
-      const cur = useStore.getState(); if (cur.activeEffect !== effect || cur.params !== p) return
-      wctx.putImageData(done, 0, 0)
+      work.getContext('2d')!.putImageData(done, 0, 0)
       ctx.imageSmoothingQuality = 'high'; ctx.drawImage(work, 0, 0, canvas.width, canvas.height)
     })
-  }, [activeEffect, params])
+  }, [activeEffect, params, below, above]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const render = useCallback(() => {
     if (fullTimer.current) clearTimeout(fullTimer.current)

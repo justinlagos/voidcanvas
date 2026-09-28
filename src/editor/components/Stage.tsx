@@ -8,7 +8,7 @@ import {
   makeCanvas, maskEdges, polygonPoints, renderDoc, toneStroke, tracePath, type LiveStroke,
 } from '../engine'
 import { importFiles } from '../io'
-import { groupChain, inGroup, pickGroupFor, selectionUnits, tipOnce, unionBox, useEditor } from '../store'
+import { groupChain, inGroup, maskOnPage, pickGroupFor, selectionUnits, tipOnce, unionBox, useEditor } from '../store'
 import type { Layer, PathNode, Rect, SubPath, ToolId, VectorPath } from '../types'
 import { useUi } from '../ui-store'
 import { FloatingBar } from './FloatingBar'
@@ -18,6 +18,7 @@ import { LONG_PRESS_MS, isCoarse, touchCanvas } from '../touch'
 import { noteDuplicate } from '../actions'
 import { pivotPoint, rotatedAbout } from '../pivot'
 import { pinPoint, useComments } from '../comments'
+import { anyVoidFx, hasFx } from '../effects'
 import * as ops from '../ops'
 import * as pen from '../pen'
 
@@ -178,6 +179,7 @@ export function Stage() {
   const docId = useEditor(s => s.doc?.id)
   const optSize = useEditor(s => s.options.size)
   const compare = useEditor(s => s.compare)
+  const fxOff = useEditor(s => s.fxOff)
   const transform = useEditor(s => s.transform)
   const isolated = useEditor(s => (s.isolatedGroupId ? s.groups.find(g => g.id === s.isolatedGroupId) ?? null : null))
   const commentPins = useComments(s => (s.shown ? s.pins : null))
@@ -235,8 +237,9 @@ export function Stage() {
       sharpTimer.current = null
       const s = useEditor.getState(), doc = s.doc
       if (!doc || live.current || s.viewChannel !== 'rgb' || needComposite.current) return
-      // Void effects run over the whole design at a working size; a part of it would look different.
-      if (s.layers.some(l => l.visible && l.type === 'adjustment' && l.kind === 'voidEffect')) return
+      // Void effects, and effects on a whole board or design, run over all of what they are for; a part of it
+      // would look different.
+      if (anyVoidFx(doc, s.layers, s.groups) || hasFx(doc.effects) || doc.frames?.some(f => hasFx(f.effects))) return
       const { w, h, dpr } = size.current
       const { zoom, panX, panY } = s.view
       const k = zoom * dpr
@@ -248,7 +251,7 @@ export function Stage() {
       const region = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
       if (region.w * region.h * k * k > 40e6) return
       const c = sharp.current?.canvas ?? makeCanvas(1, 1)
-      try { renderDoc(c, doc, shownLayers(), { groups: s.groups, scale: k, region, noShadow: !!doc.frames?.length }) } catch { return }
+      try { renderDoc(c, doc, shownLayers(), { groups: s.groups, scale: k, region, noShadow: !!doc.frames?.length, noFx: s.compare || s.fxOff }) } catch { return }
       sharp.current = { canvas: c, region, zoom, compRev: compRev.current }
       if (!raf.current) raf.current = requestAnimationFrame(draw)
     }, 140)
@@ -276,7 +279,7 @@ export function Stage() {
       // The overview: the whole design at about screen size. Close-up detail comes from the sharp pass below.
       const cap = Math.max(2048, Math.min(4096, Math.max(w, h) * dpr))
       const vs = Math.min(1, cap / Math.max(doc.width, doc.height))
-      renderDoc(comp.current, doc, shownLayers(), { groups: s.groups, scale: vs, live: live.current && live.current.mode !== 'overlay' ? live.current : null, noShadow: !!doc.frames?.length })
+      renderDoc(comp.current, doc, shownLayers(), { groups: s.groups, scale: vs, live: live.current && live.current.mode !== 'overlay' ? live.current : null, noShadow: !!doc.frames?.length, noFx: s.compare || s.fxOff })
       needComposite.current = false
       compRev.current++
       compScale.current = vs
@@ -784,7 +787,7 @@ export function Stage() {
     } else {
       let mask: HTMLCanvasElement | null = null
       let m: DOMMatrix | null = null
-      if (s.viewChannel.startsWith('mask:')) { const l = s.layers.find(q => q.id === s.viewChannel.slice(5)); if (l?.mask) { mask = l.mask; if (l.type !== 'adjustment') m = layerMatrix(l, doc) } }
+      if (s.viewChannel.startsWith('mask:')) { const l = s.layers.find(q => q.id === s.viewChannel.slice(5)); if (l?.mask) { mask = l.mask; m = l.type !== 'adjustment' ? layerMatrix(l, doc) : l.maskAt ? new DOMMatrix().translate(l.maskAt.x, l.maskAt.y) : null } }
       else mask = doc.channels?.find(c => c.id === s.viewChannel)?.mask ?? null
       x.fillStyle = '#000'; x.fillRect(0, 0, out.width, out.height)
       if (mask) {
@@ -990,7 +993,7 @@ export function Stage() {
   }, [fit, restoreOrFit, invalidate])
 
   useEffect(() => { restoreOrFit() }, [docId, restoreOrFit])
-  useEffect(() => { invalidate(true) }, [docRev, compare, editingTextId, transform?.layerId, viewChannel, invalidate])
+  useEffect(() => { invalidate(true) }, [docRev, compare, fxOff, editingTextId, transform?.layerId, viewChannel, invalidate])
   useEffect(() => { invalidate() }, [selRev, view, tool, activeId, crop, optSize, transform, quickMask, activePathId, showRulers, showGuides, pixelGrid, isolated, commentPins, commentFocus, invalidate])
   useEffect(() => { if (tool !== 'pen' && tool !== 'curvature') penSub.current = null; if (!isPathTool(tool)) { sel.current = null; hover.current = null; if (useEditor.getState().vmaskEditId) useEditor.setState({ vmaskEditId: null }); pathSnap.current = { v: null, h: null, info: null } } if (tool !== 'polylasso') poly.current = null }, [tool])
   // Undo or another panel can remove the path being drawn.
@@ -1068,11 +1071,13 @@ export function Stage() {
     const layer = s.layers.find(l => l.id === L.layerId); if (!layer) return
     if (L.mode.startsWith('mask')) {
       if (!layer.mask) return
-      const m = cloneCanvas(layer.mask), x = ctx2d(m)
+      // An adjustment's mask is page pixels placed where its board is; it is painted as a whole page at 0,0.
+      const adj = layer.type === 'adjustment' && s.doc
+      const m = adj ? maskOnPage(s.doc!.width, s.doc!.height, cloneCanvas)(layer.mask, layer.maskAt).mask : cloneCanvas(layer.mask), x = ctx2d(m)
       x.globalAlpha = L.opacity
       x.globalCompositeOperation = L.mode === 'mask-hide' ? 'destination-out' : 'source-over'
       x.drawImage(L.buffer, 0, 0)
-      s.updateLayer(layer.id, { mask: m }, 'Paint mask')
+      s.updateLayer(layer.id, { mask: m, ...(adj ? { maskAt: null } : {}) } as Partial<Layer>, 'Paint mask')
     } else if (layer.type === 'raster') {
       if (d.tool === 'remove') { invalidate(); await import('../ai-tools').then(m => m.removeObject(L.buffer)); invalidate(true); return }
       if (d.tool === 'dodge' || d.tool === 'burn' || d.tool === 'sponge') {
@@ -2286,7 +2291,8 @@ export function Stage() {
         Editing “{[...groupChain(isolated.parentId, useEditor.getState().groups).reverse().map(id => useEditor.getState().groups.find(g => g.id === id)?.name ?? ''), isolated.name].join(' › ')}” on its own
         <button className="px-2.5 py-1 rounded-full bg-void-950 text-white" onClick={() => useEditor.getState().setIsolated(null)}>Done</button>
       </div>}
-      {compare && <div className="absolute top-8 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white text-void-950 text-[12px] font-medium pointer-events-none">Before: adjustments and filters hidden</div>}
+      {compare && <div className="absolute top-8 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white text-void-950 text-[12px] font-medium pointer-events-none">Before: adjustments and effects hidden</div>}
+      {fxOff && !compare && <button onClick={() => useEditor.setState({ fxOff: false })} data-fx-off className="absolute top-8 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white text-void-950 text-[12px] font-medium">Effects are off while you look. Show them</button>}
       {viewChannel !== 'rgb' && <button onClick={() => useEditor.setState({ viewChannel: 'rgb', docRev: useEditor.getState().docRev + 1 })} className="absolute top-8 right-4 px-3 py-1.5 rounded-full bg-white text-void-950 text-[12px] font-medium">Viewing {viewChannel.startsWith('mask:') ? 'layer mask' : viewChannel.length === 1 ? { r: 'red', g: 'green', b: 'blue' }[viewChannel as 'r'] + ' channel' : 'saved channel'}. Show all</button>}
     </div>
   )

@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import { defaultParams, type EffectType } from '@/store/useStore'
 import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, layerBounds, layerMatrix, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
 import { boardGap, frameForLayer, occupied, placeBeside, type Side } from './frames'
-import type { AdjustmentKind, AdjustmentLayer, Doc, Frame, Group, Layer, LayerRole, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
+import type { AdjustmentKind, AdjustmentLayer, Doc, Effect, Frame, Group, Layer, LayerRole, MaskAt, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
+import { copyEffect, freshFx, fxId, linkedCopies, moveInList, patchEffect, resetEffect as resetFx, sameTarget, stackOf, withStacks, type FxTarget } from './effects'
 import { useUi } from './ui-store'
 import { touchCanvas } from './touch'
 
@@ -65,8 +66,10 @@ interface EditorState {
   isolatedGroupId: string | null
   editingTextId: string | null
   activeFrameId: string | null
-  /** Hold to see the design without any adjustments or filters. */
+  /** Hold to see the design without any adjustments, filters or effects. */
   compare: boolean
+  /** View, Effects off: shows the design with every effect switched off (the design itself is unchanged). */
+  fxOff: boolean
   editingMask: boolean
   selection: HTMLCanvasElement | null
   selRev: number
@@ -145,6 +148,31 @@ interface EditorState {
   groupSelected: () => void
   ungroup: (groupId: string) => void
   updateGroup: (groupId: string, patch: Partial<Group>, commitLabel?: string) => void
+
+  // effect stacks (effects.ts)
+  /** Add an effect to each target. On several targets the copies are linked: changing one changes them all. */
+  /** Add one effect, or several in order, to each target; with several targets they are linked copies. One undo step. */
+  addEffect: (targets: FxTarget[], fx: Effect | Effect[], label?: string) => void
+  /** Change an effect and every linked copy of it. Without a label the change waits for `commit` (sliders). */
+  updateEffect: (t: FxTarget, id: string, patch: Partial<Effect>, label?: string) => void
+  removeEffect: (t: FxTarget, id: string) => void
+  moveEffect: (t: FxTarget, from: number, to: number) => void
+  duplicateEffect: (t: FxTarget, id: string) => void
+  resetEffect: (t: FxTarget, id: string) => void
+  /** This copy stops following the others. */
+  unlinkEffect: (t: FxTarget, id: string) => void
+  /** Put linked copies of this effect on more targets. */
+  linkEffectTo: (t: FxTarget, id: string, more: FxTarget[]) => void
+  /** Replace or extend a target's stack (paste effects). */
+  setEffects: (t: FxTarget, list: Effect[], label: string) => void
+  /** A group's effects become linked copies on each thing directly inside it. */
+  groupFxToContents: (groupId: string) => void
+  /** Leave a layer or group out of the effects of the group it sits in, or bring it back. */
+  setFxExclude: (t: { type: 'layer' | 'group'; id: string }, v: boolean) => void
+  /** Mask a group from the pixel selection (or show all), invert it, or take it off. */
+  setGroupMask: (groupId: string, how: 'reveal' | 'selection' | 'hideSelection' | 'invert' | 'remove' | 'toggle') => void
+  /** Limit one effect (and its linked copies) to the pixel selection, or hide it there; invert, switch off or remove. */
+  setEffectMask: (t: FxTarget, id: string, how: 'selection' | 'hideSelection' | 'invert' | 'remove' | 'toggle') => void
   align: (how: 'left' | 'hcenter' | 'right' | 'top' | 'vcenter' | 'bottom') => void
   /** Space three or more layers evenly between the outer two, or at a set gap (px) from the first. */
   distribute: (axis: 'h' | 'v', gap?: number) => void
@@ -281,6 +309,19 @@ export function pickGroupFor(hit: Layer, layers: Layer[], groups: Group[], selec
   return outer.length ? outer[outer.length - 1] : null
 }
 
+/** Write new effect stacks into the state. Layers that changed get a new rev, so thumbnails and caches follow. */
+function applyFx(set: (p: Partial<EditorState>) => void, get: () => EditorState, changes: { t: FxTarget; list: Effect[] }[]) {
+  if (!changes.length) return
+  const st = get()
+  const out = withStacks(st, changes)
+  const touched = new Set(changes.filter(c => c.t.type === 'layer').map(c => (c.t as { id: string }).id))
+  const patch: Partial<EditorState> = { docRev: st.docRev + 1 }
+  if (out.layers) patch.layers = out.layers.map(l => (touched.has(l.id) ? ({ ...l, rev: nextRev() } as Layer) : l))
+  if (out.groups) patch.groups = out.groups
+  if (out.doc) patch.doc = out.doc
+  set(patch)
+}
+
 /** Innermost first: the group a layer sits in, then its parent, and so on. */
 export function groupChain(groupId: string | null | undefined, groups: Group[]): string[] {
   const out: string[] = []
@@ -331,6 +372,57 @@ function historyBytes(snaps: Snapshot[]) {
 }
 export const historyMemoryMB = (snaps: Snapshot[]) => Math.round(historyBytes(snaps) / 1048576)
 
+// ─── Masks placed on the page ──────────────────────────────────────
+// Adjustment layer masks, group masks and the masks of effects on groups, boards and the design are document
+// pixels with a position (`maskAt`). They move with their board. Effect masks on a layer sit relative to the layer
+// and move with it on their own.
+
+export type MaskFn = (mask: HTMLCanvasElement, at: MaskAt | null | undefined) => { mask: HTMLCanvasElement; at: MaskAt | null }
+
+/** Change every placed mask, or with `board` only those of things on that board. */
+export function mapDocMasks(doc: Doc, layers: Layer[], groups: Group[], fn: MaskFn, o: { board?: string; adjustments?: boolean } = {}): { doc: Doc; layers: Layer[]; groups: Group[] } {
+  const all = o.board === undefined
+  const fx = (list?: Effect[] | null) => (list?.some(e => e.mask) ? list.map(e => { if (!e.mask) return e; const r = fn(e.mask, e.maskAt); return { ...e, mask: r.mask, maskAt: r.at } }) : list)
+  const nl = o.adjustments === false ? layers : layers.map(l => {
+    if (l.type !== 'adjustment' || !l.mask || !(all || l.frameId === o.board)) return l
+    const r = fn(l.mask, l.maskAt)
+    return { ...l, mask: r.mask, maskAt: r.at, rev: nextRev() } as Layer
+  })
+  const boardOfGroup = (g: Group) => layers.find(l => inGroup(l, g.id, groups))?.frameId ?? null
+  const ng = groups.map(g => {
+    if (!g.mask && !g.effects?.some(e => e.mask)) return g
+    if (!all && boardOfGroup(g) !== o.board) return g
+    const r = g.mask ? fn(g.mask, g.maskAt) : null
+    return { ...g, ...(r ? { mask: r.mask, maskAt: r.at } : {}), effects: fx(g.effects) as Effect[] | undefined }
+  })
+  const touched = (all && doc.effects?.some(e => e.mask)) || doc.frames?.some(f => (all || f.id === o.board) && f.effects?.some(e => e.mask))
+  const nd: Doc = !touched ? doc : { ...doc, ...(all ? { effects: fx(doc.effects) as Effect[] | undefined } : {}), frames: doc.frames?.map(f => ((all || f.id === o.board) && f.effects?.some(e => e.mask) ? { ...f, effects: fx(f.effects) as Effect[] | undefined } : f)) }
+  return { doc: nd, layers: nl, groups: ng }
+}
+/** Move placed masks by dx, dy (no pixels change). */
+export const shiftMask = (dx: number, dy: number): MaskFn => (mask, at) => ({ mask, at: { x: (at?.x ?? 0) + dx, y: (at?.y ?? 0) + dy } })
+/** A mask as a canvas the size of the page, at 0,0, then changed by `t` (for whole-page changes: resize, rotate). */
+export function maskOnPage(w: number, h: number, t: (c: HTMLCanvasElement) => HTMLCanvasElement = c => c): MaskFn {
+  return (mask, at) => {
+    let c = mask
+    if (at?.x || at?.y || mask.width !== w || mask.height !== h) { c = makeCanvas(w, h); ctx2d(c).drawImage(mask, at?.x ?? 0, at?.y ?? 0) }
+    return { mask: t(c), at: null }
+  }
+}
+/** Effect masks on layers, for whole-page pixel changes: put on the page as `before` had them, changed by `t`, and
+ *  placed again relative to each layer as it is in `after`. */
+export function layerFxMasksOnPage(before: Layer[], after: Layer[], w: number, h: number, t: (c: HTMLCanvasElement) => HTMLCanvasElement): Layer[] {
+  return after.map((l, i) => {
+    const b = before[i]; if (!b?.effects?.some(e => e.mask)) return l
+    const effects = b.effects.map(e => {
+      if (!e.mask) return e
+      const r = maskOnPage(w, h, t)(e.mask, { x: b.x + (e.maskAt?.x ?? 0), y: b.y + (e.maskAt?.y ?? 0) })
+      return { ...e, mask: r.mask, maskAt: { x: -l.x, y: -l.y } }
+    })
+    return { ...l, effects, rev: nextRev() } as Layer
+  })
+}
+
 /** The document canvas must contain every board, or boards past its edge would not render. */
 /** A design without boards becomes a design with one board, so boards can be added beside it. */
 export function ensureFramed(doc: Doc, layers: Layer[]): { doc: Doc; layers: Layer[] } {
@@ -343,18 +435,17 @@ export function ensureFramed(doc: Doc, layers: Layer[]): { doc: Doc; layers: Lay
  * Boards may be placed left of or above the others. The pasteboard starts at 0,0, so shift
  * everything back into positive space and move the view by the same amount: nothing appears to jump.
  */
-function settleInto(doc: Doc, layers: Layer[], view: View): { doc: Doc; layers: Layer[]; view: View } {
-  if (!doc.frames?.length) return { doc, layers, view }
+function settleInto(doc: Doc, layers: Layer[], groups: Group[], view: View): { doc: Doc; layers: Layer[]; groups: Group[]; view: View } {
+  if (!doc.frames?.length) return { doc, layers, groups, view }
   const minX = Math.min(0, ...doc.frames.map(f => f.x)), minY = Math.min(0, ...doc.frames.map(f => f.y))
   const dx = minX < 0 ? -Math.floor(minX) : 0, dy = minY < 0 ? -Math.floor(minY) : 0
-  if (!dx && !dy) return { doc: coverFrames(doc), layers, view }
+  if (!dx && !dy) return { doc: coverFrames(doc), layers, groups, view }
   const frames = doc.frames.map(f => ({ ...f, x: f.x + dx, y: f.y + dy }))
   const guides = doc.guides ? { v: doc.guides.v.map(v => v + dx), h: doc.guides.h.map(h => h + dy) } : doc.guides
-  return {
-    doc: coverFrames({ ...doc, frames, guides, width: doc.width + dx, height: doc.height + dy }),
-    layers: layers.map(l => (l.type === 'adjustment' && !l.frameId ? l : ({ ...l, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer))),
-    view: { ...view, panX: view.panX - dx * view.zoom, panY: view.panY - dy * view.zoom },
-  }
+  const moved = layers.map(l => (l.type === 'adjustment' && !l.frameId ? l : ({ ...l, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer)))
+  // Placed masks move with everything else.
+  const m = mapDocMasks({ ...doc, frames, guides, width: doc.width + dx, height: doc.height + dy }, moved, groups, shiftMask(dx, dy))
+  return { doc: coverFrames(m.doc), layers: m.layers, groups: m.groups, view: { ...view, panX: view.panX - dx * view.zoom, panY: view.panY - dy * view.zoom } }
 }
 
 function coverFrames(doc: Doc): Doc {
@@ -374,6 +465,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   editingTextId: null,
   activeFrameId: null,
   compare: false,
+  fxOff: false,
   editingMask: false,
   selection: null,
   selRev: 0,
@@ -432,17 +524,18 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   cropTo: (x, y, w, h) => {
-    const { doc, layers } = get(); if (!doc) return
+    const { doc, layers, groups } = get(); if (!doc) return
     x = Math.round(x); y = Math.round(y); w = Math.max(1, Math.round(w)); h = Math.max(1, Math.round(h))
     const next = layers.map(l => {
       if (l.type === 'adjustment') {
         if (!l.mask) return { ...l, rev: nextRev() }
-        const m = makeCanvas(w, h); ctx2d(m).drawImage(l.mask, -x, -y)
-        return { ...l, mask: m, rev: nextRev() }
+        const m = makeCanvas(w, h); ctx2d(m).drawImage(l.mask, (l.maskAt?.x ?? 0) - x, (l.maskAt?.y ?? 0) - y)
+        return { ...l, mask: m, maskAt: null, rev: nextRev() }
       }
       return { ...l, x: l.x - x, y: l.y - y, rev: nextRev() }
     })
-    set({ doc: { ...doc, width: w, height: h }, layers: next, selection: null, selRev: get().selRev + 1, docRev: get().docRev + 1 })
+    const m = mapDocMasks({ ...doc, width: w, height: h }, next, groups, shiftMask(-x, -y), { adjustments: false })
+    set({ doc: m.doc, layers: m.layers, groups: m.groups, selection: null, selRev: get().selRev + 1, docRev: get().docRev + 1 })
     get().commit('Crop')
   },
 
@@ -461,8 +554,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   applyBoards: (doc, layers, groups, label, activeFrameId) => {
-    const r = settleInto(doc, layers, get().view)
-    set({ doc: r.doc, layers: r.layers, groups, view: r.view, activeFrameId: activeFrameId ?? get().activeFrameId, selectedIds: [], activeId: null, editingMask: false, docRev: get().docRev + 1, dirty: true })
+    const r = settleInto(doc, layers, groups, get().view)
+    set({ doc: r.doc, layers: r.layers, groups: r.groups, view: r.view, activeFrameId: activeFrameId ?? get().activeFrameId, selectedIds: [], activeId: null, editingMask: false, docRev: get().docRev + 1, dirty: true })
     get().commit(label)
   },
 
@@ -479,12 +572,12 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   moveFrame: (id, dx, dy) => {
-    const { doc, layers } = get(); if (!doc?.frames || (!dx && !dy)) return
-    set({
-      doc: { ...doc, frames: doc.frames.map(f => f.id === id ? { ...f, x: f.x + dx, y: f.y + dy } : f) },
-      layers: layers.map(l => l.frameId === id ? ({ ...l, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer) : l),
-      docRev: get().docRev + 1,
-    })
+    const { doc, layers, groups } = get(); if (!doc?.frames || (!dx && !dy)) return
+    const m = mapDocMasks(
+      { ...doc, frames: doc.frames.map(f => f.id === id ? { ...f, x: f.x + dx, y: f.y + dy } : f) },
+      layers.map(l => l.frameId === id ? ({ ...l, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer) : l),
+      groups, shiftMask(dx, dy), { board: id })
+    set({ doc: m.doc, layers: m.layers, groups: m.groups, docRev: get().docRev + 1 })
   },
 
   settleFrames: () => {
@@ -497,11 +590,10 @@ export const useEditor = create<EditorState>((set, get) => ({
     const loose = layers.some(l => !l.frameId)
     const r = Math.ceil(Math.max(...frames.map(f => f.x + f.width))), b = Math.ceil(Math.max(...frames.map(f => f.y + f.height)))
     const guides = doc.guides && (dx || dy) ? { v: doc.guides.v.map(v => v + dx), h: doc.guides.h.map(h => h + dy) } : doc.guides
-    set({
-      doc: { ...doc, frames, guides, width: loose ? Math.max(doc.width + dx, r) : r, height: loose ? Math.max(doc.height + dy, b) : b },
-      layers: dx || dy ? layers.map(l => ({ ...l, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer)) : layers,
-      docRev: get().docRev + 1,
-    })
+    const nd: Doc = { ...doc, frames, guides, width: loose ? Math.max(doc.width + dx, r) : r, height: loose ? Math.max(doc.height + dy, b) : b }
+    const nl = dx || dy ? layers.map(l => ({ ...l, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer)) : layers
+    const m = dx || dy ? mapDocMasks(nd, nl, get().groups, shiftMask(dx, dy)) : { doc: nd, layers: nl, groups: get().groups }
+    set({ doc: m.doc, layers: m.layers, groups: m.groups, docRev: get().docRev + 1 })
     return { dx, dy }
   },
 
@@ -545,7 +637,8 @@ export const useEditor = create<EditorState>((set, get) => ({
     const stem = src.name.replace(/ copy( \d+)?$/, '')
     let name = `${stem} copy`; for (let n = 2; taken.has(name); n++) name = `${stem} copy ${n}`
     const p = placeBeside(occupied(doc, layers), { x: src.x, y: src.y, w: src.width, h: src.height }, src.width, src.height, side, boardGap(doc.frames))
-    const nf: Frame = { ...src, id: uid(), name, x: p.x, y: p.y, linkedFrom: null, deliverableId: null }
+    const fxLinks = new Map<string, string>()
+    const nf: Frame = { ...src, id: uid(), name, x: p.x, y: p.y, linkedFrom: null, deliverableId: null, effects: freshFx(src.effects, fxLinks) }
     const dx = nf.x - src.x, dy = nf.y - src.y
     const srcLayers = empty ? [] : layers.filter(l => l.frameId === id)
     // Copy layers and give the copy its own groups (nested groups keep their nesting).
@@ -556,12 +649,14 @@ export const useEditor = create<EditorState>((set, get) => ({
     // Layers linked to each other on the board stay linked in the copy, but not to the originals.
     const linkMap = new Map<string, string>()
     const relink = (lid?: string | null) => { if (!lid) return null; if (!linkMap.has(lid)) linkMap.set(lid, uid()); return linkMap.get(lid)! }
-    const copies = srcLayers.map(l => ({ ...l, id: uid(), frameId: nf.id, srcId: undefined, linkId: relink(l.linkId), groupId: l.groupId ? groupMap.get(l.groupId)! : null, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer))
+    const copies = srcLayers.map(l => ({ ...l, id: uid(), frameId: nf.id, srcId: undefined, linkId: relink(l.linkId), effects: freshFx(l.effects, fxLinks), groupId: l.groupId ? groupMap.get(l.groupId)! : null, x: l.x + dx, y: l.y + dy, rev: nextRev() } as Layer))
     const idMap = new Map(srcLayers.map((l, i) => [l.id, copies[i].id]))
     for (const c of copies) if (c.clipId) c.clipId = idMap.get(c.clipId) ?? null
-    const newGroups = groups.filter(g => groupMap.has(g.id)).map(g => ({ ...g, id: groupMap.get(g.id)!, parentId: g.parentId ? groupMap.get(g.parentId) ?? null : null }))
-    const r = settleInto({ ...doc, frames: [...doc.frames, nf] }, [...layers, ...copies], get().view)
-    set({ doc: r.doc, layers: r.layers, view: r.view, groups: [...groups, ...newGroups], activeFrameId: nf.id, docRev: get().docRev + 1 })
+    const newGroups0 = groups.filter(g => groupMap.has(g.id)).map(g => ({ ...g, id: groupMap.get(g.id)!, parentId: g.parentId ? groupMap.get(g.parentId) ?? null : null, effects: freshFx(g.effects, fxLinks) }))
+    // The copies' placed masks go with them to the new board.
+    const moved = mapDocMasks({ ...doc, effects: undefined, frames: [nf] }, copies, newGroups0, shiftMask(dx, dy))
+    const r = settleInto({ ...doc, frames: [...doc.frames, moved.doc.frames![0]] }, [...layers, ...moved.layers], [...groups, ...moved.groups], get().view)
+    set({ doc: r.doc, layers: r.layers, view: r.view, groups: r.groups, activeFrameId: nf.id, docRev: get().docRev + 1 })
     get().commit(empty ? 'Add board' : 'Duplicate board')
   },
 
@@ -656,7 +751,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     const next = [...layers]; const nextGroups = [...groups]
     const taken = new Set(layers.map(l => l.name))
     const copies: string[] = []
-    const linkMap = new Map<string, string>()
+    const linkMap = new Map<string, string>(), fxLinks = new Map<string, string>()
     for (const u of units) {
       const gMap = new Map<string, string>()
       if (u.group) {
@@ -664,7 +759,7 @@ export const useEditor = create<EditorState>((set, get) => ({
         const byId = new Map(groups.map(g => [g.id, g]))
         const inside = groups.filter(g => groupChain(g.id, groups).includes(u.group!))
         for (const g of inside) gMap.set(g.id, uid())
-        for (const g of inside) nextGroups.push({ ...g, id: gMap.get(g.id)!, name: g.id === u.group ? copyName(g.name, groups.map(x => x.name)) : g.name, parentId: g.id === u.group ? (byId.get(u.group!)?.parentId ?? null) : gMap.get(g.parentId!) ?? g.parentId ?? null })
+        for (const g of inside) nextGroups.push({ ...g, id: gMap.get(g.id)!, name: g.id === u.group ? copyName(g.name, groups.map(x => x.name)) : g.name, parentId: g.id === u.group ? (byId.get(u.group!)?.parentId ?? null) : gMap.get(g.parentId!) ?? g.parentId ?? null, effects: freshFx(g.effects, fxLinks) })
       }
       const idMap = new Map<string, string>()
       const made = u.ids.map(id => {
@@ -672,7 +767,7 @@ export const useEditor = create<EditorState>((set, get) => ({
         const nid = uid(); idMap.set(id, nid)
         const name = u.group ? l.name : copyName(l.name, taken); taken.add(name)
         const lk = l.linkId ? (linkMap.get(l.linkId) ?? (linkMap.set(l.linkId, uid()), linkMap.get(l.linkId)!)) : null
-        return { ...l, id: nid, name, srcId: null, linkId: u.group ? lk : null, groupId: l.groupId && gMap.has(l.groupId) ? gMap.get(l.groupId)! : l.groupId ?? null, x: l.x + (l.type === 'adjustment' ? 0 : dx), y: l.y + (l.type === 'adjustment' ? 0 : dy), rev: nextRev() } as Layer
+        return { ...l, id: nid, name, srcId: null, linkId: u.group ? lk : null, effects: freshFx(l.effects, fxLinks), groupId: l.groupId && gMap.has(l.groupId) ? gMap.get(l.groupId)! : l.groupId ?? null, x: l.x + (l.type === 'adjustment' ? 0 : dx), y: l.y + (l.type === 'adjustment' ? 0 : dy), rev: nextRev() } as Layer
       })
       for (const c of made) if (c.clipId && idMap.has(c.clipId)) c.clipId = idMap.get(c.clipId)!
       const at = next.findIndex(l => l.id === u.ids[u.ids.length - 1])
@@ -682,7 +777,11 @@ export const useEditor = create<EditorState>((set, get) => ({
     // Copies moved onto another board belong to that board.
     const doc = get().doc
     const placed = doc?.frames?.length && (dx || dy) ? next.map(l => (copies.includes(l.id) && l.type !== 'adjustment' ? ({ ...l, frameId: boardFor(doc, l, get().activeFrameId) } as Layer) : l)) : next
-    set({ layers: placed, groups: prune(nextGroups, placed), selectedIds: copies, activeId: copies[0] ?? null, keyObjectId: null, editingMask: false, docRev: get().docRev + 1 })
+    // Copied groups moved by dx, dy take their placed masks with them.
+    const fresh = new Set(nextGroups.slice(groups.length).map(g => g.id))
+    const shifted = (dx || dy) && doc && fresh.size ? mapDocMasks(doc, [], nextGroups.filter(g => fresh.has(g.id)), shiftMask(dx, dy)).groups : []
+    const finalGroups = shifted.length ? nextGroups.map(g => shifted.find(x => x.id === g.id) ?? g) : nextGroups
+    set({ layers: placed, groups: prune(finalGroups, placed), selectedIds: copies, activeId: copies[0] ?? null, keyObjectId: null, editingMask: false, docRev: get().docRev + 1 })
     if (opts.commit !== false) get().commit(opts.label ?? (copies.length > 1 ? 'Duplicate layers' : 'Duplicate layer'))
     return copies
   },
@@ -741,6 +840,121 @@ export const useEditor = create<EditorState>((set, get) => ({
     get().commit('Ungroup')
   },
 
+  addEffect: (targets, fx, label) => {
+    const st = get(); if (!targets.length) return
+    const add = Array.isArray(fx) ? fx : [fx]; if (!add.length) return
+    const links = add.map(() => (targets.length > 1 ? fxId() : null))
+    const changes = targets.map(t => ({ t, list: [...stackOf(st, t), ...add.map((e, i) => ({ ...copyEffect(e), ...(links[i] ? { link: links[i] } : {}) }))] }))
+    applyFx(set, get, changes)
+    get().commit(label ?? 'Add effect')
+  },
+  updateEffect: (t, id, patch, label) => {
+    applyFx(set, get, patchEffect(get(), t, id, patch))
+    if (label) get().commit(label, { merge: 800 })
+  },
+  removeEffect: (t, id) => {
+    const st = get(); const list = stackOf(st, t); const gone = list.find(e => e.id === id); if (!gone) return
+    const changes = [{ t, list: list.filter(e => e.id !== id) }]
+    // The last other copy of a link is no longer linked to anything.
+    if (gone.link) { const rest = linkedCopies(st, gone.link).filter(c => !(sameTarget(c.t, t) && c.id === id)); if (rest.length === 1) changes.push({ t: rest[0].t, list: stackOf(st, rest[0].t).map(e => (e.id === rest[0].id ? { ...e, link: null } : e)) }) }
+    applyFx(set, get, changes)
+    get().commit('Remove effect')
+  },
+  moveEffect: (t, from, to) => { applyFx(set, get, [{ t, list: moveInList(stackOf(get(), t), from, to) }]); get().commit('Reorder effects') },
+  duplicateEffect: (t, id) => {
+    const list = stackOf(get(), t); const i = list.findIndex(e => e.id === id); if (i < 0) return
+    const next = list.slice(); next.splice(i + 1, 0, copyEffect(list[i]))
+    applyFx(set, get, [{ t, list: next }]); get().commit('Duplicate effect')
+  },
+  resetEffect: (t, id) => {
+    const e = stackOf(get(), t).find(x => x.id === id); if (!e) return
+    const fresh = resetFx(e); const { id: _i, link: _l, on: _o, ...settings } = fresh
+    applyFx(set, get, patchEffect(get(), t, id, { ...settings, opacity: 1, blend: 'source-over' }))
+    get().commit('Reset effect')
+  },
+  unlinkEffect: (t, id) => {
+    const st = get(); const e = stackOf(st, t).find(x => x.id === id); if (!e?.link) return
+    const others = linkedCopies(st, e.link).filter(c => !(sameTarget(c.t, t) && c.id === id))
+    const changes = [{ t, list: stackOf(st, t).map(x => (x.id === id ? { ...x, link: null } : x)) }]
+    if (others.length === 1) changes.push({ t: others[0].t, list: stackOf(st, others[0].t).map(x => (x.id === others[0].id ? { ...x, link: null } : x)) })
+    applyFx(set, get, changes); get().commit('Unlink effect')
+  },
+  linkEffectTo: (t, id, more) => {
+    const st = get(); const e = stackOf(st, t).find(x => x.id === id); if (!e) return
+    const link = e.link ?? fxId()
+    const have = e.link ? linkedCopies(st, e.link) : []
+    const add = more.filter(m => !sameTarget(m, t) && !have.some(h => sameTarget(h.t, m)))
+    if (!add.length) return
+    const changes = [{ t, list: stackOf(st, t).map(x => (x.id === id ? { ...x, link } : x)) }, ...add.map(m => ({ t: m, list: [...stackOf(st, m), { ...copyEffect(e), link }] }))]
+    applyFx(set, get, changes); get().commit('Link effect')
+  },
+  setEffects: (t, list, label) => { applyFx(set, get, [{ t, list }]); get().commit(label) },
+  groupFxToContents: (groupId) => {
+    const st = get(); const g = st.groups.find(x => x.id === groupId); if (!g?.effects?.length) return
+    // Direct children: layers in the group itself, and groups whose parent is this one.
+    const kids: FxTarget[] = [
+      ...st.layers.filter(l => l.groupId === groupId && l.type !== 'adjustment').map(l => ({ type: 'layer' as const, id: l.id })),
+      ...st.groups.filter(x => x.parentId === groupId).map(x => ({ type: 'group' as const, id: x.id })),
+    ]
+    if (!kids.length) return
+    const links = g.effects.map(e => e.link ?? fxId())
+    const changes = [{ t: { type: 'group', id: groupId } as FxTarget, list: [] as Effect[] }, ...kids.map(k => ({ t: k, list: [...stackOf(st, k), ...g.effects!.map((e, i) => ({ ...copyEffect(e), link: kids.length > 1 ? links[i] : null }))] }))]
+    applyFx(set, get, changes); get().commit('Effects on each layer')
+  },
+  setFxExclude: (t, v) => {
+    if (t.type === 'layer') set({ layers: get().layers.map(l => (l.id === t.id ? ({ ...l, fxExclude: v || undefined, rev: nextRev() } as Layer) : l)), docRev: get().docRev + 1 })
+    else set({ groups: get().groups.map(g => (g.id === t.id ? { ...g, fxExclude: v || undefined } : g)), docRev: get().docRev + 1 })
+    get().commit(v ? 'Leave out of group effects' : 'Back in group effects')
+  },
+  setGroupMask: (groupId, how) => {
+    const st = get(); const g = st.groups.find(x => x.id === groupId); if (!g || !st.doc) return
+    const { width: w, height: h } = st.doc
+    let mask = g.mask ?? null, enabled = g.maskEnabled !== false, at = g.maskAt ?? null
+    if (how === 'remove') { mask = null; at = null }
+    else if (how === 'toggle') enabled = !enabled
+    else if (how === 'invert' && mask) { const src = maskOnPage(w, h)(mask, at).mask; const c = makeCanvas(w, h); const x = ctx2d(c); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.globalCompositeOperation = 'destination-out'; x.drawImage(src, 0, 0); mask = c; at = null }
+    else {
+      // Masks are new canvases every time, never changed in place, so history and caches stay right.
+      const c = makeCanvas(w, h); const x = ctx2d(c)
+      if (how === 'reveal' || !st.selection) { x.fillStyle = '#fff'; x.fillRect(0, 0, w, h) }
+      else if (how === 'selection') x.drawImage(st.selection, 0, 0, w, h)
+      else { x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.globalCompositeOperation = 'destination-out'; x.drawImage(st.selection, 0, 0, w, h) }
+      mask = c; enabled = true; at = null
+    }
+    set({ groups: st.groups.map(x => (x.id === groupId ? { ...x, mask, maskAt: at, maskEnabled: enabled } : x)), docRev: st.docRev + 1 })
+    get().commit(how === 'remove' ? 'Remove group mask' : how === 'invert' ? 'Invert group mask' : how === 'toggle' ? 'Toggle group mask' : 'Group mask')
+  },
+  setEffectMask: (t, id, how) => {
+    const st = get(); if (!st.doc) return
+    const fx = stackOf(st, t).find(e => e.id === id); if (!fx) return
+    const { width: w, height: h } = st.doc
+    let patch: Partial<Effect>
+    // Where this copy's mask sits on the page (a layer's is relative to the layer).
+    const lay = t.type === 'layer' ? st.layers.find(l => l.id === t.id) : null
+    const pageAt = (e: Effect): MaskAt => ({ x: (lay?.x ?? 0) + (e.maskAt?.x ?? 0), y: (lay?.y ?? 0) + (e.maskAt?.y ?? 0) })
+    if (how === 'remove') patch = { mask: null, maskAt: null, maskOn: undefined }
+    else if (how === 'toggle') { if (!fx.mask) return; patch = { maskOn: fx.maskOn === false } }
+    else if (how === 'invert') {
+      if (!fx.mask) return
+      const src = maskOnPage(w, h)(fx.mask, pageAt(fx)).mask
+      const c = makeCanvas(w, h); const x = ctx2d(c); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.globalCompositeOperation = 'destination-out'; x.drawImage(src, 0, 0); patch = { mask: c }
+    } else {
+      if (!st.selection) { get().notify('Make a selection first: the effect then shows only there.'); return }
+      // A new canvas every time, never changed in place, so history and caches stay right.
+      const c = makeCanvas(w, h); const x = ctx2d(c)
+      if (how === 'selection') x.drawImage(st.selection, 0, 0, w, h)
+      else { x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.globalCompositeOperation = 'destination-out'; x.drawImage(st.selection, 0, 0, w, h) }
+      patch = { mask: c, maskOn: true }
+    }
+    const changes = patchEffect(st, t, id, patch)
+    // A new mask is page pixels at 0,0: on a layer it is placed relative to that layer, so it moves with it.
+    if (patch.mask) for (const ch of changes) {
+      const owner = ch.t.type === 'layer' ? st.layers.find(l => l.id === (ch.t as { id: string }).id) : null
+      ch.list = ch.list.map(e => (e.mask === patch.mask ? { ...e, maskAt: owner ? { x: -owner.x, y: -owner.y } : null } : e))
+    }
+    applyFx(set, get, changes)
+    get().commit(how === 'remove' ? 'Remove effect mask' : how === 'invert' ? 'Invert effect mask' : how === 'toggle' ? 'Effect mask on or off' : 'Effect mask')
+  },
   updateGroup: (groupId, patch, commitLabel) => {
     set({ groups: get().groups.map(g => (g.id === groupId ? { ...g, ...patch } : g)), docRev: get().docRev + 1 })
     if (commitLabel) get().commit(commitLabel)
@@ -940,7 +1154,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   duplicateLayer: (id) => {
     const l = get().layers.find(x => x.id === id); if (!l) return
     // A copy is its own layer: not linked to the original, and not fed from a master format.
-    const copy = { ...l, id: uid(), name: copyName(l.name, get().layers.map(x => x.name)), linkId: null, srcId: null, x: l.x + (l.type === 'adjustment' ? 0 : 16), y: l.y + (l.type === 'adjustment' ? 0 : 16), rev: nextRev() } as Layer
+    const copy = { ...l, id: uid(), name: copyName(l.name, get().layers.map(x => x.name)), linkId: null, srcId: null, effects: freshFx(l.effects, new Map()), x: l.x + (l.type === 'adjustment' ? 0 : 16), y: l.y + (l.type === 'adjustment' ? 0 : 16), rev: nextRev() } as Layer
     set({ activeId: id })
     get().addLayer(copy, 'Duplicate layer')
   },
@@ -1097,7 +1311,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     const s = get(); if (!s.doc) return null
     let l = s.active()
     if (l && l.type === 'adjustment') {
-      if (!l.mask) get().updateLayer(l.id, { mask: fullMaskSized(s.doc.width, s.doc.height) })
+      if (!l.mask) get().updateLayer(l.id, { mask: fullMaskSized(s.doc.width, s.doc.height), maskAt: null } as Partial<Layer>)
       set({ editingMask: true })
       return get().active() as AdjustmentLayer
     }
@@ -1138,20 +1352,21 @@ export const useEditor = create<EditorState>((set, get) => ({
       if (l.type !== 'adjustment') x.setTransform(layerMatrix(l, doc).inverse())
       x.drawImage(selection, 0, 0)
     } else mask = fullMaskSized(w, h)
-    get().updateLayer(id, { mask, maskEnabled: true })
+    get().updateLayer(id, { mask, maskEnabled: true, ...(l.type === 'adjustment' ? { maskAt: null } : {}) } as Partial<Layer>)
     set({ editingMask: true, activeId: id, ...(fromSelection ? { selection: null, selRev: get().selRev + 1 } : {}) })
     get().commit('Add mask')
   },
 
-  removeMask: (id) => { get().updateLayer(id, { mask: null }, 'Remove mask'); set({ editingMask: false }) },
+  removeMask: (id) => { get().updateLayer(id, { mask: null, maskAt: null } as Partial<Layer>, 'Remove mask'); set({ editingMask: false }) },
 
   // A layer can be clipped if there is a non-adjustment layer directly below it in the same frame/group.
   canClip: (id) => {
     const st = get(); const lid = id ?? st.activeId; if (!lid) return false
     const idx = st.layers.findIndex(l => l.id === lid); if (idx <= 0) return false
     const l = st.layers[idx], below = st.layers[idx - 1]
-    if (l.type === 'adjustment' || l.clipId) return false
-    if (below.type === 'adjustment') return false
+    if (l.clipId) return false
+    // An adjustment can clip to the layer below it (it then changes only that layer); nothing clips to an adjustment.
+    if (below.type === 'adjustment' && !below.clipId) return false
     if ((l.groupId ?? null) !== (below.groupId ?? null)) return false
     if ((l.frameId ?? null) !== (below.frameId ?? null)) return false
     return true
@@ -1163,22 +1378,24 @@ export const useEditor = create<EditorState>((set, get) => ({
     const below = st.layers[idx - 1]
     // If the layer below is itself clipped, join the same base run; otherwise the below layer becomes the base.
     const baseId = below.clipId ?? below.id
-    set({ layers: st.layers.map(l => l.id === lid ? ({ ...l, clipId: baseId, rev: nextRev() } as Layer) : l), docRev: st.docRev + 1 })
+    set({ layers: st.layers.map(l => l.id === lid ? ({ ...l, clipId: baseId, ...(l.type === 'adjustment' ? { reach: 'clip' } : {}), rev: nextRev() } as Layer) : l), docRev: st.docRev + 1 })
     get().commit('Create clipping mask')
   },
 
   releaseClippingMask: (id) => {
     const st = get(); const lid = id ?? st.activeId; if (!lid) return
     const l = st.layers.find(x => x.id === lid); if (!l?.clipId) return
-    set({ layers: st.layers.map(x => x.id === lid ? ({ ...x, clipId: null, rev: nextRev() } as Layer) : x), docRev: st.docRev + 1 })
+    set({ layers: st.layers.map(x => x.id === lid ? ({ ...x, clipId: null, ...(x.type === 'adjustment' ? { reach: 'below' } : {}), rev: nextRev() } as Layer) : x), docRev: st.docRev + 1 })
     get().commit('Release clipping mask')
   },
 
   invertMask: (id) => {
-    const l = get().layers.find(x => x.id === id); if (!l?.mask) return
-    const c = fullMaskSized(l.mask.width, l.mask.height)
-    const x = ctx2d(c); x.globalCompositeOperation = 'destination-out'; x.drawImage(l.mask, 0, 0)
-    get().updateLayer(id, { mask: c }, 'Invert mask')
+    const st = get(); const l = st.layers.find(x => x.id === id); if (!l?.mask || !st.doc) return
+    // An adjustment's mask is inverted over the whole page, wherever it sits.
+    const src = l.type === 'adjustment' ? maskOnPage(st.doc.width, st.doc.height)(l.mask, l.maskAt).mask : l.mask
+    const c = fullMaskSized(src.width, src.height)
+    const x = ctx2d(c); x.globalCompositeOperation = 'destination-out'; x.drawImage(src, 0, 0)
+    get().updateLayer(id, { mask: c, ...(l.type === 'adjustment' ? { maskAt: null } : {}) } as Partial<Layer>, 'Invert mask')
   },
 
   setEditingMask: (v) => set({ editingMask: v }),
@@ -1314,4 +1531,15 @@ export const useEditor = create<EditorState>((set, get) => ({
 export function tipOnce(key: string, msg: string) {
   try { if (localStorage.getItem('vc-tip-' + key)) return; localStorage.setItem('vc-tip-' + key, '1') } catch { return }
   useEditor.getState().notify(msg)
+}
+
+/** Run several edits as one undo step: the steps they made are folded into the last one. */
+export function asOneStep(run: () => void, label?: string) {
+  const s0 = useEditor.getState(), start = s0.history[s0.historyIndex]
+  run()
+  const st = useEditor.getState(), from = start ? st.history.indexOf(start) : -1
+  if (from >= 0 && st.historyIndex > from + 1) {
+    const last = st.history[st.historyIndex]
+    useEditor.setState({ history: [...st.history.slice(0, from + 1), label ? { ...last, label } : last], historyIndex: from + 1 })
+  }
 }

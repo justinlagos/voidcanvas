@@ -120,10 +120,10 @@ export async function restoreVersion(id: string, asCopy = false) {
   const v = await idb.get<StoredVersion>('versions', id); if (!v) return false
   const ed = useEditor.getState()
   if (!asCopy) await saveVersion('Before restoring an older version', true)
-  const { doc, layers } = await restoreStored(v.project)
+  const { doc, layers, groups } = await restoreStored(v.project)
   const d = asCopy ? { ...doc, id: 'd' + Date.now().toString(36), name: doc.name + ' (restored)' } : doc
-  if (d.frames?.length) ed.loadFramed(d, layers, v.project.swatches, v.project.groups ?? [])
-  else ed.loadProject(d, layers, v.project.swatches, v.project.groups ?? [])
+  if (d.frames?.length) ed.loadFramed(d, layers, v.project.swatches, groups)
+  else ed.loadProject(d, layers, v.project.swatches, groups)
   useEditor.setState({ dirty: true })
   await saveProject().catch(() => {})
   return true

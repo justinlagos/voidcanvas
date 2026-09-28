@@ -1,7 +1,8 @@
 import { applyEffect } from '@/lib/effects'
 import { FX_WORK, scaleParams } from '@/lib/effect-scale'
-import type { AdjustmentLayer, Doc, Frame, Group, HueBand, Layer, RasterLayer, Rect, ShapeLayer, SubPath, TextLayer } from './types'
+import type { AdjustmentLayer, AdjustmentSettings, Doc, Effect, Frame, Group, HueBand, Layer, MaskAt, RasterLayer, Rect, ShapeLayer, SubPath, TextLayer } from './types'
 import { drawStyled, hasActiveStyles, withAlpha } from './styles'
+import { EFFECT_DEFAULTS, fxKey, fxReach, groupUnits, hasFx, liveFx, maskOf } from './effects'
 import { transferStats } from '@/studio/analyze'
 
 // ─── Canvas helpers ────────────────────────────────────────────────
@@ -394,27 +395,7 @@ function hue2rgb(p: number, q: number, t: number) {
   return p
 }
 
-export const ADJUSTMENT_DEFAULTS: Record<string, Record<string, number>> = {
-  brightnessContrast: { brightness: 0, contrast: 0 },
-  hueSaturation: { hue: 0, saturation: 0, lightness: 0 },
-  levels: { black: 0, white: 255, gamma: 100 },
-  temperature: { temperature: 0, tint: 0 },
-  blackWhite: { amount: 100 },
-  invert: {},
-  blur: { radius: 8 },
-  curves: {},
-  voidEffect: {},
-  vibrance: { vibrance: 40, saturation: 0 },
-  exposure: { exposure: 0, offset: 0, gamma: 100 },
-  colorBalance: { sCR: 0, sMG: 0, sYB: 0, mCR: 0, mMG: 0, mYB: 0, hCR: 0, hMG: 0, hYB: 0, preserve: 1 },
-  channelMixer: { rr: 100, rg: 0, rb: 0, gr: 0, gg: 100, gb: 0, br: 0, bg: 0, bb: 100, mono: 0 },
-  photoFilter: { density: 25, preserve: 1 },
-  gradientMap: { reverse: 0 },
-  posterize: { levels: 4 },
-  threshold: { level: 128 },
-  lut: { amount: 100 },
-  colorMatch: { amount: 80 },
-}
+export const ADJUSTMENT_DEFAULTS: Record<string, Record<string, number>> = EFFECT_DEFAULTS
 
 export const HUE_BANDS: { id: HueBand; label: string; center: number; swatch: string }[] = [
   { id: 'reds', label: 'Reds', center: 0, swatch: '#ff3b3b' }, { id: 'yellows', label: 'Yellows', center: 60, swatch: '#ffd23b' },
@@ -487,7 +468,7 @@ export function curveLut(points: [number, number][]): Uint8ClampedArray {
   return lut
 }
 
-function applyBuiltIn(img: ImageData, l: AdjustmentLayer, scale: number) {
+function applyBuiltIn(img: ImageData, l: AdjustmentSettings, scale: number) {
   const d = img.data, v = l.values
   switch (l.kind) {
     case 'brightnessContrast': {
@@ -657,48 +638,146 @@ function applyBuiltIn(img: ImageData, l: AdjustmentLayer, scale: number) {
       }
       break
     }
-    case 'blur': boxBlur(img, Math.max(1, v.radius * scale * 0.6)); break
+    case 'blur': blurPremultiplied(img, Math.max(1, v.radius * scale * 0.6)); break
   }
+}
+
+/** Blur that treats transparency properly: colour is weighted by alpha, so edges fade instead of turning dark. */
+export function blurPremultiplied(img: ImageData, radius: number) {
+  const d = img.data
+  let opaque = true
+  for (let i = 3; i < d.length; i += 4) if (d[i] !== 255) { opaque = false; break }
+  if (opaque) { boxBlur(img, radius); return }
+  for (let i = 0; i < d.length; i += 4) { const a = d[i + 3] / 255; d[i] *= a; d[i + 1] *= a; d[i + 2] *= a }
+  boxBlur(img, radius)
+  for (let i = 0; i < d.length; i += 4) { const a = d[i + 3]; if (a) { const k = 255 / a; d[i] = d[i] * k; d[i + 1] = d[i + 1] * k; d[i + 2] = d[i + 2] * k } }
 }
 
 /** Void effects preview at this working size so the Editor and the Effects tool match. Exports (fullRes) run at the output size with pixel settings scaled up, so they look the same, only sharper. */
 const FX_MAX = FX_WORK
 
 const adjCacheById = new Map<string, { key: string; canvas: HTMLCanvasElement }>()
+/** Layers with effects, after their effects; and groups drawn as one image, before their opacity. */
+const fxCache = new Map<string, { key: string; canvas: HTMLCanvasElement }>()
+const groupCache = new Map<string, { key: string; canvas: HTMLCanvasElement }>()
+/** Keep drawn layers and groups only while they are this small (pixels), so memory stays in check. */
+const CACHE_PX = 12e6
 
-function processAdjustment(acc: HTMLCanvasElement, l: AdjustmentLayer, scale: number, fullRes = false, docLong = 0): HTMLCanvasElement {
-  const out = makeCanvas(acc.width, acc.height)
+/**
+ * Run one adjustment or Void effect over a canvas and return the result (same size). `refLong` is the long side,
+ * in document pixels, of what the effect is for (the design, a board, a layer): Void effects preview at a working
+ * size of at most FX_MAX over it, and exports (fullRes) run at the output size with their pixel settings scaled
+ * to match, so the two look the same. Void effects keep the transparency they were given, so dots, grain and
+ * paper stay inside a cut-out.
+ */
+export function processSettings(src: HTMLCanvasElement, l: AdjustmentSettings, scale: number, fullRes = false, refLong = 0): HTMLCanvasElement {
+  const out = makeCanvas(src.width, src.height)
   const octx = ctx2d(out, true)
   if (l.kind === 'voidEffect' && l.effect && l.effectParams) {
-    const accLong = Math.max(acc.width, acc.height)
+    const long = refLong || Math.max(src.width, src.height) / scale
     if (fullRes) {
-      // The preview ran over the whole document at min(FX_MAX, its long side), so one working pixel is docLong / ref
-      // document pixels, which is scale times that in output pixels. That holds for the whole document and for one
-      // board of it (a region), so exported dots and grain match the preview either way.
-      const long = docLong || accLong / scale
       const ref = Math.min(FX_MAX, long)
       const k = (scale * long) / ref
-      octx.drawImage(acc, 0, 0)
+      octx.drawImage(src, 0, 0)
       const img = octx.getImageData(0, 0, out.width, out.height)
-      octx.putImageData(applyEffect(octx, img, l.effect, scaleParams(l.effect, l.effectParams, k)), 0, 0)
+      octx.putImageData(keepAlpha(img, applyEffect(octx, img, l.effect, scaleParams(l.effect, l.effectParams, k))), 0, 0)
       return out
     }
-    const k = Math.min(1, FX_MAX / accLong)
-    const work = makeCanvas(acc.width * k, acc.height * k)
+    // Previews run at the reference size (the thing's long side, at most FX_MAX), as an export of it at 1x does,
+    // whatever size it is drawn at: drawn larger, the result is scaled up; drawn smaller (zoomed out, or many
+    // boards), the picture is worked up to that size first. Dots, grain and edges then look as they will export.
+    // A draft (a thumbnail) runs at the drawn size with its pixel settings scaled down instead: close, and quick.
+    const ref = Math.min(FX_MAX, long), drawn = Math.max(1e-6, long * scale)
+    const k = fxDraft ? Math.min(1, ref / drawn) : ref / drawn, pk = fxDraft ? Math.min(drawn, ref) / ref : 1
+    const work = makeCanvas(Math.max(1, Math.round(src.width * k)), Math.max(1, Math.round(src.height * k)))
     const wctx = ctx2d(work, true)
-    wctx.drawImage(acc, 0, 0, work.width, work.height)
+    wctx.imageSmoothingQuality = 'high'
+    wctx.drawImage(src, 0, 0, work.width, work.height)
     const img = wctx.getImageData(0, 0, work.width, work.height)
-    wctx.putImageData(applyEffect(wctx, img, l.effect, l.effectParams), 0, 0)
+    wctx.putImageData(keepAlpha(img, applyEffect(wctx, img, l.effect, pk < 0.999 ? scaleParams(l.effect, l.effectParams, pk) : l.effectParams)), 0, 0)
     octx.imageSmoothingQuality = 'high'
     octx.drawImage(work, 0, 0, out.width, out.height)
   } else {
-    octx.drawImage(acc, 0, 0)
+    octx.drawImage(src, 0, 0)
     const img = octx.getImageData(0, 0, out.width, out.height)
     applyBuiltIn(img, l, scale)
     octx.putImageData(img, 0, 0)
   }
   return out
 }
+
+/** The effect's colours with the source's transparency. */
+function keepAlpha(src: ImageData, out: ImageData): ImageData {
+  const a = src.data, b = out.data
+  let opaque = true
+  for (let i = 3; i < a.length; i += 4) if (a[i] !== 255) { opaque = false; break }
+  if (opaque) return out
+  for (let i = 3; i < a.length; i += 4) b[i] = a[i]
+  return out
+}
+
+/** An adjustment layer over what is below it. With a rectangle (its board, in target pixels), only that part is processed. */
+function processAdjustment(acc: HTMLCanvasElement, l: AdjustmentLayer, scale: number, fullRes: boolean, refLong: number, rect: { x: number; y: number; w: number; h: number } | null): HTMLCanvasElement {
+  if (!rect) return processSettings(acc, l, scale, fullRes, refLong)
+  const x = Math.max(0, Math.floor(rect.x)), y = Math.max(0, Math.floor(rect.y))
+  const w = Math.min(acc.width, Math.ceil(rect.x + rect.w)) - x, h = Math.min(acc.height, Math.ceil(rect.y + rect.h)) - y
+  const out = makeCanvas(acc.width, acc.height)
+  if (w <= 0 || h <= 0) return out
+  const part = makeCanvas(w, h); ctx2d(part).drawImage(acc, x, y, w, h, 0, 0, w, h)
+  ctx2d(out).drawImage(processSettings(part, l, scale, fullRes, refLong), x, y)
+  return out
+}
+
+/**
+ * Run an effect stack over one part of a canvas, in place. Each effect mixes with what it changed by its own
+ * strength and blend. `rect` is in canvas pixels; `refLong` is the long side of the target in document pixels.
+ */
+export function applyFxStack(c: HTMLCanvasElement, rect: { x: number; y: number; w: number; h: number }, list: Effect[] | null | undefined, o: { scale: number; fullRes: boolean; refLong: number; drawMask?: (ctx: CanvasRenderingContext2D, mask: HTMLCanvasElement, at?: MaskAt | null) => void; maskBase?: MaskAt }) {
+  const on = liveFx(list); if (!on.length) return
+  const x = Math.max(0, Math.floor(rect.x)), y = Math.max(0, Math.floor(rect.y))
+  const w = Math.min(c.width, Math.ceil(rect.x + rect.w)) - x, h = Math.min(c.height, Math.ceil(rect.y + rect.h)) - y
+  if (w <= 0 || h <= 0) return
+  let work = makeCanvas(w, h); ctx2d(work).drawImage(c, x, y, w, h, 0, 0, w, h)
+  for (const e of on) {
+    const before = work
+    const proc = processSettings(before, e, o.scale, o.fullRes, o.refLong)
+    const m = maskOf(e) && o.drawMask ? maskOf(e)! : null
+    const mAt = { x: (o.maskBase?.x ?? 0) + (e.maskAt?.x ?? 0), y: (o.maskBase?.y ?? 0) + (e.maskAt?.y ?? 0) }
+    if (e.opacity >= 0.999 && e.blend === 'source-over') { work = m ? masked(before, proc, m, mAt) : proc; continue }
+    const mix = makeCanvas(w, h), mx = ctx2d(mix)
+    if (e.blend === 'source-over') {
+      // before × (1 − strength) + effect × strength, which also holds where the pixels are see-through.
+      mx.globalAlpha = 1 - e.opacity; mx.drawImage(before, 0, 0)
+      mx.globalAlpha = e.opacity; mx.globalCompositeOperation = 'lighter'; mx.drawImage(proc, 0, 0)
+    } else {
+      mx.drawImage(before, 0, 0)
+      mx.globalAlpha = e.opacity; mx.globalCompositeOperation = e.blend; mx.drawImage(proc, 0, 0)
+      // A blend never adds pixels where there were none.
+      mx.globalAlpha = 1; mx.globalCompositeOperation = 'destination-in'; mx.drawImage(before, 0, 0)
+    }
+    work = m ? masked(before, mix, m, mAt) : mix
+  }
+  /** The effect only where its mask is: before × (1 − mask) + after × mask. */
+  function masked(before: HTMLCanvasElement, after: HTMLCanvasElement, mask: HTMLCanvasElement, at: MaskAt): HTMLCanvasElement {
+    const mc = makeCanvas(w, h), mcx = ctx2d(mc)
+    mcx.translate(-x, -y); o.drawMask!(mcx, mask, at)
+    const outc = makeCanvas(w, h), ox2 = ctx2d(outc)
+    ox2.drawImage(before, 0, 0); ox2.globalCompositeOperation = 'destination-out'; ox2.drawImage(mc, 0, 0)
+    const put = makeCanvas(w, h), px2 = ctx2d(put)
+    px2.drawImage(after, 0, 0); px2.globalCompositeOperation = 'destination-in'; px2.drawImage(mc, 0, 0)
+    ox2.globalCompositeOperation = 'lighter'; ox2.drawImage(put, 0, 0)
+    return outc
+  }
+  const cx = ctx2d(c)
+  cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over'
+  cx.clearRect(x, y, w, h); cx.drawImage(work, x, y)
+  cx.restore()
+}
+
+/** A number for each canvas, so caches can tell a replaced mask from the same one. */
+const canvasIds = new WeakMap<HTMLCanvasElement, number>()
+let canvasSeq = 0
+export const canvasId = (c: HTMLCanvasElement | null | undefined) => { if (!c) return 0; let n = canvasIds.get(c); if (!n) { n = ++canvasSeq; canvasIds.set(c, n) } return n }
 
 // ─── Compositor ────────────────────────────────────────────────────
 
@@ -732,9 +811,25 @@ export interface RenderOptions {
    * the Stage at screen resolution.
    */
   region?: { x: number; y: number; w: number; h: number } | null
+  /** Leave every effect stack out (before and after, with all effects switched off). */
+  noFx?: boolean
+  /** Set on the renders made inside a render (a group drawn as one image): board and design effects run once, at the top. */
+  inner?: boolean
+  /** Small pictures (thumbnails, choice previews): Void effects run at the drawn size, close to the look but quicker. */
+  fxDraft?: boolean
 }
 
+/** On while a draft render runs (see RenderOptions.fxDraft). */
+let fxDraft = false
+
 export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], opts: RenderOptions = {}) {
+  const wasDraft = fxDraft
+  fxDraft = wasDraft || !!opts.fxDraft
+  // A draft never reads or fills the caches the canvas uses.
+  try { renderDocInner(target, doc, layers, fxDraft && !opts.noCache ? { ...opts, noCache: true } : opts) } finally { fxDraft = wasDraft }
+}
+
+function renderDocInner(target: HTMLCanvasElement, doc: Doc, layers: Layer[], opts: RenderOptions) {
   const s = opts.scale ?? 1
   const rg = opts.region ?? null
   const ox = rg ? rg.x : 0, oy = rg ? rg.y : 0
@@ -742,11 +837,11 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
   /** Document space to target pixels. */
   const base = () => new DOMMatrix().translate(-ox * s, -oy * s).scale(s, s)
   const R = (x: number, y: number, w: number, h: number): [number, number, number, number] => [(x - ox) * s, (y - oy) * s, w * s, h * s]
-  /** Draw a document-sized canvas (a mask) into the region of the target. */
-  const drawDocSized = (ctx: CanvasRenderingContext2D, c: HTMLCanvasElement) => {
-    if (!rg) { ctx.drawImage(c, 0, 0, W, H); return }
-    const kx = c.width / doc.width, ky = c.height / doc.height
-    ctx.drawImage(c, ox * kx, oy * ky, rg.w * kx, rg.h * ky, 0, 0, W, H)
+  /** Draw a document mask into the target: one mask pixel to one document pixel, its top left at `at`. A mask
+   *  made before the design grew keeps its place instead of being stretched, and one that moved with its board
+   *  is drawn where the board is now. */
+  const drawDocSized = (ctx: CanvasRenderingContext2D, c: HTMLCanvasElement, at?: MaskAt | null) => {
+    ctx.drawImage(c, ((at?.x ?? 0) - ox) * s, ((at?.y ?? 0) - oy) * s, c.width * s, c.height * s)
   }
   if (target.width !== W || target.height !== H) { target.width = W; target.height = H }
   const acc = ctx2d(target, true)
@@ -774,7 +869,30 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
   } else if (doc.background && !opts.transparent) { acc.fillStyle = doc.background; acc.fillRect(0, 0, W, H) }
   const frameById = new Map((frames ?? []).map(f => [f.id, f]))
 
-  let belowKey = `${W}x${H}|${opts.transparent ? '' : doc.background}|${opts.root ?? ''}`
+  let belowKey = `${W}x${H}@${s}:${ox},${oy}|${opts.fullRes ? 'full' : ''}|${opts.transparent ? '' : doc.background}|${opts.root ?? ''}`
+  const noFx = !!opts.noFx
+  // Boards clip the layers on them, so a group drawn on its own depends on where they are.
+  const boardsKey = (frames ?? []).map(f => `${f.x},${f.y},${f.width},${f.height}`).join(';')
+  /** Doc-space rectangle to target pixels, grown by `pad` document pixels and kept inside the target. */
+  const targetRect = (b: Rect, pad = 0) => ({ x: (b.x - pad - ox) * s, y: (b.y - pad - oy) * s, w: (b.w + pad * 2) * s, h: (b.h + pad * 2) * s })
+  const boundsOf = (list: Layer[]): Rect | null => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+    for (const l of list) {
+      if (l.type === 'adjustment') { const f = l.frameId ? frameById.get(l.frameId) : null; const b = f ? { x: f.x, y: f.y, w: f.width, h: f.height } : { x: 0, y: 0, w: doc.width, h: doc.height }; x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); continue }
+      const b = layerBounds(l, doc); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h)
+    }
+    return x1 > x0 && y1 > y0 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null
+  }
+  /** What a run of layers inside a group looks like, for caches: every layer's rev and every group's settings. */
+  const runKey = (run: Layer[]) => {
+    const seen = new Set<string>(); let k = ''
+    for (const x of run) {
+      k += `${x.id}:${x.rev},`
+      let gid = x.groupId ?? null, n = 0
+      while (gid && !seen.has(gid) && n++ < 64) { seen.add(gid); const g = gmap.get(gid); if (!g) break; k += `[${g.id}:${g.visible}:${g.opacity}:${g.blend}:${g.fxExclude ? 1 : 0}:${fxKey(g.effects)}:${g.styles ? JSON.stringify(g.styles) : ''}:${canvasId(g.mask)}:${g.maskAt ? g.maskAt.x + ',' + g.maskAt.y : ''}:${g.maskEnabled}]`; gid = g.parentId ?? null }
+    }
+    return k
+  }
   let liveBelow = false
   const gmap = new Map((opts.groups ?? []).map(g => [g.id, g]))
 
@@ -798,18 +916,50 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
         const run = list.slice(li, end + 1)
         li = end
         if (!grp.visible) { belowKey += `|g${grp.id}:off`; continue }
-        const isolated = grp.opacity < 1 || (!!grp.blend && grp.blend !== 'pass')
+        const gFx = !noFx && hasFx(grp.effects)
+        const gStyled = !noFx && !!grp.styles && hasActiveStyles({ styles: grp.styles } as Layer)
+        const gMask = !!grp.mask && grp.maskEnabled !== false
+        // An adjustment set to reach only its own group needs the group drawn on its own.
+        const gReach = run.some(x => x.type === 'adjustment' && x.visible && x.reach === 'group' && x.groupId === grp.id)
+        const isolated = grp.opacity < 1 || (!!grp.blend && grp.blend !== 'pass') || gFx || gStyled || gMask || gReach
         if (isolated) {
-          // A faded or blended group is flattened first, then drawn once, so its layers do not show through each other.
-          const tmp = makeCanvas(W, H)
-          renderDoc(tmp, doc, run, { ...opts, scale: s, noCache: true, transparent: true, root: grp.id, frameRects: frames ?? [] })
-          if (opts.live && run.some(x => x.id === opts.live!.layerId)) liveBelow = true
+          // The group is drawn as one image first, then placed once, so its layers do not show through each other.
+          const hasLive = !!opts.live && run.some(x => x.id === opts.live!.layerId)
+          if (hasLive) liveBelow = true
+          const key = `${belowKey.slice(0, belowKey.indexOf('|'))}|${opts.fullRes ? 'full' : ''}|${boardsKey}|${gFx ? fxKey(grp.effects) : ''}|${gStyled ? JSON.stringify(grp.styles) : ''}|${gMask ? canvasId(grp.mask) + '@' + (grp.maskAt ? grp.maskAt.x + ',' + grp.maskAt.y : '') : ''}|${runKey(run)}`
+          const cached = opts.noCache || hasLive ? undefined : groupCache.get(grp.id)
+          let tmp: HTMLCanvasElement
+          if (cached && cached.key === key) tmp = cached.canvas
+          else {
+            tmp = makeCanvas(W, H)
+            const inner: RenderOptions = { ...opts, scale: s, noCache: true, transparent: true, root: grp.id, frameRects: frames ?? [], inner: true }
+            if (!gFx && !gStyled) renderDoc(tmp, doc, run, inner)
+            else {
+              // Effects run on what the group makes. A child left out draws clean in its place, and the children on
+              // either side of it are processed on their own, so an effect never reaches across it.
+              const t = ctx2d(tmp)
+              const b = boundsOf(run)
+              const refLong = b ? Math.max(b.w, b.h) : Math.max(doc.width, doc.height)
+              const pad = fxReach(grp.effects)
+              for (const u of groupUnits(run, grp.id, opts.groups ?? [])) {
+                const seg = makeCanvas(W, H)
+                renderDoc(seg, doc, u.layers, inner)
+                if (!u.excluded) {
+                  if (gFx) { const ub = boundsOf(u.layers); if (ub) applyFxStack(seg, targetRect(ub, pad), grp.effects, { scale: s, fullRes: !!opts.fullRes, refLong, drawMask: drawDocSized }) }
+                  if (gStyled) { t.save(); drawStyled(t, seg, { styles: grp.styles, opacity: 1, blend: 'source-over', fillOpacity: 1 } as Layer, s); t.restore(); continue }
+                }
+                t.drawImage(seg, 0, 0)
+              }
+            }
+            if (gMask) { const t = ctx2d(tmp); t.save(); t.globalCompositeOperation = 'destination-in'; drawDocSized(t, grp.mask!, grp.maskAt); t.restore() }
+            if (!opts.noCache && !hasLive && W * H <= CACHE_PX) groupCache.set(grp.id, { key, canvas: tmp })
+          }
           acc.save()
           acc.globalAlpha = grp.opacity
           acc.globalCompositeOperation = !grp.blend || grp.blend === 'pass' ? 'source-over' : grp.blend
           acc.drawImage(tmp, 0, 0)
           acc.restore()
-          belowKey += `|g${grp.id}:${grp.opacity}:${grp.blend}:` + run.map(x => `${x.id}:${x.rev}`).join(',')
+          belowKey += `|g${grp.id}:${grp.opacity}:${grp.blend}:` + key.slice(key.indexOf('|'))
         } else drawList(run, grp.id)
         continue
       }
@@ -826,29 +976,49 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
       const settingsKey = `${l.kind}|${JSON.stringify(l.values)}|${l.points ? JSON.stringify(l.points) : ''}|${JSON.stringify(l.channelPoints ?? '')}|${JSON.stringify(l.channelLevels ?? '')}|${JSON.stringify(l.bands ?? '')}|${(l.colors ?? []).join(',')}|${l.lut?.name ?? ''}|${l.effect}|${l.effect ? JSON.stringify(l.effectParams) : ''}`
       const key = `${belowKey}#${settingsKey}`
       let processed: HTMLCanvasElement
+      // A filter on a board runs over that board only, so the canvas and an export of the board agree.
+      const adjBoard = l.frameId ? frameById.get(l.frameId) : undefined
       const cached = opts.noCache ? undefined : adjCacheById.get(l.id)
       if (cached && cached.key === key && !liveBelow) processed = cached.canvas
       else {
-        processed = processAdjustment(target, l, s, !!opts.fullRes, opts.fxLong || Math.max(doc.width, doc.height))
+        const refLong = adjBoard ? Math.max(adjBoard.width, adjBoard.height) : opts.fxLong || Math.max(doc.width, doc.height)
+        processed = processAdjustment(target, l, s, !!opts.fullRes, refLong, adjBoard ? targetRect({ x: adjBoard.x, y: adjBoard.y, w: adjBoard.width, h: adjBoard.height }) : null)
         if (!opts.noCache && !liveBelow) adjCacheById.set(l.id, { key, canvas: processed })
       }
       let draw = processed
       const maskSrc = l.mask && l.maskEnabled ? l.mask : null
-      if (maskSrc || (live && live.mode.startsWith('mask'))) {
+      // Clipped to the layer below: only that layer's pixels change.
+      const clipBase = l.clipId ? siblings.find(x => x.id === l.clipId) ?? layers.find(x => x.id === l.clipId) : undefined
+      const where = maskSrc || (live && live.mode.startsWith('mask')) || (clipBase && clipBase.type !== 'adjustment')
+      let amount: HTMLCanvasElement | null = null
+      if (where) {
+        // How much of the adjustment shows at each pixel: its mask, times the clip base's shape.
+        amount = makeCanvas(W, H); const ax = ctx2d(amount)
+        if (maskSrc || (live && live.mode.startsWith('mask'))) { const at = maskSrc ? l.maskAt : null; drawDocSized(ax, liveMask(maskSrc ?? fullMask(doc), live, at), at) }
+        else { ax.fillStyle = '#fff'; ax.fillRect(0, 0, W, H) }
+        if (clipBase && clipBase.type !== 'adjustment') { ax.globalCompositeOperation = 'destination-in'; ax.drawImage(renderLayerAlpha(doc, clipBase, s, rg), 0, 0) }
         draw = cloneCanvas(processed)
         const dctx = ctx2d(draw)
-        const m = liveMask(maskSrc ?? fullMask(doc), live)
         dctx.globalCompositeOperation = 'destination-in'
-        drawDocSized(dctx, m)
+        dctx.drawImage(amount, 0, 0)
       }
       acc.save()
       // A filter on a board only changes that board, never the rest of the document.
-      const adjFrame = l.frameId ? frameById.get(l.frameId) : undefined
-      if (adjFrame) { acc.beginPath(); acc.rect(...R(adjFrame.x, adjFrame.y, adjFrame.width, adjFrame.height)); acc.clip() }
-      acc.globalAlpha = l.opacity
-      // An adjustment replaces what is below it, so blend modes other than normal are drawn over the original.
-      acc.globalCompositeOperation = l.blend
-      acc.drawImage(draw, 0, 0)
+      if (adjBoard) { acc.beginPath(); acc.rect(...R(adjBoard.x, adjBoard.y, adjBoard.width, adjBoard.height)); acc.clip() }
+      if (l.blend === 'source-over') {
+        // Normal: the result takes the place of what was there, in proportion. Drawing it over the original instead
+        // would make see-through pixels more solid.
+        acc.globalAlpha = l.opacity
+        acc.globalCompositeOperation = 'destination-out'
+        if (amount) acc.drawImage(amount, 0, 0); else { acc.fillStyle = '#000'; acc.fillRect(0, 0, W, H) }
+        acc.globalCompositeOperation = 'lighter'
+        acc.drawImage(draw, 0, 0)
+      } else {
+        acc.globalAlpha = l.opacity
+        // Other blend modes mix the result with the original.
+        acc.globalCompositeOperation = l.blend
+        acc.drawImage(draw, 0, 0)
+      }
       acc.restore()
     } else {
       const m = layerMatrix(l, doc)
@@ -858,9 +1028,10 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
         const base = siblings.find(x => x.id === l.clipId) ?? layers.find(x => x.id === l.clipId)
         if (base && base.type !== 'adjustment') clipBaseCanvas = renderLayerAlpha(doc, base, s, rg)
       }
-      const styled = hasActiveStyles(l)
+      const styled = !noFx && hasActiveStyles(l)
+      const fx = !noFx && hasFx(l.effects)
       const fill = l.fillOpacity ?? 1
-      const needsTemp = (l.mask && l.maskEnabled) || hasVectorMask(l) || !!live || !!clipBaseCanvas || styled
+      const needsTemp = (l.mask && l.maskEnabled) || hasVectorMask(l) || !!live || !!clipBaseCanvas || styled || fx
       acc.save()
       const clipF = l.frameId ? frameById.get(l.frameId) : undefined
       if (clipF) { acc.beginPath(); acc.rect(...R(clipF.x, clipF.y, clipF.width, clipF.height)); acc.clip() }
@@ -882,16 +1053,28 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
           t.drawImage(liveMask(maskSrc ?? fullMaskSized(w, h), live), 0, 0)
         }
         if (hasVectorMask(l)) { t.globalCompositeOperation = 'destination-in'; t.drawImage(vectorMaskCanvas(l, w, h), 0, 0); t.globalCompositeOperation = 'source-over' }
-        if (clipBaseCanvas || styled) {
-          // Work in document space: intersect with the clip base, then draw with styles.
+        if (clipBaseCanvas || styled || fx) {
+          // Work in document space: intersect with the clip base, run the layer's effects, then draw with styles.
           acc.restore(); acc.save()
           if (clipF) { acc.beginPath(); acc.rect(...R(clipF.x, clipF.y, clipF.width, clipF.height)); acc.clip() }
-          const docTmp = makeCanvas(W, H); const dt = ctx2d(docTmp)
-          dt.imageSmoothingQuality = 'high'
-          dt.setTransform(base().multiply(m))
-          dt.drawImage(tmp, 0, 0)
-          dt.setTransform(1, 0, 0, 1, 0, 0)
-          if (clipBaseCanvas) { dt.globalCompositeOperation = 'destination-in'; dt.drawImage(clipBaseCanvas, 0, 0) }
+          const clipRev = l.clipId ? (layers.find(x => x.id === l.clipId)?.rev ?? 0) : 0
+          const fxK = fx ? `${W}x${H}@${s}:${ox},${oy}|${opts.fullRes ? 'full' : ''}|${l.rev}|${clipRev}|${fxKey(l.effects)}` : ''
+          const hit = fx && !live && !opts.noCache ? fxCache.get(l.id) : undefined
+          let docTmp: HTMLCanvasElement
+          if (hit && hit.key === fxK) docTmp = hit.canvas
+          else {
+            docTmp = makeCanvas(W, H); const dt = ctx2d(docTmp)
+            dt.imageSmoothingQuality = 'high'
+            dt.setTransform(base().multiply(m))
+            dt.drawImage(tmp, 0, 0)
+            dt.setTransform(1, 0, 0, 1, 0, 0)
+            if (clipBaseCanvas) { dt.globalCompositeOperation = 'destination-in'; dt.drawImage(clipBaseCanvas, 0, 0) }
+            if (fx) {
+              const b = layerBounds(l, doc)
+              applyFxStack(docTmp, targetRect(b, fxReach(l.effects)), l.effects, { scale: s, fullRes: !!opts.fullRes, refLong: Math.max(b.w, b.h), drawMask: drawDocSized, maskBase: { x: l.x, y: l.y } })
+              if (!live && !opts.noCache && W * H <= CACHE_PX) fxCache.set(l.id, { key: fxK, canvas: docTmp })
+            }
+          }
           acc.setTransform(1, 0, 0, 1, 0, 0)
           acc.globalAlpha = l.opacity
           if (styled) drawStyled(acc, docTmp, l, s)
@@ -906,10 +1089,22 @@ export function renderDoc(target: HTMLCanvasElement, doc: Doc, layers: Layer[], 
   }
 
   drawList(layers, opts.root ?? null)
-  // Drop cache entries for layers that no longer exist.
-  if (adjCacheById.size > 24) {
+
+  // Board effects run on everything on the board; design effects run last, on each board (or the whole page).
+  if (!opts.inner && !noFx) {
+    const fullRes = !!opts.fullRes
+    for (const f of frames ?? []) if (hasFx(f.effects)) applyFxStack(target, targetRect({ x: f.x, y: f.y, w: f.width, h: f.height }), f.effects, { scale: s, fullRes, refLong: Math.max(f.width, f.height), drawMask: drawDocSized })
+    if (hasFx(doc.effects)) {
+      if (frames?.length) for (const f of frames) applyFxStack(target, targetRect({ x: f.x, y: f.y, w: f.width, h: f.height }), doc.effects, { scale: s, fullRes, refLong: Math.max(f.width, f.height), drawMask: drawDocSized })
+      else applyFxStack(target, targetRect({ x: 0, y: 0, w: doc.width, h: doc.height }), doc.effects, { scale: s, fullRes, refLong: Math.max(doc.width, doc.height), drawMask: drawDocSized })
+    }
+  }
+  // Drop cache entries for layers and groups that no longer exist.
+  if (!opts.inner) {
     const ids = new Set(layers.map(l => l.id))
-    Array.from(adjCacheById.keys()).forEach(k => { if (!ids.has(k)) adjCacheById.delete(k) })
+    if (adjCacheById.size > 24) Array.from(adjCacheById.keys()).forEach(k => { if (!ids.has(k)) adjCacheById.delete(k) })
+    if (fxCache.size > 24) Array.from(fxCache.keys()).forEach(k => { if (!ids.has(k)) fxCache.delete(k) })
+    if (groupCache.size > 24) { const gids = new Set((opts.groups ?? []).map(g => g.id)); Array.from(groupCache.keys()).forEach(k => { if (!gids.has(k)) groupCache.delete(k) }) }
   }
 }
 
@@ -937,13 +1132,14 @@ function fullMaskSized(w: number, h: number) {
 function fullMask(doc: Doc) { return fullMaskSized(doc.width, doc.height) }
 export { fullMaskSized }
 
-function liveMask(mask: HTMLCanvasElement, live: LiveStroke | null): HTMLCanvasElement {
+/** A mask with the stroke being painted on it. The stroke is in document pixels; the mask's top left is at `at`. */
+function liveMask(mask: HTMLCanvasElement, live: LiveStroke | null, at?: MaskAt | null): HTMLCanvasElement {
   if (!live || !live.mode.startsWith('mask')) return mask
   const c = cloneCanvas(mask)
   const x = ctx2d(c)
   x.globalAlpha = live.opacity
   x.globalCompositeOperation = live.mode === 'mask-hide' ? 'destination-out' : 'source-over'
-  x.drawImage(live.buffer, 0, 0)
+  x.drawImage(live.buffer, -(at?.x ?? 0), -(at?.y ?? 0))
   return c
 }
 

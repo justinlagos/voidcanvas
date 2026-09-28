@@ -88,6 +88,7 @@ export function EffectSelector() {
         {filteredEffects.map((effect) => (
           <motion.button
             key={effect.id}
+            data-effect-pick={effect.id}
             onClick={() => setActiveEffect(effect.id)}
             disabled={!originalImage}
             whileHover={{ scale: 1.02 }}

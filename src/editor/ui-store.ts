@@ -86,6 +86,8 @@ export interface UiPrefs {
   bigNudge: number
   /** Width and height fields change together. */
   keepRatio: boolean
+  /** Remembered answers to "as one image or each layer" per effect (effects.ts scope key). */
+  fxScope: Record<string, 'one' | 'each'>
   /** The point a single layer turns around: centre, a corner or an edge (see pivot.ts). */
   pivot: 'tl' | 't' | 'tr' | 'l' | 'c' | 'r' | 'bl' | 'b' | 'br'
   /** Remembered choice so the "runs on your device" note shows once per model. */
@@ -99,7 +101,7 @@ export interface ToolbarLayout { float: boolean; x: number; y: number; cols: num
 const DEFAULT_PREFS: UiPrefs = {
   uiScale: 1, density: 'comfortable', touchMode: false, showContextBar: true,
   showRulers: false, showGuides: true, lockGuides: false, snap: true, snapToGuides: true, pixelGrid: true,
-  historyLimit: 100, historyMemoryMB: 1200, versionEveryMin: 10, showStatusBar: true, nudge: 1, bigNudge: 10, keepRatio: false, pivot: 'c', aiConsent: {},
+  historyLimit: 100, historyMemoryMB: 1200, versionEveryMin: 10, showStatusBar: true, nudge: 1, bigNudge: 10, keepRatio: false, pivot: 'c', fxScope: {}, aiConsent: {},
   toolbar: { float: false, x: 16, y: 16, cols: 2, collapsed: false },
 }
 

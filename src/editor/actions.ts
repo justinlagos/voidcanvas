@@ -2,10 +2,12 @@ import { effects } from '@/components/EffectSelector'
 import { cloneCanvas, ctx2d, makeCanvas, maskBounds, renderDoc, uid } from './engine'
 import { canvasToBlob, exportVoidFile, importFiles, saveDesign, saveProject } from './io'
 import * as ops from './ops'
-import { ADJUSTMENT_LABELS, base, boardFor, copyName, groupChain, inGroup, prune, useEditor } from './store'
+import { ADJUSTMENT_LABELS, base, boardFor, copyName, groupChain, inGroup, mapDocMasks, prune, selectionUnits, shiftMask, useEditor } from './store'
+import { EFFECT_KINDS, copyEffect, freshFx, newEffect, stackOf, type FxTarget } from './effects'
+import { effects as VOID_EFFECTS } from '@/components/effect-list'
 import { layerBounds } from './engine'
 import { useTabs } from './tabs'
-import type { AdjustmentKind, Group, Layer } from './types'
+import type { AdjustmentKind, Effect, Group, Layer } from './types'
 import { WORKSPACES, useUi, type PanelId } from './ui-store'
 import { stageApi } from './components/Stage'
 import { toggleQuickMask } from './components/ToolRail'
@@ -95,13 +97,16 @@ export function pasteLayers(inPlace: boolean, view?: { x: number; y: number; w: 
     if (!visible) { dx = view.x + view.w / 2 - (c.box.x + c.box.w / 2); dy = view.y + view.h / 2 - (c.box.y + c.box.h / 2) }
   }
   const gMap = new Map(c.groups.map(g => [g.id, uid()]))
-  const groups: Group[] = c.groups.map(g => ({ ...g, id: gMap.get(g.id)!, parentId: g.parentId ? gMap.get(g.parentId) ?? null : null }))
+  const fxLinks = new Map<string, string>()
+  const groups0: Group[] = c.groups.map(g => ({ ...g, id: gMap.get(g.id)!, parentId: g.parentId ? gMap.get(g.parentId) ?? null : null, effects: freshFx(g.effects, fxLinks) }))
+  // Pasted groups moved by dx, dy take their placed masks with them.
+  const groups = dx || dy ? mapDocMasks(doc, [], groups0, shiftMask(dx, dy)).groups : groups0
   const idMap = new Map<string, string>()
   const taken = new Set(st.layers.map(l => l.name))
   const made = c.layers.map(l => {
     const id = uid(); idMap.set(l.id, id)
     const name = st.layers.some(x => x.name === l.name) ? copyName(l.name, taken) : l.name; taken.add(name)
-    return { ...l, id, name, srcId: null, linkId: null, groupId: l.groupId ? gMap.get(l.groupId) ?? null : null, frameId: undefined, x: l.x + (l.type === 'adjustment' ? 0 : dx), y: l.y + (l.type === 'adjustment' ? 0 : dy), rev: Date.now() + Math.random() } as Layer
+    return { ...l, id, name, srcId: null, linkId: null, effects: freshFx(l.effects, fxLinks), groupId: l.groupId ? gMap.get(l.groupId) ?? null : null, frameId: undefined, x: l.x + (l.type === 'adjustment' ? 0 : dx), y: l.y + (l.type === 'adjustment' ? 0 : dy), rev: Date.now() + Math.random() } as Layer
   })
   for (const m of made) { if (m.clipId) m.clipId = idMap.get(m.clipId) ?? null; if (doc.frames?.length) m.frameId = boardFor(doc, m, st.activeFrameId) }
   // Above the active layer, outside any group it is in, so the pasted block never splits a group.
@@ -436,6 +441,12 @@ export function buildActions(): Record<string, Action> {
     { id: 'view.clearGuides', label: 'Clear guides', run: ops.clearGuides, enabled: () => !!(s().doc?.guides?.v.length || s().doc?.guides?.h.length) },
     { id: 'view.snap', label: 'Snap', hotkey: 'Ctrl+Shift+;', run: () => ui().setPref('snap', !ui().snap), checked: () => ui().snap },
     { id: 'view.pixelGrid', label: 'Pixel grid', run: () => ui().setPref('pixelGrid', !ui().pixelGrid), checked: () => ui().pixelGrid },
+    { id: 'view.fxOff', label: 'Effects off while looking', run: () => useEditor.setState({ fxOff: !s().fxOff, docRev: s().docRev + 1 }), checked: () => s().fxOff, enabled: hasDoc, keywords: 'before after compare disable hide effects preview' },
+    { id: 'fx.copy', label: 'Copy effects', run: copyFxFromSelection, enabled: hasLayer, keywords: 'effects style copy' },
+    { id: 'fx.pasteAdd', label: 'Paste effects', run: () => pasteFx(false), enabled: () => hasLayer() && hasFxClip(), keywords: 'effects paste add' },
+    { id: 'fx.pasteReplace', label: 'Paste effects in place of theirs', run: () => pasteFx(true), enabled: () => hasLayer() && hasFxClip(), keywords: 'effects paste replace' },
+    ...EFFECT_KINDS.filter(k => k !== 'voidEffect' && k !== 'lut' && k !== 'colorMatch').map(k => ({ id: 'fx.add.' + k, label: `Add effect: ${ADJUSTMENT_LABELS[k]}`, run: () => addFxFromCommand(newEffect(k)), enabled: hasDoc, keywords: 'effect filter adjustment non-destructive' })),
+    ...VOID_EFFECTS.filter(e => e.id !== 'none').map(e => ({ id: 'fx.add.void.' + e.id, label: `Add effect: ${e.name}`, run: () => addFxFromCommand(newEffect('voidEffect', e.id)), enabled: hasDoc, keywords: 'effect filter ' + e.description.toLowerCase() })),
     { id: 'view.before', label: 'Before and after (hold \\)', run: () => { useEditor.setState({ compare: true }); setTimeout(() => useEditor.setState({ compare: false }), 1500) } },
     { id: 'view.contextBar', label: 'Contextual action bar', run: () => ui().setPref('showContextBar', !ui().showContextBar), checked: () => ui().showContextBar },
     { id: 'view.status', label: 'Status bar', run: () => ui().setPref('showStatusBar', !ui().showStatusBar), checked: () => ui().showStatusBar },
@@ -472,10 +483,10 @@ export const MENUS: { label: string; items: MenuItem[] }[] = [
   { label: 'File', items: ['file.new', 'file.open', 'file.place', '-', 'file.save', 'file.saveDisk', 'file.version', 'file.versions', 'file.template', '-', 'file.export', 'file.void', 'file.voidPng', 'file.resize', { label: 'Boards', items: ['file.boards', '-', 'board.duplicate', 'board.empty', 'board.organise'] }, '-', 'file.close'] },
   { label: 'Edit', items: ['edit.undo', 'edit.redo', '-', 'edit.cut', 'edit.copy', 'edit.copyMerged', 'edit.paste', 'edit.pasteInPlace', 'edit.duplicate', '-', 'style.copyAppearance', 'style.pasteAppearance', '-', 'edit.fill', 'edit.stroke', '-', 'edit.freeTransform', { label: 'Transform', items: ['edit.skew', 'edit.distort', 'edit.perspective', 'edit.warp', '-', 'edit.rotate90', 'edit.rotate180', '-', 'edit.flipH', 'edit.flipV'] }, '-', 'edit.brand', 'edit.prefs', 'edit.account'] },
   { label: 'Image', items: [{ label: 'Adjustments', items: [...ADJ_ORDER.map(k => 'adj.' + k), '-', 'adj.lut'] }, '-', 'image.size', 'image.canvas', 'image.expand', { label: 'Image rotation', items: ['image.rot90', 'image.rot-90', 'image.rot180', '-', 'image.flipH', 'image.flipV'] }, 'image.crop', 'image.trim', '-', 'image.flatten'] },
-  { label: 'Layer', items: ['layer.new', 'layer.duplicate', 'layer.delete', 'layer.lock', 'layer.hide', '-', { label: 'Layer style', items: ['layer.style', '-', ...STYLE_KINDS.map(k => 'style.' + k), '-', 'style.copy', 'style.paste', 'style.clear'] }, { label: 'Layer mask', items: ['mask.add', 'mask.hide', 'mask.fromPath', '-', 'mask.invert', 'mask.toggle', 'mask.delete'] }, { label: 'Vector mask', items: ['vmask.add', 'vmask.fromPath', 'vmask.edit', '-', 'vmask.rasterize', 'vmask.delete'] }, 'layer.clip', { label: 'Formats', items: ['formats.sync', 'formats.relay'] }, { label: 'Pathfinder', items: ['pf.unite', 'pf.minusFront', 'pf.minusBack', 'pf.intersect', 'pf.exclude', 'pf.divide', '-', 'path.expand'] }, { label: 'Path', items: ['path.outline', 'type.onPath', '-', 'path.toSel', 'path.shape', 'path.fromLayer', '-', 'path.fill', 'path.stroke', 'path.strokeTaper', '-', 'path.close', 'path.reverse', 'path.simplify', '-', 'path.opAdd', 'path.opSub', 'path.opInt', 'path.opXor', '-', 'path.copySvg', 'path.exportSvg'] }, '-', 'layer.group', 'layer.ungroup', 'layer.isolate', 'layer.link', { label: 'Arrange', items: ['layer.front', 'layer.up', 'layer.down', 'layer.back'] }, { label: 'Align', items: ['align.left', 'align.hcenter', 'align.right', '-', 'align.top', 'align.vcenter', 'align.bottom', '-', 'dist.h', 'dist.v'] }, '-', 'layer.removeBg', 'layer.rasterize', 'layer.mergeDown', 'layer.mergeVisible', 'layer.stamp', 'image.flatten'] },
+  { label: 'Layer', items: ['layer.new', 'layer.duplicate', 'layer.delete', 'layer.lock', 'layer.hide', '-', { label: 'Layer style', items: ['layer.style', '-', ...STYLE_KINDS.map(k => 'style.' + k), '-', 'style.copy', 'style.paste', 'style.clear'] }, { label: 'Layer mask', items: ['mask.add', 'mask.hide', 'mask.fromPath', '-', 'mask.invert', 'mask.toggle', 'mask.delete'] }, { label: 'Vector mask', items: ['vmask.add', 'vmask.fromPath', 'vmask.edit', '-', 'vmask.rasterize', 'vmask.delete'] }, 'layer.clip', { label: 'Formats', items: ['formats.sync', 'formats.relay'] }, { label: 'Pathfinder', items: ['pf.unite', 'pf.minusFront', 'pf.minusBack', 'pf.intersect', 'pf.exclude', 'pf.divide', '-', 'path.expand'] }, { label: 'Path', items: ['path.outline', 'type.onPath', '-', 'path.toSel', 'path.shape', 'path.fromLayer', '-', 'path.fill', 'path.stroke', 'path.strokeTaper', '-', 'path.close', 'path.reverse', 'path.simplify', '-', 'path.opAdd', 'path.opSub', 'path.opInt', 'path.opXor', '-', 'path.copySvg', 'path.exportSvg'] }, '-', 'layer.group', 'layer.ungroup', 'layer.isolate', 'layer.link', { label: 'Effects', items: ['fx.copy', 'fx.pasteAdd', 'fx.pasteReplace', '-', 'view.fxOff'] }, { label: 'Arrange', items: ['layer.front', 'layer.up', 'layer.down', 'layer.back'] }, { label: 'Align', items: ['align.left', 'align.hcenter', 'align.right', '-', 'align.top', 'align.vcenter', 'align.bottom', '-', 'dist.h', 'dist.v'] }, '-', 'layer.removeBg', 'layer.rasterize', 'layer.mergeDown', 'layer.mergeVisible', 'layer.stamp', 'image.flatten'] },
   { label: 'Select', items: ['sel.all', 'sel.allLayers', { label: 'Same', items: ['sel.sameFill', 'sel.sameStroke', 'sel.sameFont', 'sel.sameKind', 'sel.sameStyle'] }, 'sel.none', 'sel.reselect', 'sel.inverse', '-', 'sel.subject', 'sel.object', 'sel.colorRange', 'sel.layer', '-', 'sel.mask', { label: 'Modify', items: ['sel.expand', 'sel.contract', 'sel.feather', 'sel.smooth', 'sel.border'] }, '-', 'sel.save', 'sel.path', 'sel.quickMask'] },
   { label: 'Filter', items: ['filter.gallery', 'filter.remove', '-', ...(['artistic', 'stylize', 'color', 'distortion', 'enhance'] as const).map(cat => ({ label: { artistic: 'Artistic', stylize: 'Stylize', color: 'Colour', distortion: 'Distort', enhance: 'Enhance' }[cat], items: effects.filter(e => e.category === cat).map(e => 'fx.' + e.id) }))] },
-  { label: 'View', items: ['view.zoomIn', 'view.zoomOut', 'view.fit', 'view.100', 'view.fitSel', 'view.fitBoard', '-', 'view.rulers', 'view.guides', 'view.lockGuides', 'view.snap', 'view.pixelGrid', { label: 'Guides', items: ['view.newGuide', 'view.guideLayout', 'view.clearGuides'] }, '-', 'view.before', 'view.contextBar', 'view.status', 'view.touch'] },
+  { label: 'View', items: ['view.zoomIn', 'view.zoomOut', 'view.fit', 'view.100', 'view.fitSel', 'view.fitBoard', '-', 'view.rulers', 'view.guides', 'view.lockGuides', 'view.snap', 'view.pixelGrid', { label: 'Guides', items: ['view.newGuide', 'view.guideLayout', 'view.clearGuides'] }, '-', 'view.before', 'view.fxOff', 'view.contextBar', 'view.status', 'view.touch'] },
   { label: 'Window', items: [...(Object.keys(PANEL_LABELS) as PanelId[]).map(p => 'panel.' + p), '-', 'tools.float', { label: 'Workspace', items: () => [...Object.keys(WORKSPACES).map(n => 'ws.' + n), ...Object.keys(useUi.getState().saved).filter(n => !WORKSPACES[n]).map(n => 'ws.saved.' + n), '-', 'ws.save', 'ws.reset'] }, { label: 'Interface size', items: ['scale.0.9', 'scale.1', 'scale.1.1', 'scale.1.25', 'scale.1.4', 'scale.1.5', '-', 'density.compact', 'density.comfortable'] }] },
   { label: 'Help', items: ['help.learn', 'help.guide', 'help.search', 'help.keys', 'help.shortcutsRef', '-', 'help.ai', 'help.privacy', '-', 'help.feedback', 'help.bug', '-', 'help.blog', 'help.about'] },
 ]
@@ -494,7 +505,7 @@ export function canvasMenu(under: string[]): MenuItem[] {
   return [
     ...pick,
     'edit.cut', 'edit.copy', 'edit.paste', 'edit.duplicate', 'layer.delete', '-',
-    'style.copyAppearance', 'style.pasteAppearance', '-',
+    'style.copyAppearance', 'style.pasteAppearance', 'fx.copy', 'fx.pasteAdd', 'fx.pasteReplace', '-',
     'layer.group', ...(inGroup ? ['layer.ungroup', 'layer.isolate'] : []), 'layer.clip',
     { label: 'Arrange', items: ['layer.front', 'layer.up', 'layer.down', 'layer.back'] },
     ...(sel.length > 1 ? [{ label: 'Align', items: ['align.left', 'align.hcenter', 'align.right', '-', 'align.top', 'align.vcenter', 'align.bottom', '-', 'dist.h', 'dist.v'] } as MenuItem] : []),
@@ -508,6 +519,38 @@ export function canvasMenu(under: string[]): MenuItem[] {
 export function keyFor(a: Action): string | undefined {
   if (a.webHotkey && typeof window !== 'undefined' && !(window as any).voidDesktop) return a.webHotkey
   return a.hotkey ?? a.shortcut
+}
+
+// ─── Effects clipboard ─────────────────────────────────────────────
+// Copy effects from one layer, group, board or the design, and paste them onto others (added, or in place of theirs).
+
+let fxClip: Effect[] | null = null
+export const setFxClip = (list: Effect[]) => { fxClip = list.map(e => copyEffect(e)) }
+export const hasFxClip = () => !!fxClip?.length
+function copyFxFromSelection() {
+  const t = selectionTargetsNow()[0]
+  const list = t ? stackOf(s(), t) : []
+  if (!list.length) { s().notify('The selection has no effects to copy.'); return }
+  setFxClip(list); s().notify(`${list.length === 1 ? 'One effect' : list.length + ' effects'} copied.`)
+}
+function pasteFx(replace: boolean) {
+  if (!fxClip?.length) { s().notify('Copy effects first.'); return }
+  const targets = selectionTargetsNow()
+  if (!targets.length) { s().notify('Select the layers to paste onto.'); return }
+  for (const t of targets) useEditor.getState().setEffects(t, [...(replace ? [] : stackOf(useEditor.getState(), t)), ...fxClip.map(e => copyEffect(e))], replace ? 'Paste effects (replace)' : 'Paste effects')
+}
+/** From the command search: the selection, or with nothing selected the active board (or the whole design). */
+function addFxFromCommand(fx: Effect) {
+  const st = s()
+  const targets = selectionTargetsNow()
+  const t: FxTarget[] = targets.length ? targets : st.doc?.frames?.length && st.activeFrameId ? [{ type: 'board', id: st.activeFrameId }] : [{ type: 'doc' }]
+  import('./components/EffectsSection').then(m => m.addEffectTo(t, fx))
+}
+export function selectionTargetsNow(): FxTarget[] {
+  const st = s()
+  return selectionUnits(st.layers, st.groups, st.selectedIds, st.isolatedGroupId)
+    .map(u => (u.group ? { type: 'group' as const, id: u.group } : { type: 'layer' as const, id: u.ids[0] }))
+    .filter(t => t.type === 'group' || st.layers.find(l => l.id === t.id)?.type !== 'adjustment')
 }
 
 export function resolveAction(actions: Record<string, Action>, id: string): Action | null {

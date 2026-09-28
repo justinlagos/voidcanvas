@@ -16,9 +16,9 @@ const PIXEL_PARAMS: Partial<Record<EffectType, (keyof EffectParams)[]>> = {
   scanlines: ['scale', 'density'], bloom: ['radius'], dotMatrix: ['scale'],
 }
 
-/** Params for rendering `effect` at `k` times the working size. k <= 1 returns the params unchanged. */
+/** Params for rendering `effect` at `k` times the working size: above 1 for exports, below 1 for small previews. */
 export function scaleParams(effect: EffectType, params: EffectParams, k: number): EffectParams {
-  if (k <= 1.001) return params
+  if (Math.abs(k - 1) < 0.001 || !(k > 0)) return params
   const keys = PIXEL_PARAMS[effect] ?? []
   const out = { ...params, renderScale: k }
   for (const key of keys) { const v = out[key]; if (typeof v === 'number') (out as Record<string, unknown>)[key] = v * k }

@@ -1,6 +1,6 @@
 # The .void file format
 
-Version 3. Written by `src/editor/voidfile.ts`. Keep this document and that module in step.
+Version 4. Written by `src/editor/voidfile.ts`. Keep this document and that module in step.
 
 A `.void` file holds one complete, editable Voidcanvas design. It is the unit used everywhere: saving to disk, backups, the desktop app, and later sync and share links. The format is open so people own their work: anyone can read a `.void` file without Voidcanvas.
 
@@ -24,7 +24,7 @@ Extensions: `png`, `jpg`, `webp`, `ttf`, `otf`, `woff`, `woff2`, or `bin` for an
 ```json
 {
   "format": "voidcanvas",
-  "version": 3,
+  "version": 4,
   "minReader": 3,
   "app": "voidcanvas-web",
   "savedAt": "2026-09-26T13:00:00.000Z",
@@ -40,7 +40,8 @@ Extensions: `png`, `jpg`, `webp`, `ttf`, `otf`, `woff`, `woff2`, or `bin` for an
 
 - `doc`: the document as stored by the Editor (`packDoc` in `io.ts`). Saved selections are listed in `channelMeta`; their pixels are the assets `ch:<id>`.
 - `layers`: layer metadata in the Editor's layer order. Pixel data is not inline. A raster layer's bitmap is the asset keyed by its id. A layer with `hasMask: true` has its mask in the asset `<id>:mask`.
-- `assets`: pixels, keyed as above.
+- `assets`: pixels, keyed as above. A group with `hasMask: true` has its mask (document pixels) in the asset `g:<id>:mask`.
+- Effect stacks (version 4): `effects` on a layer, a group, a board in `doc.frames`, and on `doc` itself. Each is a list of `{ id, kind, values, …, on, opacity, blend, link? }`, where `kind` is an adjustment kind or `voidEffect` with `effect` and `effectParams`. Linked copies on several targets share `link`. A layer or group with `fxExclude: true` is left out of the effects of the group it sits in. A group can also carry `styles` (shadow, glow, stroke, overlays). An adjustment layer can carry `reach`: `below` (default), `group`, or `clip` with `clipId` set to the layer below. An effect with `hasMask: true` shows only where its mask is; the mask (document pixels, opaque shows) is the asset `fx:<owner>:<effect id>:mask`, where the owner is the layer id, `g<group id>`, `f<board id>` or `doc`. `maskOn: false` keeps the mask but draws the effect everywhere. Adjustment layer masks, group masks and effect masks can carry `maskAt: { x, y }`, the position of the mask's top left corner in document pixels (for an effect on a layer, from the layer's `x` and `y`); without it the mask starts at 0,0. Masks are drawn one to one, not stretched to the page.
 - `fonts`: font files added from the person's device, keyed by family name. Google Fonts are not embedded; they load by name.
 
 ## Versions and compatibility
@@ -57,6 +58,7 @@ History:
 |---|---|---|
 | 1, 2 | One JSON object | Bitmaps base64 inline under `blobs`. Fonts were not saved. Still readable |
 | 3 | ZIP | Content-addressed blobs, fonts included, preview, `minReader` |
+| 4 | ZIP | Effect stacks on layers, groups, boards and the design, with effect masks; group masks and styles; adjustment `reach`. `minReader` stays 3: a version 3 reader opens the file and misses only the effects. A reader keeps effects of kinds it does not know and says so |
 
 ## .void.png
 

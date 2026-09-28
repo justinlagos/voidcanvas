@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PanelRight } from 'lucide-react'
 import { blobToCanvas, flushSave, getBrand, hasUnsaved, importFiles, openProject, saveProject, startAutosave, takeHandoff } from '../io'
 import { checkInvariants } from '../invariants'
-import { useEditor } from '../store'
+import { useEditor, ADJUSTMENT_LABELS } from '../store'
 import { AddMenu } from './AddMenu'
 import { CommandPalette } from './CommandPalette'
 import { BrandKitDialog, ResizeDialog, ShortcutSheet, applyBrand } from './Dialogs'
@@ -30,10 +30,15 @@ import { AiInfoDialog, CanvasSizeDialog, ColorRangeDialog, FillDialog, GuideLayo
 import { LayerStyleDialog } from './LayerStyleDialog'
 import { SelectMask } from './SelectMask'
 import { useDesktop } from '../useDesktop'
+import { selectionTargetsNow } from '../actions'
 import { buildActions, canvasMenu, resolveAction, type MenuItem, eventCombo, internalClip, isOwnLayerPicture, noteDuplicate, normCombo, pasteInPlace, pasteLayers, selectAllLayers, smartDuplicate } from '../actions'
-import { groupChain, inGroup } from '../store'
+import { asOneStep, groupChain, inGroup, selectionUnits } from '../store'
 import { useUi } from '../ui-store'
 import { useComments } from '../comments'
+import { effectLabel, newEffect, type FxTarget } from '../effects'
+import { recallView } from '../viewmemory'
+import type { Effect } from '../types'
+import { FxScopeDialog } from './FxScopeDialog'
 import { MobileEditor, useIsPhone } from './MobileEditor'
 import * as ops from '../ops'
 import { markSessionClean, noteEdit, readCrashedSession, startAutoVersions, writeSession } from '../versions'
@@ -86,6 +91,40 @@ export function EditorShell() {
     w.__vcCheck = () => checkInvariants(useEditor.getState())
     w.__vcSave = { flush: flushSave, unsaved: hasUnsaved }
     w.__vcComments = useComments
+    // Effects checks (e2e/effects-scope.mjs): the design as the canvas previews it (at `scale`, as when zoomed out
+    // or with many boards) against the export, board by board. Both are shrunk to 64 px wide and compared: the mean
+    // difference per channel (0 to 255), and the worst 8 x 8 block.
+    w.__vcParity = async (o: { frame?: string; scale?: number; images?: boolean } = {}) => {
+      const [{ renderDoc, makeCanvas }, io] = await Promise.all([import('../engine'), import('../io')])
+      const st = useEditor.getState(); if (!st.doc) return null
+      const f = o.frame ? st.doc.frames?.find(x => x.id === o.frame) ?? null : null
+      const r = f ? { x: f.x, y: f.y, w: f.width, h: f.height } : { x: 0, y: 0, w: st.doc.width, h: st.doc.height }
+      const sc = o.scale ?? 1
+      const whole = makeCanvas(1, 1)
+      renderDoc(whole, st.doc, st.layers, { groups: st.groups, scale: sc, noShadow: true, noCache: true })
+      const exp = io.renderFrame(f ? f.id : '__doc', 1)!
+      const bw = 64, bh = Math.max(8, Math.round((64 * r.h) / r.w))
+      const small = (c: HTMLCanvasElement, sx: number, sy: number, sw: number, sh: number) => { const t = makeCanvas(bw, bh); const x = t.getContext('2d')!; x.fillStyle = '#fff'; x.fillRect(0, 0, bw, bh); x.imageSmoothingQuality = 'high'; x.drawImage(c, sx, sy, sw, sh, 0, 0, bw, bh); return x.getImageData(0, 0, bw, bh).data }
+      const a = small(whole, r.x * sc, r.y * sc, r.w * sc, r.h * sc), b = small(exp, 0, 0, exp.width, exp.height)
+      let d = 0; for (let i = 0; i < a.length; i++) if (i % 4 !== 3) d += Math.abs(a[i] - b[i])
+      let worst = 0
+      for (let by = 0; by < bh; by += 8) for (let bx = 0; bx < bw; bx += 8) {
+        let s = 0, n = 0
+        for (let y = by; y < Math.min(bh, by + 8); y++) for (let x = bx; x < bx + 8; x++) { const i = (y * bw + x) * 4; s += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]); n += 3 }
+        worst = Math.max(worst, s / n)
+      }
+      if (o.images) { const c = makeCanvas(r.w * sc, r.h * sc); c.getContext('2d')!.drawImage(whole, r.x * sc, r.y * sc, r.w * sc, r.h * sc, 0, 0, r.w * sc, r.h * sc); return { mean: d / ((a.length / 4) * 3), worst, preview: c.toDataURL(), exported: exp.toDataURL() } }
+      return { mean: d / ((a.length / 4) * 3), worst }
+    }
+    w.__vcFx = { newEffect }
+    // Pixels of the design as drawn (for effect checks), at scale 1, as RGBA arrays per rectangle.
+    w.__vcPixels = async (rect: { x: number; y: number; w: number; h: number }, o: { noFx?: boolean } = {}) => {
+      const { renderDoc, makeCanvas } = await import('../engine')
+      const st = useEditor.getState(); if (!st.doc) return null
+      const c = makeCanvas(1, 1)
+      renderDoc(c, st.doc, st.layers, { groups: st.groups, scale: 1, noShadow: true, noCache: true, noFx: o.noFx })
+      return Array.from(c.getContext('2d')!.getImageData(rect.x, rect.y, rect.w, rect.h).data)
+    }
   }, [])
 
   const docId = useEditor(s => s.doc?.id)
@@ -172,6 +211,28 @@ export function EditorShell() {
       if (!h) return
       track('doc.import', { kind: 'from-' + h.from, count: h.images?.length ?? 0 })
       const ed = useEditor.getState()
+      // From the Effects page: its effects go onto what was selected in the design open in this tab.
+      if (h.addEffects) {
+        const { projectId, effects: list } = h.addEffects
+        const wasOpen = useEditor.getState().doc?.id === projectId
+        if (!wasOpen && !(await openProject(projectId))) { ed.notify('That design is not on this device any more.'); return }
+        const st = useEditor.getState()
+        const sel = (wasOpen ? st.selectedIds : recallView(projectId)?.sel ?? []).filter(id => st.layers.some(l => l.id === id))
+        if (sel.length) useEditor.setState({ selectedIds: sel, activeId: sel[sel.length - 1] })
+        const fx = effectsFrom(list)
+        let targets = sel.length ? selectionTargetsNow() : []
+        let where = targets.length === 1 ? nameOf(targets[0]) : `${targets.length} layers`
+        if (!targets.length) {
+          const f = st.activeFrameId ? st.doc?.frames?.find(x => x.id === st.activeFrameId) : null
+          targets = [(f ? { type: 'board', id: f.id } : { type: 'doc' }) as FxTarget]
+          where = f ? `the board “${f.name}”` : 'the whole design'
+        }
+        useEditor.getState().addEffect(targets, fx, fx.length > 1 ? 'Add effects' : `Add ${fxNames(fx)}`.toLowerCase().replace(/^add/, 'Add'))
+        if (targets.length === 1 && targets[0].type === 'layer') useEditor.setState({ activeId: targets[0].id, selectedIds: [targets[0].id] })
+        useUi.getState().showPanel('properties')
+        ed.notify(`Added ${fxNames(fx)} to ${where}. Change ${fx.length > 1 ? 'them' : 'it'} under Effects in Properties.`)
+        return
+      }
       // Jobs: open the job's design and build or update its formats.
       if (h.openProject) {
         const ok = await openProject(h.openProject)
@@ -209,12 +270,16 @@ export function EditorShell() {
       const size = h.size ?? (canvases[0] ? { width: canvases[0].width, height: canvases[0].height } : { width: 1080, height: 1350 })
       ed.newDoc({ name: h.name, ...size, background: h.from === 'studio' ? '#ffffff' : null })
       canvases.forEach((c, i) => useEditor.getState().addImage(c, c.width, c.height, h.images[i].name))
-      if (h.liveEffect) {
-        const st = useEditor.getState()
-        st.addAdjustment('voidEffect', h.liveEffect.effect as any)
-        const fl = st.active()
-        if (fl && fl.type === 'adjustment') st.updateLayer(fl.id, { effectParams: { ...(fl.effectParams ?? {}), ...h.liveEffect.params } } as any)
-        ed.notify('Added as a live filter layer. Adjust it any time in the layers panel.')
+      const live = h.liveEffects ?? (h.liveEffect ? [h.liveEffect] : [])
+      if (live.length) {
+        // The effects sit on the photo itself, so anything added on top later stays clean.
+        const st = useEditor.getState(), photo = st.active()
+        if (photo && photo.type !== 'adjustment') {
+          const fx = effectsFrom(live)
+          st.addEffect([{ type: 'layer', id: photo.id }], fx, fx.length > 1 ? 'Add effects' : 'Add effect')
+          useEditor.setState({ activeId: photo.id, selectedIds: [photo.id] })
+          ed.notify(`${fxNames(fx).replace(/^./, c => c.toUpperCase())} ${fx.length > 1 ? 'are' : 'is'} on the photo layer. Change ${fx.length > 1 ? 'them' : 'it'} under Effects in Properties.`)
+        }
       }
       if (h.look) {
         const st = useEditor.getState()
@@ -251,6 +316,32 @@ export function EditorShell() {
     return () => window.removeEventListener('vc:canvasmenu', on)
   }, [])
   const closeCtx = useCallback(() => setCtxMenu(null), [])
+  // "One image or each layer?" for spatial effects on groups, and adjustment layers above a selection.
+  const [fxAsk, setFxAsk] = useState<{ targets: FxTarget[]; fx: Effect } | null>(null)
+  useEffect(() => {
+    const ask = (e: Event) => setFxAsk((e as CustomEvent).detail)
+    const above = (e: Event) => {
+      const fx: Effect = (e as CustomEvent).detail?.fx; if (!fx) return
+      asOneStep(() => {
+        const s = useEditor.getState()
+        const units = selectionUnits(s.layers, s.groups, s.selectedIds, s.isolatedGroupId)
+        let gid = units.length === 1 ? units[0].group : null
+        if (!gid) { s.groupSelected(); gid = useEditor.getState().active()?.groupId ?? null }
+        if (!gid) return
+        const st = useEditor.getState()
+        const members = st.layers.filter(l => inGroup(l, gid!, st.groups))
+        st.setActive(members[members.length - 1].id)
+        st.addAdjustment(fx.kind, fx.effect)
+        const adj = useEditor.getState().active()
+        if (adj?.type !== 'adjustment') return
+        const { id: _i, on: _o, link: _l, unknown: _u, opacity, blend, ...settings } = fx
+        useEditor.getState().updateLayer(adj.id, { ...settings, groupId: gid, reach: 'group', name: adj.name } as any)
+        useEditor.getState().commit(`Add ${adj.name.toLowerCase()} above`)
+      })
+    }
+    window.addEventListener('vc:fxscope', ask); window.addEventListener('vc:fxlayerabove', above)
+    return () => { window.removeEventListener('vc:fxscope', ask); window.removeEventListener('vc:fxlayerabove', above) }
+  }, [])
   useDesktop(actions)
   // An account is optional; if this device is signed in, settings sync starts here.
   useEffect(() => { import('@/lib/account').then(m => m.initAccount()).catch(() => {}) }, [])
@@ -439,6 +530,7 @@ export function EditorShell() {
         </>
       )}
 
+      {fxAsk && hasDoc && <FxScopeDialog targets={fxAsk.targets} fx={fxAsk.fx} onClose={() => setFxAsk(null)} />}
       {ctxMenu && hasDoc && !phone && <CanvasMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onDone={closeCtx} />}
       {m === 'add' && hasDoc && <AddMenu onClose={close} />}
       {m === 'filters' && hasDoc && <AddMenu filtersOnly onClose={close} />}
@@ -494,3 +586,18 @@ function recallOpen(): { tabs: { id: string; name: string }[]; active: string | 
  *  this load is a reload or a return with Back/Forward. Going to /editor afresh shows the start screen. */
 const navType = typeof performance !== 'undefined' ? (performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming | undefined)?.type : undefined
 let openAtStart = typeof window !== 'undefined' && (navType === 'reload' || navType === 'back_forward') ? recallOpen() : null
+
+/** Effects page settings as editable effects. */
+function effectsFrom(list: { effect: string; params: Record<string, number | string> }[]): Effect[] {
+  return list.map(x => { const e = newEffect('voidEffect', x.effect as any); e.effectParams = { ...e.effectParams!, ...x.params } as any; return e })
+}
+function fxNames(fx: Effect[]): string {
+  const n = fx.map(e => effectLabel(e, ADJUSTMENT_LABELS))
+  return n.length > 1 ? n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1] : n[0] ?? ''
+}
+function nameOf(t: FxTarget): string {
+  const s = useEditor.getState()
+  if (t.type === 'layer') return `“${s.layers.find(l => l.id === t.id)?.name ?? 'the layer'}”`
+  if (t.type === 'group') return `the group “${s.groups.find(g => g.id === t.id)?.name ?? ''}”`
+  return 'the design'
+}

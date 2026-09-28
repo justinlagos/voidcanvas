@@ -14,13 +14,13 @@ export async function loadDesign(id: string | null | undefined): Promise<LoadedD
 }
 
 async function fromStored(p: StoredProject): Promise<LoadedDesign> {
-  const { doc, layers } = await restoreStored(p)
+  const { doc, layers, groups } = await restoreStored(p)
   // Thumbnails, mockups and delivered files must use the real fonts, not a stand-in.
   const want = new Map<string, [string, number, boolean]>()
   for (const l of layers) if (l.type === 'text') want.set(`${l.fontFamily}|${l.fontWeight}|${!!l.italic}`, [l.fontFamily, l.fontWeight, !!l.italic])
   await Promise.all(Array.from(want.values()).map(([f, w, i]) => ensureFont(f, w, i).catch(() => {})))
   try { await document.fonts.ready } catch { /* older browsers */ }
-  return { doc, layers, groups: p.groups ?? [] }
+  return { doc, layers, groups }
 }
 
 /**
@@ -38,8 +38,8 @@ export function renderBoard(d: LoadedDesign, frame: Frame | null, scale: number,
   const sub: Doc = { ...doc, width: frame.width, height: frame.height, frames: [f0] }
   const layers = d.layers.filter(l => l.frameId === frame.id).map(l => ({ ...l, x: l.x - frame.x, y: l.y - frame.y }) as Layer)
   const c = makeCanvas(Math.max(1, Math.round(frame.width * scale)), Math.max(1, Math.round(frame.height * scale)))
-  // Filters are scaled from the whole design the Editor previewed them on, not from this one board.
-  renderDoc(c, sub, layers, { groups: d.groups, scale, noCache: true, noShadow: true, fullRes: full, fxLong: Math.max(doc.width, doc.height) })
+  // Effects and filters on a board are worked out from the board itself, as the Editor draws and exports them.
+  renderDoc(c, sub, layers, { groups: d.groups, scale, noCache: true, noShadow: true, fullRes: full })
   return c
 }
 

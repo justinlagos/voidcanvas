@@ -94,6 +94,9 @@ export interface EffectParams {
   renderScale: number
 }
 
+/** One effect in the Effects page stack. */
+export interface StackItem { effect: EffectType; params: EffectParams }
+
 interface Store {
   // Image state
   originalImage: string | null
@@ -108,8 +111,19 @@ interface Store {
   setParam: <K extends keyof EffectParams>(key: K, value: EffectParams[K]) => void
   resetParams: () => void
 
+  /** Effects run in order: `below`, then the one being edited (activeEffect), then `above`. */
+  below: StackItem[]
+  above: StackItem[]
+  /** Keep the effect being edited and start another on top of everything. */
+  addAnother: () => void
+  /** Edit another effect in the stack (its index in the whole list). */
+  editAt: (i: number) => void
+  /** Take an effect out of the stack (its index in the whole list). */
+  removeAt: (i: number) => void
+  clearStack: () => void
+
   // History
-  history: { effect: EffectType; params: EffectParams }[]
+  history: { effect: EffectType; params: EffectParams; below: StackItem[]; above: StackItem[] }[]
   pushHistory: () => void
   undo: () => void
 
@@ -179,9 +193,36 @@ export const useStore = create<Store>((set, get) => ({
   })),
   resetParams: () => set({ params: { ...defaultParams, seed: Math.random() * 1000 } }),
 
+  below: [],
+  above: [],
+  addAnother: () => {
+    const s = get(); if (s.activeEffect === 'none') return
+    s.pushHistory()
+    set({ below: [...s.below, { effect: s.activeEffect, params: { ...s.params } }, ...s.above], above: [], activeEffect: 'none', params: { ...defaultParams, seed: Math.random() * 1000 } })
+  },
+  editAt: (i) => {
+    const s = get(), all = fullStack(s)
+    if (i === s.below.length || !all[i]) return
+    // An empty slot ("Add another" with nothing picked yet) goes away when you edit something else.
+    const rest = s.activeEffect === 'none' ? all.filter((_, j) => j !== s.below.length) : all
+    const k = rest.indexOf(all[i])
+    set({ below: rest.slice(0, k), activeEffect: rest[k].effect, params: rest[k].params, above: rest.slice(k + 1) })
+  },
+  removeAt: (i) => {
+    const s = get(), all = fullStack(s)
+    if (!all[i]) return
+    s.pushHistory()
+    const rest = all.filter((x, j) => j !== i && x.effect !== 'none')
+    if (!rest.length) { set({ below: [], above: [], activeEffect: 'none' }); return }
+    // Edit the effect that took its place, or the new top one.
+    const k = Math.min(i, rest.length - 1)
+    set({ below: rest.slice(0, k), activeEffect: rest[k].effect, params: rest[k].params, above: rest.slice(k + 1) })
+  },
+  clearStack: () => set({ below: [], above: [] }),
+
   history: [],
   pushHistory: () => set((state) => ({
-    history: [...state.history.slice(-29), { effect: state.activeEffect, params: { ...state.params } }]
+    history: [...state.history.slice(-29), { effect: state.activeEffect, params: { ...state.params }, below: state.below, above: state.above }]
   })),
   undo: () => {
     const { history } = get()
@@ -190,6 +231,8 @@ export const useStore = create<Store>((set, get) => ({
       set({
         activeEffect: prev.effect,
         params: prev.params,
+        below: prev.below ?? [],
+        above: prev.above ?? [],
         history: history.slice(0, -1)
       })
     }
@@ -220,3 +263,9 @@ export const useStore = create<Store>((set, get) => ({
     }
   })),
 }))
+
+/** Every effect in the stack, in the order they run. With `live`, only the ones that change anything. */
+export function fullStack(s: { below: StackItem[]; above: StackItem[]; activeEffect: EffectType; params: EffectParams }, live = false): StackItem[] {
+  const all = s.activeEffect === 'none' && live ? [...s.below, ...s.above] : [...s.below, { effect: s.activeEffect, params: s.params }, ...s.above]
+  return live ? all.filter(x => x.effect !== 'none') : all
+}

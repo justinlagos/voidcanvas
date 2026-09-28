@@ -10,11 +10,11 @@ export const articles: Article[] = [
   {
     slug: 'effects-overview',
     title: 'Use Effects to restyle a photo in one click',
-    summary: 'Load a photo, pick one of 58 effects, tune its sliders, compare with the original, then download at full size or send it to the Editor as a live layer.',
+    summary: 'Load a photo, pick one of 58 effects, tune its sliders, stack more, compare with the original, then download at full size or send the effects to the Editor, still editable.',
     category: 'effects',
     level: 'Beginner',
-    updated: UPDATED,
-    related: ['artistic-effects', 'quick-tools', 'moving-work-between-tools', 'filters-in-the-editor'],
+    updated: '2026-09-28',
+    related: ['artistic-effects', 'quick-tools', 'moving-work-between-tools', 'effects-on-layers-and-groups', 'filters-in-the-editor'],
     keywords: 'photo filter image effect filters online free halftone glitch dither download full size compare before after open in editor',
     body: [
       { t: 'p', text: 'Effects turns a photo into something else with one click: print dots, pixel art, a heat map, a glitch. You will be able to load an image, find an effect, tune it, check it against the original and get it out at full size or into the Editor. It is the fastest route when you want a look, not a layout.' },
@@ -34,7 +34,7 @@ export const articles: Article[] = [
       { t: 'list', items: [
         '**Search effects...** filters by name and description, so typing "blur" finds Blur, Motion Blur, Radial Blur and Tilt Shift.',
         'The category tabs narrow the list: **All**, **Artistic**, **Stylize**, **Color**, **Distort** and **Enhance**. Each tab shows how many effects it holds.',
-        'The small line at the bottom of the panel shows which effect is active.',
+        'The small line at the bottom of the panel shows which effect is active, or how many are stacked.',
       ] },
       { t: 'p', text: 'Every effect is explained, setting by setting, in its own article: [artistic](/learn/artistic-effects), [stylize](/learn/stylise-effects), [color](/learn/colour-effects), [distort](/learn/distortion-effects) and [enhance](/learn/texture-effects).' },
 
@@ -49,8 +49,17 @@ export const articles: Article[] = [
       { t: 'h3', text: 'Reset, Undo and Clear' },
       { t: 'table', head: ['Button', 'What it does'], rows: [
         ['**Reset**', 'Puts every slider and colour back to its default and picks a new random pattern. The small **Reset** link above the sliders does the same.'],
-        ['**Undo**', 'Goes back to the effect you had before, with the settings it had then. It steps through effect changes, not individual slider moves. It keeps the last 30 steps.'],
-        ['**Clear**', 'Removes the photo and returns to the drop zone.'],
+        ['**Undo**', 'Goes back to the effect you had before, with the settings it had then, and undoes adding or removing an effect in the stack. It steps through effect changes, not individual slider moves. It keeps the last 30 steps.'],
+        ['**Clear**', 'Removes the photo and every effect, and returns to the drop zone.'],
+      ] },
+
+      { t: 'h', text: 'Stack more than one effect' },
+      { t: 'p', text: 'Once an effect is on, **Your effects** appears at the top of the side panel with it listed. Click **Add another effect** and pick a second one: the first stays as it was and the new one runs on top of it. Stack as many as you like.' },
+      { t: 'list', items: [
+        'Effects run in the order listed, each on the result of the one before. Grain then Halftone turns the grain into dots; Halftone then Grain puts grain over the dots.',
+        'The highlighted effect is the one the sliders change. Click another in the list to change that one instead. Its settings are kept.',
+        'The **×** beside an effect takes it out. **Undo** brings it back.',
+        'Downloads, **Open in Editor** and **Add to my design** all use the whole stack. Downloads are named after every effect, like `voidcanvas-halftone-vignette-3000x2000.png`.',
       ] },
 
       { t: 'h', text: 'Compare with the original' },
@@ -72,8 +81,10 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'Send to the Editor' },
-      { t: 'p', text: '**Open in Editor** sends your photo to the Editor with the effect on its own live filter layer above it. The effect stays editable there: you can re-tune it, hide it, mask it or stack more filters. Hold Shift when you click (desktop) to send one flattened image instead. On a phone the button is labelled **Editor**.' },
-      { t: 'p', text: 'Read [filters in the Editor](/learn/filters-in-the-editor) for what you can do with the layer, and [moving work between tools](/learn/moving-work-between-tools) for how the handoff works.' },
+      { t: 'p', text: '**Open in Editor** starts a new design with your photo, and your effects on the photo layer itself, still editable. Select the photo and they are under **Effects** in Properties, where you can re-tune, hide, reorder, mask or remove each one. Anything you add on top later, such as a heading, stays clean. Hold Shift when you click (desktop) to send one flattened image instead. On a phone the button is labelled **Editor**.' },
+      { t: 'h3', text: 'Add to a design you are working on' },
+      { t: 'p', text: 'If a design is open in the Editor in the same browser tab, an **Add to my design** button appears next to Open in Editor (**Add** on a phone). It goes back to that design and puts your effects on the layer you had selected there, or, when nothing was selected, on the board you were on (the whole design if it has no boards). Only the effects travel, not the photo. The message at the bottom of the Editor says where they went, and one undo takes them off again.' },
+      { t: 'p', text: 'Read [effects on layers, groups and boards](/learn/effects-on-layers-and-groups) for what you can do with them there, and [moving work between tools](/learn/moving-work-between-tools) for how the handoff works.' },
 
       { t: 'h', text: 'On a phone' },
       { t: 'p', text: 'On a phone or a portrait tablet the canvas sits on top and the effect list and sliders sit underneath in their own scrolling panel. A bar pinned to the bottom of the screen holds **Undo**, **Reset**, **Clear**, **Editor** and the three download buttons, so they stay within reach of your thumb.' },
@@ -82,10 +93,9 @@ export const articles: Article[] = [
       { t: 'list', items: [
         'The preview works at up to 1200 px on the long edge. Settings measured in pixels (dot size, block size, blur, shift distance) are scaled up for the download so it looks like the preview, only sharper.',
         'Dither, Edge Detect, Emboss, Sharpen, Pencil Sketch and Noise work pixel by pixel with no size setting. On a large photo their download is finer grained than the preview.',
-        '**Open in Editor** sends the photo at the preview size (up to 1200 px on the long edge), so the live filter looks the same on the other side. If you need the full resolution, download instead.',
+        '**Open in Editor** sends the photo at the preview size (up to 1200 px on the long edge), so the effects look the same on the other side. If you need the full resolution, download instead.',
         'Sliders are shared between effects. If you set **Intensity** to 90 on Sepia and then pick Vintage, Vintage starts at 90 too. Press **Reset** when an effect looks wrong on arrival.',
         'Hue Shift and Channel Mix start at a visible setting when you pick them, because their neutral values change nothing. **Reset** puts them back to neutral.',
-        'Only one effect applies at a time here. To stack effects, send the result to the Editor and add more filter layers.',
       ] },
     ],
   },
@@ -670,7 +680,7 @@ export const articles: Article[] = [
       { t: 'p', text: 'The download is rendered again from your original file at its own size, up to 8000 px on the long edge, with pixel-based settings scaled so it matches the preview, only sharper. The file is named after the tool and its size, for example `halftone-3000x2000.png`. The quick tools save PNG only; use Effects if you need JPG or WebP.' },
 
       { t: 'h', text: 'Send to Layer Stack' },
-      { t: 'p', text: 'This opens the Editor with your photo as one layer and the effect as a live filter layer above it, carrying your slider settings. You can keep tuning the effect there, mask it, lower its opacity or add type and shapes around it. See [filters in the Editor](/learn/filters-in-the-editor).' },
+      { t: 'p', text: 'This opens the Editor with your photo as one layer and the effect on that layer, carrying your slider settings. You can keep tuning the effect there, limit it to an area, lower its strength or add type and shapes around it, which stay clean. See [effects on layers, groups and boards](/learn/effects-on-layers-and-groups).' },
 
       { t: 'h', text: 'Quick tools compared with Effects' },
       { t: 'table', head: ['', 'Quick tools', 'Effects'], rows: [

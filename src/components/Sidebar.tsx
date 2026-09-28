@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Sliders, Layers } from 'lucide-react'
 import { EffectSelector } from './EffectSelector'
 import { ParamControls } from './ParamControls'
-import { useStore } from '@/store/useStore'
+import { useStore, fullStack } from '@/store/useStore'
+import { StackBar } from './StackBar'
 
 function CollapsibleSection({
   title,
@@ -60,6 +61,7 @@ function CollapsibleSection({
 
 export function Sidebar() {
   const { activeEffect } = useStore()
+  const count = useStore(s => fullStack(s, true).length)
 
   return (
     <motion.aside
@@ -69,6 +71,8 @@ export function Sidebar() {
       // Phone and portrait tablet: a panel under the canvas with its own scroll. lg and up: the 320 px column beside it.
       className="vc-tap w-full h-[42%] min-h-[220px] border-t lg:w-80 lg:h-auto lg:min-h-0 lg:border-t-0 lg:border-l border-void-800/60 bg-void-950 overflow-y-auto flex flex-col shrink-0"
     >
+      <StackBar />
+
       <CollapsibleSection title="Effects" icon={Layers} defaultOpen={true}>
         <EffectSelector />
       </CollapsibleSection>
@@ -79,7 +83,7 @@ export function Sidebar() {
 
       <div className="mt-auto p-4 border-t border-void-800/40">
         <div className="flex items-center justify-between text-[11px] text-void-600">
-          <span>Active: {activeEffect === 'none' ? 'None' : activeEffect}</span>
+          <span>{count > 1 ? `${count} effects` : `Active: ${activeEffect === 'none' ? 'None' : activeEffect}`}</span>
           <span>Tip: Changes apply live</span>
         </div>
       </div>

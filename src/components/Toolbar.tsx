@@ -1,21 +1,22 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { Download, RotateCcw, Undo2, Trash2, Layers } from 'lucide-react'
-import { useStore } from '@/store/useStore'
+import { Download, RotateCcw, Undo2, Trash2, Layers, PlusSquare } from 'lucide-react'
+import { useStore, fullStack } from '@/store/useStore'
 import { sendHandoff } from '@/editor/io'
 import { noteExportForPrompt, track } from '@/lib/analytics'
-import { renderEffectAt } from '@/lib/effect-runner'
+import { renderStackAt } from '@/lib/effect-runner'
 import { EXPORT_MAX } from '@/lib/effect-scale'
+import { effects } from './effect-list'
 
 type Format = 'png' | 'jpg' | 'webp'
 const MIME: Record<Format, string> = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }
 
 /** The Effects actions: undo, reset, clear, open in Editor, download. Shared by the header (desktop) and the bottom bar (phone). */
 export function useEffectsActions() {
-  const { originalImage, setOriginalImage, resetParams, undo, history, activeEffect, setActiveEffect } = useStore()
+  const { originalImage, setOriginalImage, resetParams, undo, history, activeEffect, setActiveEffect, clearStack } = useStore()
   const router = useRouter()
 
   const [exporting, setExporting] = useState(false)
@@ -26,8 +27,9 @@ export function useEffectsActions() {
     try {
       const img = new Image()
       await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error('image')); img.src = originalImage })
-      const { activeEffect: effect, params } = useStore.getState()
-      const c = await renderEffectAt(img, effect, params, EXPORT_MAX)
+      const list = fullStack(useStore.getState(), true)
+      const c = await renderStackAt(img, list, EXPORT_MAX)
+      const effect = list.map(e => e.effect).join('-') || 'photo'
       const blob = await new Promise<Blob | null>(r => c.toBlob(r, MIME[format], 0.95))
       if (!blob) throw new Error('encode')
       const url = URL.createObjectURL(blob)
@@ -51,9 +53,10 @@ export function useEffectsActions() {
   const openInEditor = useCallback(async (flatten = false) => {
     const result = document.querySelector('canvas[data-result-canvas]') as HTMLCanvasElement | null
     if (!result || !originalImage) return
-    const { activeEffect: effect, params } = useStore.getState()
+    const list = fullStack(useStore.getState(), true)
+    const none = !list.length
     let blob: Blob | null
-    if (flatten || effect === 'none') {
+    if (flatten || none) {
       blob = await new Promise<Blob | null>(r => result.toBlob(r, 'image/png'))
     } else {
       const img = new Image()
@@ -63,20 +66,47 @@ export function useEffectsActions() {
       blob = await new Promise<Blob | null>(r => c.toBlob(r, 'image/png'))
     }
     if (!blob) return
-    const label = effect.replace(/([A-Z])/g, ' $1').replace(/^./, ch => ch.toUpperCase())
-    const id = flatten || effect === 'none'
-      ? await sendHandoff({ from: 'effects', name: effect === 'none' ? 'Photo' : `${label} result`, images: [{ name: effect === 'none' ? 'Photo' : `${label} (flattened)`, blob }] })
-      : await sendHandoff({ from: 'effects', name: `${label} design`, images: [{ name: 'Photo', blob }], liveEffect: { effect, params: { ...params } } })
+    const label = none ? 'Photo' : list.length > 1 ? 'Effects' : nameOf(list[0].effect)
+    const id = flatten || none
+      ? await sendHandoff({ from: 'effects', name: none ? 'Photo' : `${label} result`, images: [{ name: none ? 'Photo' : `${label} (flattened)`, blob }] })
+      : await sendHandoff({ from: 'effects', name: `${label} design`, images: [{ name: 'Photo', blob }], liveEffects: list.map(e => ({ effect: e.effect, params: { ...e.params } })) })
     router.push(`/editor?inbox=${id}`)
   }, [originalImage, router])
+
+  // The design open in this browser tab, if any: the effects can go onto what is selected in it.
+  const openDesign = useOpenDesign()
+  const addToDesign = useCallback(async () => {
+    const list = fullStack(useStore.getState(), true)
+    if (!openDesign || !list.length) return
+    const id = await sendHandoff({ from: 'effects', name: openDesign.name, images: [], addEffects: { projectId: openDesign.id, effects: list.map(e => ({ effect: e.effect, params: { ...e.params } })) } })
+    track('effect.toDesign', { count: list.length })
+    router.push(`/editor?inbox=${id}`)
+  }, [openDesign, router])
 
   const clear = useCallback(() => {
     setOriginalImage(null)
     setActiveEffect('none')
+    clearStack()
     resetParams()
-  }, [setOriginalImage, setActiveEffect, resetParams])
+  }, [setOriginalImage, setActiveEffect, clearStack, resetParams])
 
-  return { hasImage: !!originalImage, canUndo: history.length > 0, undo, reset: resetParams, clear, openInEditor, download, exporting }
+  const hasFx = useStore(s => fullStack(s, true).length > 0)
+  return { hasImage: !!originalImage, canUndo: history.length > 0, undo, reset: resetParams, clear, openInEditor, download, exporting, openDesign: hasFx ? openDesign : null, addToDesign }
+}
+
+const nameOf = (effect: string) => effects.find(e => e.id === effect)?.name ?? effect
+
+/** The design open in the Editor in this browser tab (the Editor keeps the list for the tab). */
+function useOpenDesign(): { id: string; name: string } | null {
+  const [d, setD] = useState<{ id: string; name: string } | null>(null)
+  useEffect(() => {
+    try {
+      const v = JSON.parse(sessionStorage.getItem('vc-open') || 'null') as { tabs: { id: string; name: string }[]; active: string | null } | null
+      const t = v?.active ? v.tabs.find(x => x.id === v.active) : null
+      if (t) setD({ id: t.id, name: t.name })
+    } catch { /* no design open */ }
+  }, [])
+  return d
 }
 
 const ghost = 'flex items-center gap-1.5 px-2.5 py-1.5 bg-void-800/80 hover:bg-void-700 disabled:opacity-30 disabled:cursor-not-allowed rounded-md transition-colors border border-void-700/40'
@@ -103,11 +133,22 @@ export function Toolbar() {
       <motion.button
         whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
         onClick={(e) => a.openInEditor(e.shiftKey)}
-        title="Opens the photo with the effect on its own live layer. Shift-click to send one flattened image instead."
+        title="Opens the photo in the Editor with these effects on it, still editable. Shift-click to send one flattened image instead."
         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-accent hover:bg-accent-hover text-white rounded-md transition-colors"
       >
         <Layers size={14} /><span className="text-xs font-medium whitespace-nowrap">Open in Editor</span>
       </motion.button>
+
+      {a.openDesign && (
+        <motion.button
+          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+          onClick={a.addToDesign} data-fx-to-design
+          title={`Puts these effects on what you have selected in “${a.openDesign.name}”, where you can still change them.`}
+          className={ghost}
+        >
+          <PlusSquare size={14} /><span className="text-xs whitespace-nowrap">Add to my design</span>
+        </motion.button>
+      )}
 
       <div className={`flex items-center gap-0.5 bg-void-900 rounded-md p-0.5 border border-void-800/50 ${a.exporting ? 'opacity-60 pointer-events-none' : ''}`} title="Downloads at the photo's full size">
         <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => a.download('png')} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white text-void-900 rounded-[5px] transition-colors">
@@ -135,6 +176,7 @@ export function MobileActionBar() {
       <button onClick={a.reset} aria-label="Reset parameters" className={icon}><RotateCcw size={16} />Reset</button>
       <button onClick={a.clear} aria-label="Clear image" className={icon}><Trash2 size={16} />Clear</button>
       <span className="flex-1" />
+      {a.openDesign && <button onClick={a.addToDesign} data-fx-to-design aria-label={`Add to my design, ${a.openDesign.name}`} className={icon}><PlusSquare size={16} />Add</button>}
       <button onClick={() => a.openInEditor(false)} aria-label="Open in Editor" className="flex items-center gap-1.5 h-10 px-3 bg-accent text-white rounded-md text-[12px] font-medium whitespace-nowrap"><Layers size={14} />Editor</button>
       <div className={`flex items-center gap-0.5 bg-void-900 rounded-md p-0.5 border border-void-800/50 ${a.exporting ? 'opacity-60 pointer-events-none' : ''}`}>
         <button onClick={() => a.download('png')} className="flex items-center gap-1 h-9 px-2 bg-white text-void-900 rounded-[5px] text-[11px] font-semibold"><Download size={12} />{a.exporting ? 'Saving' : 'PNG'}</button>

@@ -684,7 +684,7 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: '2. Choose your route into the Editor' },
-      { t: 'p', text: '**Open in Editor** sends the photo with the effect as a live filter layer. Effects previews at up to 1200 px on the long side, and the photo goes over at that size, so this route suits a social post, not print.' },
+      { t: 'p', text: '**Open in Editor** sends the photo with the effect still live on it. Effects previews at up to 1200 px on the long side, and the photo goes over at that size, so this route suits a social post, not print.' },
       { t: 'p', text: 'For print, start at the print size instead:' },
       { t: 'steps', items: [
         'Open the Editor. Under Print, choose **A4 flyer** (2480 × 3508 px).',

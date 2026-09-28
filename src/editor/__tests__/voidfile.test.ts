@@ -108,7 +108,7 @@ describe('older and newer files', () => {
     // Still ends with IEND, so image viewers show it.
     expect(new TextDecoder().decode(file.subarray(file.length - 8, file.length - 4))).toBe('IEND')
     const r = await readVoid(file)
-    expect(r.version).toBe(3)
+    expect(r.version).toBe(VOID_VERSION)
     expect(r.project.layers).toHaveLength(3)
   })
 

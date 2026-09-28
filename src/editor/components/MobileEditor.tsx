@@ -8,6 +8,8 @@ import type { Layer, ShapeLayer, TextLayer, ToolId } from '../types'
 import { Stage } from './Stage'
 import { LayersPanel } from './LayersPanel'
 import { PropertiesPanel, removeBackground } from './PropertiesPanel'
+import { EffectsSection, selectionTargets } from './EffectsSection'
+import { useShallow } from 'zustand/react/shallow'
 import { TOOLS } from './ToolRail'
 import { buildActions, openModal } from '../actions'
 import { PanelBody } from './Dock'
@@ -399,13 +401,21 @@ function ShapeSheet({ layer, onDone }: { layer?: ShapeLayer; onDone: () => void 
 }
 
 function EffectsSheet({ onDone }: { onDone: () => void }) {
+  // With something selected, its own effects come first: they change it and nothing else.
+  const st = useEditor(useShallow(s => ({ sel: s.selectedIds, layers: s.layers, groups: s.groups })))
+  const targets = useMemo(() => selectionTargets(), [st.sel, st.layers, st.groups]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
+      {targets.length > 0 && (
+        <div className="vc-phone-panel -mx-4" data-phone-effects>
+          <EffectsSection targets={targets} title={targets.length > 1 ? 'Effects on the selection' : 'Effects on this'} />
+        </div>
+      )}
       <Row>
-        <button className={primary} onClick={() => { openModal('filters'); onDone() }}><Eclipse size={15} />Filters</button>
+        <button className={targets.length ? chip : primary} onClick={() => { openModal('filters'); onDone() }}><Eclipse size={15} />Filters</button>
         <button className={chip} onClick={() => { openModal('add', { tab: 'adjust' }); onDone() }}>Adjustments</button>
       </Row>
-      <p className="text-[13px] text-void-400 mt-3">Filters and adjustments go on as their own layers, so you can change or remove them later. Tap one on the canvas or in Layers to change its settings.</p>
+      <p className="text-[13px] text-void-400 mt-3">{targets.length ? 'Filters and Adjustments go on as their own layers and change everything under them.' : 'Select a layer to put effects on it alone. Filters and adjustments go on as their own layers, so you can change or remove them later.'}</p>
     </>
   )
 }

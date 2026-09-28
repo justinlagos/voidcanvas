@@ -236,7 +236,7 @@ export function InfoPanel() {
       const c = hist.current; const st = useEditor.getState(); if (!c || !st.doc) return
       const k = Math.min(1, 300 / Math.max(st.doc.width, st.doc.height))
       const small = makeCanvas(st.doc.width * k, st.doc.height * k)
-      renderDoc(small, st.doc, st.layers, { groups: st.groups, scale: k, noCache: true })
+      renderDoc(small, st.doc, st.layers, { groups: st.groups, scale: k, noCache: true, fxDraft: true })
       const d = ctx2d(small, true).getImageData(0, 0, small.width, small.height).data
       const bins = [new Uint32Array(64), new Uint32Array(64), new Uint32Array(64)]
       for (let i = 0; i < d.length; i += 4) { bins[0][d[i] >> 2]++; bins[1][d[i + 1] >> 2]++; bins[2][d[i + 2] >> 2]++ }
@@ -276,7 +276,7 @@ export function NavigatorPanel() {
       const el = c.current; const st = useEditor.getState(); if (!el || !st.doc) return
       const k = Math.min(el.width / st.doc.width, el.height / st.doc.height)
       const small = makeCanvas(st.doc.width * k, st.doc.height * k)
-      renderDoc(small, st.doc, st.layers, { groups: st.groups, scale: k, noCache: true })
+      renderDoc(small, st.doc, st.layers, { groups: st.groups, scale: k, noCache: true, fxDraft: true })
       const x = ctx2d(el); x.clearRect(0, 0, el.width, el.height); x.drawImage(small, (el.width - small.width) / 2, (el.height - small.height) / 2)
     }, 200)
     return () => clearTimeout(t)
@@ -382,7 +382,7 @@ export function ChannelsPanel() {
       const st = useEditor.getState(); if (!st.doc) return
       const k = Math.min(1, 48 / Math.max(st.doc.width, st.doc.height))
       const small = makeCanvas(st.doc.width * k, st.doc.height * k)
-      renderDoc(small, st.doc, st.layers, { groups: st.groups, scale: k, noCache: true })
+      renderDoc(small, st.doc, st.layers, { groups: st.groups, scale: k, noCache: true, fxDraft: true })
       const out: Record<string, string> = { rgb: small.toDataURL() }
       const d = ctx2d(small, true).getImageData(0, 0, small.width, small.height)
       ;(['r', 'g', 'b'] as const).forEach((c, ci) => {
@@ -598,7 +598,7 @@ export function logoContrastFindings(brand: ClientBrand, layers: Layer[], doc: i
     const below = layers.slice(0, i).filter(o => (o.frameId ?? null) === (l.frameId ?? null))
     const k = Math.min(1, 48 / Math.max(b.w, b.h))
     const c = makeCanvas(Math.max(1, Math.round(b.w * k)), Math.max(1, Math.round(b.h * k)))
-    try { renderDoc(c, doc, below, { region: b, scale: k, noCache: true, groups, noShadow: true, frameRects: frame ? [frame] : [] }) } catch { continue }
+    try { renderDoc(c, doc, below, { region: b, scale: k, noCache: true, fxDraft: true, groups, noShadow: true, frameRects: frame ? [frame] : [] }) } catch { continue }
     const x = ctx2d(c, true)
     const px = x.getImageData(0, 0, c.width, c.height)
     // Transparent ground (nothing below on a transparent board) counts as the white it will most likely be seen on.

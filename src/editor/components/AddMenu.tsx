@@ -91,7 +91,7 @@ export function AddMenu({ onClose, filtersOnly }: { onClose: () => void; filters
     const st = useEditor.getState(); if (!st.doc || !st.layers.length) return { base: null, stamp: '' }
     const k = 240 / Math.max(st.doc.width, st.doc.height)
     const c = makeCanvas(st.doc.width * k, st.doc.height * k)
-    renderDoc(c, st.doc, st.layers, { groups: st.groups, scale: k, noCache: true })
+    renderDoc(c, st.doc, st.layers, { groups: st.groups, scale: k, noCache: true, fxDraft: true })
     return { base: c, stamp: `${st.doc.id}:${st.docRev}:` }
   }, [])
   const tile = `flex items-center gap-3 p-3 rounded-xl bg-void-900 hover:bg-void-800 border border-void-800/70 text-left ${focusRing}`

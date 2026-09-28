@@ -11,8 +11,8 @@ export const articles: Article[] = [
     summary: "Curves, levels, hue and saturation, exposure and the other adjustments, added as layers you can change or remove at any time without touching your pixels.",
     category: 'editor',
     level: 'Intermediate',
-    updated: '2026-09-25',
-    related: ['filters-in-the-editor', 'masks', 'blend-modes-and-opacity', 'workflow-portrait-retouch'],
+    updated: '2026-09-28',
+    related: ['filters-in-the-editor', 'effects-on-layers-and-groups', 'masks', 'blend-modes-and-opacity', 'workflow-portrait-retouch'],
     keywords: 'adjustment layer curves levels hue saturation brightness contrast exposure vibrance colour balance color balance channel mixer photo filter gradient map duotone posterize threshold invert black and white blur temperature warmth tint lut cube colour grade non-destructive',
     body: [
       { t: 'p', text: "Adjustment layers let you brighten, recolour or grade a design without changing a single pixel underneath. You can reopen the settings, lower the strength, hide the layer or delete it later, which matters when a client asks for the photo to be a little less warm three rounds from now." },
@@ -83,9 +83,10 @@ export const articles: Article[] = [
       { t: 'steps', items: [
         "**Paint a mask.** Select the adjustment layer and paint. The Editor gives it a mask automatically and your strokes paint on the mask: the **Eraser** hides the adjustment where you paint, the **Brush** brings it back. See [Masks](/learn/masks).",
         "**Start from a selection.** Make a selection, select the adjustment layer, then choose **Layer > Layer mask > Add layer mask**. The mask matches the selection.",
-        "**Put it in a group.** Select the adjustment and the layers it should change and group them ({{Ctrl+G}}), then set the group's blend to anything other than **Pass through** (Normal works), or lower the group's opacity. A group set up that way is flattened on its own first, so the adjustment inside only reaches the layers inside it.",
+        "**Set how far it reaches.** Select the adjustment layer and change **Changes** in Properties. **Only this group** keeps it inside the group it is in. **Just the layer below** clips it to that one layer ({{Ctrl+Alt+G}} does the same).",
       ] },
-      { t: 'note', text: "Adjustment layers cannot be used as clipping masks, and a layer cannot clip to an adjustment. Use a mask or a group instead." },
+      { t: 'p', text: "To change one layer or one group and nothing else, you can also skip the adjustment layer and put the adjustment on the layer itself, from **+ Effect** in Properties. See [effects on layers, groups and boards](/learn/effects-on-layers-and-groups)." },
+      { t: 'note', text: "A layer cannot clip to an adjustment layer, because an adjustment has no shape of its own. Clip it to the layer below instead, or use a mask." },
 
       { t: 'h', text: 'Compare before and after' },
       { t: 'p', text: "Hold {{\\}} (backslash) to hide every adjustment and filter while the key is down. A label at the top of the canvas reads **Before: adjustments and filters hidden**. You can also run **View > Before and after (hold \\)** from the menu, which shows the before view for a moment. To check one adjustment alone, click its eye in the Layers panel." },
@@ -108,10 +109,11 @@ export const articles: Article[] = [
     category: 'editor',
     level: 'Beginner',
     updated: '2026-09-28',
-    related: ['adjustment-layers', 'effects-overview', 'artistic-effects', 'masks'],
+    related: ['effects-on-layers-and-groups', 'adjustment-layers', 'effects-overview', 'artistic-effects', 'masks'],
     keywords: 'filter gallery effects fx halftone glitch dither film grain vignette live filter layer non-destructive stack mask fade preview export sharper',
     body: [
       { t: 'p', text: "Every effect from the Effects tool is also a filter in the Editor, and each one goes on as its own layer. That means you can change its settings later, fade it, paint it out of parts of the image, or stack several for a finished look, while the photo underneath stays untouched." },
+      { t: 'p', text: "A filter layer changes everything below it. To change one layer, a group or a board and nothing else, put the effect on that thing instead, from the **Effects** section of Properties. See [effects on layers, groups and boards](/learn/effects-on-layers-and-groups)." },
 
       { t: 'h', text: 'Open the filter gallery' },
       { t: 'p', text: "Choose **Filter > Filter gallery…**. The window is titled **Filters and adjustments**. It has the adjustments at the top and the **Void filters** below, each with a thumbnail rendered from a small copy of your own design, so you see what the filter will do to your work rather than to a sample photo." },
@@ -138,25 +140,112 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Stack filters' },
       { t: 'p', text: "Each filter processes the result of everything below it, including other filters, so the order changes the result. Film grain above a halftone puts grain over the dots; below it, the grain gets turned into dots. Drag layers in the Layers panel to reorder them and watch the canvas update." },
-      { t: 'p', text: "To keep a filter to certain layers only, group it with them ({{Ctrl+G}}) and set the group's blend to anything other than **Pass through**, or lower the group's opacity. A group set up that way is worked out on its own, so the filter inside it only sees the layers inside it. On a design with boards, a filter that belongs to a board only changes that board." },
+      { t: 'p', text: "To keep a filter to certain layers only, select the filter layer and set **Changes** in Properties: **Everything below** (the usual), **Only this group** (it stays inside the group it is in) or **Just the layer below** (a clipping mask). With several layers selected, **+ Effect** in Properties also has **As an adjustment layer above them**, which groups them and adds the filter inside the group, set to Only this group. On a design with boards, a filter that belongs to a board only changes that board." },
       { t: 'tip', text: "A common finished stack for a photo: a colour adjustment such as Curves at the bottom, a texture filter like Film Grain at low opacity, and a Vignette on top." },
 
       { t: 'h', text: 'Why the export looks slightly sharper than the preview' },
-      { t: 'p', text: "Filters are worked out at a working size of 1200 pixels on the long edge, then scaled to fit the canvas. This keeps the Editor quick, and it is the same working size the Effects tool uses, so a filter looks the same in both." },
+      { t: 'p', text: "Filters are worked out at a working size: the long side of what they are for (the design, a board, a group or a layer), up to 1200 pixels. The canvas always shows the filter worked out at that size and scaled to fit, however far you zoom out and however many boards the design has. This keeps the Editor quick, and it is the same working size the Effects tool uses, so a filter looks the same in both." },
       { t: 'p', text: "When you export, every filter runs again at the full output size. Settings that are measured in pixels, such as dot size, block size, blur radius or shift distance, are scaled up by the same amount, so the result keeps the look you saw, only sharper. Filters that work pixel by pixel with no size setting (dither, edge detect, emboss, sharpen, pencil sketch and noise) simply come out finer." },
       { t: 'table', head: ['Design size', 'What you see while editing', 'What you get on export'], rows: [
         ['1200 px or smaller on the long edge', 'The filter at full size', 'The same'],
         ['Larger than 1200 px', 'The filter worked out at 1200 px, scaled up to fit', 'The filter at full size, with pixel settings scaled, so finer detail'],
       ] },
-      { t: 'p', text: "Merging bakes a filter the same way as an export: **Merge down**, **Merge visible**, **Stamp visible** and **Flatten image** all run filters at the full size of the design, so the pixels you keep match the file you would export. With several boards, a board exported on its own keeps the dot and grain size you saw, because the settings are scaled from the whole canvas the preview was worked out on." },
+      { t: 'p', text: "Merging bakes a filter the same way as an export: **Merge down**, **Merge visible**, **Stamp visible** and **Flatten image** all run filters at the full size of the design, so the pixels you keep match the file you would export. With several boards, a filter on a board is worked out from that board's own size, on the canvas and in the export, so adding or moving boards never changes how it looks." },
       { t: 'note', text: "Because of this, a very fine pattern (small halftone dots, a single-pixel dither) on a large design can look softer on screen than it will in the file. Zooming in does not change that. Export a test at the size you need to judge the fine detail. See [Export for screen](/learn/export-for-screen) and [Export for print](/learn/export-for-print)." },
 
       { t: 'h', text: 'Common problems' },
       { t: 'list', items: [
-        "**The filter changed my text and logo too.** It affects everything below it. Move the filter layer down so it sits directly above the photo, with the text above it.",
+        "**The filter changed my text and logo too.** It affects everything below it. Put the effect on the photo itself instead (select the photo, then **+ Effect** in Properties), or set the filter layer's **Changes** to **Just the layer below**.",
         "**Editing is slow.** Each filter recalculates when something below it changes. Hide filters while you work on layers beneath them, and turn them back on to check.",
         "**I want to bake the filter in.** **Merge down** or **Flatten image** turns it into pixels. After that it cannot be edited, so save a version first.",
-        "**On a phone:** open the **Effects** tab and tap **Filters**. With an image layer selected, the **Select** tab also has a **Filters** button. To change a filter afterwards, tap its layer in **Layers**: its settings are in the **Select** sheet.",
+        "**On a phone:** open the **Effects** tab and tap **Filters**. With a layer selected, the same tab first shows **Effects on this**, for effects on that layer alone. To change a filter afterwards, tap its layer in **Layers**: its settings are in the **Select** sheet.",
+      ] },
+    ],
+  },
+
+  // ─── Effect scope ─────────────────────────────────────────────────
+  {
+    slug: 'effects-on-layers-and-groups',
+    title: 'Put effects on one layer, a group or a board',
+    summary: 'Blur, grain, colour and every Void effect can go on a single layer, on several at once (linked), on a group as one image, on a board or on the whole design. How to choose, leave a layer out, limit an effect to an area, and copy effects.',
+    category: 'editor',
+    level: 'Intermediate',
+    updated: '2026-09-28',
+    related: ['filters-in-the-editor', 'layer-styles', 'groups-align-guides', 'masks', 'effects-overview'],
+    keywords: 'effect on one layer only blur one layer grain on group apply effect to group not layers below linked effects leave out of group effect mask effect copy effects paste effects scope non-destructive',
+    body: [
+      { t: 'p', text: "An effect is always on something, and it changes that thing and nothing else. Put a blur on the portrait and the text beside it stays sharp. Put grain on a group and the group gets grain as one picture. The **Effects** section in Properties shows the effects of whatever is selected, and **+ Effect** adds one." },
+      { t: 'try', label: 'Try it in the Editor', href: '/editor' },
+
+      { t: 'h', text: 'Where an effect can go' },
+      { t: 'table', head: ['Selected', 'The effect goes on', 'What changes'], rows: [
+        ['One layer', 'That layer', 'The layer alone. Nothing below it'],
+        ['Several layers', 'Each of them, as linked copies', 'Each layer on its own. Change one copy and they all change'],
+        ['A group', 'The group', 'What the group\'s layers make together, as one picture'],
+        ['Nothing, on a board', 'The board', 'Everything on that board'],
+        ['Nothing, no boards', 'The design', 'The whole design, last of all'],
+      ] },
+      { t: 'p', text: "Each of these has its own list of effects. They run from the top of the list down, each on the result of the one before, so order can matter. When it does, the section says **Order matters here**: drag the rows to change it." },
+
+      { t: 'h', text: 'Add, change and remove' },
+      { t: 'steps', items: [
+        "Select what the effect is for, on the canvas or in Layers.",
+        "Click **+ Effect** in the **Effects** section of Properties. Type to find one, or pick from Blur and texture, Colour, and **More effects…** for every Void effect.",
+        "The new effect opens with its settings, **Strength** (how much of it shows) and **Blend** (how it mixes with what it changed).",
+      ] },
+      { t: 'list', items: [
+        "The eye switches an effect off and on.",
+        "Click its name to open or close its settings.",
+        "The **⋯** menu has Duplicate, Copy, Move up, Move down, Reset, the mask choices and Remove.",
+        "Layer styles (shadow, glow, stroke, overlays) are listed in the same section, and still draw around the finished shape.",
+      ] },
+
+      { t: 'h', text: 'One picture, or each layer?' },
+      { t: 'p', text: "A blur on a group can mean two things. **As one image**: the group is flattened in your head first and blurred as a whole, so the blur runs across the gaps between its layers. **On each layer**: every layer is blurred on its own. The first time you add a blur, grain, noise, dots or a distortion to a group, or to several layers in the same group, the Editor asks which you mean and shows a small picture of each. Tick **Remember** and it stops asking for that effect." },
+      { t: 'p', text: "Colour effects do not ask: a colour change looks the same either way, so it goes on the group." },
+      { t: 'p', text: "Changed your mind? With the group selected, **Put these effects on each layer instead** moves them onto each thing in the group, linked." },
+
+      { t: 'h', text: 'Linked effects' },
+      { t: 'p', text: "With several layers selected, **+ Effect** puts a copy on each of them, linked. A small link icon shows on the row, and its settings say **On: Portrait, Texture**. Change the amount on one and every copy follows." },
+      { t: 'list', items: [
+        "**Unlink this one** lets one copy go its own way.",
+        "**Add the selected layers** puts linked copies on more layers: select the new layers together with one that has it.",
+        "**Remove from all of these** (in the ⋯ menu with several selected) takes every copy off.",
+      ] },
+      { t: 'p', text: "Duplicating layers gives the copies their own effects: copies made together stay linked to each other, never to the originals." },
+
+      { t: 'h', text: 'Leave a layer out of a group effect' },
+      { t: 'p', text: "Select a layer inside a group that has effects and tick **Leave out of “Group” effects** in Properties. It draws clean in its place while the rest of the group keeps the effects. A logo in a textured group is the usual case." },
+      { t: 'note', text: "The group is worked out in pieces around a layer that is left out, so a blur on the group does not spread across it." },
+
+      { t: 'h', text: 'Group settings' },
+      { t: 'list', items: [
+        "**Blend as a group**: the group's layers are put together first, then blended with what is below as one. A group with effects or a mask always works this way. Without it, each layer blends with what is below on its own (Pass through).",
+        "**Mask**: hides part of the group after its effects. **Add mask**, or with a selection, **From selection** or **Hide selection**. Then Invert, Turn off or Remove.",
+      ] },
+
+      { t: 'h', text: 'Limit an effect to an area' },
+      { t: 'p', text: "Make a selection, then choose **Show only in the selection** from the effect's ⋯ menu. The effect now shows only there, and the row says **Masked**. **Hide in the selection** does the opposite. **Invert mask**, **Turn mask off** and **Remove mask** are in the same menu. The mask moves with the layer when you move it, and masks on groups, boards and adjustment layers move with their board." },
+
+      { t: 'h', text: 'Adjustment and filter layers' },
+      { t: 'p', text: "Adjustment and filter layers still work as before, changing everything below them. Select one and **Changes** in Properties sets how far it reaches: **Everything below**, **Only this group**, or **Just the layer below**. With several layers selected, **+ Effect** has **As an adjustment layer above them**: they are grouped and the adjustment goes inside the group, changing them and nothing else. It is one undo step. See [filters as editable layers](/learn/filters-in-the-editor)." },
+
+      { t: 'h', text: 'Copy, paste and compare' },
+      { t: 'list', items: [
+        "Right-click a layer on the canvas: **Copy effects**, then on another layer **Paste effects** (adds them) or **Paste effects in place of theirs**. The same items are under **Layer > Effects**.",
+        "**Effects off while looking** (View menu) shows the design without any effects until you turn it back on. Hold {{\\}} for a quick look. Neither changes the design or the export.",
+        "Every effect is in the command palette ({{Ctrl+K}}) as **Add effect: …**.",
+      ] },
+
+      { t: 'h', text: 'On a phone' },
+      { t: 'p', text: "Select the layer or group, then open the **Effects** tab: **Effects on this** is at the top, with the same **+ Effect**, rows and settings. The **Select** sheet shows them too, inside the layer's settings." },
+
+      { t: 'h', text: 'Good to know' },
+      { t: 'list', items: [
+        "The canvas and the export agree: effects are worked out at the size of what they are on (up to 1200 px on the long side) both times, and pixel settings are scaled for larger exports.",
+        "Effects that make texture, such as grain and halftone dots, keep a cut-out's shape: a layer with a transparent background gets grain only where it has pixels.",
+        "A design with effects opened in an older Voidcanvas keeps them in the file, but they only show in this version.",
+        "From the Effects page, **Add to my design** puts a stack of effects on the layer you had selected. See [Effects](/learn/effects-overview).",
       ] },
     ],
   },
@@ -168,8 +257,8 @@ export const articles: Article[] = [
     summary: "Drop shadow, stroke, outer and inner glow, overlays and bevel, added as live styles that follow the layer's shape and never change its pixels.",
     category: 'editor',
     level: 'Beginner',
-    updated: '2026-09-25',
-    related: ['type', 'blend-modes-and-opacity', 'remove-background', 'layers'],
+    updated: '2026-09-28',
+    related: ['type', 'blend-modes-and-opacity', 'effects-on-layers-and-groups', 'remove-background', 'layers'],
     keywords: 'layer style fx effects drop shadow stroke outline border glow neon inner shadow colour overlay color overlay gradient overlay bevel emboss sticker fill opacity copy paste style',
     body: [
       { t: 'p', text: "Layer styles add effects such as a drop shadow or an outline around whatever is on a layer: a cut-out photo, a logo, text or a shape. They follow the layer's outline, update when you move or edit the layer, and never change its pixels, so you can switch them off or tweak them at any point." },
@@ -194,7 +283,7 @@ export const articles: Article[] = [
         "Adjust the sliders. The canvas updates as you go.",
         "Click **OK** to keep the changes. **Cancel**, or closing the window, puts everything back as it was when you opened it.",
       ] },
-      { t: 'p', text: "Other ways in: the **Layer style** button (fx icon) at the bottom of the Layers panel, **Layer > Layer style > Blending options…**, and the **Layer styles** panel from the Window menu." },
+      { t: 'p', text: "Other ways in: the **Layer style** button (fx icon) at the bottom of the Layers panel, **Layer > Layer style > Blending options…**, the **Layer styles** panel from the Window menu, and **+ Effect** in Properties, where styles are listed under **Around the shape**. The styles a layer has are shown as rows in the **Effects** section of Properties, with an eye and a remove button, beside its other effects. A group can have styles too: they go around the group's combined shape." },
 
       { t: 'h', text: 'The Layer style window' },
       { t: 'p', text: "The list on the left has **Blending options** and the eight styles. Tick a box to turn a style on or off, click its name to edit it. The right side shows the settings for whatever you clicked." },

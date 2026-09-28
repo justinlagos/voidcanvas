@@ -90,7 +90,7 @@ function CompareView({ list, initial, onBack, onClose }: { list: VersionSummary[
         const p = await versionProject(id); if (!p) return null
         const { restoreStored } = await import('../io')
         const r = await restoreStored(p)
-        return { doc: r.doc, layers: r.layers, groups: p.groups ?? [] }
+        return { doc: r.doc, layers: r.layers, groups: r.groups }
       }
       const [da, db] = await Promise.all([load(a), load(b)])
       if (!live) return

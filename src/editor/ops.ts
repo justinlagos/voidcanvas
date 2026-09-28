@@ -1,5 +1,5 @@
 import { cloneCanvas, ctx2d, drawLayerContent, fullMaskSized, layerMatrix, layerSize, makeCanvas, maskBounds, paintPathOps, pathPolyline, renderDoc, tracePath, uid, vectorMaskCanvas } from './engine'
-import { base, isShown, nextRev, useEditor } from './store'
+import { base, isShown, layerFxMasksOnPage, mapDocMasks, maskOnPage, nextRev, shiftMask, useEditor } from './store'
 import { morph } from './styles'
 import type { Doc, Layer, LayerStyles, PathNode, PathOp, RasterLayer, ShapeLayer, SubPath, TextLayer, VectorPath } from './types'
 import { docSubsToLayerPatch, docSubsToTextPathPatch, docToVmask, layerSubsToDoc, reverseSub, samplePath, simplifySub, toSvgD } from './pen'
@@ -27,8 +27,8 @@ export function imageSize(w: number, h: number) {
   w = Math.max(1, Math.round(w)); h = Math.max(1, Math.round(h))
   const kx = w / doc.width, ky = h / doc.height
   const scaleCanvas = (c: HTMLCanvasElement) => { const o = makeCanvas(c.width * kx, c.height * ky), x = ctx2d(o); x.imageSmoothingQuality = 'high'; x.drawImage(c, 0, 0, o.width, o.height); return o }
-  const layers = s.layers.map(l => {
-    if (l.type === 'adjustment') return { ...l, mask: l.mask ? scaleCanvas(l.mask) : null } as Layer
+  const layers0 = s.layers.map(l => {
+    if (l.type === 'adjustment') return l
     const patch: any = { x: l.x * kx, y: l.y * ky }
     if (l.type === 'text') { patch.fontSize = l.fontSize * Math.min(kx, ky); if (l.boxWidth) patch.boxWidth = l.boxWidth * kx }
     else if (l.type === 'shape') { patch.w = l.w * kx; patch.h = l.h * ky; patch.strokeWidth = l.strokeWidth * Math.min(kx, ky); patch.radius = l.radius * Math.min(kx, ky); if (l.subpaths) patch.subpaths = scalePaths(l.subpaths, kx, ky) }
@@ -36,7 +36,9 @@ export function imageSize(w: number, h: number) {
     return { ...l, ...patch } as Layer
   })
   const nd: Doc = { ...doc, width: w, height: h, frames: doc.frames?.map(f => ({ ...f, x: f.x * kx, y: f.y * ky, width: Math.round(f.width * kx), height: Math.round(f.height * ky) })), guides: doc.guides ? { v: doc.guides.v.map(g => g * kx), h: doc.guides.h.map(g => g * ky) } : undefined, paths: doc.paths?.map(p => ({ ...p, subpaths: scalePaths(p.subpaths, kx, ky) })), channels: doc.channels?.map(c => ({ ...c, mask: scaleCanvas(c.mask) })) }
-  s.replaceAll({ doc: nd, layers, selection: s.selection ? scaleCanvas(s.selection) : null }, 'Image size')
+  // Masks placed on the page are scaled with it.
+  const m = mapDocMasks(nd, layerFxMasksOnPage(s.layers, layers0, doc.width, doc.height, scaleCanvas), s.groups, maskOnPage(doc.width, doc.height, scaleCanvas))
+  s.replaceAll({ doc: m.doc, layers: m.layers, groups: m.groups, selection: s.selection ? scaleCanvas(s.selection) : null }, 'Image size')
 }
 
 function scalePaths(sp: SubPath[], kx: number, ky: number, dx = 0, dy = 0): SubPath[] {
@@ -50,12 +52,14 @@ export function canvasSize(w: number, h: number, anchor = 4, fill: string | null
   const ax = anchor % 3, ay = Math.floor(anchor / 3)
   const dx = Math.round(((w - doc.width) * ax) / 2), dy = Math.round(((h - doc.height) * ay) / 2)
   const shiftCanvas = (c: HTMLCanvasElement, bgFill = false) => { const o = makeCanvas(w, h), x = ctx2d(o); if (bgFill) { x.fillStyle = '#fff'; x.fillRect(0, 0, w, h) } x.drawImage(c, dx, dy); return o }
-  const layers = s.layers.map(l => {
-    if (l.type === 'adjustment') return { ...l, mask: l.mask ? shiftCanvas(l.mask, true) : null } as Layer
+  const layers0 = s.layers.map(l => {
+    if (l.type === 'adjustment') return (l.mask ? { ...l, mask: maskOnPage(doc.width, doc.height, c => shiftCanvas(c, true))(l.mask, l.maskAt).mask, maskAt: null } : l) as Layer
     return { ...l, x: l.x + dx, y: l.y + dy } as Layer
   })
   const nd: Doc = { ...doc, width: w, height: h, background: fill === null ? doc.background : fill, guides: doc.guides ? { v: doc.guides.v.map(g => g + dx), h: doc.guides.h.map(g => g + dy) } : undefined, paths: doc.paths?.map(p => ({ ...p, subpaths: scalePaths(p.subpaths, 1, 1, dx, dy) })), channels: doc.channels?.map(c => ({ ...c, mask: shiftCanvas(c.mask) })) }
-  s.replaceAll({ doc: nd, layers, selection: s.selection ? shiftCanvas(s.selection) : null }, 'Canvas size')
+  // Group and effect masks move with the page; effect masks on layers move with their layers.
+  const m = mapDocMasks(nd, layers0, s.groups, shiftMask(dx, dy), { adjustments: false })
+  s.replaceAll({ doc: m.doc, layers: m.layers, groups: m.groups, selection: s.selection ? shiftCanvas(s.selection) : null }, 'Canvas size')
 }
 
 /** Rotate or flip the whole image. Every layer turns around the document centre. */
@@ -70,28 +74,31 @@ export function rotateCanvas(deg: 90 | -90 | 180) {
     return { x: rx + nw / 2, y: ry + nh / 2 }
   }
   const turnCanvas = (c: HTMLCanvasElement) => { const o = makeCanvas(nw, nh), x = ctx2d(o); x.translate(nw / 2, nh / 2); x.rotate(rad); x.drawImage(c, -W / 2, -H / 2); return o }
-  const layers = s.layers.map(l => {
-    if (l.type === 'adjustment') return { ...l, mask: l.mask ? turnCanvas(l.mask) : null } as Layer
+  const layers0 = s.layers.map(l => {
+    if (l.type === 'adjustment') return l
     const { w, h } = layerSize(l, doc)
     const c = turnPoint(l.x + (w * l.scaleX) / 2, l.y + (h * l.scaleY) / 2)
     return { ...l, rotation: l.rotation + rad, x: c.x - (w * l.scaleX) / 2, y: c.y - (h * l.scaleY) / 2 } as Layer
   })
   const nd: Doc = { ...doc, width: nw, height: nh, guides: undefined, frames: doc.frames?.map(f => { const c = turnPoint(f.x + f.width / 2, f.y + f.height / 2); const fw = deg === 180 ? f.width : f.height, fh = deg === 180 ? f.height : f.width; return { ...f, x: c.x - fw / 2, y: c.y - fh / 2, width: fw, height: fh } }), channels: doc.channels?.map(ch => ({ ...ch, mask: turnCanvas(ch.mask) })) }
-  s.replaceAll({ doc: nd, layers, selection: s.selection ? turnCanvas(s.selection) : null }, deg === 180 ? 'Rotate 180°' : 'Rotate 90°')
+  const m = mapDocMasks(nd, layerFxMasksOnPage(s.layers, layers0, W, H, turnCanvas), s.groups, maskOnPage(W, H, turnCanvas))
+  s.replaceAll({ doc: m.doc, layers: m.layers, groups: m.groups, selection: s.selection ? turnCanvas(s.selection) : null }, deg === 180 ? 'Rotate 180°' : 'Rotate 90°')
 }
 
 export function flipCanvas(axis: 'h' | 'v') {
   const s = st(); const doc = s.doc; if (!doc) return
   const flipC = (c: HTMLCanvasElement) => { const o = makeCanvas(c.width, c.height), x = ctx2d(o); if (axis === 'h') { x.translate(c.width, 0); x.scale(-1, 1) } else { x.translate(0, c.height); x.scale(1, -1) } x.drawImage(c, 0, 0); return o }
-  const layers = s.layers.map(l => {
-    if (l.type === 'adjustment') return { ...l, mask: l.mask ? flipC(l.mask) : null } as Layer
+  const layers0 = s.layers.map(l => {
+    if (l.type === 'adjustment') return l
     const { w, h } = layerSize(l, doc)
     const bw = w * l.scaleX, bh = h * l.scaleY
     // Mirror the layer's content, then its position.
     if (l.type === 'raster') return { ...l, canvas: flipC(l.canvas), mask: l.mask ? flipC(l.mask) : null, rotation: -l.rotation, x: axis === 'h' ? doc.width - l.x - bw : l.x, y: axis === 'v' ? doc.height - l.y - bh : l.y } as Layer
     return { ...l, rotation: -l.rotation, x: axis === 'h' ? doc.width - l.x - bw : l.x, y: axis === 'v' ? doc.height - l.y - bh : l.y } as Layer
   })
-  s.replaceAll({ doc: { ...doc, channels: doc.channels?.map(c => ({ ...c, mask: flipC(c.mask) })) }, layers, selection: s.selection ? flipC(s.selection) : null }, axis === 'h' ? 'Flip canvas horizontal' : 'Flip canvas vertical')
+  const pageFlip = (c: HTMLCanvasElement) => flipC(c)
+  const m = mapDocMasks({ ...doc, channels: doc.channels?.map(c => ({ ...c, mask: flipC(c.mask) })) }, layerFxMasksOnPage(s.layers, layers0, doc.width, doc.height, pageFlip), s.groups, maskOnPage(doc.width, doc.height, pageFlip))
+  s.replaceAll({ doc: m.doc, layers: m.layers, groups: m.groups, selection: s.selection ? flipC(s.selection) : null }, axis === 'h' ? 'Flip canvas horizontal' : 'Flip canvas vertical')
 }
 
 /** Crop the canvas to the visible pixels. */

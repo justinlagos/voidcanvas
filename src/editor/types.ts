@@ -68,6 +68,10 @@ interface LayerBase {
   vmask?: VectorMask | null
   /** Placed from a client brand: the brand logo (or version) this layer shows, so checks know its artwork. */
   brandLogoId?: string | null
+  /** Effects on this layer's own pixels, in order (blur, grain, colour...). See `Effect`. */
+  effects?: Effect[] | null
+  /** Left out of the effects of the group it is in: it draws clean where it is. */
+  fxExclude?: boolean
 }
 
 export type LayerRole = 'background' | 'image' | 'headline' | 'subhead' | 'body' | 'detail' | 'cta' | 'logo' | 'decoration'
@@ -181,8 +185,56 @@ export type AdjustmentKind =
   | 'vibrance' | 'exposure' | 'colorBalance' | 'channelMixer' | 'photoFilter' | 'gradientMap'
   | 'posterize' | 'threshold' | 'lut' | 'colorMatch'
 
+/** The settings of an adjustment or a Void effect, shared by adjustment layers and effect stacks. */
+export interface AdjustmentSettings {
+  kind: AdjustmentKind
+  values: Record<string, number>
+  points?: [number, number][]
+  channelPoints?: { r?: [number, number][]; g?: [number, number][]; b?: [number, number][] }
+  channelLevels?: { r?: [number, number, number]; g?: [number, number, number]; b?: [number, number, number] }
+  bands?: Partial<Record<HueBand, { hue: number; saturation: number; lightness: number }>>
+  colors?: string[]
+  look?: { name: string; mean: [number, number, number]; std: [number, number, number] } | null
+  lut?: { size: number; data: number[]; name: string } | null
+  effect?: EffectType
+  effectParams?: EffectParams
+}
+
+/**
+ * One effect in a stack. A layer, a group, a board and the whole design each have their own ordered stack; the
+ * effect runs on that target's pixels (for a group or a board, on what they make together).
+ */
+export interface Effect extends AdjustmentSettings {
+  id: string
+  on: boolean
+  /** How much of the effect shows, 0..1, and how it mixes with the pixels it changes. */
+  opacity: number
+  blend: BlendMode
+  /** Linked copies of one effect on several targets share this id: changing one changes them all. */
+  link?: string | null
+  /** From a newer Voidcanvas, of a kind this version does not know: kept in the file, not drawn. */
+  unknown?: boolean
+  /** Where the effect shows, a document-sized canvas (opaque shows, clear hides); none means everywhere. */
+  mask?: HTMLCanvasElement | null
+  /** Where the mask sits: document pixels for a group, board or the design; for a layer, from the layer's position. */
+  maskAt?: MaskAt | null
+  maskOn?: boolean
+  /** In a saved design: the mask is stored beside the layers. */
+  hasMask?: boolean
+}
+
+/** Where an adjustment layer reaches: everything below (the default), only its own group, or just the layer below. */
+export type AdjustmentReach = 'below' | 'group' | 'clip'
+
+/** Where a document mask's top left corner sits, in document pixels (none means 0,0). */
+export interface MaskAt { x: number; y: number }
+
 export interface AdjustmentLayer extends LayerBase {
   type: 'adjustment'
+  /** Its mask is document pixels from here, so it moves with its board. */
+  maskAt?: MaskAt | null
+  /** Where it reaches. 'clip' goes with `clipId` (the layer below); 'group' keeps it inside its group. */
+  reach?: AdjustmentReach
   kind: AdjustmentKind
   /** Numeric settings for the built-in adjustments. */
   values: Record<string, number>
@@ -214,6 +266,16 @@ export interface Group {
   /** 'pass' lets adjustments inside reach below the group (Photoshop's Pass Through). */
   blend?: BlendMode | 'pass'
   locked?: boolean
+  /** Effects on what the group makes as one image. A group with effects is always blended as a group. */
+  effects?: Effect[] | null
+  /** Shadow, glow, stroke and overlays around the group as one shape. */
+  styles?: LayerStyles | null
+  /** Mask over what the group makes, after its effects, in document pixels. */
+  mask?: HTMLCanvasElement | null
+  maskAt?: MaskAt | null
+  maskEnabled?: boolean
+  /** Left out of the effects of the group it sits in. */
+  fxExclude?: boolean
 }
 
 export type Layer = RasterLayer | TextLayer | ShapeLayer | AdjustmentLayer
@@ -230,6 +292,8 @@ export interface Frame {
   linkedFrom?: string | null
   /** Studio deliverable this board answers. */
   deliverableId?: string | null
+  /** Effects on the whole board, after everything on it. */
+  effects?: Effect[] | null
 }
 
 export interface Doc {
@@ -253,6 +317,8 @@ export interface Doc {
   /** Studio job and client brand this design belongs to. */
   jobId?: string | null
   brandId?: string | null
+  /** Effects on the whole design, applied last (on each board when there are boards). */
+  effects?: Effect[] | null
 }
 
 export interface DesignBrief { title: string; text: string; items: { label: string; value: string }[]; palette?: { label: string; hex: string }[] }
