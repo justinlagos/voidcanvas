@@ -495,7 +495,7 @@ export const articles: Article[] = [
     summary: 'Your images and designs stay on your device unless you choose a feature that shares them, and then they are encrypted first. The complete list of what goes over the network, and how to turn the usage counts off.',
     category: 'help',
     level: 'Beginner',
-    updated: '2026-09-28',
+    updated: '2026-10-02',
     related: ['private-session', 'saving-and-your-files', 'ai-on-this-device', 'report-a-bug-well'],
     keywords: 'privacy data gdpr tracking analytics telemetry cookies upload cloud what is sent do not track usage counts opt out',
     body: [
@@ -539,8 +539,13 @@ export const articles: Article[] = [
         "Device type (desktop, tablet or mobile), browser, operating system, time zone, language, screen size, and whether Voidcanvas is installed as an app.",
         "A random id for this browser and a random id for this visit. These are not linked to your name or email.",
         "For errors: the error message, with any web addresses removed, and at most 10 per tab.",
+        "The app version, and whether it is the web or the desktop app, so a change can be compared before and after.",
+        "Every five minutes and when you leave, a summary of the visit as counts: minutes of active work (time with no pointer, touch or key for 30 seconds is not counted), how many changes of each kind (text, moving, colour, effects, layers, boards), how many undos and how many came within 3 seconds of the change, which panel controls were changed by their label (such as Size or Opacity), how many saves and how long the slowest took, how often the page froze for over 0.2 seconds, and how many layers and boards the design has, in ranges such as 6 to 20.",
+        "When a dialog such as Export is closed with nothing done, its name. When the same spot is clicked four times in quick succession, the kind of thing clicked (a button, the canvas), never its label.",
+        "How long the Editor took to be ready, and how long a design took to open.",
+        "In the Editor's command search, the words you typed when nothing matched, up to 32 characters, so we learn what designers look for and cannot find. Words with an @ or a run of three or more digits are never sent.",
       ] },
-      { t: 'p', text: "They never contain images, file names, text, layer content or anything you type. At most 600 events are sent in one visit." },
+      { t: 'p', text: "They never contain images, file names, layer names, the text in your designs, or anything else you type. Nothing is sent from a visit until you move the pointer, tap or press a key, and nothing is sent from automated browsers. At most 600 events are sent in one visit." },
 
       { t: 'h', text: 'Turn usage counts off' },
       { t: 'steps', items: [

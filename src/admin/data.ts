@@ -37,6 +37,29 @@ async function rpc<T>(fn: string, body: Record<string, unknown>): Promise<T> {
 }
 
 export const loadDashboard = (password: string, days: number) => rpc<Dash>('vc_admin_dashboard', { p_password: password, p_days: days })
+
+/** Designers only: events from builds that send a version, from devices not marked as the team's own. */
+export interface WeekFunnel { visitors: number; opened_editor: number; started: number; worked: number; exported: number; came_back: number }
+export interface Week {
+  days: number
+  generated_at: string
+  since: string
+  first_real_event: string | null
+  funnel: Partial<WeekFunnel>
+  funnel_prev: Partial<WeekFunnel>
+  time: { sessions: number; finished_sessions: number; finished_minutes: number; finished_median_min: number; all_minutes: number; prev_finished_minutes: number; prev_finished_sessions: number }
+  friction: { name: string; what: string; n: number; devices: number }[]
+  search_misses: { q: string; n: number; devices: number }[]
+  slow: { what: string; n: number; median_ms: number; p90_ms: number }[]
+  saves: { n: number; slowest_ms: number; long_tasks: number; longest_ms: number }
+  controls: { id: string; n: number; devices: number }[]
+  steps: Record<string, number>
+  versions: { ver: string; app: string | null; sessions: number; started: number; exported: number; median_min: number }[]
+  regions: { region: string; visitors: number; started: number; exported: number }[]
+  workflows: { n: number; designers: number; prev_n: number; prev_designers: number; kinds: Record<string, number> }
+  errors: { msg: string; n: number; devices: number; before_input: number }[]
+}
+export const loadWeek = (password: string, days: number) => rpc<Week>('vc_admin_week', { p_password: password, p_days: days })
 export const setFeedbackStatus = (password: string, id: number, status: FeedbackRow['status']) => rpc('vc_admin_feedback_status', { p_password: password, p_id: id, p_status: status })
 export const changePassword = (password: string, next: string) => rpc('vc_admin_set_password', { p_password: password, p_new: next })
 

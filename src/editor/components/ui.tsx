@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { evalNumber } from '../numexpr'
+import { noteAbandon, noteControl, usageTotals } from '@/lib/analytics'
 
 export const focusRing = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
@@ -69,7 +70,7 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
   const now = useRef(value); now.current = value
   const start = useRef<number | null>(null)
   const begin = () => { if (start.current === null) start.current = now.current }
-  const end = () => { const was = start.current; start.current = null; if (was !== null && (was !== now.current || mixed)) onCommit?.() }
+  const end = () => { const was = start.current; start.current = null; if (was !== null && (was !== now.current || mixed)) { noteControl(label); onCommit?.() } }
   return (
     <label className="block">
       <span className="flex items-center justify-between text-[12px] text-void-400 mb-1">
@@ -123,16 +124,16 @@ export function ColorField({ label, value, onChange, onCommit, allowNone }: {
       <span className="text-[12px] text-void-400">{label}</span>
       <span className="flex items-center gap-1.5">
         {allowNone && (
-          <button type="button" onClick={() => { onChange(value ? null : '#111111'); onCommit?.() }} className={`text-[11px] px-2 h-7 rounded-md border border-void-700 text-void-300 hover:text-white ${focusRing}`}>
+          <button type="button" onClick={() => { onChange(value ? null : '#111111'); noteControl(label); onCommit?.() }} className={`text-[11px] px-2 h-7 rounded-md border border-void-700 text-void-300 hover:text-white ${focusRing}`}>
             {value ? 'Remove' : 'Add'}
           </button>
         )}
         {value !== null && (
           <>
-            <input type="color" aria-label={label} value={value} onChange={e => onChange(e.target.value)} onBlur={onCommit} className={`w-7 h-7 rounded-md bg-transparent cursor-pointer ${focusRing}`} />
+            <input type="color" aria-label={label} value={value} onChange={e => onChange(e.target.value)} onBlur={() => { noteControl(label); onCommit?.() }} className={`w-7 h-7 rounded-md bg-transparent cursor-pointer ${focusRing}`} />
             <input
               aria-label={`${label} hex`} value={value} spellCheck={false}
-              onChange={e => { if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) { onChange(e.target.value); onCommit?.() } }}
+              onChange={e => { if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) { onChange(e.target.value); noteControl(label); onCommit?.() } }}
               className={`w-[76px] h-7 px-2 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px] font-mono text-void-200 ${focusRing}`}
             />
           </>
@@ -149,7 +150,7 @@ export function Select<T extends string | number>({ label, value, options, onCha
     <label className="flex items-center justify-between gap-3">
       <span className="text-[12px] text-void-400 shrink-0">{label}</span>
       <select
-        value={value} onChange={e => onChange((typeof value === 'number' ? Number(e.target.value) : e.target.value) as T)}
+        value={value} onChange={e => { noteControl(label); onChange((typeof value === 'number' ? Number(e.target.value) : e.target.value) as T) }}
         className={`h-8 min-w-0 flex-1 max-w-[170px] px-2 rounded-md bg-surface-sunken border border-white/[0.06] text-[12.5px] text-void-100 ${focusRing}`}
       >
         {options.map(o => <option key={String(o.id)} value={o.id}>{o.label}</option>)}
@@ -158,8 +159,21 @@ export function Select<T extends string | number>({ label, value, options, onCha
   )
 }
 
-export function Modal({ title, onClose, children, wide, preview }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean; preview?: boolean }) {
+/**
+ * Counts a dialog as left with nothing done when it closes without a new undo step or an export while it was open.
+ * `id` is a fixed word from the code (never the dialog's title, which can hold a file or layer name).
+ */
+export function useAbandonWatch(id?: string) {
+  useEffect(() => {
+    if (!id) return
+    const at = usageTotals()
+    return () => { const now = usageTotals(); if (now.steps === at.steps && now.exports === at.exports) noteAbandon(id) }
+  }, [id])
+}
+
+export function Modal({ title, onClose, children, wide, preview, track }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean; preview?: boolean; track?: string }) {
   const ref = useRef<HTMLDivElement>(null)
+  useAbandonWatch(track)
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }
     window.addEventListener('keydown', k, true)
@@ -206,7 +220,7 @@ export function NumField({ label, value, onCommit, step = 1, digits = 0, mixed, 
   const [text, setText] = useState<string | null>(null)
   const round = (n: number) => { const k = 10 ** digits; return Math.round(n * k) / k }
   const shown = live ?? round(value)
-  const apply = (v: number | null) => { if (v !== null && Number.isFinite(v) && (mixed || round(v) !== round(value))) onCommit(round(v)) }
+  const apply = (v: number | null) => { if (v !== null && Number.isFinite(v) && (mixed || round(v) !== round(value))) { noteControl((title ?? label).split(',')[0]); onCommit(round(v)) } }
   return (
     <label title={title} className="flex items-center gap-1.5 bg-surface-sunken border border-white/[0.06] rounded-lg px-2 h-8 focus-within:border-accent/60">
       <span

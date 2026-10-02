@@ -150,7 +150,7 @@ export function ExportDialog({ onClose, boards: askedBoards }: { onClose: () => 
   const label = isSel ? resultLabel(format, 1, false) : resultLabel(format, chosen.length, pdfSplit)
 
   return (
-    <Modal title="Export" onClose={onClose} wide={multi && !isSel}>
+    <Modal track="export" title="Export" onClose={onClose} wide={multi && !isSel}>
       <div className="p-5 space-y-6">
         {(lastLine || sel) && (
           <div className="flex flex-wrap items-center justify-between gap-3 -mt-1">

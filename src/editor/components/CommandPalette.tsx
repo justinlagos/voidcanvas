@@ -11,6 +11,7 @@ import { removeBackground } from './PropertiesPanel'
 import { stageApi } from './Stage'
 import { TOOLS } from './ToolRail'
 import { buildActions, keyFor, prettyKey } from '../actions'
+import { noteSearchMiss } from '@/lib/analytics'
 
 interface Cmd { label: string; hint?: string; group: string; run: () => void }
 
@@ -43,6 +44,14 @@ export function CommandPalette({ onClose, open }: { onClose: () => void; open: (
     return all.filter(c => words.every(w => (c.label + ' ' + c.group + ' ' + (c.hint ?? '')).toLowerCase().includes(w))).slice(0, 60)
   }, [q, all])
   useEffect(() => setI(0), [q])
+  // A search that finds nothing tells us what designers look for and cannot find. Sent after a pause, or on close.
+  const miss = useRef({ q: '', none: false }); miss.current = { q, none: shown.length === 0 }
+  useEffect(() => {
+    if (shown.length || !q.trim()) return
+    const t = setTimeout(() => noteSearchMiss(q), 1500)
+    return () => clearTimeout(t)
+  }, [q, shown.length])
+  useEffect(() => () => { if (miss.current.none && miss.current.q.trim()) noteSearchMiss(miss.current.q) }, [])
   useEffect(() => { list.current?.children[i]?.scrollIntoView({ block: 'nearest' }) }, [i])
 
   const go = (c?: Cmd) => { if (!c) return; onClose(); c.run() }

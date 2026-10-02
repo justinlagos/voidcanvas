@@ -15,7 +15,8 @@ const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, acceptD
 const events = []
 await ctx.route('**/rest/v1/events', async r => { try { events.push(...JSON.parse(r.request().postData() || '[]')) } catch { /* ignore */ } await r.fulfill({ status: 201, body: '' }) })
 await ctx.addInitScript(() => {
-  try { localStorage.setItem('vc-usage-dev', '1') } catch { /* ignore */ }
+  // Counting is off on localhost and in automated browsers; these two switches let this test see the events.
+  try { localStorage.setItem('vc-usage-dev', '1'); localStorage.setItem('vc-usage-test', '1') } catch { /* ignore */ }
   // Mean difference (0 to 255) between two images, both drawn 64 px wide on white.
   window.__cmp = async (aUrl, bUrl, w = 64) => {
     const load = u => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('image did not load')); i.src = u })

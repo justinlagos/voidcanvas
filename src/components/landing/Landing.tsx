@@ -29,7 +29,7 @@ const APP = 'https://voidcanvas.app'
 
 const FOOTNOTES: [string, string][] = [
   ['Background removal', 'Runs on your device. The model (MODNet via transformers.js, both Apache-2.0) downloads once from a CDN on first use. Your image is never sent.'],
-  ['Usage counts', 'Anonymous: event names and small settings (file type, device, browser, time zone, screen size) with a random id for this browser. Never images, file names, text or layer content. Off in a private session, with Do Not Track or Global Privacy Control, or when switched off.'],
+  ['Usage counts', 'Anonymous: event names and small settings (file type, device, browser, time zone, screen size, app version) with a random id for this browser, a summary of each visit as counts, and command search words that found nothing. Never images, file names, layer names or the text in your designs. Off in a private session, with Do Not Track or Global Privacy Control, or when switched off.'],
   ['Saved designs', 'Kept in this browser on this device. Clearing site data deletes them, so export what you need to keep or save it as a template.'],
 ]
 

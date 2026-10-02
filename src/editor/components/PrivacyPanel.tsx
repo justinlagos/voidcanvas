@@ -13,7 +13,7 @@ const POINTS = [
   'No sign-up needed. An account is optional: it syncs your interface settings, encrypted on this device first, so only you can read them.',
   'No tracking of your work. We only count which tools get used, anonymously, so we know what to improve. You can turn that off below.',
 ]
-const USAGE_NOTE = 'What is counted: page visits, which tools and menu commands are used, export file types, errors, device type, browser and time zone, with a random id for this browser. Never your images, file names, text or anything you type. Off automatically in a private session.'
+const USAGE_NOTE = 'What is counted: page visits, which tools, menu commands and panel controls are used, export file types, errors, how long things take, minutes of active work, changes and undos by kind, the app version, device type, browser and time zone, with a random id for this browser. Also the words typed into command search when nothing matches. Never your images, file names, layer names or the text in your designs. Off automatically in a private session.'
 const NOTE = 'Two things load from the internet so the app can work: web fonts (from Google Fonts) and, if you use Remove background, a one-time AI model download. Neither one sends your images or designs anywhere.'
 
 export function PrivacyPanel({ onClose }: { onClose: () => void }) {

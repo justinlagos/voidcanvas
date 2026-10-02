@@ -32,7 +32,7 @@ export function ImageSizeDialog({ onClose }: { onClose: () => void }) {
   const read = (v: number, base: number) => (unit === 'px' ? v : Math.round((v / 100) * base))
   const mb = Math.round((w * h * 4) / 1048576)
   return (
-    <Modal title="Image size" onClose={onClose}>
+    <Modal track="image-size" title="Image size" onClose={onClose}>
       <div className="p-5 space-y-4">
         <p className="text-[12.5px] text-void-400">Scales every layer. Text and shapes stay sharp; photos are resampled.</p>
         <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
@@ -64,7 +64,7 @@ export function CanvasSizeDialog({ onClose, aiFill }: { onClose: () => void; aiF
   const [relative, setRelative] = useState(false)
   const [fill, setFill] = useState(!!aiFill)
   return (
-    <Modal title={aiFill ? 'Expand with AI fill' : 'Canvas size'} onClose={onClose}>
+    <Modal track={aiFill ? 'ai-expand' : 'canvas-size'} title={aiFill ? 'Expand with AI fill' : 'Canvas size'} onClose={onClose}>
       <div className="p-5 space-y-4">
         <p className="text-[12.5px] text-void-400">{aiFill ? 'Make the canvas bigger, then fill the new edges to match the picture. Runs on your device.' : 'Add or remove space around the design. Layers are not scaled.'}</p>
         <div className="grid grid-cols-2 gap-2">
@@ -145,7 +145,7 @@ export function FillDialog({ onClose }: { onClose: () => void }) {
   const [opacity, setOpacity] = useState(100)
   const color = what === 'fg' ? fg : what === 'bg' ? bg : what === 'white' ? '#ffffff' : what === 'black' ? '#000000' : custom
   return (
-    <Modal title="Fill" onClose={onClose}>
+    <Modal track="fill" title="Fill" onClose={onClose}>
       <div className="p-5 space-y-4">
         <p className="text-[12.5px] text-void-400">{useEditor.getState().selection ? 'Fills the selection on the active layer.' : 'Fills the whole active layer.'}</p>
         <div className="flex items-center gap-3">

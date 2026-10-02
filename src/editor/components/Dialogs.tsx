@@ -41,7 +41,7 @@ export function ResizeDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Resize for other formats" onClose={onClose} wide>
+    <Modal track="resize-formats" title="Resize for other formats" onClose={onClose} wide>
       <div className="p-5">
         <p className="text-[13px] text-void-400 mb-4 max-w-xl">Pick the formats you need. Each one is laid out again: groups stay together, panels restack to suit the shape and backgrounds fill. Your current design is not changed.</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">

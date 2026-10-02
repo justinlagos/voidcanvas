@@ -23,7 +23,7 @@ import { frameForLayer } from '../frames'
 import { SIZE_PRESETS } from '../presets'
 import { FloatingTools, TOOL_KEYS, ToolRail, cycleFamily, toggleQuickMask } from './ToolRail'
 import { CanvasMenu, MenuBar } from './MenuBar'
-import { track } from '@/lib/analytics'
+import { bucket, perf, setSessionSnapshot, track } from '@/lib/analytics'
 import { StatusBar } from './StatusBar'
 import { Dock, MobilePanels } from './Dock'
 import { AiInfoDialog, CanvasSizeDialog, ColorRangeDialog, FillDialog, GuideLayoutDialog, ImageSizeDialog, ImportReportDialog, LooksDialog, MissingFontsDialog, ModifySelectionDialog, NameDialog, NewGuideDialog, PreferencesDialog, StrokeDialog, VersionsDialog, fontAvailable } from './MoreDialogs'
@@ -41,6 +41,7 @@ import type { Effect } from '../types'
 import { FxScopeDialog } from './FxScopeDialog'
 import { MobileEditor, useIsPhone } from './MobileEditor'
 import { AfterExport } from './AfterExport'
+import { touchCanvas } from '../touch'
 import * as ops from '../ops'
 import { markSessionClean, noteEdit, readCrashedSession, startAutoVersions, writeSession } from '../versions'
 
@@ -58,6 +59,16 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') { (w
 
 export function EditorShell() {
   const hasDoc = useEditor(s => !!s.doc)
+  // Usage: how long the Editor took to be ready, and how big the open design is for the session summary
+  // (layer and board counts in buckets, never names or content).
+  useEffect(() => {
+    perf('editor.ready', performance.now())
+    setSessionSnapshot(() => {
+      const st = useEditor.getState()
+      return st.doc ? { layers: bucket(st.layers.length), boards: bucket(st.doc.frames?.length ?? 0), phone: touchCanvas.phone } : { layers: '0', boards: '0', phone: touchCanvas.phone }
+    })
+    return () => setSessionSnapshot(null)
+  }, [])
   const phone = useIsPhone()
   const toast = useEditor(s => s.toast)
   const busy = useEditor(s => s.busy)

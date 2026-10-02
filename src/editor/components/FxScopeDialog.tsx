@@ -40,7 +40,7 @@ export function FxScopeDialog({ targets, fx, onClose }: { targets: FxTarget[]; f
     </button>
   )
   return (
-    <Modal title={`${name}: one image, or each layer?`} onClose={onClose} wide>
+    <Modal track="fx-scope" title={`${name}: one image, or each layer?`} onClose={onClose} wide>
       <div className="p-5 space-y-4" data-fx-scope-dialog>
         <div className="flex flex-col sm:flex-row gap-3">
           {card('one', 'As one image', `The ${name.toLowerCase()} runs over what the layers make together, like one flat picture.`, shots?.one)}

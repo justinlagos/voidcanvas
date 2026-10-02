@@ -97,7 +97,7 @@ export function AddMenu({ onClose, filtersOnly }: { onClose: () => void; filters
   const tile = `flex items-center gap-3 p-3 rounded-xl bg-void-900 hover:bg-void-800 border border-void-800/70 text-left ${focusRing}`
 
   return (
-    <Modal title={filtersOnly ? 'Filters and adjustments' : 'Add to your design'} onClose={onClose} wide>
+    <Modal track={filtersOnly ? 'filters' : 'add'} title={filtersOnly ? 'Filters and adjustments' : 'Add to your design'} onClose={onClose} wide>
       <div className="p-5 space-y-6">
         {!filtersOnly && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">

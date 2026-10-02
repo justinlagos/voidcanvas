@@ -6,6 +6,7 @@ import type { AdjustmentKind, AdjustmentLayer, Doc, Effect, Frame, Group, Layer,
 import { copyEffect, freshFx, fxId, linkedCopies, moveInList, patchEffect, resetEffect as resetFx, sameTarget, stackOf, withStacks, type FxTarget } from './effects'
 import { useUi } from './ui-store'
 import { touchCanvas } from './touch'
+import { noteStep, noteUndo } from '@/lib/analytics'
 
 // Revisions are globally unique so a given (id, rev) always means the same pixels, even across undo branches.
 let REV = 1
@@ -1473,10 +1474,13 @@ export const useEditor = create<EditorState>((set, get) => ({
       while (next.length > 5 && historyBytes(next) > budget) next = next.slice(Math.max(1, Math.floor(next.length / 10)))
     }
     set({ history: next, historyIndex: next.length - 1, dirty: true })
+    if (!merge) noteStep(label)
   },
 
   undo: () => {
     const { history, historyIndex } = get(); if (historyIndex <= 0) return
+    const step = history[historyIndex]
+    noteUndo(step?.label, step?.at ? Date.now() - step.at : -1)
     get().jumpTo(historyIndex - 1)
   },
 

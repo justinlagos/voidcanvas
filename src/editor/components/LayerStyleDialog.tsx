@@ -16,7 +16,7 @@ export function LayerStyleDialog({ onClose, focus }: { onClose: () => void; focu
   const [sel, setSel] = useState<StyleKind | 'blend'>(focus ?? 'blend')
   const [dragK, setDragK] = useState<StyleKind | null>(null)
   const s = useEditor.getState()
-  if (!layer || layer.type === 'adjustment') return <Modal title="Layer style" onClose={onClose}><p className="p-5 text-[13px] text-void-400">Select an image, text or shape layer first.</p></Modal>
+  if (!layer || layer.type === 'adjustment') return <Modal track="layer-style" title="Layer style" onClose={onClose}><p className="p-5 text-[13px] text-void-400">Select an image, text or shape layer first.</p></Modal>
   const st: LayerStyles = layer.styles ?? emptyStyles()
   const order = st.order?.length ? st.order : STYLE_KINDS
   const put = (next: LayerStyles) => s.updateLayer(layer.id, { styles: next })
@@ -32,7 +32,7 @@ export function LayerStyleDialog({ onClose, focus }: { onClose: () => void; focu
   }
   const blendSel = (v: string, on: (b: any) => void) => <Select label="Blend mode" value={v} options={BLEND_MODES} onChange={on} />
   return (
-    <Modal title="Layer style" onClose={cancel} wide preview>
+    <Modal track="layer-style" title="Layer style" onClose={cancel} wide preview>
       <div className="flex min-h-[420px]">
         <ul className="w-52 shrink-0 p-2 border-r border-void-800/70 space-y-0.5">
           <li><button onClick={() => setSel('blend')} className={`w-full text-left px-3 h-9 rounded-lg text-[13px] ${sel === 'blend' ? 'bg-void-800 text-white' : 'text-void-300 hover:text-white'}`}>Blending options</button></li>

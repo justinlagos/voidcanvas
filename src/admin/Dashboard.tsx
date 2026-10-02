@@ -1,12 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { AlertTriangle, ArrowDownRight, Bug, ArrowUpRight, CheckCircle2, Frown, Info, KeyRound, Lightbulb, LogOut, Meh, RefreshCw, Smile, XCircle } from 'lucide-react'
-import { AI_LABEL, AREA_LABEL, FORMAT_LABEL, IMPORT_LABEL, change, changePassword, fmtPct, loadDashboard, pct, place, setFeedbackStatus, type Dash, type FeedbackRow } from './data'
+import { AlertTriangle, Bug, CheckCircle2, Frown, Info, KeyRound, Lightbulb, LogOut, Meh, RefreshCw, Smile, XCircle } from 'lucide-react'
+import { AI_LABEL, AREA_LABEL, FORMAT_LABEL, IMPORT_LABEL, changePassword, fmtPct, loadDashboard, pct, place, setFeedbackStatus, type Dash, type FeedbackRow } from './data'
 import { buildInsights, type Tone } from './insights'
 import { DailyBars, Funnel, Heatmap, Ranked } from './charts'
+import { Card, Delta, Kpi, focus } from './ui'
+import { WeekView } from './Week'
+import { isInternalDevice, setInternalDevice } from '@/lib/analytics'
 
-const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const PW_KEY = 'vc-admin-pw'
 const PERIODS = [{ d: 1, l: 'Today', s: '1d' }, { d: 7, l: '7 days', s: '7d' }, { d: 30, l: '30 days', s: '30d' }, { d: 90, l: '90 days', s: '90d' }]
 const METRICS = [
@@ -18,37 +20,6 @@ const store = {
   get() { try { return sessionStorage.getItem(PW_KEY) || localStorage.getItem(PW_KEY) || '' } catch { return '' } },
   set(pw: string, remember: boolean) { try { sessionStorage.setItem(PW_KEY, pw); if (remember) localStorage.setItem(PW_KEY, pw) } catch { /* ignore */ } },
   clear() { try { sessionStorage.removeItem(PW_KEY); localStorage.removeItem(PW_KEY) } catch { /* ignore */ } },
-}
-
-function Card({ title, sub, children, className = '', right }: { title: string; sub?: string; children: ReactNode; className?: string; right?: ReactNode }) {
-  return (
-    <section className={`rounded-2xl bg-[#131318] border border-void-800/80 p-4 sm:p-5 min-w-0 ${className}`}>
-      <header className="flex items-start justify-between gap-3 mb-4">
-        <div><h2 className="text-[14px] font-semibold text-void-50">{title}</h2>{sub && <p className="text-[12px] text-void-500 mt-0.5">{sub}</p>}</div>
-        {right}
-      </header>
-      {children}
-    </section>
-  )
-}
-
-function Delta({ cur, prev, invert = false }: { cur: number; prev: number; invert?: boolean }) {
-  const c = change(cur, prev)
-  if (c === null) return <span className="text-[11.5px] text-void-500">new</span>
-  if (Math.abs(c) < 0.005) return <span className="text-[11.5px] text-void-500">no change</span>
-  const up = c > 0; const good = invert ? !up : up
-  const Icon = up ? ArrowUpRight : ArrowDownRight
-  return <span className={`inline-flex items-center gap-0.5 text-[11.5px] tabular-nums ${good ? 'text-emerald-400' : 'text-rose-400'}`}><Icon size={13} />{fmtPct(Math.abs(c))}</span>
-}
-
-function Kpi({ label, value, foot }: { label: string; value: string; foot?: ReactNode }) {
-  return (
-    <div className="rounded-2xl bg-[#131318] border border-void-800/80 px-4 py-3.5 min-w-0">
-      <p className="text-[12px] text-void-400 truncate">{label}</p>
-      <p className="mt-1 text-[26px] leading-none font-semibold tracking-tight tabular-nums text-void-50">{value}</p>
-      <div className="mt-2 h-4 text-[11.5px] text-void-500 truncate">{foot}</div>
-    </div>
-  )
 }
 
 const TONE: Record<Tone, { Icon: any; cls: string; label: string }> = {
@@ -101,6 +72,13 @@ export function Dashboard() {
   const [fbFilter, setFbFilter] = useState<'all' | 'new' | 'bug' | 1 | 2 | 3>('all')
   const [showTable, setShowTable] = useState(false)
   const [booting, setBooting] = useState(true)
+  // "This week" shows designers only; "Everything" is every event ever stored, tests and crawlers included.
+  const [view, setView] = useState<'week' | 'all'>(() => { try { return localStorage.getItem('vc-admin-view') === 'all' ? 'all' : 'week' } catch { return 'week' } })
+  const pickView = (x: 'week' | 'all') => { setView(x); try { localStorage.setItem('vc-admin-view', x) } catch { /* ignore */ } }
+  const [mine, setMine] = useState(false)
+  useEffect(() => setMine(isInternalDevice()), [])
+  const toggleMine = () => { setInternalDevice(!mine); setMine(!mine) }
+  const authFail = useCallback(() => { store.clear(); setPw(null) }, [])
 
   // Human names for command ids, straight from the editor's action list, so the dashboard never drifts from the app.
   useEffect(() => {
@@ -152,7 +130,12 @@ export function Dashboard() {
           <span className="w-7 h-7 bg-white rounded-md flex items-center justify-center text-void-950 font-bold text-sm shrink-0">V</span>
           <h1 className="text-[15px] font-semibold truncate">Analytics</h1>
           <a href="/admin/research" className={`text-[12.5px] text-void-400 hover:text-white rounded ${focus}`}>Study</a>
-          <div className="ml-auto flex items-center gap-1 rounded-lg bg-void-900 p-0.5 border border-void-800">
+          <div className="flex items-center gap-1 rounded-lg bg-void-900 p-0.5 border border-void-800">
+            {([['week', 'This week'], ['all', 'Everything']] as const).map(([k, l]) => <button key={k} onClick={() => pickView(k)} aria-pressed={view === k} className={`px-2.5 h-7 rounded-md text-[12px] whitespace-nowrap ${focus} ${view === k ? 'bg-void-700 text-white' : 'text-void-400 hover:text-white'}`}>{l}</button>)}
+          </div>
+          <button onClick={toggleMine} aria-pressed={mine} title={mine ? 'This device is marked as yours: its use is kept out of the designer numbers. Click to count it again.' : 'Mark this device as yours, so your own use stays out of the designer numbers.'}
+            className={`hidden sm:inline-flex h-7 px-2.5 items-center rounded-md text-[12px] border whitespace-nowrap ${focus} ${mine ? 'border-emerald-500/50 text-emerald-300' : 'border-void-800 text-void-400 hover:text-white'}`}>{mine ? 'This device is yours' : 'Mark this device as yours'}</button>
+          <div className={`ml-auto items-center gap-1 rounded-lg bg-void-900 p-0.5 border border-void-800 ${view === 'all' ? 'flex' : 'hidden'}`}>
             {PERIODS.map(p => <button key={p.d} onClick={() => pick(p.d)} aria-pressed={days === p.d} className={`px-2 sm:px-2.5 h-7 rounded-md text-[12px] ${focus} ${days === p.d ? 'bg-void-700 text-white' : 'text-void-400 hover:text-white'}`}><span className="sm:hidden">{p.s}</span><span className="hidden sm:inline whitespace-nowrap">{p.l}</span></button>)}
           </div>
           <button onClick={() => load(pw, days)} aria-label="Refresh" title={`Updated ${ago(data.generated_at)}`} className={`w-8 h-8 rounded-lg flex items-center justify-center text-void-400 hover:text-white hover:bg-void-900 ${focus}`}><RefreshCw size={15} className={loading ? 'animate-spin' : ''} /></button>
@@ -160,7 +143,14 @@ export function Dashboard() {
         </div>
       </header>
 
+      {view === 'week' ? (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 space-y-4">
+          <button onClick={toggleMine} aria-pressed={mine} className={`sm:hidden h-8 px-3 rounded-lg text-[12.5px] border ${focus} ${mine ? 'border-emerald-500/50 text-emerald-300' : 'border-void-800 text-void-400'}`}>{mine ? 'This device is yours' : 'Mark this device as yours'}</button>
+          <WeekView pw={pw} onAuthFail={authFail} />
+        </div>
+      ) : (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 space-y-4">
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-2.5 text-[12.5px] text-amber-100/90">Everything stored, including test runs, crawlers and your own use before 2 Oct 2026. For designers only, use This week.</p>
         {err && <p className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2.5 text-[13px] text-rose-200">{err}</p>}
 
         <p className="text-[13px] text-void-400">Today so far: <b className="text-void-100 font-medium tabular-nums">{data.today.visitors}</b> visitors, <b className="text-void-100 font-medium tabular-nums">{data.today.sessions}</b> visits, <b className="text-void-100 font-medium tabular-nums">{data.today.exports}</b> exports. Days run midnight to midnight UK time.</p>
@@ -302,6 +292,7 @@ export function Dashboard() {
           <PasswordChange pw={pw} onChanged={p => { setPw(p); store.set(p, !!(() => { try { return localStorage.getItem(PW_KEY) } catch { return null } })()) }} />
         </footer>
       </div>
+      )}
     </main>
   )
 }

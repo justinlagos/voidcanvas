@@ -40,4 +40,5 @@ Tag pushes are refused from Claude sessions; releases follow the version in `des
 - The browser-side Supabase key is public; every table relies on row level security. After a schema change, run
   the Supabase security advisor.
 - Test users for `e2e/accounts.mjs`, `e2e/teams.mjs` and `e2e/share.mjs` are made with SQL and deleted after the run.
+- Usage events (`src/lib/analytics.ts`) never carry names, text or content: undo steps go by kind, dialogs by a fixed id, controls by their label. Every new event or field is listed in `supabase/analytics.md` and the privacy article (`privacy-and-data` in `src/content/learn/start.ts`) before it ships. Automated browsers send nothing; measure designers in /admin This week, not Everything.
 - Do not add npm dependencies to the web app without a reason; features load lazily where they can.

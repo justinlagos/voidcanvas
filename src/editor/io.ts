@@ -489,7 +489,10 @@ async function saveOpen(): Promise<void> {
     const st = useEditor.getState(); const doc = st.doc
     if (!doc || doc.id !== liveId || gen === savedGen) return
     const g = gen
+    const t0 = performance.now()
     try { await saveDesign(doc, st.layers, st.groups, st.swatches); failures = 0; noteSaved(doc.id) } catch (e) { saveFailed(e); throw e }
+    const ms = performance.now() - t0
+    import('@/lib/analytics').then(m => m.noteSave(ms)).catch(() => {})
     if (liveId !== doc.id) return
     savedGen = Math.max(savedGen, g)
     if (gen === savedGen) { if (useEditor.getState().dirty) setDirtyQuietly(false) } else scheduleSave()
@@ -695,6 +698,7 @@ export async function restoreStored(p: StoredProject): Promise<{ doc: Doc; layer
  * from, for coming-back analytics: home, landing, link, studio, effects, tab, reload, crash, another-tab.
  */
 export async function openProject(id: string, asCopy = false, from = 'other'): Promise<boolean> {
+  const t0 = performance.now()
   const p = await idb.get<StoredProject>('projects', id)
   if (!p) return false
   import('@/lib/analytics').then(m => { m.track('doc.open', { from, copy: asCopy }); if (asCopy) m.track('template.use', { from }) }).catch(() => {})
@@ -706,6 +710,8 @@ export async function openProject(id: string, asCopy = false, from = 'other'): P
   if (doc.frames?.length) useEditor.getState().loadFramed(doc, layers, p.swatches, r.groups)
   else useEditor.getState().loadProject(doc, layers, p.swatches, r.groups)
   if (asCopy) useEditor.setState({ dirty: true })
+  const ms = performance.now() - t0
+  import('@/lib/analytics').then(m => m.perf('doc.open', ms)).catch(() => {})
   return true
 }
 
