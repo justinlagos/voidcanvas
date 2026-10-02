@@ -7,8 +7,8 @@
 // section it was pressed in.
 
 import Link from 'next/link'
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowRight, BookOpen, ChevronDown, Moon, Sun, ChevronLeft, ChevronRight, Lock, Play } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { ArrowRight, BookOpen, ChevronDown, Moon, Sun, ChevronLeft, ChevronRight, Lock } from 'lucide-react'
 import { Logo } from '@/components/AppNav'
 import { SiteFooter } from '@/components/site/SiteFooter'
 import { useLpTheme } from '@/components/site/theme'
@@ -20,8 +20,8 @@ import { nextAction, type Job } from '@/studio/jobs'
 import { EFFECT_COUNT } from '@/components/effect-list'
 import { SIZE_PRESETS } from '@/editor/presets'
 import { track } from '@/lib/analytics'
-import { Ami, Analogue, EditorFrame, EditorLive, EffectsFrame, Fx, Kofi, KofiGuide, Move, Oya, Photo, Sessions, StudioFrame, workFonts } from './work'
-import { Scene } from './motion'
+import { Ami, Analogue, EditorFrame, EditorLive, EffectsFrame, Fx, Kofi, KofiGuide, Move, Oya, Photo, StudioFrame, workFonts } from './work'
+import { HeroMotion } from './HeroMotion'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const APP = 'https://voidcanvas.app'
@@ -57,26 +57,6 @@ function Reveal({ children, className = '', delay = 0, as: Tag = 'div', kind = '
   }, [])
   const T = Tag as any
   return <T ref={ref} style={{ transitionDelay: `${delay}ms` }} data-on={on || undefined} className={`lp-reveal lp-reveal-${kind} ${className}`}>{children}</T>
-}
-
-/** One shared scroll loop for the page: sets --lp-p (0 at the bottom of the screen, 1 at the top) on every
- *  [data-scroll] element in view, for transform-only parallax. Off under reduced motion. */
-function useScrollVars() {
-  useEffect(() => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const els = new Set<HTMLElement>()
-    const io = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? els.add(e.target as HTMLElement) : els.delete(e.target as HTMLElement)), { rootMargin: '20% 0px' })
-    document.querySelectorAll<HTMLElement>('[data-scroll]').forEach(el => io.observe(el))
-    let raf = 0
-    const tick = () => {
-      raf = 0
-      const vh = innerHeight
-      els.forEach(el => { const r = el.getBoundingClientRect(); el.style.setProperty('--lp-p', String(Math.max(-0.5, Math.min(1.5, 1 - (r.top + r.height / 2) / vh)).toFixed(4))) })
-    }
-    const on = () => { if (!raf) raf = requestAnimationFrame(tick) }
-    tick(); addEventListener('scroll', on, { passive: true }); addEventListener('resize', on)
-    return () => { io.disconnect(); removeEventListener('scroll', on); removeEventListener('resize', on); cancelAnimationFrame(raf) }
-  }, [])
 }
 
 /** Reports the first time a section is seen, so the funnel (view → scroll depth → click) can be read in the admin. */
@@ -148,92 +128,7 @@ function ModuleHead({ id, name, mark, headline, children, href, cta }: { id: str
   )
 }
 
-/** The highlights panel. Its scene plays only while at least a third of it is on screen, and restarts on each tab. */
-function Panel({ art, caption, wide }: { art: ReactNode; caption: ReactNode; wide?: boolean }) {
-  const ref = useRef<HTMLElement>(null)
-  const [play, setPlay] = useState(false)
-  useEffect(() => {
-    const el = ref.current; if (!el) return
-    const io = new IntersectionObserver(([e]) => setPlay(e.isIntersecting), { threshold: 0.35 })
-    io.observe(el); return () => io.disconnect()
-  }, [])
-  return (
-    <figure ref={ref} role="tabpanel" className={`mt-6 rounded-[28px] overflow-hidden bg-lp-card border border-lp-line animate-[fadein_.45s_ease] ${play ? 'lp-play' : ''}`}>
-      <div className={`${wide ? 'aspect-[16/10]' : 'aspect-[4/5]'} sm:aspect-[16/10]`}>{art}</div>
-      <figcaption className="px-6 sm:px-10 py-5 sm:py-7 text-center text-[16px] sm:text-[20px] font-semibold tracking-tight text-lp-fg max-w-[820px] mx-auto">{caption}</figcaption>
-    </figure>
-  )
-}
-
 /* ---------- work in context ---------- */
-
-/** The hero: finished pieces, fanned like prints on a table. */
-function Showcase() {
-  return (
-    <Reveal delay={240} className="relative mt-12 sm:mt-20 h-[250px] sm:h-[520px] lg:h-[600px]" aria-hidden>
-      <div className="absolute inset-x-0 -bottom-px h-[28%] bg-[linear-gradient(180deg,transparent,var(--lp-bg))] z-20 pointer-events-none" />
-      {[
-        { el: <Oya />, w: 'w-[38%] sm:w-[30%]', pos: 'left-[2%] top-[14%]', r: '-rotate-6', z: 'z-[1]' },
-        { el: <Sessions />, w: 'w-[34%] sm:w-[26%]', pos: 'left-[22%] top-[4%]', r: '-rotate-2', z: 'z-[2]' },
-        { el: <Kofi />, w: 'w-[42%] sm:w-[32%]', pos: 'left-[34%] top-0', r: 'rotate-0', z: 'z-[4]' },
-        { el: <Move />, w: 'w-[38%] sm:w-[28%]', pos: 'right-[16%] top-[8%]', r: 'rotate-3', z: 'z-[3]' },
-        { el: <Ami />, w: 'w-[34%] sm:w-[26%]', pos: 'right-0 top-[16%]', r: 'rotate-6', z: 'z-[1]' },
-      ].map((c, i) => (
-        // Outer: scroll drift (each print moves at its own rate, the outer ones spread). Inner: tilt and hover lift.
-        <div key={i} data-scroll className={`absolute ${c.w} ${c.pos} ${c.z}`} style={{ transform: `translate3d(calc(var(--lp-p, 0.5) * ${[-40, -18, 0, 18, 40][i]}px), calc(var(--lp-p, 0.5) * ${[-70, -30, -50, -20, -80][i]}px), 0)` }}>
-          <div className={`${c.r} rounded-lg sm:rounded-2xl overflow-hidden [box-shadow:var(--lp-shadow)] ring-1 ring-[var(--lp-ring)] transition-transform duration-500 ease-[cubic-bezier(.16,1,.3,1)] hover:-translate-y-2`}>{c.el}</div>
-        </div>
-      ))}
-    </Reveal>
-  )
-}
-
-/** The three modules as a flow, with the work that moves between them: references become a palette in Studio,
- *  the palette becomes a post in the Editor, the post's photo becomes print dots in Effects. */
-function Suite() {
-  const sc = new Scene('lpAll', 12)
-  const END = 11.4
-  const k = (key: string, at: [number, number], o?: Parameters<Scene['show']>[2]) => sc.show(key, at, o)
-  const glow = (key: string, at: [number, number]) => k(key, at, { from: 'opacity:0', to: 'opacity:1', d: 0.4, final: at[1] >= END ? 'shown' : 'hidden' })
-  const chip = (i: number) => k(`chip${i}`, [0.9 + i * 0.2, END], { from: 'opacity:0;transform:scaleY(0)', to: 'opacity:1;transform:none', d: 0.3 })
-  const kofi = {
-    grad: k('kg', [3.4, END], { from: 'opacity:0', to: 'opacity:1', d: 0.5 }),
-    eyebrow: k('ke', [3.9, END]),
-    head: k('kh', [4.3, END], { from: 'opacity:0;transform:translateY(1.5cqw)', to: 'opacity:1;transform:none', d: 0.5 }),
-    sub: k('ks', [5.0, END]),
-    badge: k('kb', [5.5, END], { from: 'opacity:0;transform:scale(0.5)', to: 'opacity:1;transform:none', ease: 'cubic-bezier(.2,1.4,.4,1)', d: 0.55 }),
-  }
-  const wipe = sc.tween('wipe', [7.6, 9.2], 'clip-path:inset(0 0 0 100%)', 'clip-path:inset(0 0 0 0%)', { ease: 'cubic-bezier(.65,0,.35,1)', until: END })
-  const arrow = (key: string, t: number) => k(key, [t, END], { from: 'opacity:0.25;transform:translateX(-0.5cqw)', to: 'opacity:1;transform:none', d: 0.4 })
-  const cols = [
-    { n: 'Studio', s: 'Brief, references, palette', ring: glow('g1', [0.2, 3.2]), el: (
-      <div className="relative"><Photo src="latte.jpg" ratio={4 / 5} />
-        <div className="absolute inset-x-[6%] bottom-[6%] flex gap-[3%]">{['#2b1608', '#6f3a17', '#c9752b', '#ebbf98', '#fbf1e6'].map((c, i) => <span key={c} className={`flex-1 rounded-[3px] ring-1 ring-black/20 ${chip(i)}`} style={{ height: 'clamp(8px, 2.2vw, 22px)', background: c, transformOrigin: 'bottom' }} />)}</div>
-      </div>) },
-    { n: 'Editor', s: 'Layers, masks, type, filters', ring: glow('g2', [3.2, 7.4]), el: <Kofi c={kofi} /> },
-    { n: 'Effects', s: 'One photo, one click', ring: glow('g3', [7.4, END]), el: (
-      <div className="relative"><Photo src="beard.jpg" ratio={4 / 5} /><div className={`absolute inset-0 ${wipe}`}><Fx kind="halftone" ratio={4 / 5} /></div></div>) },
-  ]
-  return (
-    <div className="lpAll-root w-full h-full flex items-center justify-center gap-[2%] sm:gap-[3%] px-[5%]">
-      <style>{sc.style()}</style>
-      {cols.map((m, i) => (
-        <Fragment key={m.n}>
-          <div className="w-[26%]">
-            <div className="relative rounded-xl overflow-hidden [box-shadow:var(--lp-shadow-sm)]">
-              {m.el}
-              <span className={`absolute inset-0 rounded-xl pointer-events-none ring-2 ring-inset ring-accent ${m.ring}`} />
-              <span className="absolute inset-0 rounded-xl pointer-events-none ring-1 ring-[var(--lp-ring)]" />
-            </div>
-            <p className="mt-3 text-[12px] sm:text-[15px] font-semibold text-lp-fg text-center">{m.n}</p>
-            <p className="hidden sm:block text-[12.5px] text-lp-faint text-center">{m.s}</p>
-          </div>
-          {i < 2 && <ArrowRight className={`shrink-0 text-lp-accent -mt-10 ${arrow(`a${i}`, i === 0 ? 3.0 : 7.2)}`} size={22} />}
-        </Fragment>
-      ))}
-    </div>
-  )
-}
 
 /** Crops a tall piece to fill a wide card slot. */
 function Crop({ children, at = 'top' }: { children: ReactNode; at?: 'top' | 'center' }) {
@@ -298,7 +193,8 @@ function Both({ d, m }: { d: ReactNode; m: ReactNode }) {
 
 // Each panel is a scripted loop of real use, not a still. They only run while on screen.
 const TABS = [
-  { id: 'all', label: 'Voidcanvas', wide: true, art: <Suite />, caption: 'Three tools that work alone and pass work to each other. References become a palette, the palette becomes a post, the post becomes print.' },
+  // The first tab is the hero's own loop (HeroMotion); the others show their demo in the same panel.
+  { id: 'all', label: 'Voidcanvas', art: null, caption: 'Three tools that work alone and pass work to each other. References become a palette, the palette becomes a post, the post becomes print.' },
   { id: 'studio', label: 'Studio', art: <Both d={<StudioFrame live />} m={<StudioFrame live mobile />} />, caption: 'Studio turns a brief and a few references into a palette, a direction and formats the client can sign off.' },
   { id: 'editor', label: 'Editor', art: <Both d={<EditorLive />} m={<EditorLive mobile />} />, caption: `The Editor gives you layers, masks, type, retouching and ${EFFECT_COUNT} live filters, with the shortcuts you already know.` },
   { id: 'effects', label: 'Effects', art: <Both d={<EffectsFrame live />} m={<EffectsFrame live mobile />} />, caption: 'Effects makes one photo into print dots, dither, glitch or ASCII in one click. Then send it to the Editor.' },
@@ -370,15 +266,14 @@ export function Landing({ learn }: { learn: LandingLearn }) {
     ...jobs.map(j => ({ kind: 'job' as const, id: j.id, name: j.name, at: j.updatedAt, thumb: '', sub: nextAction(j).label })),
   ].sort((a, b) => b.at - a.at).slice(0, 8)
 
-  const active = TABS[tab]
-  useScrollVars()
 
   // The header is always there. At the top of the page it sits on the hero with no rule; once you scroll it gets
   // a solid ground and a hairline. The section link you are in is highlighted.
   const [scrolled, setScrolled] = useState(false)
   const [here, setHere] = useState('')
   useEffect(() => {
-    const on = () => setScrolled(scrollY > 8)
+    // The ground comes in once the hero's button has docked into the nav (a third of a screen down).
+    const on = () => setScrolled(scrollY > innerHeight * 0.34)
     on(); addEventListener('scroll', on, { passive: true })
     const ids = ['editor', 'studio', 'effects', 'learn', 'questions']
     const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) setHere(e.target.id) }, { rootMargin: '-45% 0px -50% 0px' })
@@ -403,74 +298,34 @@ export function Landing({ learn }: { learn: LandingLearn }) {
           <div className="flex items-center gap-2">
             <button onClick={() => setPrivacy(true)} className={`hidden sm:flex items-center gap-1.5 h-8 px-2 rounded-md text-[13px] text-lp-dim hover:text-lp-fg ${focus}`}><Lock size={13} />Your privacy</button>
             <button onClick={flipTheme} aria-label={theme === 'dark' ? 'Switch to the light version' : 'Switch to the dark version'} title={theme === 'dark' ? 'Light version' : 'Dark version'} className={`w-8 h-8 rounded-full flex items-center justify-center text-lp-dim hover:text-lp-fg hover:bg-lp-panel ${focus}`}>{theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}</button>
-            <Cta where="nav">Start designing</Cta>
+            {/* Hidden while the hero's own button is on screen; the hero flies that button up into this spot. */}
+            <span data-hero-dock className="lp-dock"><span data-hero-dock-ring className="hm-ring" /><Cta where="nav" className="shadow-[0_8px_26px_rgba(139,124,255,0.38)]">Start designing</Cta></span>
           </div>
         </div>
       </div>
 
-      <div aria-hidden className="h-12" />
-
-      {/* Hero */}
+      {/* Hero and highlights: one pinned scene (HeroMotion). The tab in the hero becomes the Highlights panel. */}
       <Seen id="hero" className="relative">
-        <div aria-hidden className="absolute inset-0 -z-0 overflow-hidden">
-          <div className="absolute left-1/2 top-[-10%] -translate-x-1/2 w-[900px] h-[600px] rounded-full bg-[radial-gradient(closest-side,var(--lp-glow),transparent)]" />
-        </div>
-        <div className="relative max-w-[1120px] mx-auto px-5 sm:px-8 pt-16 sm:pt-24 pb-10 text-center">
-          <Reveal>
-            <p className="text-[17px] sm:text-[21px] font-semibold text-lp-text">Voidcanvas</p>
-            <h1 className="mt-3 text-[44px] sm:text-[72px] lg:text-[96px] leading-[0.98] font-semibold tracking-[-0.04em] text-lp-fg">From the brief<br className="hidden sm:block" /> to the finished file.</h1>
-            <p className="mt-4 text-[22px] sm:text-[32px] font-semibold tracking-[-0.02em] text-lp-muted">In one tab.</p>
-          </Reveal>
-
-          <Reveal delay={120} className="mt-8 max-w-[640px] mx-auto">
-            <p className="text-[17px] sm:text-[20px] leading-relaxed text-lp-muted">
-              <strong className="text-lp-fg font-semibold">A layered editor, a studio for the job around it, and one-click effects.</strong> Runs in your browser, and your files never leave it.
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Cta where="hero" big>Start designing <ArrowRight size={18} /></Cta>
-              <a href="#highlights" onClick={() => track('landing.cta', { where: 'hero.secondary', href: '#highlights' })} className={`inline-flex items-center gap-2 h-12 px-4 rounded-full text-[16px] text-lp-accent hover:text-lp-fg ${focus}`}>See how it works <ChevronDown size={16} /></a>
-            </div>
-            <button onClick={() => setPrivacy(true)} className={`mt-5 inline-flex items-center gap-2 px-3 h-9 rounded-full bg-lp-panel border border-lp-line text-[13px] text-lp-muted hover:text-lp-fg hover:border-lp-faint ${focus}`}><Lock size={14} className="text-lp-accent" />Free. No account. No cloud. Private by default.</button>
-          </Reveal>
-
-          <Showcase />
-
-          {latest.length > 0 && (
-            <div className="mt-12 text-left">
+        <HeroMotion
+          tabs={TABS}
+          tab={tab}
+          onTab={i => { setTab(i); track('landing.tab', { id: TABS[i].id }) }}
+          onPrivacy={() => setPrivacy(true)}
+          recents={latest.length > 0 ? (
+            <>
               <h2 className="text-[13px] font-semibold text-lp-text mb-3">Pick up where you left off</h2>
-              <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-5 px-5 sm:mx-0 sm:px-0">
+              <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-5 px-5 lg:mx-0 lg:px-0">
                 {latest.map(it => (
-                  <Link key={it.kind + it.id} href={it.kind === 'design' ? `/editor?project=${it.id}` : `/studio?job=${it.id}`} onClick={() => track('landing.cta', { where: 'recent', kind: it.kind })} className={`shrink-0 w-[150px] rounded-xl overflow-hidden bg-lp-panel border border-lp-line hover:border-lp-faint ${focus}`}>
+                  <Link key={it.kind + it.id} href={it.kind === 'design' ? `/editor?project=${it.id}` : `/studio?job=${it.id}`} onClick={() => track('landing.cta', { where: 'recent', kind: it.kind })} className={`shrink-0 w-[132px] rounded-xl overflow-hidden bg-lp-panel border border-lp-line hover:border-lp-faint ${focus}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <span className="block aspect-[4/3] bg-void-950 flex items-center justify-center">{it.thumb ? <img src={it.thumb} alt="" className="w-full h-full object-contain" /> : <span className="text-lp-faint text-[12px]">Job</span>}</span>
                     <span className="block px-2.5 py-2"><span className="block text-[12.5px] font-medium truncate">{it.name}</span><span className={`block text-[11.5px] truncate ${it.kind === 'job' ? 'text-lp-accent' : 'text-lp-faint'}`}>{it.kind === 'job' ? `${it.sub} →` : it.sub}</span></span>
                   </Link>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
-      </Seen>
-
-      {/* Highlights: one headline, a film slot, a tabbed gallery. */}
-      <Seen id="highlights" className="pt-20 sm:pt-28">
-        <div className="max-w-[1120px] mx-auto px-5 sm:px-8">
-          <Reveal className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-            <H2 className="max-w-[720px]">Meet the tools.<br />Three of them, and they talk.</H2>
-            <a href={`${APP}/editor`} onClick={() => track('landing.cta', { where: 'highlights.film', href: 'demo' })} className={`inline-flex items-center gap-2 text-[15px] text-lp-accent hover:text-lp-fg ${focus}`}><span className="w-9 h-9 rounded-full bg-lp-panel flex items-center justify-center"><Play size={14} className="ml-0.5" /></span>Watch the 60-second demo</a>
-          </Reveal>
-          <Reveal delay={80} kind="scale" className="mt-8 sm:mt-10">
-            <div className="flex justify-center">
-              <div role="tablist" aria-label="Highlights" className="inline-flex max-w-full overflow-x-auto no-scrollbar p-1 rounded-full bg-lp-panel border border-lp-line">
-                {TABS.map((t, i) => (
-                  <button key={t.id} role="tab" aria-selected={i === tab} onClick={() => { setTab(i); track('landing.tab', { id: t.id }) }}
-                    className={`shrink-0 h-8 px-4 rounded-full text-[13px] font-medium transition-all ${focus} ${i === tab ? 'bg-lp-btn text-lp-btn-fg shadow' : 'text-lp-dim hover:text-lp-fg'}`}>{t.label}</button>
-                ))}
-              </div>
-            </div>
-            <Panel key={active.id} art={active.art} caption={active.caption} wide={'wide' in active && active.wide} />
-          </Reveal>
-        </div>
+            </>
+          ) : undefined}
+        />
       </Seen>
 
       {/* The offer. Three cards, one message: it costs nothing and nothing leaves the device. */}
