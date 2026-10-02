@@ -35,10 +35,12 @@ describe('export sizes and names', () => {
   it('limits by the largest chosen board', () => {
     expect(maxScale([{ width: 1000, height: 1000 }, { width: 8000, height: 1000 }])).toBeCloseTo(16384 / 8000, 3)
   })
-  it('names files by order, name and pixel size', () => {
-    expect(boardFileName({ name: 'Square post', width: 1080, height: 1080 }, 0, 4, 'png', 2)).toBe('01 Square post 2160x2160.png')
-    expect(boardFileName({ name: 'Story 1080x1920', width: 1080, height: 1920 }, 2, 4, 'jpeg', 1)).toBe('03 Story 1080x1920.jpg')
-    expect(boardFileName({ name: 'a/b', width: 10, height: 10 }, 0, 1, 'webp', 1, false)).toBe('ab 10x10.webp')
+  it('names files from a pattern: design, board and pixel size, numbered in a zip', () => {
+    expect(boardFileName({ name: 'Square post', width: 1080, height: 1080 }, 0, 4, 'png', 2, true, undefined, 'Launch')).toBe('01_Launch_Square post_2160x2160.png')
+    expect(boardFileName({ name: 'Story 1080x1920', width: 1080, height: 1920 }, 2, 4, 'jpeg', 1, true, undefined, 'Launch')).toBe('03_Launch_Story 1080x1920.jpg')
+    expect(boardFileName({ name: 'a/b', width: 10, height: 10 }, 0, 1, 'webp', 1, false, undefined, 'x')).toBe('x_ab_10x10.webp')
+    expect(boardFileName({ name: 'Story', width: 1080, height: 1920 }, 1, 2, 'png', 1, true, '{board}-{n}-{scale}', 'Launch')).toBe('Story-02-1x.png')
+    expect(boardFileName({ name: 'Post', width: 100, height: 100 }, 0, 1, 'svg', 1, false, '{design} {date}', 'Kobo', new Date(2026, 8, 28))).toBe('Kobo 2026-09-28.svg')
     expect(uniqueNames(['a.png', 'a.png', 'b.png'])).toEqual(['a.png', 'a (2).png', 'b.png'])
   })
   it('sizes PDF pages per board', () => {
@@ -52,6 +54,7 @@ describe('export sizes and names', () => {
     expect(resultLabel('pdf', 4, true)).toBe('Download 4 PDFs (zip)')
     expect(resultLabel('png', 3, false)).toBe('Download 3 PNGs (zip)')
     expect(resultLabel('jpeg', 1, false)).toBe('Download JPG')
+    expect(resultLabel('svg', 2, false)).toBe('Download 2 SVGs (zip)')
   })
 })
 

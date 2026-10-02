@@ -1496,7 +1496,8 @@ export const useEditor = create<EditorState>((set, get) => ({
     const frames = s.doc.frames ?? []
     const frame = frames.length ? (frames.some(f => f.id === now.activeFrameId) ? now.activeFrameId! : frames.some(f => f.id === s.activeFrameId) ? s.activeFrameId! : frames[0].id) : null
     const act = now.activeId && sel.includes(now.activeId) ? now.activeId : (sel[sel.length - 1] ?? null)
-    set({ doc: { ...s.doc }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), selectedIds: sel.length ? sel : act ? [act] : [], editingTextId: null, activeId: act, activeFrameId: frame, selection: s.selection, historyIndex: index, editingMask: false, transform: null, docRev: get().docRev + 1, selRev: get().selRev + 1, dirty: true })
+    // What was exported, and the export choices, are not part of the drawing: undo never takes them back.
+    set({ doc: { ...s.doc, exports: now.doc?.exports ?? s.doc.exports, exportPrefs: now.doc?.exportPrefs ?? s.doc.exportPrefs }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), selectedIds: sel.length ? sel : act ? [act] : [], editingTextId: null, activeId: act, activeFrameId: frame, selection: s.selection, historyIndex: index, editingMask: false, transform: null, docRev: get().docRev + 1, selRev: get().selRev + 1, dirty: true })
   },
 
   deleteHistoryStep: (index) => {
@@ -1516,7 +1517,8 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   restoreSnapshot: (index) => {
     const s = get().snapshots[index]; if (!s) return
-    set({ doc: { ...s.doc }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), activeId: s.activeId, selectedIds: s.activeId ? [s.activeId] : [], selection: s.selection, editingMask: false, docRev: get().docRev + 1, selRev: get().selRev + 1 })
+    const cur = get().doc
+    set({ doc: { ...s.doc, exports: cur?.exports ?? s.doc.exports, exportPrefs: cur?.exportPrefs ?? s.doc.exportPrefs }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), activeId: s.activeId, selectedIds: s.activeId ? [s.activeId] : [], selection: s.selection, editingMask: false, docRev: get().docRev + 1, selRev: get().selRev + 1 })
     get().commit('Restore ' + s.label)
   },
 

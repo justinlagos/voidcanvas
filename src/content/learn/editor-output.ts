@@ -242,22 +242,22 @@ export const articles: Article[] = [
   // ─── Export for screen ─────────────────────────────────────────────
   {
     slug: 'export-for-screen',
-    title: 'Export for screens: PNG, JPG and WebP',
-    summary: 'Pick the right file type and size for web and social, keep or drop transparency, and copy an image straight to your clipboard.',
+    title: 'Export for screens: PNG, JPG, WebP and SVG',
+    summary: 'Pick the right file type and size for web and social, export the selected layers on their own, name files your way, and pick up where the last export left off.',
     category: 'editor',
     level: 'Beginner',
-    updated: '2026-09-28',
+    updated: '2026-10-02',
     related: ['export-for-print', 'artboards', 'image-resolution-explained', 'file-formats'],
-    keywords: 'export download save png jpg jpeg webp transparent background clipboard copy image retina 2x scale quality share',
+    keywords: 'export download save png jpg jpeg webp svg vector transparent background clipboard copy image retina 2x scale quality share file names naming pattern selection layer asset trim remembered last export also needed variation',
     body: [
       { t: 'p', text: 'Exporting turns your layered design into one image file you can post, send or put on a website. The design itself stays on your device, editable, so you can export as many times as you like. Getting the type and size right keeps files sharp and small.' },
 
       { t: 'h', text: 'Export in four steps' },
       { t: 'steps', items: [
         'Choose **File, Export as…** or press {{Ctrl+E}} (Cmd+E on a Mac).',
-        'Pick where the file is going: **PNG · Social**, **PNG · Transparent**, **JPG · Web**, **PDF · Print** or **PDF · Client proof**. Each sets the file type, size and quality for that destination. Or pick the file type (PNG, JPG, WebP or PDF) and the size (1× to 4×) yourself, below them.',
+        'Pick where the file is going: **PNG · Social**, **PNG · Transparent**, **JPG · Web**, **PDF · Print** or **PDF · Client proof**. Each sets the file type, size and quality for that destination. Or pick the file type (PNG, JPG, WebP, PDF or SVG) and the size (1× to 4×) yourself, below them.',
         'Read the preflight list, if one appears, and fix or accept what it says.',
-        'Click **Download PNG** (or JPG, WEBP, PDF), or **Copy** to put it on your clipboard.',
+        'Click **Download PNG** (or JPG, WEBP, PDF, SVG), or **Copy** to put it on your clipboard.',
       ] },
       { t: 'h', text: 'Destinations' },
       { t: 'table', head: ['Destination', 'What it sets'], rows: [
@@ -277,7 +277,24 @@ export const articles: Article[] = [
         "**A missing font** drawn in a stand-in, with **Review fonts**.",
         "**A print size exported as PNG or JPG**: a print PDF adds bleed and crop marks; images do not.",
       ] },
-      { t: 'p', text: 'The file is named after your design. Rename the design first if you want a better file name.' },
+      { t: 'h', text: 'Your choices are kept with the design' },
+      { t: 'p', text: "The Export dialog opens with the choices you used last time for this design: file type, size, quality, transparency, which boards and the file names. They are saved with the design, so they are still there after a reload or on another day. A design you have never exported starts from the choices you used last in this window." },
+      { t: 'p', text: "The top of the dialog says what was exported last, such as **Last exported 2 hours ago: 2 of 4 boards, PNG**, and boards exported before say **exported** under their thumbnail. Undo never takes an export record back." },
+
+      { t: 'h', text: 'File names' },
+      { t: 'p', text: "Files are named from a pattern, under **More options, File names**. The pattern starts as `{design}_{board}_{w}x{h}`, so a Story board of a design called Launch downloads as `Launch_Story_1080x1920.png`. Click a part to add it, or type your own. **For example** shows the name the first file will get, and **Reset** goes back to the usual pattern." },
+      { t: 'table', head: ['Part', 'Becomes'], rows: [
+        ['{design}', 'The design name.'],
+        ['{board}', 'The board name. A board name that already says its size does not say it twice.'],
+        ['{n}', 'The board number, 01, 02 and so on.'],
+        ['{w} and {h}', 'Width and height in pixels, at the size you export.'],
+        ['{scale}', 'The size, such as 2x.'],
+        ["{date}", "Today, as 2026-10-02."],
+      ] },
+      { t: 'p', text: 'Several files in a zip get their board number in front, unless the pattern places `{n}` itself, so the zip keeps your board order.' },
+
+      { t: 'h', text: 'Export the selected layers' },
+      { t: 'p', text: "Select one or more layers, or a group, and open Export. **Selected layers**, at the top, exports just them, trimmed to what they cover (with their shadows and glows), at any size. Transparency is on, so a logo or a cut-out comes out ready to place. Board colours and board effects are left out, and layers are not cut off at the board edge. The file is named after the layer, the group, or **Selection** for a mix. A selection export does not change the choices the design's boards export with." },
 
       { t: 'h', text: 'Which file type' },
       { t: 'table', head: ['Type', 'What the dialog says', 'Use it for'], rows: [
@@ -285,8 +302,19 @@ export const articles: Article[] = [
         ['JPG', 'Smallest file for photos. No transparency.', 'Photo-heavy designs where file size matters, such as email.'],
         ['WebP', 'Small file that keeps transparency. Best for websites.', 'Website images. Most modern browsers and many platforms accept it.'],
         ['PDF', 'For printers and clients.', 'See [Export for print](/learn/export-for-print).'],
+        ['SVG', 'Type and shapes stay vectors.', 'Handing a layout to Illustrator, Figma or Inkscape, or to a website, with the type still editable.'],
       ] },
-      { t: 'p', text: 'For JPG, WebP and PDF, **More options** has a **Quality** slider, from 40 to 100 percent, starting at 92 (a PDF never goes below 90). Lower numbers make smaller files with more blocky artefacts, most visible around text and flat colour. Between 80 and 92 is a sensible range for photos. PNG has no quality slider because it is lossless.' },
+      { t: 'p', text: 'For JPG, WebP and PDF, **More options** has a **Quality** slider, from 40 to 100 percent, starting at 92 (a PDF never goes below 90). Lower numbers make smaller files with more blocky artefacts, most visible around text and flat colour. Between 80 and 92 is a sensible range for photos. PNG and SVG have no quality slider, and neither does a lossless print PDF.' },
+
+      { t: 'h', text: 'What goes into an SVG' },
+      { t: 'list', items: [
+        '**Text stays text**, one line per line as on the canvas, with its font, weight, size, colour, letter spacing, alignment, underline and strike. The file asks for the built-in fonts from Google Fonts; a font you added from a file goes inside the SVG.',
+        '**Shapes stay shapes**: rectangles with their rounded corners, ellipses, lines, polygons, stars and pen paths, with their fill and stroke.',
+        '**Photos and painted layers** go in as images, with their masks applied: solid ones as high-quality JPEG, see-through ones as PNG.',
+        '**Anything an SVG cannot draw the same way** goes in as an image of just that layer, trimmed, in its place: effects, layer styles, masks on type and shapes, clipping, text on a path, text shadows and outlines, combined paths, and strokes set inside or outside.',
+        '**Adjustment layers** change everything below them, so all of that becomes one image, and the layers above stay vectors. Board and design effects make the whole board one image.',
+        'Groups stay groups, and layers keep their names, so the file opens with the same structure.',
+      ] },
 
       { t: 'h', text: 'Which size' },
       { t: 'p', text: 'The size buttons are 1×, 2×, 3× and 4× the design size, with the result in pixels shown beside them. Only sizes the browser can draw are offered (up to 16,384 px on a side and about 67 megapixels), so very large designs show fewer. If even 1× is too big, one smaller size is offered instead.' },
@@ -300,7 +328,7 @@ export const articles: Article[] = [
       { t: 'h', text: 'Transparency' },
       { t: 'list', items: [
         'If your design has no background colour, PNG and WebP keep the empty areas transparent.',
-        'If it has one, open **More options** and tick **Transparent background (leave out board colours)**. The layers export on a transparent background.',
+        'If it has one, open **More options** and tick **Transparent background (leave out board colours)**. The layers export on a transparent background. SVG can leave them out too.',
         'JPG cannot be transparent. Empty areas become white.',
       ] },
 
@@ -309,21 +337,28 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Boards and editable files' },
       { t: 'list', items: [
-        'With [boards](/learn/artboards), pick which to export at the top of the dialog: **This board**, **All N**, a **Boards** field for a range such as 1-3, 5, or click the thumbnails. Several boards download as a zip, one file per board. **More options** has **Number files in board order (01, 02…)**, on by default.',
+        'With [boards](/learn/artboards), pick which to export at the top of the dialog: **This board**, **All N**, a **Boards** field for a range such as 1-3, 5, or click the thumbnails. Several boards download as a zip, one file per board, named by the pattern. **More options** has **Number files in board order (01, 02…)**, on by default. When you last exported All, the next export picks every board again, new ones included.',
         '**File, Download editable picture (.void.png)** makes a PNG that also carries your full project. Send it to someone who uses Voidcanvas, or keep it as a backup. **Download project file (.void)** saves the project alone.',
       ] },
 
       { t: 'h', text: 'Other places to export' },
       { t: 'list', items: [
-        'On the start screen, the **…** menu on a recent design has **Export PNG**, which downloads it at full size without opening it.',
-        'On a phone, tap **Share** at the top. **Share PNG** hands the file to your phone\'s share sheet where it can, otherwise **Save PNG** downloads it. JPG and PDF sit beside it, with 1x and 2x sizes, and **More options** opens the full Export dialog.',
+        'On the start screen, the **…** menu on a recent design has **Export PNG** (**Export PNGs** with boards), which downloads every board at full size without opening the design.',
+        'On a phone, tap **Share** at the top. Phone exports are recorded with the design like any other. **Share PNG** hands the file to your phone\'s share sheet where it can, otherwise **Save PNG** downloads it. JPG and PDF sit beside it, with 1x and 2x sizes, and **More options** opens the full Export dialog.',
       ] },
 
       { t: 'h', text: 'Good to know' },
       { t: 'list', items: [
         'Each Download also saves an automatic restore point called "Exported" in [Version history](/learn/templates-and-versions).',
         'If export fails, the message says what was too big and what will work, such as the scale to drop to or exporting fewer boards at once.',
-        'Voidcanvas does not export SVG of a whole design. A single path can be exported with **Layer, Path, Export path as SVG…**.',
+        'A single path can also be exported on its own with **Layer, Path, Export path as SVG…**.',
+      ] },
+
+      { t: 'h', text: 'After you export' },
+      { t: 'p', text: 'A small card appears in the corner for a while. It never blocks anything; close it or ignore it.' },
+      { t: 'list', items: [
+        "**Also needed?** lists boards of this design you have not exported yet (one click opens Export with just them), and common sizes from the same family the design does not have, such as a YouTube thumbnail after an Instagram post. Clicking a size lays this board out at that size as a linked board, the same as [Cascade](/learn/resize-to-every-format). A design from a Studio job only offers its own boards; its formats come from the job.",
+        "**Use this again** has **Save as template** and **Duplicate as variation** (see [Templates and versions](/learn/templates-and-versions)).",
       ] },
       { t: 'try', label: 'Open the Editor', href: '/editor' },
     ],
@@ -336,23 +371,24 @@ export const articles: Article[] = [
     summary: 'How the Editor\'s PDF works, which sizes print at 300 dpi, how to add bleed yourself, and what to ask your printer.',
     category: 'editor',
     level: 'Intermediate',
-    updated: '2026-09-25',
+    updated: '2026-10-02',
     related: ['designing-for-print', 'workflow-print-flyer', 'export-for-screen', 'crop-and-canvas'],
-    keywords: 'print pdf 300 dpi bleed crop marks trim printer flyer poster business card cmyk resolution a4 a5',
+    keywords: 'print pdf 300 dpi bleed crop marks trim printer flyer poster business card cmyk resolution a4 a5 lossless flate compression',
     body: [
-      { t: 'p', text: 'Printers need a file at the right physical size with enough pixels to look sharp on paper. The Editor exports a one-page PDF for this. Knowing exactly how that PDF is built lets you set up the design correctly from the start, rather than finding out at the print shop.' },
+      { t: 'p', text: 'Printers need a file at the right physical size with enough pixels to look sharp on paper. The Editor exports a PDF for this, one page per board. Knowing exactly how that PDF is built lets you set up the design correctly from the start, rather than finding out at the print shop.' },
 
       { t: 'h', text: 'What the PDF contains' },
       { t: 'list', items: [
-        'One page, holding your whole design as a single high-quality JPEG image (quality 90 percent or higher).',
+        'One page per board, each at its own size (or one page for a design without boards). **More options** can make **A PDF per board** instead, as a zip.',
+        'Each page holds the board as one image. With **Lossless pages for print** (on with the **PDF · Print** destination) every pixel goes in exactly, with no JPEG compression, so flat colour and small type stay clean; the file is larger. Without it (**PDF · Client proof**, or PDF picked on its own) pages are high-quality JPEG, 90 percent or higher.',
         'Flattened onto white. Transparent areas print as white.',
         'RGB colour. There is no CMYK export.',
         'No bleed and no crop marks are added for you.',
       ] },
-      { t: 'p', text: 'Because it is image based, the text in the PDF is not selectable and fonts are not embedded as type. It prints exactly as it looks on screen.' },
+      { t: 'p', text: 'Because the pages are images, the text in the PDF is not selectable and fonts are not embedded as type. It prints exactly as it looks on screen. For type a printer or another designer can edit, export SVG as well.' },
 
       { t: 'h', text: 'How the page size is set' },
-      { t: 'p', text: 'The PDF page size comes from your design\'s pixel size alone. If the longest side is more than 2000 pixels, Voidcanvas treats it as print work at 300 dpi. If it is 2000 pixels or less, it uses 96 dpi, a screen size.' },
+      { t: 'p', text: 'Each page size comes from its board\'s pixel size alone. If the longest side is more than 2000 pixels, Voidcanvas treats it as print work at 300 dpi. If it is 2000 pixels or less, it uses 96 dpi, a screen size.' },
       { t: 'table', head: ['Preset', 'Pixels', 'PDF page size'], rows: [
         ['A4 flyer', '2480 x 3508', '210 x 297 mm (A4) at 300 dpi'],
         ['A5 flyer', '1748 x 2480', '148 x 210 mm (A5) at 300 dpi'],
@@ -366,9 +402,9 @@ export const articles: Article[] = [
       { t: 'steps', items: [
         'Start from a print preset on the start screen (A4 flyer, A5 flyer or Poster 18 × 24 in), or a custom size worked out at 300 dpi.',
         'Finish the design, then press {{Ctrl+E}} (Cmd+E on a Mac).',
-        'Choose **PDF**. The dialog notes: "One page, image based, 300 dpi for print sizes."',
+        'Choose **PDF · Print**. It sets PDF at 1× and ticks **Lossless pages for print** under **More options**.',
         'Leave **Size** at 1×. Choosing 2× keeps the same page size but packs in twice the pixels, which makes a much bigger file for little visible gain.',
-        'Leave **Quality** high and click **Download**.',
+        'Click **Download PDF**. The next time you export this design, the dialog starts from these choices.',
       ] },
 
       { t: 'h', text: 'Add bleed yourself' },
@@ -408,9 +444,9 @@ export const articles: Article[] = [
     summary: 'Reuse a layout as a template that never changes, and go back to, name and compare earlier states of a design with version history.',
     category: 'editor',
     level: 'Beginner',
-    updated: '2026-09-28',
+    updated: '2026-10-02',
     related: ['saving-and-your-files', 'history-and-undo', 'private-session', 'brand-kit'],
-    keywords: 'template templates reuse layout version history versions named versions compare restore recover backup snapshot older copy autosave crash approved',
+    keywords: 'template templates reuse layout version history versions named versions compare restore recover backup snapshot older copy autosave crash approved variation duplicate alternative',
     body: [
       { t: 'p', text: 'Templates and versions both protect work you have already done. A template is a starting point you reuse for new designs. A version is a restore point for one design, so you can go back to how it looked an hour or a day ago. Both are kept in your browser on this device.' },
 
@@ -420,12 +456,15 @@ export const articles: Article[] = [
         'Choose **File, Save as template**.',
         'You will see "Saved as a template. Find it on the start screen under Your templates."',
       ] },
-      { t: 'p', text: 'The template is a separate copy, named after your design with "template" added. Your open design carries on as before.' },
+      { t: 'p', text: 'The template is a separate copy, named after your design with "template" added. Your open design carries on as before. **Save as template** is also on the card that appears after an export.' },
 
       { t: 'h', text: 'Start from a template' },
       { t: 'p', text: 'On the start screen, **Your templates** lists every template you have saved. Click one and it opens as a fresh copy, without "template" in its name. As the start screen says: "Opening one makes a fresh copy. The template itself never changes." Edit away without worrying about the original.' },
       { t: 'p', text: 'To remove a template, hover it on the start screen and click the bin icon. To change a template, open a copy, make your changes, save it as a template again, and delete the old one.' },
       { t: 'tip', text: 'Put your brand colours, fonts and logos in the [Brand kit](/learn/brand-kit) as well. A template holds a layout; the brand kit makes your colours and fonts ready in every design, template or not.' },
+
+      { t: 'h', text: 'Duplicate as variation' },
+      { t: 'p', text: "To try another idea without touching the design you have, choose **File, Duplicate as variation**, or **Duplicate as variation** on the card after an export. A full copy opens in a new tab beside the first, named **Launch variation 2**, then 3, and so on. It starts with no exports of its own, and keeps the export choices. The first design is unchanged in its own tab." },
 
       { t: 'h', text: 'How saving works' },
       { t: 'p', text: 'Your design autosaves to this device about a second after you stop changing it, every few seconds while you keep working, and whenever you leave it or close the tab. {{Ctrl+S}} saves straight away. Versions are extra restore points on top of that. Deleting a design deletes its versions too.' },

@@ -99,6 +99,13 @@ export function textLayout(l: TextLayer): { lines: TextLine[]; w: number; h: num
   return out
 }
 
+/** Width of a run of text set in a text layer's type (font, spacing, caps), in layer pixels. */
+export function measureTextIn(l: TextLayer, text: string): number {
+  if (!measureCtx) measureCtx = ctx2d(makeCanvas(1, 1))
+  applyTextStyle(measureCtx, l)
+  return measureCtx.measureText(text).width
+}
+
 export function layerSize(l: Layer, doc?: Doc): { w: number; h: number } {
   if (l.type === 'raster') return { w: l.canvas.width, h: l.canvas.height }
   if (l.type === 'text' && l.onPath) return { w: l.onPath.w, h: l.onPath.h }

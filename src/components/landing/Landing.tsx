@@ -17,6 +17,7 @@ import type { LearnCategory } from '@/content/types'
 import { PrivacyPanel, PrivateBadge } from '@/editor/components/PrivacyPanel'
 import { initPrivateFromSession, listProjects, idb, type ProjectSummary } from '@/editor/io'
 import { nextAction, type Job } from '@/studio/jobs'
+import { designStatus, jobStatus } from '@/lib/desk'
 import { EFFECT_COUNT } from '@/components/effect-list'
 import { SIZE_PRESETS } from '@/editor/presets'
 import { track } from '@/lib/analytics'
@@ -262,8 +263,9 @@ export function Landing({ learn }: { learn: LandingLearn }) {
 
   // Returning people see their work first. That row is the highest-converting thing on the page for them.
   const latest = [
-    ...recent.filter(p => !p.template).map(p => ({ kind: 'design' as const, id: p.id, name: p.name, at: p.updatedAt, thumb: p.thumb, sub: `${p.width} × ${p.height}` })),
-    ...jobs.map(j => ({ kind: 'job' as const, id: j.id, name: j.name, at: j.updatedAt, thumb: '', sub: nextAction(j).label })),
+    // Each says what is unfinished: "2 of 4 formats exported", "Waiting for client", "Changes asked".
+    ...recent.filter(p => !p.template).map(p => ({ kind: 'design' as const, id: p.id, name: p.name, at: p.editedAt ?? p.updatedAt, thumb: p.thumb, sub: designStatus(p, jobs.find(j => j.id === p.jobId) ?? null).text || `${p.width} × ${p.height}` })),
+    ...jobs.map(j => ({ kind: 'job' as const, id: j.id, name: j.name, at: j.updatedAt, thumb: '', sub: jobStatus(j)?.text ?? nextAction(j).label })),
   ].sort((a, b) => b.at - a.at).slice(0, 8)
 
 
@@ -316,7 +318,7 @@ export function Landing({ learn }: { learn: LandingLearn }) {
               <h2 className="text-[13px] font-semibold text-lp-text mb-3">Pick up where you left off</h2>
               <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-5 px-5 lg:mx-0 lg:px-0">
                 {latest.map(it => (
-                  <Link key={it.kind + it.id} href={it.kind === 'design' ? `/editor?project=${it.id}` : `/studio?job=${it.id}`} onClick={() => track('landing.cta', { where: 'recent', kind: it.kind })} className={`shrink-0 w-[132px] rounded-xl overflow-hidden bg-lp-panel border border-lp-line hover:border-lp-faint ${focus}`}>
+                  <Link key={it.kind + it.id} href={it.kind === 'design' ? `/editor?project=${it.id}&from=landing` : `/studio?job=${it.id}`} onClick={() => track('landing.cta', { where: 'recent', kind: it.kind })} className={`shrink-0 w-[132px] rounded-xl overflow-hidden bg-lp-panel border border-lp-line hover:border-lp-faint ${focus}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <span className="block aspect-[4/3] bg-void-950 flex items-center justify-center">{it.thumb ? <img src={it.thumb} alt="" className="w-full h-full object-contain" /> : <span className="text-lp-faint text-[12px]">Job</span>}</span>
                     <span className="block px-2.5 py-2"><span className="block text-[12.5px] font-medium truncate">{it.name}</span><span className={`block text-[11.5px] truncate ${it.kind === 'job' ? 'text-lp-accent' : 'text-lp-faint'}`}>{it.kind === 'job' ? `${it.sub} →` : it.sub}</span></span>

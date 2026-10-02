@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeft, BookOpen, Bug, Camera, Check, ChevronRight, Clock, Copy, Crop, Download, Eclipse, Eye, FlipHorizontal, FolderPlus, History, ImageIcon, ImageOff, LayoutGrid, Layers as LayersIcon, Lock, MessageSquare, MoreHorizontal, PenLine, Pilcrow, Redo2, Scaling, Search, Settings, Share2, Shield, SlidersHorizontal, Sparkles, SquareStack, Trash2, Type, Undo2, Unlock, User, Wand2, X } from 'lucide-react'
 import { useEditor } from '../store'
-import { downloadBlob, exportImage, importFiles, isPrivate, trackExport } from '../io'
+import { downloadBlob, exportImage, importFiles, isPrivate, noteExport, trackExport } from '../io'
 import type { Layer, ShapeLayer, TextLayer, ToolId } from '../types'
 import { Stage } from './Stage'
 import { LayersPanel } from './LayersPanel'
@@ -506,6 +506,7 @@ function ExportSheet({ onClose }: { onClose: () => void }) {
       if (canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: name }); trackExport(f.name, blob, { scale, via: 'share' }) }
       else downloadBlob(blob, `${name}.${ext}`, { scale, via: 'phone' })
       import('../versions').then(m => m.saveVersion('Exported', true)).catch(() => {})
+      noteExport({ boards: [board?.id ?? '__doc'], format, scale, files: 1, what: 'boards' })
       onClose()
     } catch (e) { if ((e as Error)?.name !== 'AbortError') useEditor.getState().notify('Could not export. Try again.') }
     finally { setBusy(null) }

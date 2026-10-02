@@ -1,11 +1,14 @@
 import { suggestImageName } from '@/lib/intelligence/naming'
-import { ctx2d, makeCanvas, renderDoc, uid } from './engine'
+import { ctx2d, insideHiddenGroup, layerBounds, makeCanvas, maskBounds, renderDoc, uid } from './engine'
+import { fxReach } from './effects'
+import { styleReach } from './styles'
 import { layoutFrames } from './frames'
 import { nextRev, useEditor } from './store'
-import type { Doc, Effect, Frame, Group, Layer, TextLayer } from './types'
+import type { Doc, Effect, ExportPrefs, ExportRecord, Frame, Group, Layer, TextLayer } from './types'
 import { boardFileName, exportBoards as boardList, pdfPageSize, uniqueNames, type ExportFormat } from './export'
 import { readVoid, VoidFileError, writeVoid, writeVoidPng } from './voidfile'
 import { zipFiles } from './zip'
+import { noteChanged, noteExported, noteFromTemplate, noteOpened, noteSaved } from './workflow'
 export { zipFiles }
 
 // ─── IndexedDB ─────────────────────────────────────────────────────
@@ -225,7 +228,25 @@ function flatten(c: HTMLCanvasElement): HTMLCanvasElement {
   return flat
 }
 
-export interface BoardExport { boardIds: string[]; format: ExportFormat; scale: number; quality: number; transparent: boolean; pdfSplit?: boolean; numbered?: boolean }
+export interface BoardExport { boardIds: string[]; format: ExportFormat; scale: number; quality: number; transparent: boolean; pdfSplit?: boolean; numbered?: boolean; lossless?: boolean; names?: string }
+
+/** One PDF page from a rendered board: JPEG, or deflated RGB when the export is lossless (print). */
+async function pdfPageOf(c: HTMLCanvasElement, size: { w: number; h: number }, o: { quality: number; lossless?: boolean }) {
+  const { flateRgb } = await import('../studio/brand-pdf')
+  const img = o.lossless ? { flate: await flateRgb(c) } : { jpeg: new Uint8Array(await (await canvasToBlob(c, 'image/jpeg', Math.max(0.9, o.quality))).arrayBuffer()) }
+  return { ...img, pxW: c.width, pxH: c.height, mediaW: size.w, mediaH: size.h, imgX: 0, imgY: 0, imgW: size.w, imgH: size.h }
+}
+
+/** A board as an SVG file: type and shapes as vectors, images embedded. */
+async function boardSvg(b: Frame, o: { scale: number; transparent: boolean }): Promise<string> {
+  const { doc, layers, groups } = useEditor.getState()
+  if (!doc) throw new Error('Nothing to export')
+  const f = b.id === '__doc' ? null : doc.frames?.find(x => x.id === b.id) ?? null
+  const region = f ? { x: f.x, y: f.y, w: f.width, h: f.height } : { x: 0, y: 0, w: doc.width, h: doc.height }
+  const own = f ? layers.filter(l => !l.frameId || l.frameId === f.id) : layers
+  const { svgFor } = await import('./svg-export')
+  return svgFor({ doc, layers: own, groups }, { region, board: f, scale: o.scale, transparent: o.transparent, background: f ? f.background : doc.background, title: f ? `${doc.name}: ${f.name}` : doc.name, localFonts, googleFonts: FONT_SPECS })
+}
 
 /**
  * Export chosen boards. One board gives one file. Several give a zip of images, or one PDF with
@@ -244,13 +265,14 @@ export async function exportBoards(o: BoardExport, onProgress?: (done: number, t
     if (!c) throw new Error('Render failed')
     return o.format === 'jpeg' || o.format === 'pdf' || (!o.transparent && !b.background && o.format !== 'png' && o.format !== 'webp') ? flatten(c) : c
   }
-  const names = uniqueNames(chosen.map((b, i) => boardFileName(b, all.indexOf(b), all.length, o.format, o.scale, o.numbered !== false && total > 1)))
+  const names = uniqueNames(chosen.map(b => boardFileName(b, all.indexOf(b), all.length, o.format, o.scale, o.numbered !== false && total > 1, o.names, doc.name)))
   if (o.format === 'pdf' && !o.pdfSplit) {
     const { assemble } = await import('../studio/brand-pdf')
     const pages = []
     for (let i = 0; i < total; i++) {
-      const b = chosen[i], c = renderOne(b), sz = pdfPageSize(b)
-      pages.push({ jpeg: new Uint8Array(await (await canvasToBlob(c, 'image/jpeg', Math.max(0.9, o.quality))).arrayBuffer()), pxW: c.width, pxH: c.height, mediaW: sz.w, mediaH: sz.h, imgX: 0, imgY: 0, imgW: sz.w, imgH: sz.h })
+      const b = chosen[i], c = renderOne(b)
+      pages.push(await pdfPageOf(c, pdfPageSize(b), o))
+      c.width = 0; c.height = 0
       onProgress?.(i + 1, total)
       await new Promise(r => setTimeout(r, 0))
     }
@@ -259,18 +281,90 @@ export async function exportBoards(o: BoardExport, onProgress?: (done: number, t
   }
   const files: { name: string; blob: Blob }[] = []
   for (let i = 0; i < total; i++) {
-    const b = chosen[i], c = renderOne(b)
+    const b = chosen[i]
     let blob: Blob
-    if (o.format === 'pdf') {
-      const { assemble } = await import('../studio/brand-pdf'), sz = pdfPageSize(b)
-      blob = await assemble([{ jpeg: new Uint8Array(await (await canvasToBlob(c, 'image/jpeg', Math.max(0.9, o.quality))).arrayBuffer()), pxW: c.width, pxH: c.height, mediaW: sz.w, mediaH: sz.h, imgX: 0, imgY: 0, imgW: sz.w, imgH: sz.h }], false)
-    } else blob = await canvasToBlob(c, `image/${o.format}`, o.format === 'png' ? undefined : o.quality)
+    if (o.format === 'svg') blob = new Blob([await boardSvg(b, o)], { type: 'image/svg+xml' })
+    else {
+      const c = renderOne(b)
+      if (o.format === 'pdf') { const { assemble } = await import('../studio/brand-pdf'); blob = await assemble([await pdfPageOf(c, pdfPageSize(b), o)], false) }
+      else blob = await canvasToBlob(c, `image/${o.format}`, o.format === 'png' ? undefined : o.quality)
+      c.width = 0; c.height = 0
+    }
     files.push({ name: names[i], blob })
     onProgress?.(i + 1, total)
     await new Promise(r => setTimeout(r, 0))
   }
   if (files.length === 1) return files[0]
   return { blob: await zipFiles(files), name: `${base}.zip` }
+}
+
+/** What the selected layers cover, grown by how far their effects and styles reach, in document pixels. */
+export function selectionExtent(): { x: number; y: number; w: number; h: number; layers: Layer[]; name: string } | null {
+  const { doc, layers, groups, selectedIds } = useEditor.getState()
+  if (!doc || !selectedIds.length) return null
+  const sel = new Set(selectedIds)
+  const list = layers.filter(l => sel.has(l.id) && l.visible && !insideHiddenGroup(l, groups))
+  const shapes = list.filter(l => l.type !== 'adjustment')
+  if (!shapes.length) return null
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, pad = 2
+  const gmap = new Map(groups.map(g => [g.id, g]))
+  for (const l of shapes) {
+    const b = layerBounds(l, doc)
+    x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h)
+    let reach = fxReach(l.effects) + styleReach(l) + (l.type === 'text' && l.shadow ? Math.abs(l.shadow.x) + Math.abs(l.shadow.y) + l.shadow.blur * 2 : 0)
+    let gid = l.groupId ?? null, guard = 0
+    while (gid && guard++ < 64) { const g = gmap.get(gid); if (!g) break; reach += fxReach(g.effects) + styleReach({ styles: g.styles } as Layer); gid = g.parentId ?? null }
+    pad = Math.max(pad, reach + 2)
+  }
+  // Named for what it is: one layer, one whole group, or "Selection".
+  const gids = new Set(shapes.map(l => l.groupId ?? ''))
+  const g = gids.size === 1 ? gmap.get(Array.from(gids)[0]) : undefined
+  const name = shapes.length === 1 ? shapes[0].name : g && layers.filter(l => l.groupId === g.id).every(l => sel.has(l.id)) ? g.name : 'Selection'
+  return { x: x0 - pad, y: y0 - pad, w: x1 - x0 + pad * 2, h: y1 - y0 + pad * 2, layers: list, name }
+}
+
+/** Export the selected layers on their own, trimmed to what they cover, at any scale. */
+export async function exportSelection(o: { format: ExportFormat; scale: number; quality: number; transparent: boolean; lossless?: boolean; names?: string }): Promise<{ blob: Blob; name: string; w: number; h: number }> {
+  const { doc, groups } = useEditor.getState()
+  const ext = selectionExtent()
+  if (!doc || !ext) throw new Error('Nothing selected')
+  const k = o.scale
+  const region = { x: ext.x, y: ext.y, w: ext.w, h: ext.h }
+  const c = makeCanvas(Math.max(1, Math.round(region.w * k)), Math.max(1, Math.round(region.h * k)))
+  // Board and design effects belong to the board, so they are left out; layers are not cut at the board edge.
+  renderDoc(c, doc, ext.layers, { groups, scale: k, region, frameRects: [], transparent: true, noShadow: true, noCache: true, fullRes: true, inner: true })
+  const b = maskBounds(c)
+  if (!b) throw new Error('The selection is empty')
+  const trimmed = makeCanvas(b.w, b.h); ctx2d(trimmed).drawImage(c, -b.x, -b.y)
+  c.width = 0; c.height = 0
+  const docW = b.w / k, docH = b.h / k
+  const name = boardFileName({ name: ext.name, width: docW, height: docH }, 0, 1, o.format, k, false, o.names, doc.name)
+  const transparent = o.transparent && (o.format === 'png' || o.format === 'webp' || o.format === 'svg')
+  let blob: Blob
+  if (o.format === 'svg') {
+    const { svgFor } = await import('./svg-export')
+    const at = { x: region.x + b.x / k, y: region.y + b.y / k, w: docW, h: docH }
+    blob = new Blob([await svgFor({ doc, layers: ext.layers, groups }, { region: at, board: null, scale: k, transparent, background: transparent ? null : '#ffffff', pageFx: false, title: `${doc.name}: ${ext.name}`, localFonts, googleFonts: FONT_SPECS })], { type: 'image/svg+xml' })
+  } else if (o.format === 'pdf') {
+    const { assemble } = await import('../studio/brand-pdf')
+    blob = await assemble([await pdfPageOf(flatten(trimmed), pdfPageSize({ width: docW, height: docH }), o)], false)
+  } else {
+    const out = transparent ? trimmed : flatten(trimmed)
+    blob = await canvasToBlob(out, `image/${o.format}`, o.format === 'png' ? undefined : o.quality)
+  }
+  return { blob, name, w: b.w, h: b.h }
+}
+
+/**
+ * Keep what was exported, and the choices used, with the design (the last 20 exports). Not an undo step,
+ * and not an edit: the design's "edited" time stays where it was.
+ */
+export function noteExport(rec: Omit<ExportRecord, 'at'>, prefs?: ExportPrefs) {
+  const st = useEditor.getState(); if (!st.doc) return
+  const before = st.doc.exports ?? []
+  const exports = [...before, { ...rec, at: Date.now() }].slice(-20)
+  st.setDoc(prefs ? { exports, exportPrefs: prefs } : { exports })
+  noteExported(useEditor.getState().doc!, rec, before.length === 0)
 }
 
 /** Every board as its own PNG in a zip. */
@@ -336,7 +430,18 @@ async function unpackFonts(fonts: Record<string, Blob> | undefined) {
   for (const [family, blob] of Object.entries(fonts)) { if (!localFonts.has(family)) { try { await registerLocalFont(family, blob) } catch { /* broken font file */ } } }
 }
 
-export interface ProjectSummary { id: string; name: string; updatedAt: number; width: number; height: number; thumb: string; template?: boolean }
+export interface ProjectSummary {
+  id: string; name: string; updatedAt: number; width: number; height: number; thumb: string; template?: boolean
+  /** When the design itself last changed (an export alone does not count). */
+  editedAt?: number
+  /** Boards in the design (1 without boards), how many of them have been exported, and the last export. */
+  boards?: number
+  exportedBoards?: number
+  exports?: number
+  lastExport?: { at: number; format: string; boards: number } | null
+  /** The Studio job the design belongs to. */
+  jobId?: string | null
+}
 export interface StoredProject { id: string; doc: Doc; layers: any[]; groups?: Group[]; swatches: string[]; blobs: Record<string, Blob>; fonts?: Record<string, Blob> }
 
 // ─── Saving the open design ────────────────────────────────────────
@@ -371,8 +476,8 @@ function setDirtyQuietly(v: boolean) { marking = true; try { useEditor.setState(
 
 function saveFailed(e: unknown) {
   failures++
-  import('@/lib/analytics').then(m => m.track('save.failed', { n: failures })).catch(() => {})
   const msg = (e as Error)?.message || ''
+  import('@/lib/analytics').then(m => { m.track('save.failed', { n: failures }); if (/full/i.test(msg)) m.track('storage.full', { n: failures }) }).catch(() => {})
   useEditor.getState().notify(/full/i.test(msg) ? msg : 'Could not save this design. It is still open; export it or free some space, and saving will try again.')
   if (failures < 4) scheduleSave()
 }
@@ -384,7 +489,7 @@ async function saveOpen(): Promise<void> {
     const st = useEditor.getState(); const doc = st.doc
     if (!doc || doc.id !== liveId || gen === savedGen) return
     const g = gen
-    try { await saveDesign(doc, st.layers, st.groups, st.swatches); failures = 0 } catch (e) { saveFailed(e); throw e }
+    try { await saveDesign(doc, st.layers, st.groups, st.swatches); failures = 0; noteSaved(doc.id) } catch (e) { saveFailed(e); throw e }
     if (liveId !== doc.id) return
     savedGen = Math.max(savedGen, g)
     if (gen === savedGen) { if (useEditor.getState().dirty) setDirtyQuietly(false) } else scheduleSave()
@@ -405,6 +510,14 @@ export async function saveProject(): Promise<void> {
   await saveOpen()
 }
 export const flushSave = () => saveProject().catch(() => {})
+
+/** True when two versions of a design differ only in what the Editor keeps about exports. */
+function bookkeepingOnly(a: Doc | null, b: Doc | null): boolean {
+  if (!a || !b) return false
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)])
+  for (const k of Array.from(keys)) if (k !== 'exports' && k !== 'exportPrefs' && (a as any)[k] !== (b as any)[k]) return false
+  return true
+}
 
 /** Start watching the open design. Called once by the Editor. */
 export function startAutosave() {
@@ -433,6 +546,9 @@ export function startAutosave() {
       return
     }
     if (!id || settling) return
+    // A real change moves "edited": every edit is an undo step (or an undo). Fonts arriving, an export record and
+    // remembered export choices are not edits. The step often lands in its own update, after the change itself.
+    if ((st.history !== prev.history || st.historyIndex !== prev.historyIndex) && !(st.doc !== prev.doc && bookkeepingOnly(st.doc, prev.doc) && st.layers === prev.layers)) { editedAt.set(id, Date.now()); noteChanged(id) }
     const changed = st.layers !== prev.layers || st.groups !== prev.groups || st.doc !== prev.doc || st.swatches !== prev.swatches || (st.dirty && !prev.dirty)
     if (!changed) return
     gen++
@@ -471,15 +587,20 @@ function initDesignChannel() {
     } else if (m.t === 'released' && m.wrote && st.doc?.id === m.id && gen === savedGen) {
       // The other tab had changes this tab did not load yet: reload the saved copy, keeping the view.
       const view = st.view
-      if (await openProject(m.id)) useEditor.setState({ view })
+      if (await openProject(m.id, false, 'another-tab')) useEditor.setState({ view })
     }
   }
 }
 function announceOpen(id: string) { try { designChannel?.postMessage({ t: 'open', id, from: TAB_KEY }) } catch { /* ignore */ } }
 
+/** When each open design last really changed, this session (exports and remembered choices do not count). */
+const editedAt = new Map<string, number>()
+
 /** Save any design, open or not. Used for autosave, templates and resized copies. */
 export async function saveDesign(doc: Doc, layers: Layer[], groups: Group[], swatches: string[], template = false): Promise<void> {
   const { stored, summary } = await storeDesign(doc, layers, groups, swatches, template)
+  // Not changed this session: keep when it was last changed (a design saved before this was recorded: its last save).
+  if (!summary.editedAt) { const prev = await idb.get<ProjectSummary>('index', doc.id).catch(() => undefined); summary.editedAt = prev?.editedAt ?? prev?.updatedAt ?? summary.updatedAt }
   await idb.put('projects', stored)
   await idb.put('index', summary)
   // Once there is work worth keeping, ask the browser not to clear it.
@@ -522,7 +643,14 @@ export async function storeDesign(doc: Doc, layers: Layer[], groups: Group[], sw
     if (!g.mask) return g; const { mask, ...rest } = g; blobs['g:' + g.id + ':mask'] = await encodePng(mask); return { ...rest, hasMask: true } as unknown as Group
   }))
   const stored: StoredProject = { id: doc.id, doc: packed, layers: meta, groups: gs, swatches, blobs, fonts: await packFonts(layers) }
-  const summary: ProjectSummary = { id: doc.id, name: doc.name, updatedAt: Date.now(), width: doc.width, height: doc.height, thumb: thumb.toDataURL('image/jpeg', 0.7), template }
+  const boardIds = doc.frames?.length ? doc.frames.map(f => f.id) : ['__doc']
+  const exported = new Set((doc.exports ?? []).filter(r => r.what !== 'selection').flatMap(r => r.boards).filter(id => boardIds.includes(id)))
+  const last = doc.exports?.length ? doc.exports[doc.exports.length - 1] : null
+  const summary: ProjectSummary = {
+    id: doc.id, name: doc.name, updatedAt: Date.now(), width: doc.width, height: doc.height, thumb: thumb.toDataURL('image/jpeg', 0.7), template,
+    editedAt: editedAt.get(doc.id), boards: boardIds.length, exportedBoards: exported.size, exports: doc.exports?.length ?? 0,
+    lastExport: last ? { at: last.at, format: last.format, boards: last.boards.length } : null, jobId: doc.jobId ?? null,
+  }
   return { stored, summary }
 }
 
@@ -562,13 +690,19 @@ export async function restoreStored(p: StoredProject): Promise<{ doc: Doc; layer
   return { doc, layers, groups }
 }
 
-export async function openProject(id: string, asCopy = false): Promise<boolean> {
-  import('@/lib/analytics').then(m => m.track('doc.open', { copy: asCopy })).catch(() => {})
+/**
+ * Open a saved design. `asCopy` makes a fresh design from it (templates). `from` says where it was opened
+ * from, for coming-back analytics: home, landing, link, studio, effects, tab, reload, crash, another-tab.
+ */
+export async function openProject(id: string, asCopy = false, from = 'other'): Promise<boolean> {
   const p = await idb.get<StoredProject>('projects', id)
   if (!p) return false
+  import('@/lib/analytics').then(m => { m.track('doc.open', { from, copy: asCopy }); if (asCopy) m.track('template.use', { from }) }).catch(() => {})
   const r = await restoreStored(p)
   const layers = r.layers
-  const doc = asCopy ? { ...r.doc, id: 'd' + Date.now().toString(36), name: r.doc.name.replace(/ template$/i, '') } : r.doc
+  // A template copy starts its own export history.
+  const doc = asCopy ? { ...r.doc, id: 'd' + Date.now().toString(36), name: r.doc.name.replace(/ template$/i, ''), exports: [] } : r.doc
+  if (asCopy) noteFromTemplate(doc.id); else noteOpened(doc.id)
   if (doc.frames?.length) useEditor.getState().loadFramed(doc, layers, p.swatches, r.groups)
   else useEditor.getState().loadProject(doc, layers, p.swatches, r.groups)
   if (asCopy) useEditor.setState({ dirty: true })
@@ -667,18 +801,52 @@ export async function duplicateProject(id: string): Promise<ProjectSummary | nul
   return summary
 }
 
-/** Render a stored project to a full-resolution PNG and download it, without opening the editor. */
+/**
+ * A copy of the open design as a new design, "Poster variation 2", for trying another idea without touching
+ * this one. Its export history starts empty. Returns the new design's id.
+ */
+export async function duplicateAsVariation(): Promise<string | null> {
+  const st = useEditor.getState(); if (!st.doc) return null
+  await saveProject().catch(() => {})
+  const base = st.doc.name.replace(/,?\s+variation\s+\d+$/i, '').trim() || 'Design'
+  const names = new Set((await listProjects()).map(p => p.name))
+  let k = 2; while (names.has(`${base} variation ${k}`)) k++
+  const id = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
+  await saveDesign({ ...st.doc, id, name: `${base} variation ${k}`, exports: [] }, st.layers, st.groups, st.swatches)
+  import('@/lib/analytics').then(m => m.track('variation.make', { boards: st.doc?.frames?.length ?? 1 })).catch(() => {})
+  return id
+}
+
+/**
+ * Export a saved design from Home without opening it: each board as a PNG at its own size (a zip for
+ * several), named with the design's file name pattern. The export is recorded with the design.
+ */
 export async function exportProjectPng(id: string): Promise<void> {
   const p = await idb.get<StoredProject>('projects', id); if (!p) return
   const r = await restoreStored(p)
-  const c = makeCanvas(r.doc.width, r.doc.height)
-  renderDoc(c, r.doc, r.layers, { groups: r.groups, scale: 1, noCache: true, fullRes: true })
-  downloadBlob(await canvasToBlob(c), `${p.doc.name.replace(/[^\w\- ]+/g, '') || 'design'}.png`)
+  for (const l of r.layers) if (l.type === 'text') await ensureFont(l.fontFamily, l.fontWeight, l.italic)
+  const boards = boardList(r.doc)
+  const files: { name: string; blob: Blob }[] = []
+  for (let i = 0; i < boards.length; i++) {
+    const b = boards[i], f = b.id === '__doc' ? null : b
+    const region = f ? { x: f.x, y: f.y, w: f.width, h: f.height } : { x: 0, y: 0, w: r.doc.width, h: r.doc.height }
+    const own = f ? r.layers.filter(l => !l.frameId || l.frameId === f.id) : r.layers
+    const c = makeCanvas(Math.max(1, Math.round(region.w)), Math.max(1, Math.round(region.h)))
+    renderDoc(c, r.doc, own, { groups: r.groups, scale: 1, noCache: true, fullRes: true, noShadow: true, region, frameRects: f ? [f] : [] })
+    files.push({ name: boardFileName(b, i, boards.length, 'png', 1, boards.length > 1, r.doc.exportPrefs?.names, r.doc.name), blob: await canvasToBlob(c) })
+    c.width = 0; c.height = 0
+  }
+  const out = files.length === 1 ? files[0] : { name: `${safeName(r.doc.name)}.zip`, blob: await zipFiles(uniqueNames(files.map(x => x.name)).map((name, i) => ({ name, blob: files[i].blob }))) }
+  downloadBlob(out.blob, out.name, { via: 'home', boards: boards.length })
+  const rec: ExportRecord = { at: Date.now(), boards: boards.map(b => b.id), format: 'png', scale: 1, files: files.length, what: 'boards' }
+  await idb.put('projects', { ...p, doc: { ...p.doc, exports: [...(p.doc.exports ?? []), rec].slice(-20) } })
+  const idx = await idb.get<ProjectSummary>('index', id).catch(() => undefined)
+  if (idx) await idb.put('index', { ...idx, exports: (idx.exports ?? 0) + 1, exportedBoards: boards.length, lastExport: { at: rec.at, format: 'png', boards: boards.length } })
 }
 
 // ─── Fonts ─────────────────────────────────────────────────────────
 
-const FONT_SPECS: Record<string, string> = {
+export const FONT_SPECS: Record<string, string> = {
   Inter: ':wght@400;700', Poppins: ':ital,wght@0,400;0,700;1,400;1,700', Montserrat: ':ital,wght@0,400;0,700;1,400;1,700',
   'Space Grotesk': ':wght@400;700', 'DM Sans': ':ital,wght@0,400;0,700;1,400;1,700', 'Archivo Black': '', 'Bebas Neue': '',
   Oswald: ':wght@400;700', Anton: '', 'Playfair Display': ':ital,wght@0,400;0,700;1,400;1,700', 'DM Serif Display': ':ital@0;1',

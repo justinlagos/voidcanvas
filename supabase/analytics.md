@@ -28,8 +28,16 @@ To see a function's current SQL: `select pg_get_functiondef('public.vc_admin_das
 | `action` | any menu, palette or shortcut command; tool picks as `tool.<id>` | `id, via` |
 | `doc.new` | blank design from a size preset | `preset, w, h` |
 | `doc.import` | files opened or work sent between tools | `kind, count` |
-| `doc.open` | saved design reopened | `copy` |
-| `export` / `export.failed` | any download or copy | `format, kb, scale, effect` |
+| `doc.open` | saved design reopened | `from` (home, landing, link, studio, effects, tab, reload, crash, another-tab, template), `copy` |
+| `doc.resume` | designs reopened after a reload, or after a crash from the start screen | `how, tabs` |
+| `save.failed`, `storage.full` | a save could not be written / because browser storage is full | `n` |
+| `export` / `export.failed` | any download or copy | `format, kb, scale, effect, boards, what` (boards or selection), `via` (home, phone, share) |
+| `activation` | the first export of a design | `format, first_on_device, edited` |
+| `workflow` | a whole workflow done, once per design per browsing session: `create-edit-export`, `open-change-save`, `master-formats-export`, `template-new-design` | `kind` |
+| `version.make`, `version.restore` | a version saved by hand / restored | `named, from` / `copy` |
+| `template.save`, `template.use` | saved as a template / a design started from one | `boards` / `from` |
+| `variation.make` | Duplicate as variation | `boards` |
+| `after_export` | a choice on the card after an export | `use` (other-boards, size, template, variation) |
 | `effect.load` / `effect.apply` | image loaded / effect picked in Effects or single tools | `id, tool` |
 | `handoff` | work sent to the Editor | `from, images, live` |
 | `ai.run`, `ai.download`, `ai.declined` | on-device model use | `tool, ok, ms, gpu, model, mb` |

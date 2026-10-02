@@ -29,6 +29,7 @@ export async function saveVersion(label: string, auto = false, opts: { name?: st
   const { stored, summary } = await storeDesign(doc, layers, groups, swatches)
   const id = await putVersion(stored, summary.thumb, label, auto, opts)
   lastVersionAt = Date.now()
+  if (!auto && id) import('@/lib/analytics').then(m => m.track('version.make', { named: !!opts.name, from: 'editor' })).catch(() => {})
   return id
 }
 
@@ -121,7 +122,10 @@ export async function restoreVersion(id: string, asCopy = false) {
   const ed = useEditor.getState()
   if (!asCopy) await saveVersion('Before restoring an older version', true)
   const { doc, layers, groups } = await restoreStored(v.project)
-  const d = asCopy ? { ...doc, id: 'd' + Date.now().toString(36), name: doc.name + ' (restored)' } : doc
+  const cur = ed.doc
+  // The export record stays with the design; a restored copy starts its own.
+  const d = asCopy ? { ...doc, id: 'd' + Date.now().toString(36), name: doc.name + ' (restored)', exports: [] } : { ...doc, exports: cur?.exports ?? doc.exports, exportPrefs: cur?.exportPrefs ?? doc.exportPrefs }
+  import('@/lib/analytics').then(m => m.track('version.restore', { copy: asCopy })).catch(() => {})
   if (d.frames?.length) ed.loadFramed(d, layers, v.project.swatches, groups)
   else ed.loadProject(d, layers, v.project.swatches, groups)
   useEditor.setState({ dirty: true })

@@ -10,7 +10,8 @@ import { NO_DECISIONS, type LogoDecisions, type LogoInfo } from './brand/logo'
 const enc = new TextEncoder()
 const PT = 72 / 25.4 // points per mm
 
-export interface Page { jpeg: Uint8Array; pxW: number; pxH: number; mediaW: number; mediaH: number; imgX: number; imgY: number; imgW: number; imgH: number; boxes?: string; extra?: string }
+/** A page image: JPEG bytes (DCTDecode), or deflated RGB (FlateDecode) for lossless print pages. */
+export interface Page { jpeg?: Uint8Array; flate?: Uint8Array; pxW: number; pxH: number; mediaW: number; mediaH: number; imgX: number; imgY: number; imgW: number; imgH: number; boxes?: string; extra?: string }
 
 export async function assemble(pages: Page[], withFont: boolean): Promise<Blob> {
   const parts: (string | Uint8Array)[] = []; let pos = 0; const off: number[] = []
@@ -25,8 +26,9 @@ export async function assemble(pages: Page[], withFont: boolean): Promise<Blob> 
     const font = withFont ? ` /Font << /F1 ${fontId} 0 R >>` : ''
     obj(pageId, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${p.mediaW.toFixed(3)} ${p.mediaH.toFixed(3)}]${p.boxes ?? ''} /Resources << /XObject << /Im0 ${imgId} 0 R >>${font} >> /Contents ${contId} 0 R >>`)
     off[imgId] = pos
-    push(`${imgId} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${p.pxW} /Height ${p.pxH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpeg.length} >>\nstream\n`)
-    push(p.jpeg); push('\nendstream\nendobj\n')
+    const data = p.flate ?? p.jpeg ?? new Uint8Array()
+    push(`${imgId} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${p.pxW} /Height ${p.pxH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /${p.flate ? 'FlateDecode' : 'DCTDecode'} /Length ${data.length} >>\nstream\n`)
+    push(data); push('\nendstream\nendobj\n')
     const content = `q ${p.imgW.toFixed(3)} 0 0 ${p.imgH.toFixed(3)} ${p.imgX.toFixed(3)} ${p.imgY.toFixed(3)} cm /Im0 Do Q\n${p.extra ?? ''}`
     obj(contId, `<< /Length ${enc.encode(content).length} >>\nstream\n${content}\nendstream`)
   })
@@ -37,6 +39,29 @@ export async function assemble(pages: Page[], withFont: boolean): Promise<Blob> 
   for (let i = 1; i <= maxId; i++) push((off[i] != null ? String(off[i]).padStart(10, '0') + ' 00000 n ' : '0000000000 00000 f ') + '\n')
   push(`trailer\n<< /Size ${maxId + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`)
   return new Blob(parts as BlobPart[], { type: 'application/pdf' })
+}
+
+/** The canvas as deflated RGB rows, for a lossless PDF image. Drawn over white first: PDF pages have no transparency here. */
+export async function flateRgb(c: HTMLCanvasElement): Promise<Uint8Array> {
+  const w = c.width, h = c.height
+  const flat = document.createElement('canvas'); flat.width = w; flat.height = h
+  const x = flat.getContext('2d', { willReadFrequently: true })!
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, w, h); x.drawImage(c, 0, 0)
+  const cs = new CompressionStream('deflate')
+  const writer = cs.writable.getWriter()
+  const done = new Response(cs.readable).arrayBuffer()
+  // A band of rows at a time, so a large print page never needs a second full copy in memory.
+  const band = Math.max(1, Math.floor(4_000_000 / Math.max(1, w * 4)))
+  for (let y = 0; y < h; y += band) {
+    const rows = Math.min(band, h - y)
+    const d = x.getImageData(0, y, w, rows).data
+    const rgb = new Uint8Array(w * rows * 3)
+    for (let i = 0, j = 0; i < d.length; i += 4, j += 3) { rgb[j] = d[i]; rgb[j + 1] = d[i + 1]; rgb[j + 2] = d[i + 2] }
+    await writer.write(rgb)
+  }
+  await writer.close()
+  flat.width = 0; flat.height = 0
+  return new Uint8Array(await done)
 }
 
 const jpegOf = async (c: HTMLCanvasElement, q: number) => new Uint8Array(await (await canvasToBlob(c, 'image/jpeg', q)).arrayBuffer())

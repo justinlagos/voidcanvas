@@ -163,7 +163,7 @@ export const GOALS: Goal[] = [
     queries: ['how to edit a psd file', 'can you edit a psd file without photoshop', 'open psd file online free', 'is psd file editable', 'psd editor online', 'convert psd to png', 'how to open psd without photoshop', 'psd viewer', 'psd not opening', 'psd missing fonts'],
     product: { text: 'The Editor opens PSD files in the browser, keeps layers, groups, masks, text, adjustments and layer styles, and shows an import report listing anything it had to render as pixels. It does not save PSD: export PNG, JPG, WebP or PDF, or keep the layers in a .void file.', label: 'Open a PSD in the Editor', href: '/editor' },
     faq: [
-      { q: 'Can I save back to PSD?', a: 'No. The Editor opens PSD files but does not write them. Export PNG, JPG, WebP or PDF for delivery, or save a .void file to keep the layers editable in Voidcanvas.' },
+      { q: 'Can I save back to PSD?', a: 'No. The Editor opens PSD files but does not write them. Export PNG, JPG, WebP, PDF or SVG (type and shapes stay vectors) for delivery, or save a .void file to keep the layers editable in Voidcanvas.' },
     ],
   },
   {

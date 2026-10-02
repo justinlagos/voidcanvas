@@ -316,12 +316,33 @@ export interface Doc {
   dpi?: number
   /** The client brief this design answers, carried over from Studio. */
   brief?: DesignBrief
+  /** The export choices last used for this design, so the next export starts from them. */
+  exportPrefs?: ExportPrefs
+  /** What was exported and when, newest last (the last 20). */
+  exports?: ExportRecord[]
   /** Studio job and client brand this design belongs to. */
   jobId?: string | null
   brandId?: string | null
   /** Effects on the whole design, applied last (on each board when there are boards). */
   effects?: Effect[] | null
 }
+
+export interface ExportPrefs {
+  format: 'png' | 'jpeg' | 'webp' | 'pdf' | 'svg'
+  scale: number
+  quality: number
+  transparent: boolean
+  pdfSplit: boolean
+  numbered: boolean
+  /** PDF pages without JPEG compression (print). */
+  lossless: boolean
+  /** File name pattern: {design} {board} {n} {w} {h} {scale} {date}. */
+  names: string
+  preset: string | null
+  /** Which boards: the one being worked on, all of them, or a list of board ids. */
+  boards: 'active' | 'all' | string[]
+}
+export interface ExportRecord { at: number; boards: string[]; format: string; scale: number; files: number; what?: 'boards' | 'selection' }
 
 export interface DesignBrief { title: string; text: string; items: { label: string; value: string; key?: string }[]; palette?: { label: string; hex: string }[] }
 

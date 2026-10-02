@@ -1,9 +1,10 @@
 import type { Doc, Frame } from './types'
+import { SIZE_PRESETS, type SizePreset } from './presets'
 
 // Pure helpers for export: which boards, what size, what the files are called.
 // Kept free of the canvas so they can be unit tested.
 
-export type ExportFormat = 'png' | 'jpeg' | 'webp' | 'pdf'
+export type ExportFormat = 'png' | 'jpeg' | 'webp' | 'pdf' | 'svg'
 
 /** Browsers refuse canvases past these limits (Chrome and Safari are the tightest). */
 export const MAX_SIDE = 16384
@@ -73,13 +74,27 @@ const clean = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' '
 
 export const extFor = (f: ExportFormat) => (f === 'jpeg' ? 'jpg' : f)
 
-/** File name for one board: "01 Square post 1080x1080.png". Numbers keep the order in a zip. */
-export function boardFileName(b: { name: string; width: number; height: number }, index: number, total: number, format: ExportFormat, scale: number, numbered = true): string {
+/** The file name pattern new exports start with. */
+export const DEFAULT_NAMES = '{design}_{board}_{w}x{h}'
+export const NAME_TOKENS = ['{design}', '{board}', '{n}', '{w}', '{h}', '{scale}', '{date}']
+
+/**
+ * File name for one board from a pattern: "{design}_{board}_{w}x{h}" gives "Launch_Story_1080x1920.png".
+ * With `numbered` and several files, the board's number leads (unless the pattern places {n} itself), so a zip
+ * keeps the order. A board whose name already says its size does not say it twice.
+ */
+export function boardFileName(b: { name: string; width: number; height: number }, index: number, total: number, format: ExportFormat, scale: number, numbered = true, pattern = DEFAULT_NAMES, design = '', date = new Date()): string {
   const digits = String(total).length < 2 ? 2 : String(total).length
   const w = Math.round(b.width * scale), h = Math.round(b.height * scale)
-  const name = clean(b.name) || 'Board'
-  const sizeTag = name.includes(`${w}x${h}`) || name.includes(`${w}×${h}`) ? '' : ` ${w}x${h}`
-  return `${numbered ? String(index + 1).padStart(digits, '0') + ' ' : ''}${name}${sizeTag}.${extFor(format)}`
+  const board = clean(b.name) || 'Board'
+  const n = String(index + 1).padStart(digits, '0')
+  const sized = board.includes(`${w}x${h}`) || board.includes(`${w}×${h}`)
+  let pat = pattern.trim() || DEFAULT_NAMES
+  if (sized) pat = pat.replace(/[_\s-]*\{w\}x\{h\}/, '')
+  if (numbered && !pat.includes('{n}')) pat = '{n}_' + pat
+  const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const out = pat.replace(/\{design\}/g, clean(design) || 'design').replace(/\{board\}/g, board).replace(/\{n\}/g, n).replace(/\{w\}/g, String(w)).replace(/\{h\}/g, String(h)).replace(/\{scale\}/g, `${scale}x`).replace(/\{date\}/g, iso)
+  return `${clean(out).replace(/^[_\s-]+|[_\s-]+$/g, '') || board}.${extFor(format)}`
 }
 
 /** Make names unique inside a zip. */
@@ -106,6 +121,25 @@ export function pdfPageSize(b: { width: number; height: number }): { w: number; 
 /** What the primary button says, so the result is never a surprise. */
 export function resultLabel(format: ExportFormat, count: number, pdfSplit: boolean): string {
   const F = format === 'jpeg' ? 'JPG' : format.toUpperCase()
+  if (format === 'svg') return count === 1 ? 'Download SVG' : `Download ${count} SVGs (zip)`
   if (format === 'pdf') return count === 1 ? 'Download PDF' : pdfSplit ? `Download ${count} PDFs (zip)` : `Download PDF, ${count} pages`
   return count === 1 ? `Download ${F}` : `Download ${count} ${F}s (zip)`
+}
+
+/**
+ * After an export: what else this design probably needs. `others` are boards never exported; `sizes` are
+ * common formats from the same family as the exported board (social, screen, print) that the design does
+ * not have yet. A Studio job's formats come from the job, so only `others` is offered there.
+ */
+export function alsoNeeded(doc: Pick<Doc, 'frames' | 'exports' | 'jobId' | 'width' | 'height'>, max = 3): { others: string[]; sizes: SizePreset[]; from: string | null } {
+  const frames = doc.frames ?? []
+  const exported = new Set((doc.exports ?? []).filter(r => r.what !== 'selection').flatMap(r => r.boards))
+  const others = frames.filter(f => !exported.has(f.id)).map(f => f.id)
+  if (doc.jobId) return { others, sizes: [], from: null }
+  const master = frames.find(f => !f.linkedFrom && exported.has(f.id)) ?? frames.find(f => exported.has(f.id)) ?? frames[0] ?? null
+  const size = master ? { width: master.width, height: master.height } : { width: doc.width, height: doc.height }
+  const have = new Set(frames.length ? frames.map(f => `${f.width}x${f.height}`) : [`${doc.width}x${doc.height}`])
+  const family = SIZE_PRESETS.find(p => p.width === size.width && p.height === size.height)?.group ?? (Math.max(size.width, size.height) > 2000 ? 'Print' : 'Social')
+  const sizes = SIZE_PRESETS.filter(p => p.group === family && !have.has(`${p.width}x${p.height}`)).slice(0, max)
+  return { others, sizes, from: master?.id ?? null }
 }

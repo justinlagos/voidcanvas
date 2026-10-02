@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ImagePlus, Trash2, MoreHorizontal, Download, Copy, FolderOpen } from 'lucide-react'
-import { deleteProject, duplicateProject, exportProjectPng, exportProjectVoid, importFiles, importVoidFile, listProjects, openProject, type ProjectSummary } from '../io'
+import { deleteProject, duplicateProject, exportProjectPng, exportProjectVoid, idb, importFiles, importVoidFile, listProjects, openProject, type ProjectSummary } from '../io'
+import { countLine, designStatus, type DeskStatus } from '@/lib/desk'
+import type { Job } from '@/studio/jobs'
 import { SIZE_PRESETS } from '../presets'
 import { useEditor } from '../store'
 import { useTabs } from '../tabs'
@@ -74,7 +76,7 @@ function RecentMenu({ p, onChanged }: { p: ProjectSummary; onChanged: (fn: (r: P
         className={`w-8 h-8 rounded-md bg-black/70 text-void-200 hover:text-white items-center justify-center hidden group-hover:flex focus:flex [@media(hover:none)]:flex ${open ? '!flex' : ''} ${focusRing}`}><MoreHorizontal size={14} /></button>
       {open && (
         <div className="absolute right-0 mt-1 w-40 rounded-lg bg-surface-overlay border border-white/[0.08] shadow-xl py-1 z-10 text-[12.5px]">
-          <button onClick={async () => { setOpen(false); await exportProjectPng(p.id) }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-void-200 hover:bg-surface-sunken ${focusRing}`}><Download size={13} />Export PNG</button>
+          <button onClick={async () => { setOpen(false); await exportProjectPng(p.id); const fresh = await listProjects(); onChanged(() => fresh) }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-void-200 hover:bg-surface-sunken ${focusRing}`}><Download size={13} />Export PNG{(p.boards ?? 1) > 1 ? 's' : ''}</button>
           <button onClick={async () => { setOpen(false); await exportProjectVoid(p.id) }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-void-200 hover:bg-surface-sunken ${focusRing}`}><Download size={13} />Download .void</button>
           <button onClick={async () => { setOpen(false); const c = await duplicateProject(p.id); if (c) onChanged(r => [c, ...r]) }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-void-200 hover:bg-surface-sunken ${focusRing}`}><Copy size={13} />Duplicate</button>
           <button onClick={async () => { setOpen(false); if (confirm(`Delete “${p.name}”? This cannot be undone.`)) { await deleteProject(p.id); onChanged(r => r.filter(x => x.id !== p.id)) } }} className={`w-full flex items-center gap-2 px-3 h-8 text-left text-rose-400 hover:bg-surface-sunken ${focusRing}`}><Trash2 size={13} />Delete</button>
@@ -92,7 +94,8 @@ function RestoreBanner() {
   if (!m || hidden) return null
   const reopen = async () => {
     setHidden(true)
-    for (const t of m.open) { if (await openProject(t.id)) useTabs.getState().sync() }
+    for (const t of m.open) { if (await openProject(t.id, false, 'crash')) useTabs.getState().sync() }
+    track('doc.resume', { how: 'crash', tabs: m.open.length })
     if (m.active && m.open.some(t => t.id === m.active)) await useTabs.getState().switchTo(m.active)
     clearSession()
   }
@@ -104,9 +107,20 @@ function RestoreBanner() {
   )
 }
 
+const TONE: Record<DeskStatus['tone'], string> = { todo: 'text-amber-200', wait: 'text-sky-300', done: 'text-emerald-300/80', none: 'text-void-500' }
+
 export function StartScreen() {
   const file = useRef<HTMLInputElement>(null)
   const [recent, setRecent] = useState<ProjectSummary[]>([])
+  // Studio jobs, for what each job's design is waiting for, and how many client brands there are.
+  const [jobs, setJobs] = useState<Record<string, Job>>({})
+  const [brands, setBrands] = useState(0)
+  useEffect(() => {
+    idb.all<Job>('jobs').then(list => setJobs(Object.fromEntries(list.map(j => [j.id, j])))).catch(() => {})
+    idb.all<{ id: string }>('brands').then(b => setBrands(b.length)).catch(() => {})
+  }, [])
+  const designs = recent.filter(p => !p.template)
+  const counts = countLine({ designs: designs.length, brands, templates: recent.length - designs.length, exports: designs.reduce((a, p) => a + (p.exports ?? 0), 0) })
   const [over, setOver] = useState(false)
   const [w, setW] = useState(1600), [h, setH] = useState(1200)
   useEffect(() => { listProjects().then(setRecent).catch(() => {}) }, [])
@@ -135,18 +149,27 @@ export function StartScreen() {
 
         {recent.some(p => !p.template) && (
           <section className="mt-7">
-            <h2 className="text-[13px] font-semibold text-void-200 mb-3">Pick up where you left off</h2>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-3">
+              <h2 className="text-[13px] font-semibold text-void-200">Pick up where you left off</h2>
+              {counts && <p data-desk-count className="text-[12px] text-void-500 tabular-nums">{counts}</p>}
+            </div>
             <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-5 px-5 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-4 md:grid-cols-5">
-              {recent.filter(p => !p.template).slice(0, 10).map(p => (
+              {designs.slice(0, 10).map(p => {
+                const st = designStatus(p, p.jobId ? jobs[p.jobId] : null)
+                return (
                 <div key={p.id} className="group relative w-[150px] shrink-0 sm:w-auto">
-                  <button onClick={() => openProject(p.id)} className={`block w-full rounded-xl overflow-hidden bg-void-900 border border-void-800 hover:border-void-600 text-left ${focusRing}`}>
+                  <button onClick={() => openProject(p.id, false, 'home')} className={`block w-full rounded-xl overflow-hidden bg-void-900 border border-void-800 hover:border-void-600 text-left ${focusRing}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <span className="block aspect-[4/3] bg-void-950"><img src={p.thumb} alt="" className="w-full h-full object-contain" /></span>
-                    <span className="block px-2.5 py-2"><span className="block text-[12.5px] font-medium truncate">{p.name}</span><span className="block text-[11.5px] text-void-500 tabular-nums truncate">{edited(p.updatedAt)} · {p.width} × {p.height}</span></span>
+                    <span className="block px-2.5 py-2">
+                      <span className="block text-[12.5px] font-medium truncate">{p.name}</span>
+                      <span className="block text-[11.5px] text-void-500 tabular-nums truncate">{edited(p.editedAt ?? p.updatedAt)} · {p.width} × {p.height}</span>
+                      {st.text && <span data-desk-status={st.tone} className={`block text-[11.5px] truncate ${TONE[st.tone]}`}>{st.text}</span>}
+                    </span>
                   </button>
                   <RecentMenu p={p} onChanged={setRecent} />
                 </div>
-              ))}
+              ) })}
             </div>
           </section>
         )}
@@ -173,7 +196,7 @@ export function StartScreen() {
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
               {recent.filter(p => p.template).map(p => (
                 <div key={p.id} className="group relative">
-                  <button onClick={() => openProject(p.id, true)} className={`block w-full rounded-xl overflow-hidden bg-void-900 border border-void-800 hover:border-accent text-left ${focusRing}`}>
+                  <button onClick={() => openProject(p.id, true, 'template')} className={`block w-full rounded-xl overflow-hidden bg-void-900 border border-void-800 hover:border-accent text-left ${focusRing}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <span className="block aspect-[4/3] bg-void-950"><img src={p.thumb} alt="" className="w-full h-full object-contain" /></span>
                     <span className="block px-2.5 py-2 text-[12.5px] font-medium truncate">{p.name}</span>

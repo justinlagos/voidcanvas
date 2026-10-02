@@ -33,7 +33,7 @@ export const useTabs = create<TabsState>((set, get) => ({
   switchTo: async (id) => {
     if (get().activeId === id) return
     await saveProject().catch(() => {})
-    const ok = await openProject(id)
+    const ok = await openProject(id, false, 'tab')
     if (ok) set({ activeId: id })
     else { set({ tabs: get().tabs.filter(t => t.id !== id) }) }
   },
@@ -43,7 +43,7 @@ export const useTabs = create<TabsState>((set, get) => ({
     const rest = tabs.filter(t => t.id !== id)
     if (id === activeId) {
       await saveProject().catch(() => {})
-      if (rest.length) { const nextId = rest[rest.length - 1].id; const ok = await openProject(nextId); set({ tabs: rest, activeId: ok ? nextId : null }); if (!ok) useEditor.getState().closeDoc() }
+      if (rest.length) { const nextId = rest[rest.length - 1].id; const ok = await openProject(nextId, false, 'tab'); set({ tabs: rest, activeId: ok ? nextId : null }); if (!ok) useEditor.getState().closeDoc() }
       else { useEditor.getState().closeDoc(); set({ tabs: rest, activeId: null }) }
     } else set({ tabs: rest })
   },

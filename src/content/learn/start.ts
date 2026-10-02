@@ -120,7 +120,7 @@ export const articles: Article[] = [
     summary: 'Voidcanvas saves everything inside your browser on this device, and as a real file when you choose. Learn how autosave, Save to disk, templates and versions work, what clears your work, and how to keep a backup.',
     category: 'start',
     level: 'Beginner',
-    updated: '2026-09-26',
+    updated: '2026-10-02',
     related: ['templates-and-versions', 'private-session', 'troubleshooting', 'file-formats'],
     keywords: 'save autosave indexeddb local storage backup lost work recover cloud sync where are my files delete clear storage full .void file save to disk save as folder dropbox google drive icloud protected storage',
     body: [
@@ -139,9 +139,17 @@ export const articles: Article[] = [
       { t: 'p', text: "If the browser or tab closes unexpectedly, the Editor start screen says **Voidcanvas closed unexpectedly last time** and offers to reopen every design that was open. Another Voidcanvas tab that is still open does not count as a crash." },
 
       { t: 'h', text: 'Finding and managing saved designs' },
-      { t: 'p', text: "The Editor start screen lists your recent designs under **Pick up where you left off**. Hover a design (or focus it with the keyboard) and open its **…** menu for:" },
+      { t: 'p', text: "The Editor start screen lists your recent designs under **Pick up where you left off**, with a quiet count beside the heading of what is on this device: designs, client brands, templates and exports. Each design says when it was last edited (an export alone does not count as an edit) and, in one line, what is unfinished:" },
+      { t: 'table', head: ['The line says', 'When'], rows: [
+        ['Not exported yet', 'Edited in the last 30 days and never exported.'],
+        ['2 of 4 formats exported', 'Some of its boards have been exported, not all.'],
+        ['Changed since export', 'Edited after the last export.'],
+        ['Exported 2 hours ago', 'Every board exported, nothing changed since.'],
+        ['Waiting for client, Changes asked, Approved, ready to deliver, 3 comments open', 'The design belongs to a Studio job: what its newest review version is waiting for.'],
+      ] },
+      { t: 'p', text: "The home page shows the same lines under **Pick up where you left off**. Clicking a design opens it where you left it. Hover a design (or focus it with the keyboard) and open its **…** menu for:" },
       { t: 'list', items: [
-        "**Export PNG**: downloads the design at full size without opening it.",
+        "**Export PNG** (**Export PNGs** for a design with boards): downloads every board at full size without opening the design, named by the design's file name pattern, as a zip when there are several. It counts as an export of each board.",
         "**Download .void**: downloads the editable design as a .void file without opening it.",
         "**Duplicate**: makes an independent copy named with ' copy' on the end.",
         "**Delete**: removes it and its version history from this device. This cannot be undone.",

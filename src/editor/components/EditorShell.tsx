@@ -40,6 +40,7 @@ import { recallView } from '../viewmemory'
 import type { Effect } from '../types'
 import { FxScopeDialog } from './FxScopeDialog'
 import { MobileEditor, useIsPhone } from './MobileEditor'
+import { AfterExport } from './AfterExport'
 import * as ops from '../ops'
 import { markSessionClean, noteEdit, readCrashedSession, startAutoVersions, writeSession } from '../versions'
 
@@ -117,6 +118,8 @@ export function EditorShell() {
       return { mean: d / ((a.length / 4) * 3), worst }
     }
     w.__vcFx = { newEffect }
+    // A board as export draws it, as a data URL (export tests compare files with it).
+    w.__vcFrame = async (id: string, scale = 1) => (await import('../io')).renderFrame(id, scale)?.toDataURL() ?? null
     // Pixels of the design as drawn (for effect checks), at scale 1, as RGBA arrays per rectangle.
     w.__vcPixels = async (rect: { x: number; y: number; w: number; h: number }, o: { noFx?: boolean } = {}) => {
       const { renderDoc, makeCanvas } = await import('../engine')
@@ -182,7 +185,7 @@ export function EditorShell() {
     if (project) {
       // From a client comment in Studio: open the design on the layer it is about, with the comments showing.
       const layer = q.get('layer'), comments = q.get('comments')
-      openProject(project).then(ok => {
+      openProject(project, false, q.get('from') || 'link').then(ok => {
         if (!ok) { useEditor.getState().notify('That design is not on this device any more.'); return }
         if (comments) useUi.getState().showPanel('comments')
         const s = useEditor.getState(), l = layer ? s.layers.find(x => x.id === layer) : null
@@ -203,7 +206,7 @@ export function EditorShell() {
       const was = openAtStart; openAtStart = null
       if (was?.active && !useEditor.getState().doc && !isPrivate()) {
         useTabs.setState({ tabs: was.tabs })
-        openProject(was.active).then(ok => { if (!ok) { useTabs.setState({ tabs: [] }); rememberOpen([], null) } else import('../versions').then(m => m.clearSession()).catch(() => {}) })
+        openProject(was.active, false, 'reload').then(ok => { if (!ok) { useTabs.setState({ tabs: [] }); rememberOpen([], null) } else { track('doc.resume', { how: 'reload', tabs: was.tabs.length }); import('../versions').then(m => m.clearSession()).catch(() => {}) } })
       }
       return
     }
@@ -215,7 +218,7 @@ export function EditorShell() {
       if (h.addEffects) {
         const { projectId, effects: list } = h.addEffects
         const wasOpen = useEditor.getState().doc?.id === projectId
-        if (!wasOpen && !(await openProject(projectId))) { ed.notify('That design is not on this device any more.'); return }
+        if (!wasOpen && !(await openProject(projectId, false, 'effects'))) { ed.notify('That design is not on this device any more.'); return }
         const st = useEditor.getState()
         const sel = (wasOpen ? st.selectedIds : recallView(projectId)?.sel ?? []).filter(id => st.layers.some(l => l.id === id))
         if (sel.length) useEditor.setState({ selectedIds: sel, activeId: sel[sel.length - 1] })
@@ -235,7 +238,7 @@ export function EditorShell() {
       }
       // Jobs: open the job's design and build or update its formats.
       if (h.openProject) {
-        const ok = await openProject(h.openProject)
+        const ok = await openProject(h.openProject, false, 'studio')
         if (!ok) { ed.notify('That design is no longer on this device.'); return }
         if (h.formats?.length) await ops.buildFormats(h.formats, null, !!h.rebuildFormats, h.masterDeliverableId)
         if (h.syncFormats) await ops.syncFormats()
@@ -546,7 +549,7 @@ export function EditorShell() {
       {m === 'boards' && hasDoc && <BoardsPanel onClose={close} />}
       {m === 'privacy' && <PrivacyPanel onClose={close} />}
       {m === 'account' && <Modal title="Account and sync" onClose={close}><AccountPanel /></Modal>}
-      {m === 'export' && hasDoc && <ExportDialog onClose={close} />}
+      {m === 'export' && hasDoc && <ExportDialog onClose={close} boards={modal?.props?.boards} />}
       {m === 'imageSize' && hasDoc && <ImageSizeDialog onClose={close} />}
       {m === 'canvasSize' && hasDoc && <CanvasSizeDialog onClose={close} aiFill={modal?.props?.aiFill} />}
       {m === 'guideLayout' && hasDoc && <GuideLayoutDialog onClose={close} />}
@@ -570,6 +573,7 @@ export function EditorShell() {
           <div className="flex items-center gap-3 px-5 py-3.5 rounded-xl bg-[#17171c] border border-void-700 text-[13.5px]"><span className="w-4 h-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />{busy}</div>
         </div>
       )}
+      {hasDoc && !phone && <AfterExport />}
       {shownToast && (
         <div role="status" aria-live="polite" className={`fixed z-[95] left-1/2 -translate-x-1/2 ${phone && hasDoc ? 'top-[calc(60px+env(safe-area-inset-top))]' : 'bottom-16 md:bottom-10'} max-w-[92vw] px-4 py-2.5 rounded-xl bg-white text-void-950 text-[13px] font-medium shadow-2xl`}>{shownToast}</div>
       )}

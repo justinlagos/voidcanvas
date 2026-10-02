@@ -1,24 +1,26 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Check, ChevronDown, Copy, Download } from 'lucide-react'
+import { Check, ChevronDown, Copy, Download } from 'lucide-react'
 import { exportPreflight, type Finding, type PreflightBoard, type PreflightLayer } from '@/lib/intelligence/preflight'
 import { layerBounds } from '../engine'
 import { fontAvailable } from './MoreDialogs'
-import { downloadBlob, exportBoards, exportVoidFile, renderFrame } from '../io'
-import { exportBoards as boardList, formatRange, parseRange, resultLabel, scaleOptions, type ExportFormat } from '../export'
+import { downloadBlob, exportBoards, exportSelection, exportVoidFile, noteExport, renderFrame, selectionExtent } from '../io'
+import { DEFAULT_NAMES, NAME_TOKENS, boardFileName, exportBoards as boardList, formatRange, parseRange, resultLabel, scaleOptions, type ExportFormat } from '../export'
 import { useEditor } from '../store'
+import type { ExportPrefs } from '../types'
 import { Button, Modal, Slider, focusRing } from './ui'
 import { noteExportForPrompt, track } from '@/lib/analytics'
+import { lastExportLine } from '@/lib/desk'
 
 /** Where the file is going decides the settings. Advanced controls stay underneath. */
-interface Preset { id: string; label: string; format: ExportFormat; scale: number; quality: number; transparent: boolean; help: string }
+interface Preset { id: string; label: string; format: ExportFormat; scale: number; quality: number; transparent: boolean; lossless?: boolean; help: string }
 const PRESETS: Preset[] = [
   { id: 'social', label: 'PNG · Social', format: 'png', scale: 1, quality: 0.92, transparent: false, help: 'Board size, sharp, flat background. Instagram, WhatsApp, LinkedIn.' },
   { id: 'transparent', label: 'PNG · Transparent', format: 'png', scale: 1, quality: 0.92, transparent: true, help: 'Board colours left out, for placing on other work.' },
   { id: 'web', label: 'JPG · Web', format: 'jpeg', scale: 1, quality: 0.85, transparent: false, help: 'Small files for websites and email.' },
-  { id: 'print', label: 'PDF · Print', format: 'pdf', scale: 1, quality: 0.95, transparent: false, help: 'One page per board at its own size. Studio delivery adds bleed and crop marks for print sizes.' },
-  { id: 'proof', label: 'PDF · Client proof', format: 'pdf', scale: 0.5, quality: 0.8, transparent: false, help: 'Half size, lighter file, one page per board. For approvals, not production.' },
+  { id: 'print', label: 'PDF · Print', format: 'pdf', scale: 1, quality: 0.95, transparent: false, lossless: true, help: 'One page per board at its own size, with no compression loss. Studio delivery adds bleed and crop marks for print sizes.' },
+  { id: 'proof', label: 'PDF · Client proof', format: 'pdf', scale: 0.5, quality: 0.8, transparent: false, lossless: false, help: 'Half size, lighter file, one page per board. For approvals, not production.' },
 ]
 
 const FORMATS: { id: ExportFormat; label: string; help: string }[] = [
@@ -26,35 +28,53 @@ const FORMATS: { id: ExportFormat; label: string; help: string }[] = [
   { id: 'jpeg', label: 'JPG', help: 'Smallest files for photos. No transparency.' },
   { id: 'webp', label: 'WEBP', help: 'Small files that keep transparency. Good for websites.' },
   { id: 'pdf', label: 'PDF', help: 'For printers and clients. One page per board, each at its own size.' },
+  { id: 'svg', label: 'SVG', help: 'Type and shapes stay vectors you can edit in Illustrator, Figma or Inkscape. Photos, effects and masked layers go in as images.' },
 ]
 
-// Remember the last choices while the app is open.
-let last: { format: ExportFormat; scale: number; quality: number; pdfSplit: boolean; numbered: boolean } = { format: 'png', scale: 1, quality: 0.92, pdfSplit: false, numbered: true }
+export const DEFAULT_PREFS: ExportPrefs = { format: 'png', scale: 1, quality: 0.92, transparent: false, pdfSplit: false, numbered: true, lossless: false, names: DEFAULT_NAMES, preset: null, boards: 'active' }
 
-export function ExportDialog({ onClose }: { onClose: () => void }) {
+// A design that has never been exported starts from the choices last used in this window (boards aside).
+let last: ExportPrefs = DEFAULT_PREFS
+
+export function ExportDialog({ onClose, boards: askedBoards }: { onClose: () => void; boards?: string[] }) {
   const doc = useEditor(s => s.doc)!
   const activeFrameId = useEditor(s => s.activeFrameId)
+  const selectedIds = useEditor(s => s.selectedIds)
   const boards = useMemo(() => boardList(doc), [doc])
   const multi = boards.length > 1
   const activeIdx = Math.max(0, boards.findIndex(b => b.id === activeFrameId))
+  const saved = doc.exportPrefs ? { ...DEFAULT_PREFS, ...doc.exportPrefs } : { ...last, boards: 'active' as const }
 
-  const [picked, setPicked] = useState<number[]>(() => [activeIdx])
-  const [range, setRange] = useState(() => formatRange([activeIdx]))
+  const startPick = (): number[] => {
+    const want = askedBoards ?? (saved.boards === 'all' ? boards.map(b => b.id) : Array.isArray(saved.boards) ? saved.boards : null)
+    const idx = (want ?? []).map(id => boards.findIndex(b => b.id === id)).filter(i => i >= 0)
+    return idx.length ? Array.from(new Set(idx)).sort((a, b) => a - b) : [activeIdx]
+  }
+  const [picked, setPicked] = useState<number[]>(startPick)
+  const [range, setRange] = useState(() => formatRange(startPick()))
   const [rangeBad, setRangeBad] = useState(false)
-  const [format, setFormat] = useState<ExportFormat>(last.format)
-  const [scale, setScale] = useState(last.scale)
-  const [quality, setQuality] = useState(last.quality)
-  const [transparent, setTransparent] = useState(false)
-  const [pdfSplit, setPdfSplit] = useState(last.pdfSplit)
-  const [numbered, setNumbered] = useState(last.numbered)
+  const [format, setFormat] = useState<ExportFormat>(saved.format)
+  const [scale, setScale] = useState(saved.scale)
+  const [quality, setQuality] = useState(saved.quality)
+  const [transparent, setTransparent] = useState(saved.transparent)
+  const [pdfSplit, setPdfSplit] = useState(saved.pdfSplit)
+  const [numbered, setNumbered] = useState(saved.numbered)
+  const [lossless, setLossless] = useState(saved.lossless)
+  const [names, setNames] = useState(saved.names || DEFAULT_NAMES)
   const [more, setMore] = useState(false)
   const [progress, setProgress] = useState<[number, number] | null>(null)
-  const [preset, setPreset] = useState<string | null>(null)
-  const applyPreset = (p: Preset) => { setPreset(p.id); setFormat(p.format); setScale(p.scale); setQuality(p.quality); setTransparent(p.transparent) }
+  const [preset, setPreset] = useState<string | null>(saved.preset)
+  const applyPreset = (p: Preset) => { setPreset(p.id); setFormat(p.format); setScale(p.scale); setQuality(p.quality); setTransparent(p.transparent); if (p.lossless !== undefined) setLossless(p.lossless) }
+
+  // Boards, or the selected layers on their own, trimmed.
+  const sel = useMemo(() => selectionExtent(), [selectedIds, doc]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [what, setWhat] = useState<'boards' | 'selection'>('boards')
+  const isSel = what === 'selection' && !!sel
 
   const chosen = picked.map(i => boards[i]).filter(Boolean)
-  const canTransparent = format === 'png' || format === 'webp'
-  const scales = useMemo(() => scaleOptions(chosen.length ? chosen : [boards[activeIdx]]), [chosen.map(b => b.id).join(), boards, activeIdx]) // eslint-disable-line react-hooks/exhaustive-deps
+  const canTransparent = format === 'png' || format === 'webp' || format === 'svg'
+  const sizing = isSel ? [{ width: sel!.w, height: sel!.h }] : chosen.length ? chosen : [boards[activeIdx]]
+  const scales = useMemo(() => scaleOptions(sizing), [JSON.stringify(sizing)]) // eslint-disable-line react-hooks/exhaustive-deps
   const k = scales.includes(scale) ? scale : scale < 1 && preset === 'proof' ? scale : scales[scales.length - 1] >= 1 ? 1 : scales[0]
   // Preflight: what will happen to these boards at this size, said before the file is made.
   const layers = useEditor(s => s.layers)
@@ -65,11 +85,12 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     import('@/studio/jobs').then(m => m.getJob(doc.jobId!)).then(j => { if (!j) return; const out: Record<string, { w: number; h: number }> = {}; for (const f of doc.frames ?? []) { const d = j.deliverables.find(x => x.id === f.deliverableId); if (d?.mm) out[f.id] = d.mm } setMmById(out) }).catch(() => {})
   }, [doc.jobId, doc.frames])
   const findings = useMemo<Finding[]>(() => {
+    if (isSel || format === 'svg') return []
     const pb: PreflightBoard[] = boards.map(b => ({ id: b.id, name: b.name, width: b.width, height: b.height, background: b.background, mm: mmById[b.id] ?? (doc.dpi && doc.dpi >= 150 ? { w: Math.round((b.width / doc.dpi) * 25.4), h: Math.round((b.height / doc.dpi) * 25.4) } : null) }))
     const pl: PreflightLayer[] = layers.map(l => { const bb = layerBounds(l, doc); const f = doc.frames?.find(x => x.id === l.frameId); const rel = f ? { x: bb.x - f.x, y: bb.y - f.y, w: bb.w, h: bb.h } : bb; return { id: l.id, name: l.name, type: l.type, visible: l.visible, frameId: l.frameId ?? (boards[0]?.id === '__doc' ? '__doc' : l.frameId), bounds: rel, pixels: l.type === 'raster' ? { w: l.canvas.width, h: l.canvas.height } : undefined, text: l.type === 'text' ? l.text : undefined, fontFamily: l.type === 'text' ? l.fontFamily : undefined, role: l.role ?? null } })
     const missing = Array.from(new Set(layers.filter(l => l.type === 'text' && l.visible).map(l => (l as any).fontFamily as string))).filter(f => f && !fontAvailable(f))
     return exportPreflight({ boards: pb, layers: pl, boardIds: chosen.map(b => b.id), format, scale: k, transparent: canTransparent && transparent, missingFonts: missing })
-  }, [boards, layers, doc, chosen.map(b => b.id).join(), format, k, transparent, mmById]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [boards, layers, doc, chosen.map(b => b.id).join(), format, k, transparent, mmById, isSel]) // eslint-disable-line react-hooks/exhaustive-deps
   const [showAll, setShowAll] = useState(false)
   const working = !!progress
 
@@ -82,36 +103,70 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     if (r) setPicked(Array.from(new Set(r)).sort((a, b) => a - b))
   }
 
+  const count = isSel ? 1 : chosen.length
+  const prefsNow = (): ExportPrefs => ({
+    format, scale: k, quality, transparent, pdfSplit, numbered, lossless, names: names.trim() || DEFAULT_NAMES, preset,
+    boards: multi && chosen.length === boards.length ? 'all' : chosen.length === 1 && picked[0] === activeIdx ? 'active' : chosen.map(b => b.id),
+  })
+
   const run = async (copy: boolean) => {
-    if (!chosen.length) return
-    last = { format, scale: k, quality, pdfSplit, numbered }
-    setProgress([0, copy ? 1 : chosen.length])
+    if (!count) return
+    const prefs = prefsNow()
+    // A selection export is a one-off: it does not change the choices the design's boards export with.
+    if (!isSel) last = { ...prefs, boards: 'active' }
+    setProgress([0, copy ? 1 : count])
+    const tp = canTransparent && transparent
     try {
-      const { blob, name } = await exportBoards({ boardIds: chosen.map(b => b.id), format: copy ? 'png' : format, scale: k, quality, transparent: canTransparent && transparent, pdfSplit, numbered }, (d, t) => setProgress([d, t]))
+      const out = isSel
+        ? await exportSelection({ format: copy ? 'png' : format, scale: k, quality, transparent: tp, lossless, names: prefs.names })
+        : await exportBoards({ boardIds: chosen.map(b => b.id), format: copy ? 'png' : format, scale: k, quality, transparent: tp, pdfSplit, numbered, lossless, names: prefs.names }, (d, t) => setProgress([d, t]))
       if (copy) {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': out.blob })])
         useEditor.getState().notify('Copied. Paste it anywhere.')
         track('export', { format: 'clipboard', scale: k }); noteExportForPrompt()
       } else {
         import('../versions').then(m => m.saveVersion('Exported', true)).catch(() => {})
-        downloadBlob(blob, name, { scale: k, boards: chosen.length })
+        downloadBlob(out.blob, out.name, { scale: k, boards: count, what })
+        const ids = isSel ? [activeFrameId ?? boards[activeIdx].id] : chosen.map(b => b.id)
+        const files = isSel || format === 'pdf' && !pdfSplit ? 1 : count
+        noteExport({ boards: ids, format, scale: k, files, what: isSel ? 'selection' : 'boards' }, isSel ? undefined : prefs)
+        window.dispatchEvent(new CustomEvent('vc:exported', { detail: { format, boards: ids, files, what: isSel ? 'selection' : 'boards', name: out.name } }))
       }
       onClose()
     } catch {
-      track('export.failed', { format, scale: k, boards: chosen.length })
-      const big = chosen.reduce((a, b) => Math.max(a, Math.max(b.width, b.height) * k), 0)
+      track('export.failed', { format, scale: k, boards: count, what })
+      const big = isSel ? Math.max(sel!.w, sel!.h) * k : chosen.reduce((a, b) => Math.max(a, Math.max(b.width, b.height) * k), 0)
       useEditor.getState().notify(big > 8000 ? `Could not draw ${Math.round(big)} px on the long side. Export at ${Math.max(1, Math.floor(k / 2))}× or fewer boards at once.` : 'Export could not be written. Try one board at a time.')
     } finally { setProgress(null) }
   }
 
   const seg = (on: boolean) => `h-9 rounded-lg text-[13px] transition-colors ${focusRing} ${on ? 'bg-white text-void-950 font-medium' : 'text-void-300 hover:text-white hover:bg-white/[0.04]'}`
   const one = chosen[0]
-  const sizeNote = chosen.length === 1 && one ? `${Math.round(one.width * k)} × ${Math.round(one.height * k)} px` : chosen.length > 1 ? `Each board at ${k}× its size` : ''
+  const sizeNote = isSel ? `About ${Math.round(sel!.w * k)} × ${Math.round(sel!.h * k)} px, trimmed` : chosen.length === 1 && one ? `${Math.round(one.width * k)} × ${Math.round(one.height * k)} px` : chosen.length > 1 ? `Each board at ${k}× its size` : ''
+  const example = isSel
+    ? boardFileName({ name: sel!.name, width: sel!.w, height: sel!.h }, 0, 1, format, k, false, names, doc.name)
+    : one ? boardFileName(one, boards.indexOf(one), boards.length, format, k, numbered && chosen.length > 1 && !(format === 'pdf' && !pdfSplit), names, doc.name) : ''
+  const lastLine = lastExportLine(doc)
+  const label = isSel ? resultLabel(format, 1, false) : resultLabel(format, chosen.length, pdfSplit)
 
   return (
-    <Modal title="Export" onClose={onClose} wide={multi}>
+    <Modal title="Export" onClose={onClose} wide={multi && !isSel}>
       <div className="p-5 space-y-6">
-        {multi && (
+        {(lastLine || sel) && (
+          <div className="flex flex-wrap items-center justify-between gap-3 -mt-1">
+            {lastLine ? <p data-last-export className="text-[12px] text-void-400">{lastLine}</p> : <span />}
+            {sel && (
+              <div className="flex gap-1 p-1 rounded-xl bg-void-900 border border-void-800" role="radiogroup" aria-label="What to export" data-export-what>
+                <button role="radio" aria-checked={!isSel} className={`${seg(!isSel)} px-3`} onClick={() => { setWhat('boards'); setTransparent(saved.transparent) }}>{multi ? 'Boards' : 'Whole design'}</button>
+                <button role="radio" aria-checked={isSel} className={`${seg(isSel)} px-3`} onClick={() => { setWhat('selection'); setTransparent(true) }}>Selected layers</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {isSel && <p data-export-selection className="text-[12.5px] text-void-300 -mt-3"><span className="text-void-100">{sel!.name}</span> on its own, trimmed to what it covers. Board colours and board effects are left out.</p>}
+
+        {multi && !isSel && (
           <section aria-label="Boards to export">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
               <div className="flex items-center gap-1 p-1 rounded-xl bg-void-900 border border-void-800" role="group" aria-label="Quick pick">
@@ -127,13 +182,14 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
             <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
               {boards.map((b, i) => {
                 const on = picked.includes(i)
+                const done = (doc.exports ?? []).some(r => r.what !== 'selection' && r.boards.includes(b.id))
                 return (
-                  <button key={b.id} onClick={() => toggle(i)} aria-pressed={on} title={`${b.name}, ${b.width} × ${b.height}`}
+                  <button key={b.id} onClick={() => toggle(i)} aria-pressed={on} title={`${b.name}, ${b.width} × ${b.height}${done ? ', exported before' : ''}`}
                     className={`relative shrink-0 w-[120px] snap-start rounded-xl p-1.5 text-left border transition-colors ${focusRing} ${on ? 'border-accent bg-accent/10' : 'border-void-800 hover:border-void-600'}`}>
                     <div className="h-[76px] rounded-lg bg-void-950 overflow-hidden flex items-center justify-center"><Thumb id={b.id} /></div>
                     <span className={`absolute top-2.5 left-2.5 min-w-[20px] h-5 px-1 rounded-md text-[11px] font-semibold tabular-nums flex items-center justify-center ${on ? 'bg-accent text-white' : 'bg-black/60 text-void-200'}`}>{on ? <Check size={12} strokeWidth={3} /> : i + 1}</span>
                     <span className="block mt-1.5 text-[11.5px] text-void-100 truncate">{i + 1}. {b.name}</span>
-                    <span className="block text-[10.5px] text-void-500 tabular-nums">{b.width} × {b.height}</span>
+                    <span className="block text-[10.5px] text-void-500 tabular-nums">{b.width} × {b.height}{done ? ' · exported' : ''}</span>
                   </button>
                 )
               })}
@@ -150,14 +206,14 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         </section>
 
         <section aria-label="File type">
-          <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-void-900 border border-void-800" role="radiogroup">
+          <div className="grid grid-cols-5 gap-1 p-1 rounded-xl bg-void-900 border border-void-800" role="radiogroup">
             {FORMATS.map(f => <button key={f.id} role="radio" aria-checked={format === f.id} className={seg(format === f.id)} onClick={() => { setFormat(f.id); setPreset(null) }}>{f.label}</button>)}
           </div>
           <p className="mt-2 text-[12px] text-void-500">{FORMATS.find(f => f.id === format)!.help}</p>
         </section>
 
         <section aria-label="Size">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex gap-1 p-1 rounded-xl bg-void-900 border border-void-800" role="radiogroup">
               {scales.map(s => <button key={s} role="radio" aria-checked={k === s} className={`${seg(k === s)} px-3.5 tabular-nums`} onClick={() => { setScale(s); if (preset === 'proof') setPreset(null) }}>{s}×</button>)}
             </div>
@@ -171,15 +227,28 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           </button>
           {more && (
             <div className="mt-3 space-y-3.5 pl-5">
-              {format !== 'png' && <Slider label="Quality" value={Math.round(quality * 100)} min={40} max={100} unit="%" onChange={v => setQuality(v / 100)} />}
+              {format !== 'png' && format !== 'svg' && !(format === 'pdf' && lossless) && <Slider label="Quality" value={Math.round(quality * 100)} min={40} max={100} unit="%" onChange={v => setQuality(v / 100)} />}
               {canTransparent && <Check2 on={transparent} set={setTransparent}>Transparent background (leave out board colours)</Check2>}
-              {format === 'pdf' && chosen.length > 1 && (
+              {format === 'pdf' && <Check2 on={lossless} set={v => { setLossless(v); setPreset(null) }}>Lossless pages for print (larger file, no JPEG compression)</Check2>}
+              {format === 'pdf' && chosen.length > 1 && !isSel && (
                 <div className="flex gap-1 p-1 rounded-xl bg-void-900 border border-void-800 w-fit" role="radiogroup" aria-label="PDF files">
                   <button role="radio" aria-checked={!pdfSplit} className={`${seg(!pdfSplit)} px-3`} onClick={() => setPdfSplit(false)}>One PDF</button>
                   <button role="radio" aria-checked={pdfSplit} className={`${seg(pdfSplit)} px-3`} onClick={() => setPdfSplit(true)}>A PDF per board</button>
                 </div>
               )}
-              {chosen.length > 1 && (format !== 'pdf' || pdfSplit) && <Check2 on={numbered} set={setNumbered}>Number files in board order (01, 02…)</Check2>}
+              {chosen.length > 1 && !isSel && (format !== 'pdf' || pdfSplit) && <Check2 on={numbered} set={setNumbered}>Number files in board order (01, 02…)</Check2>}
+              <div>
+                <label className="flex items-center gap-2 text-[12.5px] text-void-300">
+                  <span className="shrink-0">File names</span>
+                  <input data-export-names value={names} onChange={e => setNames(e.target.value)} placeholder={DEFAULT_NAMES} spellCheck={false}
+                    className={`flex-1 min-w-0 h-8 px-2.5 rounded-lg bg-surface-sunken border border-white/[0.06] text-[12.5px] font-mono text-void-100 ${focusRing}`} />
+                </label>
+                <div className="mt-1.5 flex flex-wrap gap-1" aria-label="Add to the name">
+                  {NAME_TOKENS.map(t => <button key={t} onClick={() => setNames(v => (v.trim() ? v.replace(/[_\s-]*$/, '') + '_' : '') + t)} className={`h-6 px-1.5 rounded-md text-[11px] font-mono text-void-400 bg-void-900 border border-void-800 hover:text-white ${focusRing}`}>{t}</button>)}
+                  {names.trim() !== DEFAULT_NAMES && <button onClick={() => setNames(DEFAULT_NAMES)} className={`h-6 px-1.5 rounded-md text-[11px] text-void-400 hover:text-white ${focusRing}`}>Reset</button>}
+                </div>
+                <p className="mt-1 text-[11.5px] text-void-500 truncate">For example: <span className="font-mono text-void-300" data-export-example>{example}</span></p>
+              </div>
             </div>
           )}
         </section>
@@ -199,10 +268,10 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         )}
 
         <div className="flex gap-2">
-          <Button primary disabled={working || !chosen.length || rangeBad} onClick={() => run(false)} className="flex-1">
-            <Download size={15} />{progress ? (progress[1] > 1 ? `Exporting ${progress[0]} of ${progress[1]}` : 'Exporting') : resultLabel(format, chosen.length, pdfSplit)}
+          <Button primary disabled={working || !count || (rangeBad && !isSel)} onClick={() => run(false)} className="flex-1">
+            <Download size={15} />{progress ? (progress[1] > 1 ? `Exporting ${progress[0]} of ${progress[1]}` : 'Exporting') : label}
           </Button>
-          {chosen.length === 1 && <Button disabled={working} onClick={() => run(true)}><Copy size={15} />Copy</Button>}
+          {count === 1 && format !== 'svg' && <Button disabled={working} onClick={() => run(true)}><Copy size={15} />Copy</Button>}
         </div>
 
         <p className="text-[12px] text-void-500 -mt-2">
