@@ -26,7 +26,7 @@ To see a function's current SQL: `select pg_get_functiondef('public.vc_admin_das
 
 | Event | Sent when | Props |
 |---|---|---|
-| `session.start` | first event in a tab after 30 min idle | `first, ref, utm` |
+| `session.start` | first event in a tab after 30 min idle | `first, ref` (referring site, domain only), `utm` (utm_source or ref), `med, camp, post` (utm_medium, utm_campaign, utm_content, only when the link had them; lower case, letters, digits, `.-_`, 40 characters) |
 | `page.view` | route change | none |
 | `action` | any menu, palette or shortcut command; tool picks as `tool.<id>` | `id, via` |
 | `doc.new` | blank design from a size preset | `preset, w, h` |

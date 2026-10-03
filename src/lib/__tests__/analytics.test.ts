@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blankSummary, bucket, buildSummary, cleanSearchMiss, isRage, noteStep, stepKind, usageTotals, APP_VERSION } from '../analytics'
+import { blankSummary, bucket, buildSummary, campaignTags, cleanSearchMiss, isRage, noteStep, stepKind, usageTotals, APP_VERSION } from '../analytics'
 
 describe('usage counts', () => {
   it('sorts undo steps into kinds and never keeps the name', () => {
@@ -36,6 +36,16 @@ describe('usage counts', () => {
     expect(cleanSearchMiss('www.site.com')).toBeNull()
     expect(cleanSearchMiss('x'.repeat(50))).toHaveLength(32)
     expect(cleanSearchMiss('a4 flyer')).toBe('a4 flyer')
+  })
+
+  it('reads campaign tags from a link and keeps them short and plain', () => {
+    expect(campaignTags('?utm_source=instagram&utm_medium=social&utm_campaign=w41&utm_content=psd-tutorial'))
+      .toEqual({ utm: 'instagram', med: 'social', camp: 'w41', post: 'psd-tutorial' })
+    expect(campaignTags('')).toEqual({ utm: '' })
+    expect(campaignTags('?ref=producthunt')).toEqual({ utm: 'producthunt' })
+    expect(campaignTags('?utm_source=LinkedIn&utm_campaign=Hello%20World!')).toEqual({ utm: 'linkedin', camp: 'helloworld' })
+    expect(campaignTags('?utm_content=' + 'a'.repeat(60)).post).toHaveLength(40)
+    expect(campaignTags('?utm_campaign=<script>')).toEqual({ utm: '', camp: 'script' })
   })
 
   it('builds a summary only when something happened, with seconds and the busiest kinds', () => {

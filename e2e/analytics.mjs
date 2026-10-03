@@ -36,7 +36,7 @@ const { ctx, p, rows } = await open({ 'vc-usage-dev': '1', 'vc-usage-test': '1' 
 const pageErrors = []; p.on('pageerror', e => { if (!/vc-e2e-check/.test(e.message)) pageErrors.push(e.message) })
 
 // 2. A page nobody touches sends nothing, even when it is left.
-await p.goto(`${BASE}/about`); await wait(4000)
+await p.goto(`${BASE}/about?utm_source=Instagram&utm_medium=social&utm_campaign=w41&utm_content=psd-tutorial`); await wait(4000)
 ok('crawlers: nothing is sent before any input', rows.length === 0, `${rows.length} rows: ${rows.map(r => r.name).join(',')}`)
 await leave(p); await wait(500)
 ok('crawlers: leaving without input sends nothing', rows.length === 0)
@@ -45,6 +45,7 @@ ok('crawlers: leaving without input sends nothing', rows.length === 0)
 await p.mouse.move(200, 200); await wait(600)
 const start = named(rows, 'session.start')[0]
 ok('input: held events go once the person moves the pointer', !!start && named(rows, 'page.view').length > 0, rows.map(r => r.name).join(','))
+ok('campaign: the visit keeps the tags from the link, cleaned', start?.props.utm === 'instagram' && start?.props.med === 'social' && start?.props.camp === 'w41' && start?.props.post === 'psd-tutorial', JSON.stringify(start?.props))
 ok('every row: carries the app version', rows.length > 0 && rows.every(r => /^\d+\.\d+\.\d+$/.test(r.ver)), JSON.stringify(rows.map(r => r.ver)))
 ok('every row: says web or desktop, and not internal', rows.every(r => r.app === 'web' && r.internal === false))
 

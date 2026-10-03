@@ -236,11 +236,24 @@ export function track(name: string, props?: Props) {
   if (queue.length >= 25) flush()
 }
 
+/** Campaign tags from a link (utm_source, utm_medium, utm_campaign, utm_content), so a visit can be traced to the
+ *  post that brought it. Tags are short ids we write ourselves; anything else is reduced to lower-case letters,
+ *  digits, dot, dash and underscore, 40 characters at most. Empty tags are left out. */
+export function campaignTags(search: string): { utm: string, med?: string, camp?: string, post?: string } {
+  const q = new URLSearchParams(search)
+  const tag = (k: string) => (q.get(k) || '').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40)
+  const out: { utm: string, med?: string, camp?: string, post?: string } = { utm: tag('utm_source') || tag('ref') }
+  const med = tag('utm_medium'), camp = tag('utm_campaign'), post = tag('utm_content')
+  if (med) out.med = med
+  if (camp) out.camp = camp
+  if (post) out.post = post
+  return out
+}
+
 function startSession(firstVisit: boolean) {
   let ref = ''
   try { if (document.referrer) { const u = new URL(document.referrer); if (u.host !== location.host) ref = u.host.replace(/^www\./, '') } } catch { /* ignore */ }
-  const q = new URLSearchParams(location.search)
-  track('session.start', { first: firstVisit, ref, utm: q.get('utm_source') || q.get('ref') || '', app: APP })
+  track('session.start', { first: firstVisit, ref, ...campaignTags(location.search), app: APP })
 }
 
 function isHuman() { if (!human && ss.get(HUMAN_KEY) === '1') human = true; return human }

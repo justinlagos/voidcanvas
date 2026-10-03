@@ -506,7 +506,7 @@ export const articles: Article[] = [
     summary: 'Your images and designs stay on your device unless you choose a feature that shares them, and then they are encrypted first. The complete list of what goes over the network, and how to turn the usage counts off.',
     category: 'help',
     level: 'Beginner',
-    updated: '2026-10-02',
+    updated: '2026-10-03',
     related: ['private-session', 'saving-and-your-files', 'ai-on-this-device', 'report-a-bug-well'],
     keywords: 'privacy data gdpr tracking analytics telemetry cookies upload cloud what is sent do not track usage counts opt out',
     body: [
@@ -547,6 +547,7 @@ export const articles: Article[] = [
         "The event name, for example a page view, a menu or shortcut command id, a tool picked, an export, an import, an effect applied, or an error.",
         "Small settings for that event: a file type, an export size in KB, a scale, a tool or effect id, a size preset name and its pixel size.",
         "The page you were on (for example /editor) and which area it belongs to.",
+        "At the start of a visit, the website that linked you here (its domain only, such as instagram.com), and the campaign tags in the link if it had any (such as utm_source=instagram or utm_campaign=w41), so we know which posts bring designers.",
         "Device type (desktop, tablet or mobile), browser, operating system, time zone, language, screen size, and whether Voidcanvas is installed as an app.",
         "A random id for this browser and a random id for this visit. These are not linked to your name or email.",
         "For errors: the error message, with any web addresses removed, and at most 10 per tab.",
