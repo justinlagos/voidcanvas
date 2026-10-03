@@ -198,7 +198,7 @@ export const articles: Article[] = [
         'Smart objects and vector shapes are kept as pixels.',
         'Blend modes Voidcanvas cannot draw (such as linear burn, linear dodge, vivid light, pin light and dissolve) use the nearest match.',
         '16-bit files become 8-bit, and CMYK or other colour modes become RGB.',
-        'Gradient or pattern strokes become a solid colour. Gradient overlays with more than two colours use the first and last.',
+        'Gradient or pattern strokes become a solid colour. Gradient overlays preserve multiple colour stops and gradient type; custom opacity stops and midpoint interpolation are simplified.',
         'Group masks are left out. A black and white tint is left out.',
         'An adjustment clipped to one layer is unclipped, so it affects everything below it.',
       ] },

@@ -70,6 +70,9 @@ export type EffectType =
 export type EffectCategory = 'all' | 'artistic' | 'distortion' | 'color' | 'stylize' | 'enhance'
 
 export interface EffectParams {
+  finishBrightness?: number
+  finishContrast?: number
+  finishSaturation?: number
   intensity: number
   scale: number
   color1: string
@@ -172,6 +175,7 @@ export const defaultParams: EffectParams = {
   posX: 50,
   posY: 50,
   renderScale: 1,
+  finishBrightness: 0, finishContrast: 0, finishSaturation: 0,
 }
 
 export const useStore = create<Store>((set, get) => ({

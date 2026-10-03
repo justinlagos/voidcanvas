@@ -1,5 +1,6 @@
 'use client'
 
+import { useUi } from '../ui-store'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, CornerDownRight, Eye, EyeOff, Folder, FolderPlus, FunctionSquare, GripVertical, LayoutGrid, Link, Lock, LockKeyhole, Move, Paintbrush, Plus, Search, Shapes, SlidersHorizontal, SquareDashedBottom, Trash2, Type, Unlock, X } from 'lucide-react'
 import { ctx2d, drawLayerContent, layerSize } from '../engine'
@@ -154,7 +155,7 @@ function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
         {l.visible ? <Eye size={14} /> : <EyeOff size={14} />}
       </button>
       {l.clipId && <CornerDownRight size={12} className="shrink-0 -ml-1 text-void-500" aria-label="Clipped to layer below" />}
-      <span data-thumb title="Ctrl-click to select this layer's pixels" className={`shrink-0 rounded-[5px] p-[2px] ${l.id === activeId && !editingMask ? 'ring-1.5 ring-2 ring-accent' : ''}`}>
+      <span data-thumb onDoubleClick={e => { if (l.type === 'adjustment') { e.stopPropagation(); s.setActive(l.id); useUi.getState().showPanel('properties') } }} title="Ctrl-click to select this layer's pixels" className={`shrink-0 rounded-[5px] p-[2px] ${l.id === activeId && !editingMask ? 'ring-1.5 ring-2 ring-accent' : ''}`}>
         {l.type === 'adjustment'
           ? <span className="w-8 h-8 rounded-[4px] bg-void-700 flex items-center justify-center text-void-200"><SlidersHorizontal size={14} /></span>
           : l.type === 'text' ? <span className="w-8 h-8 rounded-[4px] bg-void-700 flex items-center justify-center text-void-100"><Type size={14} /></span>

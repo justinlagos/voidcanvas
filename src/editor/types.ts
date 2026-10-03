@@ -87,7 +87,7 @@ export interface ShadowStyle extends StyleBase { color: string; angle: number; d
 export interface GlowStyle extends StyleBase { color: string; size: number; spread: number }
 export interface StrokeStyle extends StyleBase { color: string; size: number; position: 'outside' | 'inside' | 'center' }
 export interface ColorOverlayStyle extends StyleBase { color: string }
-export interface GradientOverlayStyle extends StyleBase { from: string; to: string; angle: number; scale: number }
+export interface GradientOverlayStyle extends StyleBase { from: string; to: string; angle: number; scale: number; kind?: import('./gradient').GradientKind; stops?: import('./gradient').GradientStop[]; reverse?: boolean; centerX?: number; centerY?: number; aspect?: number }
 export interface BevelStyle extends StyleBase { size: number; depth: number; angle: number; highlight: string; shadow: string; soften: number }
 
 export interface LayerStyles {
@@ -353,6 +353,9 @@ export type ToolId =
   | 'polylasso' | 'objectselect' | 'pen' | 'curvature' | 'freeform' | 'pathselect' | 'remove' | 'dodge' | 'burn' | 'sponge'
 
 export interface ToolOptions {
+  gradientKind?: import('./gradient').GradientKind
+  gradientReverse?: boolean
+  gradientStops?: import('./gradient').GradientStop[]
   size: number
   hardness: number // 0..1
   opacity: number // 0..1

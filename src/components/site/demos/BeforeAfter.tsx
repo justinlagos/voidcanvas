@@ -19,7 +19,7 @@ export default function BeforeAfter({ before, after, alt, caption }: { before: s
         </div>
         <span aria-hidden className="absolute left-3 top-3 px-2 h-6 rounded-full bg-black/60 text-white text-[12px] flex items-center">Before</span>
         <span aria-hidden className="absolute right-3 top-3 px-2 h-6 rounded-full bg-black/60 text-white text-[12px] flex items-center">After</span>
-        <input type="range" min={0} max={100} value={v} onChange={e => setV(+e.target.value)} aria-label="Reveal the before or after image" className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize" />
+        <input type="range" min={0} max={100} value={v} onChange={e => setV(+e.target.value)} aria-label="Reveal the before or after image" className="vc-cover absolute inset-0 w-full h-full opacity-0 cursor-ew-resize" />
       </div>
       {caption && <figcaption className="px-5 py-3 border-t border-lp-line text-[13.5px] text-lp-dim">{caption}</figcaption>}
     </figure>

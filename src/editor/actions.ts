@@ -434,7 +434,7 @@ export function buildActions(): Record<string, Action> {
     // Filter
     { id: 'filter.gallery', label: 'Filter gallery…', run: () => openModal('filters'), enabled: hasDoc, keywords: 'effects' },
     { id: 'filter.remove', label: 'Remove object (AI, on device)', run: () => s().setTool('remove'), enabled: hasDoc, keywords: 'erase inpaint content aware' },
-    ...effects.filter(e => e.id !== 'none').map(e => ({ id: 'fx.' + e.id, label: e.name, run: () => s().addAdjustment('voidEffect', e.id), enabled: hasDoc, keywords: 'filter ' + e.category + ' ' + e.description })),
+    ...effects.filter(e => e.id !== 'none').map(e => ({ id: 'fx.' + e.id, label: e.name, run: () => addFxFromCommand(newEffect('voidEffect', e.id)), enabled: hasDoc, keywords: 'filter ' + e.category + ' ' + e.description })),
 
     // View
     { id: 'view.zoomIn', label: 'Zoom in', shortcut: 'Ctrl++', run: () => stageApi.zoomBy(1.25) },
@@ -554,6 +554,7 @@ function addFxFromCommand(fx: Effect) {
   const st = s()
   const targets = selectionTargetsNow()
   const t: FxTarget[] = targets.length ? targets : st.doc?.frames?.length && st.activeFrameId ? [{ type: 'board', id: st.activeFrameId }] : [{ type: 'doc' }]
+  ui().showPanel('properties')
   import('./components/EffectsSection').then(m => m.addEffectTo(t, fx))
 }
 export function selectionTargetsNow(): FxTarget[] {

@@ -1,3 +1,4 @@
+import { paintGradient } from './gradient'
 import type { BevelStyle, GlowStyle, GradientOverlayStyle, Layer, LayerStyles, ShadowStyle, StrokeStyle, StyleKind } from './types'
 
 // Layer styles, computed from a layer's silhouette in document space. Everything here is GPU canvas work
@@ -149,9 +150,7 @@ export function drawStyled(acc: CanvasRenderingContext2D, content: HTMLCanvasEle
       const c = mk(content.width, content.height), x = cx(c)
       const a = (g.angle * Math.PI) / 180, len = (Math.abs(Math.cos(a)) * b.w + Math.abs(Math.sin(a)) * b.h) / 2 * (g.scale / 100)
       const mx = b.x + b.w / 2, my = b.y + b.h / 2
-      const grad = x.createLinearGradient(mx - Math.cos(a) * len, my + Math.sin(a) * len, mx + Math.cos(a) * len, my - Math.sin(a) * len)
-      grad.addColorStop(0, g.from); grad.addColorStop(1, g.to)
-      x.fillStyle = grad; x.fillRect(0, 0, c.width, c.height)
+      paintGradient(x, c.width, c.height, { ...g, x: mx + ((g.centerX ?? 50) - 50) / 100 * b.w, y: my + ((g.centerY ?? 50) - 50) / 100 * b.h, radius: g.kind === 'radial' || g.kind === 'diamond' ? Math.max(b.w, b.h) / 2 * (g.scale / 100) : len })
       put(clipTo(c, sil), g.blend, g.opacity)
     } else if (k === 'innerGlow') {
       const g = e as GlowStyle
@@ -162,7 +161,7 @@ export function drawStyled(acc: CanvasRenderingContext2D, content: HTMLCanvasEle
     } else if (k === 'innerShadow') {
       const sh = e as ShadowStyle
       const a = (sh.angle * Math.PI) / 180
-      const inv = inverse(sil)
+      const inv = morph(inverse(sil), Math.max(0, sh.size * (sh.spread / 100)) * s)
       const shadow = shadowOf(inv, sh.color, sh.size * s, -Math.cos(a) * sh.distance * s, Math.sin(a) * sh.distance * s)
       put(clipTo(shadow, sil), sh.blend, sh.opacity)
     } else if (k === 'bevel') {

@@ -585,7 +585,7 @@ export const articles: Article[] = [
         ['Adjustment layers such as Levels, Curves, Hue/Saturation, Colour Balance, Black & White, Gradient Map', 'Kept and editable'],
         ['A clipped adjustment layer', 'Opens unclipped, so it affects everything below'],
         ['Drop shadow, inner shadow, glows, stroke, colour overlay, bevel', 'Kept as editable layer styles'],
-        ['Gradient overlay with more than two colours', 'Uses its first and last colour'],
+        ['Gradient overlay with custom opacity stops or midpoints', 'Preserves colours and geometry; opacity stops and midpoint interpolation are simplified'],
         ['Satin and pattern overlay', 'Not supported yet'],
         ['Smart objects and vector shapes', 'Kept as pixels'],
         ['Group masks', 'Left out'],
