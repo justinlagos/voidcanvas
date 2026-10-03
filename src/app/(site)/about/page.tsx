@@ -24,7 +24,7 @@ export default function About() {
   return (
     <div>
       <section className="relative">
-        <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none"><div className="absolute left-1/2 top-[-30%] -translate-x-1/2 w-[900px] h-[520px] rounded-full bg-[radial-gradient(closest-side,var(--lp-glow),transparent)]" /></div>
+        <div aria-hidden className="lp-hero-surface" />
         <div className="relative max-w-[900px] mx-auto px-5 sm:px-8 pt-14 sm:pt-24 text-center">
           <Eyebrow>About</Eyebrow>
           <h1 className="mt-3 text-[40px] sm:text-[68px] leading-[1] font-semibold tracking-[-0.04em] text-lp-fg">Professional design,<br className="hidden sm:block" /> in a browser tab.</h1>

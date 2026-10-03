@@ -54,7 +54,7 @@ export default function LearnHub() {
 
       {/* Hero: the question first, the search second, the goals third. */}
       <section className="relative">
-        <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none"><div className="absolute left-1/2 top-[-30%] -translate-x-1/2 w-[1000px] h-[560px] rounded-full bg-[radial-gradient(closest-side,var(--lp-glow),transparent)]" /></div>
+        <div aria-hidden className="lp-hero-surface" />
         <div className="relative max-w-[1120px] mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-6 text-center">
           <Eyebrow>Learn</Eyebrow>
           <h1 className="mt-3 text-[42px] sm:text-[68px] lg:text-[80px] leading-[0.98] font-semibold tracking-[-0.04em] text-lp-fg">

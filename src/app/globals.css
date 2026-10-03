@@ -180,7 +180,9 @@ input[type="range"].vc-bar::-moz-range-track { background: #3a3a44; }
   --lp-btn-fg: #0d0d10;
   --lp-btn-hover: #e6e6ea;
   --lp-nav: rgba(13, 13, 16, 0.75);
-  --lp-glow: rgba(139, 124, 255, 0.22);
+  --lp-hero-light: rgba(211, 219, 227, 0.085);
+  --lp-hero-edge: rgba(211, 219, 227, 0.13);
+  --lp-hero-shadow: rgba(0, 0, 0, 0.32);
   --lp-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
   --lp-shadow-sm: 0 20px 50px rgba(0, 0, 0, 0.5);
   --lp-ring: rgba(255, 255, 255, 0.1);
@@ -188,29 +190,31 @@ input[type="range"].vc-bar::-moz-range-track { background: #3a3a44; }
   color-scheme: dark;
 }
 html[data-lp-theme="light"] .lp {
-  /* Paper, not inverted dark: warm-neutral ground, white cards, ink type, deeper accent for text. */
-  --lp-bg: #f2f1f4;
+  /* Silver paper, white cards and ink type; accents stay legible in the light theme. */
+  --lp-bg: #f2f3f3;
   --lp-fg: #0d0d10;
   --lp-text: #1a1a1f;
   --lp-muted: #4d4d58;
   --lp-dim: #5e5e6c;
   --lp-faint: #7a7a88;
   --lp-card: #ffffff;
-  --lp-panel: #e8e7ec;
+  --lp-panel: #e7e9ea;
   --lp-line: rgba(13, 13, 16, 0.09);
   --lp-accent-text: #5f4fe0;
   --lp-btn: #0d0d10;
   --lp-btn-fg: #ffffff;
   --lp-btn-hover: #2a2a33;
-  --lp-nav: rgba(242, 241, 244, 0.8);
-  --lp-glow: rgba(139, 124, 255, 0.3);
-  --lp-shadow: 0 30px 70px rgba(24, 18, 48, 0.16);
-  --lp-shadow-sm: 0 16px 40px rgba(24, 18, 48, 0.14);
+  --lp-nav: rgba(242, 243, 243, 0.8);
+  --lp-hero-light: rgba(255, 255, 255, 0.85);
+  --lp-hero-edge: rgba(38, 46, 54, 0.09);
+  --lp-hero-shadow: rgba(38, 46, 54, 0.07);
+  --lp-shadow: 0 30px 70px rgba(24, 28, 32, 0.16);
+  --lp-shadow-sm: 0 16px 40px rgba(24, 28, 32, 0.14);
   --lp-ring: rgba(13, 13, 16, 0.08);
   --lp-field: #ffffff;
   color-scheme: light;
 }
-html[data-lp-theme="light"] body { background: #f2f1f4; }
+html[data-lp-theme="light"] body { background: #f2f3f3; }
 html[data-lp-theme="light"] .lp ::selection { background: rgba(139, 124, 255, 0.25); color: inherit; }
 /* Theme switch: the ground cross-fades; everything else swaps at once. */
 .lp { transition: background-color 0.25s, color 0.25s; }
@@ -246,14 +250,26 @@ html:has(.lp) { scroll-behavior: smooth; scroll-padding-top: 48px; }
    clips sideways on its own <main>, so the page lifts that rule. */
 html:has(.hm), html:has(.hm) body, html.hm-page, html.hm-page body { overflow-x: visible; }
 .hm { --hm-acc: #8b7cff; --hm-acc2: #b9afff; --hm-line2: rgba(255,255,255,.16); --hm-shadow: 0 50px 120px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.07); position: relative; }
-html[data-lp-theme="light"] .hm { --hm-line2: rgba(13,13,16,.16); --hm-shadow: 0 50px 110px rgba(24,18,48,.24), 0 0 0 1px rgba(13,13,16,.08); }
+html[data-lp-theme="light"] .hm { --hm-line2: rgba(13,13,16,.16); --hm-shadow: 0 50px 110px rgba(24,28,32,.24), 0 0 0 1px rgba(13,13,16,.08); }
 .hm-track { position: relative; height: 260vh; height: 260svh; }
 .hm-pin { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
 .hm-anchor { position: absolute; left: 0; right: 0; top: calc(100% - 100vh); top: calc(100% - 100svh); height: 1px; }
-.hm-glow, .hm-glow-t { position: absolute; border-radius: 50%; pointer-events: none; }
-.hm-glow { left: 0; top: 0; width: 1200px; height: 900px; margin: -450px 0 0 -600px; background: radial-gradient(closest-side, var(--lp-glow), transparent); }
-.hm-glow-b { background: radial-gradient(closest-side, rgba(201,117,43,.24), transparent); opacity: 0; }
-.hm-glow-t { left: 50%; top: -12%; width: 1000px; height: 640px; margin-left: -500px; background: radial-gradient(closest-side, var(--lp-glow), transparent); }
+/* Directional silver light, with a fine edge instead of a coloured cloud.
+   Keep the engine's existing elements and transforms so the scroll choreography is unchanged. */
+.lp-hero-surface {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+  background: linear-gradient(118deg, transparent 30%, var(--lp-hero-light) 65%, transparent 90%);
+  -webkit-mask-image: linear-gradient(#000, transparent);
+  mask-image: linear-gradient(#000, transparent);
+}
+.lp-hero-surface::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(118deg, transparent 54.9%, var(--lp-hero-edge) 55%, transparent 55.1%);
+}
+.hm-glow, .hm-glow-t { position: absolute; pointer-events: none; -webkit-mask-image: linear-gradient(transparent, #000 35%, #000 60%, transparent); mask-image: linear-gradient(transparent, #000 35%, #000 60%, transparent); }
+.hm-glow { left: 0; top: 0; width: 1200px; height: 900px; margin: -450px 0 0 -600px; background: linear-gradient(118deg, transparent 25%, var(--lp-hero-light) 55%, transparent 80%); }
+.hm-glow-b { background: linear-gradient(118deg, transparent 30%, var(--lp-hero-edge) 60%, transparent 85%); opacity: 0; }
+.hm-glow-t { left: 50%; top: -12%; width: 1000px; height: 640px; margin-left: -500px; background: linear-gradient(118deg, transparent 25%, var(--lp-hero-light) 55%, transparent 80%); }
 .hm-mq { position: absolute; left: 0; top: 50%; white-space: nowrap; font-size: 230px; font-weight: 700; letter-spacing: -.05em; line-height: 1; pointer-events: none; opacity: 0; }
 .hm-mq span { color: transparent; -webkit-text-stroke: 1.5px var(--hm-line2); padding-right: .28em; }
 .hm-mq b { font-weight: 700; color: color-mix(in srgb, var(--hm-acc) 70%, var(--lp-fg)); padding-right: .28em; }
@@ -269,10 +285,10 @@ html[data-lp-theme="light"] .hm { --hm-line2: rgba(13,13,16,.16); --hm-shadow: 0
 .hm-sub strong { color: var(--lp-fg); font-weight: 600; }
 .hm-ctas { margin-top: 30px; display: flex; align-items: center; gap: 10px; }
 .hm-ctaw { position: relative; display: inline-flex; flex: none; border-radius: 999px; transform-origin: 0 0; }
-.hm-cta { position: relative; flex: 1 1 auto; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 58px; padding: 0 30px; border-radius: 999px; background: var(--lp-btn); color: var(--lp-btn-fg); font-size: 17px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; box-shadow: 0 16px 46px rgba(139,124,255,.4), 0 0 0 1px rgba(255,255,255,.14); transition: box-shadow .25s, background-color .25s; }
-.hm-cta:hover { background: var(--lp-btn-hover); box-shadow: 0 18px 56px rgba(139,124,255,.58), 0 0 0 1px rgba(255,255,255,.2); }
+.hm-cta { position: relative; flex: 1 1 auto; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 58px; padding: 0 30px; border-radius: 999px; background: var(--lp-btn); color: var(--lp-btn-fg); font-size: 17px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; box-shadow: 0 12px 32px var(--lp-hero-shadow), 0 0 0 1px var(--lp-ring); transition: box-shadow .25s, background-color .25s; }
+.hm-cta:hover { background: var(--lp-btn-hover); box-shadow: 0 16px 40px var(--lp-hero-shadow), 0 0 0 1px var(--lp-hero-edge); }
 .hm-ctat, .hm-cta svg { position: relative; flex: none; }
-.hm-sheen { position: absolute; top: 0; bottom: 0; left: 0; width: 46%; background: linear-gradient(100deg, transparent, rgba(139,124,255,.46), transparent); transform: translateX(-130%); pointer-events: none; }
+.hm-sheen { position: absolute; top: 0; bottom: 0; left: 0; width: 46%; background: linear-gradient(100deg, transparent, rgba(146,155,164,.3), transparent); transform: translateX(-130%); pointer-events: none; }
 .hm-ring { position: absolute; inset: 0; border-radius: 999px; box-shadow: 0 0 0 2px var(--hm-acc, #8b7cff); opacity: 0; pointer-events: none; }
 .hm-ghost { display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 16px; border-radius: 999px; color: var(--lp-dim); font-size: 15px; white-space: nowrap; }
 .hm-ghost:hover { color: var(--lp-fg); }
