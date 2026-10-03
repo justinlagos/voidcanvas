@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { defaultParams, type EffectType } from '@/store/useStore'
-import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, layerBounds, layerMatrix, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
+import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, keepTextAnchor, layerBounds, layerMatrix, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
 import { boardGap, frameForLayer, occupied, placeBeside, type Side } from './frames'
 import type { AdjustmentKind, AdjustmentLayer, Doc, Effect, Frame, Group, Layer, LayerRole, MaskAt, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
 import { copyEffect, freshFx, fxId, linkedCopies, moveInList, patchEffect, resetEffect as resetFx, sameTarget, stackOf, withStacks, type FxTarget } from './effects'
@@ -455,6 +455,12 @@ function coverFrames(doc: Doc): Doc {
   if (!doc.frames?.length) return doc
   const r = Math.max(doc.width, ...doc.frames.map(f => f.x + f.width)), b = Math.max(doc.height, ...doc.frames.map(f => f.y + f.height))
   return r === doc.width && b === doc.height ? doc : { ...doc, width: Math.ceil(r), height: Math.ceil(b) }
+}
+
+/** A layer with a patch applied; text keeps its anchor unless the patch places it or sizes its box. */
+function anchored(l: Layer, patch: Partial<Layer>): Layer {
+  const next = { ...l, ...patch, rev: nextRev() } as Layer
+  return 'x' in patch || 'y' in patch || 'boxWidth' in patch ? next : keepTextAnchor(l, next)
 }
 
 export const useEditor = create<EditorState>((set, get) => ({
@@ -1134,14 +1140,16 @@ export const useEditor = create<EditorState>((set, get) => ({
     get().addLayer(l, 'Add ' + l.name.toLowerCase())
   },
 
+  // Text keeps its anchor (left edge, middle or right edge, and top) when a change alters its size, unless the
+  // change places the layer or sizes its box itself (handles, position fields).
   updateLayers: (updates) => {
     const map = new Map(updates.map(u => [u.id, u.patch]))
-    set({ layers: get().layers.map(l => { const patch = map.get(l.id); return patch ? ({ ...l, ...patch, rev: nextRev() } as Layer) : l }), docRev: get().docRev + 1 })
+    set({ layers: get().layers.map(l => { const patch = map.get(l.id); return patch ? anchored(l, patch) : l }), docRev: get().docRev + 1 })
   },
 
   updateLayer: (id, patch, commitLabel) => {
     set({
-      layers: get().layers.map(l => (l.id === id ? ({ ...l, ...patch, rev: nextRev() } as Layer) : l)),
+      layers: get().layers.map(l => (l.id === id ? anchored(l, patch) : l)),
       docRev: get().docRev + 1,
     })
     if (commitLabel) get().commit(commitLabel)

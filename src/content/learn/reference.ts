@@ -309,7 +309,7 @@ export const articles: Article[] = [
         ['Poster 18 × 24 in', '5400 × 7200', '18 × 24 in at 300 dpi', 'Posters on a common US size'],
         ['Business card', '1050 × 600', '3.5 × 2 in at 300 dpi', 'Business cards'],
       ] },
-      { t: 'p', text: 'If none of these fit, the start screen has a Custom size form. Width and height can each be anything from 16 to 8000 px. For any other paper size, or a size with bleed, use the calculator.' },
+      { t: 'p', text: 'If none of these fit, the start screen has a Custom size form. Width and height can each be anything from 16 to 8000 px, typed in pixels, millimetres, centimetres, inches or points (print units at 300 dpi unless you change it, and the design keeps that dpi). For a size with bleed, use the calculator.' },
       { t: 'demo', kind: 'size-calculator', caption: 'Millimetres or inches to pixels at any dpi, with bleed rounded up so it is never short. When the result matches a preset, the button opens it.' },
       { t: 'note', text: 'Every Editor preset has a link that opens the Editor straight onto a new document of that size: /editor?preset= followed by the preset id (ig-post, square, story, yt, li, x, slide, web, a4, a5, poster, card). The guides in Learn use these links.' },
       { t: 'try', label: 'Start a design', href: '/editor' },

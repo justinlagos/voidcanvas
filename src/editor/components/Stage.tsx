@@ -149,11 +149,13 @@ export function Stage() {
   const editingTextId = useEditor(s => s.editingTextId)
   const lastDown = useRef<{ t: number; x: number; y: number; id: string | null } | null>(null)
   const lastEmptyTap = useRef<{ t: number; x: number; y: number } | null>(null)
-  // Long press on a layer (touch): select it and ask the shell for its actions, without moving it.
+  // Long press on a layer (touch). A finger that rests before it moves is still a drag: the hold only gives a
+  // small buzz, and the actions open when the finger lifts without having moved. Moving after the hold drags.
   const longPress = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null)
+  const held = useRef<{ id: string; x: number; y: number; under: string[] } | null>(null)
   const cancelLongPress = () => { if (longPress.current) { clearTimeout(longPress.current.timer); longPress.current = null } }
   const startLongPress = (e: React.PointerEvent, id: string, at: Pt) => {
-    cancelLongPress()
+    cancelLongPress(); held.current = null
     const x = e.clientX, y = e.clientY
     longPress.current = {
       x, y,
@@ -161,13 +163,11 @@ export function Stage() {
         longPress.current = null
         const d = drag.current
         if (d && d.kind === 'move' && d.moved) return
-        drag.current = null; setBusyDrag(false)
         const st = useEditor.getState()
-        if (!st.selectedIds.includes(id)) st.setActive(id)
         try { navigator.vibrate?.(12) } catch { /* not on every phone */ }
         // Everything under the finger, top first, so the actions can offer the layer underneath.
         const under = st.doc ? st.layers.slice().reverse().filter(l => hitLayer([l], at.x, at.y, st.doc!, st.groups)).map(l => l.id) : [id]
-        window.dispatchEvent(new CustomEvent('vc:longpress', { detail: { id, x, y, under } }))
+        held.current = { id, x, y, under }
       }, LONG_PRESS_MS),
     }
   }
@@ -1306,6 +1306,8 @@ export function Stage() {
       if (hit && dbl && hit.type === 'text' && !touchCanvas.several) { lastDown.current = null; s.setActive(hit.id); useEditor.setState({ editingTextId: hit.id }); return }
       if (hit && (e.shiftKey || (touchCanvas.several && e.pointerType === 'touch'))) { s.toggleSelect(hit.id); invalidate(); return }
       if (hit && e.pointerType === 'touch') startLongPress(e, hit.id, p)
+      // Picked by hand (the phone shows the tools for it, even when it was already selected).
+      if (hit) window.dispatchEvent(new CustomEvent('vc:pick', { detail: { id: hit.id } }))
       if (hit) {
         // Clicking one of several selected layers again (without dragging) makes it the key object.
         const keyClick = s.selectedIds.includes(hit.id) && selectionUnits(s.layers, s.groups, s.selectedIds, s.isolatedGroupId).length > 1 ? hit.id : undefined
@@ -1771,6 +1773,8 @@ export function Stage() {
     }
     if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, sp)
     if (longPress.current && Math.hypot(e.clientX - longPress.current.x, e.clientY - longPress.current.y) > 8) cancelLongPress()
+    // Held, then moved: it was a drag after all.
+    if (held.current && Math.hypot(e.clientX - held.current.x, e.clientY - held.current.y) > 8) held.current = null
     const now = performance.now()
     if (now - lastPointer.current > 40 && s.doc) {
       lastPointer.current = now
@@ -1971,7 +1975,8 @@ export function Stage() {
 
     if (d.kind === 'move') {
       let dx = p.x - d.start.x, dy = p.y - d.start.y
-      if (!d.moved && Math.hypot(dx, dy) * s.view.zoom < 3) return
+      // A finger wobbles a little on a tap or a hold: it has to travel further than a mouse before a move starts.
+      if (!d.moved && Math.hypot(dx, dy) * s.view.zoom < (e.pointerType === 'touch' ? 6 : 3)) return
       d.moved = true
       if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0 }
       const tol = 6 / s.view.zoom
@@ -2124,6 +2129,15 @@ export function Stage() {
     const s = useEditor.getState()
     const d = drag.current; drag.current = null
     cancelLongPress()
+    // Held without moving, then lifted: the actions for what is under the finger.
+    const h = held.current; held.current = null
+    if (h && (!d || (d.kind === 'move' && !d.moved))) {
+      if (d?.kind === 'move' && d.dup) s.jumpTo(s.historyIndex)
+      if (!s.selectedIds.includes(h.id)) s.setActive(h.id)
+      setBusyDrag(false)
+      window.dispatchEvent(new CustomEvent('vc:longpress', { detail: { id: h.id, x: h.x, y: h.y, under: h.under } }))
+      invalidate(); return
+    }
     snapLines.current = { v: [], h: [] }; dist.current = []
     if (!d || !s.doc) { invalidate(); return }
 
@@ -2255,7 +2269,7 @@ export function Stage() {
 
   return (
     <div
-      ref={wrap}
+      ref={wrap} data-stage
       className="relative flex-1 min-w-0 min-h-0 overflow-hidden bg-surface-base touch-none select-none"
       style={{ cursor: cursorFor(tool), WebkitTouchCallout: 'none' } as React.CSSProperties}
       onPointerDown={onDown}
@@ -2373,6 +2387,9 @@ function TextEditor() {
   const minW = layer.text ? 0 : Math.max(layer.boxWidth ?? 0, layer.fontSize * 6)
   const minH = layer.text ? 0 : layer.fontSize * layer.lineHeight
   const ew = Math.max(w, minW) * layer.scaleX * k + 4, eh = Math.max(h, minH) * layer.scaleY * k + 4
+  // The extra room an empty layer gets sits around its anchor, so the caret starts where the text will grow from.
+  const ax = layer.align === 'center' ? 0.5 : layer.align === 'right' ? 1 : 0
+  const shift = (Math.max(w, minW) - w) * ax * layer.scaleX * k
   const close = () => {
     if (!ready) return
     const st = useEditor.getState()
@@ -2394,7 +2411,7 @@ function TextEditor() {
         style={{
           position: 'absolute', left: view.panX + layer.x * k, top: view.panY + layer.y * k,
           width: ew, height: eh,
-          transform: `rotate(${layer.rotation}rad)`, transformOrigin: `${(w * layer.scaleX * k) / 2}px ${(h * layer.scaleY * k) / 2}px`,
+          transform: `rotate(${layer.rotation}rad)${shift ? ` translateX(${-shift}px)` : ''}`, transformOrigin: `${(w * layer.scaleX * k) / 2}px ${(h * layer.scaleY * k) / 2}px`,
           font: fontString({ ...layer, fontSize: layer.fontSize * layer.scaleX * k }), lineHeight: layer.lineHeight, letterSpacing: layer.letterSpacing * k,
           color: layer.color, textAlign: layer.align, padding: 2 * k, margin: 0, border: 0, background: 'transparent', resize: 'none',
           overflow: 'hidden', whiteSpace: layer.boxWidth ? 'pre-wrap' : 'pre', textTransform: layer.caps === 'all' ? 'uppercase' : undefined,
@@ -2438,7 +2455,7 @@ function TextEditBar({ layer, left, top, width, onDone }: { layer: Extract<Layer
   }, [top, layer.fontSize, layer.lineHeight])
   useEffect(() => () => { if (shifted.current) { const v = useEditor.getState().view; useEditor.getState().setView({ panY: v.panY + shifted.current }); shifted.current = 0 } }, [])
   const up = (patch: Partial<Extract<Layer, { type: 'text' }>>) => useEditor.getState().updateLayer(layer.id, patch)
-  const setFont = async (fontFamily: string) => { const { ensureFont } = await import('../io'); await ensureFont(fontFamily, layer.fontWeight, layer.italic); up({ fontFamily }) }
+  const setFont = (fontFamily: string) => ops.setFontNow(layer.id, { fontFamily })
   const [fonts, setFonts] = useState<string[]>([])
   useEffect(() => { import('../io').then(m => { const used = Array.from(new Set(useEditor.getState().layers.filter(l => l.type === 'text').map(l => (l as Extract<Layer, { type: 'text' }>).fontFamily))); setFonts(Array.from(new Set([...used, ...m.FONTS]))) }) }, [])
   const PAD = 8, BAR_H = 40

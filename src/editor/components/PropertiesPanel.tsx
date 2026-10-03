@@ -342,10 +342,7 @@ function TextProps({ layer }: { layer: TextLayer }) {
   const up = (patch: Partial<TextLayer>) => s.updateLayer(layer.id, patch)
   // Spacing, paragraph box, outline and shadow are one click away unless already in use.
   const [moreType, setMoreType] = useState(!!layer.boxWidth || !!layer.outline || !!layer.shadow || layer.letterSpacing !== 0 || Math.abs(layer.lineHeight - 1.15) > 0.01)
-  const setFont = async (fontFamily: string, fontWeight = layer.fontWeight, italic = layer.italic) => {
-    await ensureFont(fontFamily, fontWeight, italic)
-    s.updateLayer(layer.id, { fontFamily, fontWeight, italic }, 'Font')
-  }
+  const setFont = (fontFamily: string, fontWeight = layer.fontWeight, italic = layer.italic) => ops.setFontNow(layer.id, { fontFamily, fontWeight, italic }, 'Font')
   // Fonts already used in this design (a brand's own families, say) come first, then the built-in list.
   const docFontKey = useEditor(st => Array.from(new Set(st.layers.filter(l => l.type === 'text').map(l => (l as TextLayer).fontFamily))).sort().join('|'))
   const docFonts = docFontKey ? docFontKey.split('|') : []

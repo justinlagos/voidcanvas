@@ -10,6 +10,8 @@ import { useEditor } from '../store'
 import { useTabs } from '../tabs'
 import { clearSession, readCrashedSession, type SessionMarker } from '../versions'
 import { Button, focusRing } from './ui'
+import { UnitField } from './MoreDialogs'
+import { SIZE_UNITS, fromPx, rememberUnit, rememberedUnit, toPx, type SizeUnit } from '../units'
 import { track } from '@/lib/analytics'
 import { desktop, type LibraryFile } from '@/lib/desktop'
 
@@ -123,6 +125,11 @@ export function StartScreen() {
   const counts = countLine({ designs: designs.length, brands, templates: recent.length - designs.length, exports: designs.reduce((a, p) => a + (p.exports ?? 0), 0) })
   const [over, setOver] = useState(false)
   const [w, setW] = useState(1600), [h, setH] = useState(1200)
+  // Custom sizes in any unit: print units go through the resolution (300 dpi unless changed).
+  const [unit, setUnit] = useState<SizeUnit>('px')
+  useEffect(() => setUnit(rememberedUnit()), [])
+  const [dpi, setDpi] = useState(300)
+  const tooBig = Math.max(w, h) > 8000
   useEffect(() => { listProjects().then(setRecent).catch(() => {}) }, [])
   const start = (width: number, height: number, name?: string) => (track('doc.new', { preset: (name || 'custom').slice(0, 40), w: width, h: height }), useEditor.getState().newDoc({ width, height, background: '#ffffff', name }))
   const handleFiles = (files: File[]) => { const v = files.find(f => f.name.endsWith('.void') || f.name.endsWith('.void.png')); if (v) { importVoidFile(v); return } importFiles(files) }
@@ -231,13 +238,17 @@ export function StartScreen() {
 
         <section className="mt-10 pb-10">
           <h2 className="text-[13px] font-semibold text-void-200 mb-3">Custom size</h2>
-          <form className="flex flex-wrap items-end gap-3" onSubmit={e => { e.preventDefault(); start(Math.min(8000, Math.max(16, w)), Math.min(8000, Math.max(16, h))) }}>
+          <form data-custom-size className="flex flex-wrap items-end gap-3" onSubmit={e => { e.preventDefault(); if (tooBig) return; start(Math.max(16, w), Math.max(16, h)); if (unit !== 'px') useEditor.getState().setDoc({ dpi }) }}>
             {([['Width', w, setW], ['Height', h, setH]] as const).map(([l, v, set]) => (
-              <label key={l} className="block"><span className="block text-[12px] text-void-400 mb-1">{l} (px)</span>
-                <input type="number" min={16} max={8000} value={v} onChange={e => set(Number(e.target.value))} className={`h-9 w-28 px-2.5 rounded-lg bg-void-900 border border-void-800 text-[13px] tabular-nums ${focusRing}`} /></label>
+              <div key={l + unit} className="w-28"><UnitField label={`${l} (${unit})`} px={v} fmt={px => fromPx(px, unit, dpi)} parse={x => set(toPx(x, unit, dpi))} className={`h-9 w-28 px-2.5 rounded-lg bg-void-900 border border-void-800 text-[13px] tabular-nums ${focusRing}`} /></div>
             ))}
-            <Button type="submit" primary>Create design</Button>
+            <label className="block"><span className="block text-[12px] text-void-400 mb-1">Units</span>
+              <select aria-label="Units" value={unit} onChange={e => { const u = e.target.value as SizeUnit; setUnit(u); rememberUnit(u) }} className={`h-9 px-2 rounded-lg bg-void-900 border border-void-800 text-[13px] ${focusRing}`}>{SIZE_UNITS.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}</select></label>
+            {unit !== 'px' && <label className="block"><span className="block text-[12px] text-void-400 mb-1">dpi</span>
+              <input type="number" min={36} max={1200} aria-label="Resolution" value={dpi} onChange={e => setDpi(Math.max(1, Number(e.target.value) || 1))} className={`h-9 w-20 px-2.5 rounded-lg bg-void-900 border border-void-800 text-[13px] tabular-nums ${focusRing}`} /></label>}
+            <Button type="submit" primary disabled={tooBig}>Create design</Button>
           </form>
+          <p data-size-px className={`mt-2 text-[12px] tabular-nums ${tooBig ? 'text-amber-300' : 'text-void-500'}`}>{tooBig ? `${w} × ${h} px is more than the 8000 px a side the Editor works with. Lower the resolution, or make it smaller.` : unit !== 'px' ? `${w} × ${h} px at ${dpi} dpi` : ''}</p>
         </section>
       </div>
     </div>

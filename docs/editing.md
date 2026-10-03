@@ -61,3 +61,24 @@ measured from the layer's board.
 Actions can carry a `webHotkey` for keys a browser tab keeps (Ctrl+T, Ctrl+Shift+N, Ctrl+Shift+P become Alt+T,
 Alt+Shift+N, Alt+Shift+P). `keyFor(action)` picks the key shown in menus, the palette and the shortcut sheet. The
 desktop app (`window.voidDesktop`) uses the usual keys.
+
+## Sizes in print units
+
+Canvas size, Image size and the custom size on the start screen take pixels, millimetres, centimetres, inches and
+points (and percent in the two dialogs), through `src/editor/units.ts`. A print unit needs a resolution: the
+design's own dpi, or 300 for designs over 2000 px on a side and 72 otherwise (300 for a new custom size). The
+fields keep what is typed while typing, so a decimal point can be entered. The pixel result is shown under the
+fields. Choosing a print unit and applying records the dpi on the design. The last unit chosen is remembered on
+the device (`vc-size-unit`).
+
+## Replace image
+
+Layer, Replace image… (and Replace on the phone) puts a new picture in a photo layer: it covers the box the old
+picture showed in, centred, turned and flipped the same way; the layer keeps its name, effects, styles and mask
+(resampled to the new picture). One undo step.
+
+## Fonts take effect at once
+
+Picking a font, weight or italic (Character panel, Properties, the text bar, the floating bar, the brand panel, and
+the phone's Font sheet) changes the text straight away through `ops.setFontNow`; the text is redrawn when the font
+file has arrived. Before, the change waited for the download, which on a slow connection felt like a dead click.

@@ -8,7 +8,16 @@ const errors = []
 const c = await b.newContext({ ...devices['iPhone 13'], viewport: { width: 390, height: 844 } })
 const p = await c.newPage(); p.on('pageerror', e => errors.push(e.message))
 // Opens a mode unless it is already open (tapping an open mode closes it).
-const openMode = async m => { const btn = await p.$(`nav[aria-label="Modes"] button:has-text("${m}")`); if ((await btn.getAttribute('aria-pressed')) !== 'true') await btn.tap(); await p.waitForTimeout(300) }
+const openMode = async (m, P = p) => {
+  // With something picked, the bottom bar is that thing's tools: Settings is the old Select sheet, Effects its
+  // effects. Any other mode is reached with Back first, as a person would.
+  if (await P.$('[data-context-bar]')) {
+    const ctx = { Select: 'settings', Effects: 'effects' }[m]
+    if (ctx) { const b = P.locator(`[data-context-bar] button[data-ctx="${ctx}"]`); await b.scrollIntoViewIfNeeded(); if ((await b.getAttribute('aria-pressed')) !== 'true') await b.tap(); await P.waitForTimeout(300); return }
+    await P.tap('[data-context-bar] button[aria-label="Back"]'); await P.waitForTimeout(300)
+  }
+  const btn = await P.$(`nav[aria-label="Modes"] button:has-text("${m}")`); if ((await btn.getAttribute('aria-pressed')) !== 'true') await btn.tap(); await P.waitForTimeout(300)
+}
 const inView = sel => p.$eval(sel, el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.left >= -1 && r.right <= innerWidth + 1 && r.top >= -1 && r.bottom <= innerHeight + 1 })
 
 await p.goto(`${BASE}/editor`); await p.waitForTimeout(800)

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeft, BookOpen, Bug, Camera, Check, ChevronRight, Clock, Copy, Crop, Download, Eclipse, Eye, FlipHorizontal, FolderPlus, History, ImageIcon, ImageOff, LayoutGrid, Layers as LayersIcon, Lock, MessageSquare, MoreHorizontal, PenLine, Pilcrow, Redo2, Scaling, Search, Settings, Share2, Shield, SlidersHorizontal, Sparkles, SquareStack, Trash2, Type, Undo2, Unlock, User, Wand2, X } from 'lucide-react'
 import { useEditor } from '../store'
+import { layerBounds } from '../engine'
 import { downloadBlob, exportImage, importFiles, isPrivate, noteExport, trackExport } from '../io'
 import type { Layer, ShapeLayer, TextLayer, ToolId } from '../types'
 import { Stage } from './Stage'
@@ -18,6 +19,8 @@ import { FONTS, ensureFont } from '../io'
 import * as ops from '../ops'
 import { touchCanvas } from '../touch'
 import type { PanelId } from '../ui-store'
+import { ColourChip, Label, Row, Sheet, chip, primary } from './phone-ui'
+import { ContextToolSheet, PhoneContextBar, type CtxTool } from './PhoneContextBar'
 
 // The phone Editor: a top bar, the canvas, and five modes along the bottom. Selecting something turns the
 // Select sheet into its inspector (every setting the desktop Properties panel has). A long press opens the
@@ -47,8 +50,6 @@ export function useIsPhone() {
   return phone
 }
 
-const chip = 'h-11 px-3.5 rounded-xl bg-void-900 border border-white/[0.07] text-[13.5px] text-void-100 inline-flex items-center gap-2 active:bg-void-800 disabled:opacity-40 whitespace-nowrap'
-const primary = 'h-11 px-4 rounded-xl bg-accent text-white text-[13.5px] font-medium inline-flex items-center gap-2 active:opacity-90 whitespace-nowrap'
 const pill = 'absolute left-1/2 -translate-x-1/2 top-3 z-10 min-h-9 px-2 py-1 rounded-full bg-void-950/90 border border-white/[0.1] text-[12.5px] text-void-200 inline-flex items-center gap-2 backdrop-blur max-w-[calc(100%-24px)]'
 const pillBtn = 'h-8 px-3 rounded-full text-[12.5px] font-medium'
 
@@ -69,33 +70,63 @@ export function MobileEditor() {
   const [sheet, setSheet] = useState<SheetId | null>(null)
   const [several, setSeveral] = useState(false)
   const [context, setContext] = useState<{ id: string; under: string[] } | null>(null)
+  // The bar's tool sheet that is open for the selection (Font, Colour, Arrange …).
+  const [ctxTool, setCtxTool] = useState<CtxTool | null>(null)
   const s = useEditor.getState()
 
   // The canvas behaves for fingers while this shell is shown.
   useEffect(() => { touchCanvas.phone = true; return () => { touchCanvas.phone = false; touchCanvas.several = false } }, [])
   useEffect(() => { touchCanvas.several = several }, [several])
 
-  // Selecting a layer on the canvas opens the Select sheet for it; clearing the selection closes it.
-  // Starts with whatever is selected when the document opens, so opening a photo does not pop the sheet.
+  // Selecting something, on the canvas or in Layers, turns the bottom bar into its tools and clears the canvas
+  // of sheets, so it can be moved straight away. Full settings stay open if they were open.
   const lastActive = useRef<string | undefined | null>(null)
+  const lastDoc = useRef<string | undefined>(undefined)
+  // Set once something is picked (on the canvas, in Layers, or just added); a design that opens with a layer
+  // selected keeps the main bar until then.
+  const [picked, setPicked] = useState(false)
   useEffect(() => {
-    if (lastActive.current === null) { lastActive.current = active?.id; return }
+    if (lastActive.current === null || lastDoc.current !== doc?.id) { lastActive.current = active?.id; lastDoc.current = doc?.id; setPicked(false); return }
     if (active?.id !== lastActive.current) {
       lastActive.current = active?.id
-      if (active && !editingText && !several && sheet !== 'layers') { setSheet(null); setMode('select') }
+      setPicked(!!active)
+      setCtxTool(null)
+      if (active && !editingText && !several) { if (sheet === 'layers') setSheet(null); if (mode && mode !== 'select') setMode(null) }
       if (!active && mode === 'select') setMode(null)
     }
-  }, [active, editingText, mode, several, sheet])
+  }, [active, editingText, mode, several, sheet, doc?.id])
   // Typing on the canvas: the text bar is enough; keep the bottom clear for the keyboard.
   useEffect(() => { if (editingText) { setMode(null); setSheet(null) } }, [editingText])
+  useEffect(() => { const on = () => { setPicked(true); if (!touchCanvas.several) setSheet(cur => (cur === 'layers' ? null : cur)) }; window.addEventListener('vc:pick', on); return () => window.removeEventListener('vc:pick', on) }, [])
   // A long press anywhere (canvas or Layers list) opens that layer's actions.
   useEffect(() => {
     const on = (e: Event) => { const d = (e as CustomEvent).detail as { id: string; under?: string[] }; setContext({ id: d.id, under: d.under ?? [d.id] }); setMode(null); setSheet('context') }
     window.addEventListener('vc:longpress', on); return () => window.removeEventListener('vc:longpress', on)
   }, [])
 
-  const toggle = (m: Mode) => { setSheet(null); setMode(mode === m ? null : m) }
-  const close = () => { setMode(null); setSheet(null) }
+  // A sheet opened for the selection never hides it: the view slides up so the selection sits above the sheet.
+  useEffect(() => {
+    if (!active || active.type === 'adjustment' || (!ctxTool && mode !== 'select')) return
+    const t = setTimeout(() => {
+      const st = useEditor.getState(), stage = document.querySelector('[data-stage]'), sheetEl = document.querySelector('[data-mobile-sheet]')
+      const l = st.layers.find(x => x.id === st.activeId)
+      if (!stage || !sheetEl || !l || !st.doc) return
+      const sr = stage.getBoundingClientRect(), top = sheetEl.getBoundingClientRect().top - sr.top
+      const b = layerBounds(l, st.doc), v = st.view
+      const y0 = v.panY + b.y * v.zoom, y1 = v.panY + (b.y + b.h) * v.zoom
+      const room = top - 12
+      if (y1 <= room || room < 80) return
+      // Bottom just above the sheet, but never the top off the screen.
+      const dy = Math.min(y1 - room, Math.max(0, y0 - 56))
+      if (dy > 1) st.setView({ panY: v.panY - dy })
+    }, 60)
+    return () => clearTimeout(t)
+  }, [ctxTool, mode, active?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggle = (m: Mode) => { setSheet(null); setCtxTool(null); setMode(mode === m ? null : m) }
+  const close = () => { setMode(null); setSheet(null); setCtxTool(null) }
+  // The selection's own tools take the place of the main bar while something is selected.
+  const showCtx = !!active && picked && !editingText && !several && tool === 'move' && !transform
   const openSheet = (id: SheetId) => { setMode(null); setSheet(cur => (typeof cur === 'string' && cur === id ? null : id)) }
   const back = async () => { const { flushSave } = await import('../io'); await flushSave(); useEditor.getState().closeDoc() }
 
@@ -174,6 +205,7 @@ export function MobileEditor() {
             <div className="vc-phone-panel -mx-4 h-full"><PanelBody id={sheet.panel} onOpenFilters={() => openModal('filters')} /></div>
           </Sheet>
         )}
+        {showCtx && ctxTool && !mode && !sheet && <ContextToolSheet tool={ctxTool} onClose={() => setCtxTool(null)} effects={<EffectsSheet onDone={() => setCtxTool(null)} />} />}
         {mode && !sheet && (
           <Sheet title={mode === 'select' && selCount > 1 ? `${selCount} layers` : MODES.find(m => m.id === mode)!.label} onClose={close} peek={mode === 'select' && !!active}>
             {mode === 'select' && <SelectSheet layer={active} count={selCount} onDone={close} onSeveral={() => { setMode(null); setSeveral(true) }} />}
@@ -185,8 +217,9 @@ export function MobileEditor() {
         )}
       </div>
 
-      {/* Mode bar */}
-      {!editingText && !!doc && (
+      {/* The selection's tools, or the mode bar */}
+      {showCtx && !!doc && <PhoneContextBar open={mode || sheet ? null : ctxTool} onTool={t => { setMode(null); setSheet(null); setCtxTool(t) }} onSettings={() => { setSheet(null); setCtxTool(null); setMode('select') }} onSeveral={() => { setMode(null); setCtxTool(null); setSeveral(true) }} />}
+      {!editingText && !!doc && !showCtx && (
         <nav aria-label="Modes" className="shrink-0 grid grid-cols-5 border-t border-white/[0.06] bg-surface-raised" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {MODES.map(m => (
             <button key={m.id} onClick={() => toggle(m.id)} aria-pressed={mode === m.id} className={`h-14 flex flex-col items-center justify-center gap-0.5 text-[11px] ${mode === m.id ? 'text-white' : 'text-void-400'}`}>
@@ -198,30 +231,6 @@ export function MobileEditor() {
     </div>
   )
 }
-
-/**
- * A sheet over the bottom of the canvas. It sits on the mode bar, never under it. A `peek` sheet starts low so
- * the design stays in view while you work on it; the arrow opens it taller, and scrolling inside shows the rest.
- */
-function Sheet({ title, onClose, children, tall, peek, action }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean; peek?: boolean; action?: ReactNode }) {
-  const [open, setOpen] = useState(false)
-  const size = peek ? (open ? 'h-[min(66dvh,100%)]' : 'max-h-[min(36dvh,100%)]') : tall ? 'h-[min(62dvh,100%)]' : 'max-h-[min(50dvh,100%)]'
-  return (
-    <section aria-label={title} data-mobile-sheet data-sheet-size={peek ? (open ? 'tall' : 'peek') : tall ? 'tall' : 'short'} className={`absolute inset-x-0 bottom-0 z-20 ${size} flex flex-col rounded-t-2xl border-t border-white/[0.08] bg-surface-overlay shadow-[0_-12px_40px_rgba(0,0,0,0.5)]`}>
-      <div className="flex items-center h-11 px-4 shrink-0 gap-2">
-        <span className="text-[12px] uppercase tracking-wider text-void-400 truncate">{title}</span>
-        <span className="ml-auto" />
-        {action}
-        {peek && <button onClick={() => setOpen(v => !v)} aria-label={open ? 'Show less' : 'Show all settings'} aria-expanded={open} className="h-8 w-9 rounded-lg text-void-200 active:bg-void-800 inline-flex items-center justify-center"><ChevronRight size={17} className={open ? 'rotate-90' : '-rotate-90'} /></button>}
-        <button onClick={onClose} aria-label="Close" className="h-8 px-3 rounded-lg text-[13px] text-void-200 active:bg-void-800 inline-flex items-center gap-1"><Check size={15} />Done</button>
-      </div>
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-4">{children}</div>
-    </section>
-  )
-}
-
-function Row({ children }: { children: ReactNode }) { return <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 py-1">{children}</div> }
-function Label({ children }: { children: ReactNode }) { return <div className="text-[12px] text-void-400 mt-3 mb-1.5">{children}</div> }
 
 function CropAspect() {
   const a = useEditor(s => s.options.cropAspect)
@@ -306,15 +315,6 @@ function MoreTools({ onPick }: { onPick: () => void }) {
   )
 }
 
-function ColourChip({ label, value, onChange }: { label: string; value: string; onChange: (hex: string) => void }) {
-  return (
-    <label className={`${chip} cursor-pointer`}>
-      <span className="w-5 h-5 rounded-full border border-white/30" style={{ background: value }} />{label}
-      <input type="color" value={value} onChange={e => onChange(e.target.value)} onBlur={() => useEditor.getState().commit('Colour')} className="sr-only" />
-    </label>
-  )
-}
-
 function TextSheet({ layer, onDone }: { layer?: TextLayer; onDone: () => void }) {
   const s = useEditor.getState()
   const add = (box?: boolean) => { const d = s.doc; if (!d) return; const f = d.frames?.find(x => x.id === s.activeFrameId) ?? d.frames?.[0]; const b = f ? { x: f.x, y: f.y, w: f.width, h: f.height } : { x: 0, y: 0, w: d.width, h: d.height }; box ? s.addText(b.x + b.w * 0.1, b.y + b.h * 0.4, b.w * 0.8) : s.addText(); onDone() }
@@ -335,7 +335,7 @@ function TextSheet({ layer, onDone }: { layer?: TextLayer; onDone: () => void })
             <input aria-label="Find a font" value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${fonts.length} fonts`} className="ml-auto h-8 w-40 px-2.5 rounded-lg bg-void-900 border border-white/[0.07] text-[13px] text-void-100 outline-none" />
           </div>
           <Row>
-            {shown.map(f => <button key={f} onClick={async () => { await ensureFont(f, layer.fontWeight, layer.italic); s.updateLayer(layer.id, { fontFamily: f }, 'Font') }} className={`${chip} ${layer.fontFamily === f ? '!bg-white !text-void-950' : ''}`} style={{ fontFamily: `"${f}"` }}>{f}</button>)}
+            {shown.map(f => <button key={f} onClick={() => ops.setFontNow(layer.id, { fontFamily: f }, 'Font')} className={`${chip} ${layer.fontFamily === f ? '!bg-white !text-void-950' : ''}`} style={{ fontFamily: `"${f}"` }}>{f}</button>)}
             {!shown.length && <span className="text-[13px] text-void-500 py-3">No font called that. Add your own from More, then Character.</span>}
           </Row>
           <div className="mt-2"><Slider label="Size" value={Math.round(layer.fontSize)} min={8} max={400} onChange={v => s.updateLayer(layer.id, { fontSize: v })} onCommit={() => s.commit('Size')} /></div>

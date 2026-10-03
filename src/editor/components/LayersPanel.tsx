@@ -142,7 +142,7 @@ function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
           const ids = layers.slice(Math.min(a, b), Math.max(a, b) + 1).filter(ctx.filter).map(x => x.id)
           useEditor.setState({ selectedIds: ids, activeId: l.id }); return
         }
-        if (e.metaKey || e.ctrlKey) s.toggleSelect(l.id); else s.setActive(l.id)
+        if (e.metaKey || e.ctrlKey) s.toggleSelect(l.id); else { s.setActive(l.id); window.dispatchEvent(new CustomEvent('vc:pick', { detail: { id: l.id } })) }
       }}
       onContextMenu={e => ctx.menu(e, l.id)}
       className={`vc-row group relative flex items-center gap-1.5 pr-1.5 py-[3px] rounded-md cursor-default border ${over === i && dragId ? 'border-accent' : 'border-transparent'} ${on ? 'bg-accent/[0.18]' : 'hover:bg-white/[0.04]'}`}>

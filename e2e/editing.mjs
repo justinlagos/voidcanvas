@@ -384,6 +384,62 @@ ok('text: opening and closing without typing adds no undo step', (await hist(p))
 await p.evaluate(() => { const dt = new DataTransfer(); dt.setData('text/plain', 'Summer sale\nThis weekend'); window.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt })) }); await p.waitForTimeout(200)
 const pt = await E(p, () => { const l = window.__voidEditor.getState().active(); return { type: l.type, text: l.text, name: l.name } })
 ok('paste text: becomes a text layer', pt.type === 'text' && pt.text === 'Summer sale\nThis weekend' && pt.name === 'Summer sale', JSON.stringify(pt))
+{
+// ── Text grows from where it is aligned (2 Oct)
+await fresh(p, 'Text anchor')
+const anchor = async (patch, change) => E(p, ([patch, change]) => {
+  const s = window.__voidEditor.getState(); s.addText(300, 300); window.__voidEditor.setState({ editingTextId: null })
+  const id = window.__voidEditor.getState().activeId
+  window.__voidEditor.getState().updateLayer(id, { text: 'Night', fontSize: 80, ...patch }, 'Set up')
+  const before = window.__voidEditor.getState().layers.find(x => x.id === id)
+  window.__voidEditor.getState().updateLayer(id, change, 'Change')
+  const after = window.__voidEditor.getState().layers.find(x => x.id === id)
+  return { before: { x: before.x, y: before.y }, after: { x: after.x, y: after.y }, id }
+}, [patch, change])
+const al = await anchor({ align: 'left' }, { text: 'Night session' })
+ok('text anchor: left-aligned text keeps its left edge', Math.abs(al.after.x - al.before.x) < 0.01 && Math.abs(al.after.y - al.before.y) < 0.01, JSON.stringify(al))
+const ac = await anchor({ align: 'center' }, { text: 'Night session' })
+ok('text anchor: centred text grows both ways from its middle', ac.after.x < ac.before.x - 40 && Math.abs(ac.after.y - ac.before.y) < 0.01, JSON.stringify(ac))
+const ar = await anchor({ align: 'right' }, { fontSize: 120 })
+ok('text anchor: right-aligned text grows to the left when its size goes up', ar.after.x < ar.before.x - 40 && Math.abs(ar.after.y - ar.before.y) < 0.01, JSON.stringify(ar))
+await E(p, id => { const s = window.__voidEditor.getState(); s.updateLayer(id, { text: 'Night session, late', x: 10 }, 'Both'); return s.layers.find(x => x.id === id) ?? window.__voidEditor.getState().layers.find(x => x.id === id) }, ac.id)
+ok('text anchor: a change that places the text itself is left alone', (await E(p, id => window.__voidEditor.getState().layers.find(x => x.id === id).x, ac.id)) === 10)
+// Turned text keeps its anchor too (it used to drift as it grew).
+const rot = await E(p, () => {
+  const s = window.__voidEditor.getState(); s.addText(500, 400); window.__voidEditor.setState({ editingTextId: null }); const id = window.__voidEditor.getState().activeId
+  s.updateLayer(id, { text: 'Turn', fontSize: 60, rotation: Math.PI / 4, align: 'left' }, 'Set up')
+  const corner = () => { const l = window.__voidEditor.getState().layers.find(x => x.id === id); const w = window.__vcLayerSize(l); const cx = l.x + w.w / 2, cy = l.y + w.h / 2, c = Math.cos(l.rotation), sn = Math.sin(l.rotation); const dx = -w.w / 2, dy = -w.h / 2; return { x: cx + dx * c - dy * sn, y: cy + dx * sn + dy * c } }
+  const a = corner(); s.updateLayer(id, { text: 'Turn it round' }, 'Type'); const b2 = corner()
+  return { a, b: b2 }
+})
+ok('text anchor: turned text keeps its top-left corner as it grows', Math.abs(rot.a.x - rot.b.x) < 0.6 && Math.abs(rot.a.y - rot.b.y) < 0.6, JSON.stringify(rot))
+await rulesHold(p, 'text anchor')
+
+// ── Sizes in print units (2 Oct)
+await fresh(p, 'Units')
+await E(p, () => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'canvasSize' }))); await p.waitForSelector('[role=dialog]:has-text("Canvas size")')
+await p.selectOption('[role=dialog] select[aria-label="Units"]', 'mm')
+await p.fill('[role=dialog] input[aria-label="Resolution"]', '300')
+await p.fill('[role=dialog] input[aria-label="Width"]', '210'); await p.fill('[role=dialog] input[aria-label="Height"]', '297')
+ok('units: millimetres turn into pixels at the resolution', /2480 × 3508 px at 300 dpi/.test(await p.textContent('[role=dialog] [data-size-px]')), await p.textContent('[role=dialog] [data-size-px]'))
+await p.fill('[role=dialog] input[aria-label="Width"]', '21.'); ok('units: a decimal point can be typed', (await p.inputValue('[role=dialog] input[aria-label="Width"]')) === '21.')
+await p.fill('[role=dialog] input[aria-label="Width"]', '210')
+await p.click('[role=dialog] button:has-text("Apply")'); await p.waitForTimeout(300)
+const du = await E(p, () => { const d = window.__voidEditor.getState().doc; return { w: d.width, h: d.height, dpi: d.dpi } })
+ok('units: the canvas is A4 at 300 dpi', du.w === 2480 && du.h === 3508 && du.dpi === 300, JSON.stringify(du))
+await E(p, () => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'imageSize' }))); await p.waitForSelector('[role=dialog]:has-text("Image size")')
+ok('units: Image size remembers the unit and shows the size in it', (await p.inputValue('[role=dialog] select[aria-label="Units"]')) === 'mm' && (await p.inputValue('[role=dialog] input[aria-label="Width"]')) === '210', await p.inputValue('[role=dialog] input[aria-label="Width"]'))
+await p.keyboard.press('Escape'); await p.waitForTimeout(200)
+await E(p, () => window.__voidEditor.getState().closeDoc()); await p.waitForTimeout(600)
+await p.selectOption('[data-custom-size] select[aria-label="Units"]', 'cm')
+await p.fill('[data-custom-size] input[aria-label="Width (cm)"]', '10'); await p.fill('[data-custom-size] input[aria-label="Height (cm)"]', '15')
+ok('units: a custom size in centimetres', /1181 × 1772 px at 300 dpi/.test(await p.textContent('[data-size-px]')), await p.textContent('[data-size-px]'))
+await p.click('[data-custom-size] button:has-text("Create design")'); await p.waitForTimeout(500)
+const dn = await E(p, () => { const d = window.__voidEditor.getState().doc; return { w: d.width, h: d.height, dpi: d.dpi } })
+ok('units: the new design has that size and resolution', dn.w === 1181 && dn.h === 1772 && dn.dpi === 300, JSON.stringify(dn))
+await E(p, () => localStorage.removeItem('vc-size-unit'))
+}
+
 await rulesHold(p, 'end')
 
 ok('no page errors', errors.length === 0, errors.join(' | '))

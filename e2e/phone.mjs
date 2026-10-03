@@ -22,7 +22,16 @@ async function swipe(cdp, from, to, steps = 6) {
   for (let i = 1; i <= steps; i++) await touch(cdp, 'touchMove', [{ x: from.x + (to.x - from.x) * i / steps, y: from.y + (to.y - from.y) * i / steps }])
   await touch(cdp, 'touchEnd', [])
 }
-const openMode = async (p, m) => { const btn = await p.$(`nav[aria-label="Modes"] button:has-text("${m}")`); if ((await btn.getAttribute('aria-pressed')) !== 'true') await btn.tap(); await p.waitForTimeout(300) }
+const openMode = async (P, m) => {
+  // With something picked, the bottom bar is that thing's tools: Settings is the old Select sheet, Effects its
+  // effects. Any other mode is reached with Back first, as a person would.
+  if (await P.$('[data-context-bar]')) {
+    const ctx = { Select: 'settings', Effects: 'effects' }[m]
+    if (ctx) { const b = P.locator(`[data-context-bar] button[data-ctx="${ctx}"]`); await b.scrollIntoViewIfNeeded(); if ((await b.getAttribute('aria-pressed')) !== 'true') await b.tap(); await P.waitForTimeout(300); return }
+    await P.tap('[data-context-bar] button[aria-label="Back"]'); await P.waitForTimeout(300)
+  }
+  const btn = await P.$(`nav[aria-label="Modes"] button:has-text("${m}")`); if ((await btn.getAttribute('aria-pressed')) !== 'true') await btn.tap(); await P.waitForTimeout(300)
+}
 const rect = (p, sel) => p.$eval(sel, el => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, h: r.height } }).catch(() => null)
 const setRange = (p, sel, v) => p.$eval(sel, (el, v) => { const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(el, String(v)); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })) }, v)
 
@@ -41,7 +50,7 @@ for (const [label, vp] of [['iPhone SE', { width: 375, height: 667 }], ['iPhone 
   // Inspector opens for the selected layer, and sits above the mode bar
   await openMode(p, 'Select')
   ok(`${label}: selecting a layer shows its settings`, !!(await p.$('[data-phone-inspector]')))
-  const sh = await rect(p, '[data-mobile-sheet]'), nav = await rect(p, 'nav[aria-label="Modes"]')
+  const sh = await rect(p, '[data-mobile-sheet]'), nav = await rect(p, 'nav[aria-label="Modes"], nav[aria-label="Selection tools"]')
   ok(`${label}: the sheet sits above the mode bar`, sh && nav && sh.bottom <= nav.top + 1, JSON.stringify({ sheet: sh?.bottom, nav: nav?.top }))
   // Filter: add Blur, then change its amount from the phone
   await p.tap('[data-mobile-sheet] button[aria-label="Close"]'); await openMode(p, 'Effects'); await p.tap('[data-mobile-sheet] button:has-text("Filters")'); await p.waitForTimeout(600)
@@ -159,7 +168,7 @@ for (const [label, vp] of [['iPhone SE', { width: 375, height: 667 }], ['iPhone 
   // A message shows at the top, clear of the mode bar
   await E(p, () => window.__voidEditor.getState().notify('Test message'))
   await p.waitForTimeout(200)
-  const toast = await rect(p, 'div[role=status].fixed'), nav = await rect(p, 'nav[aria-label="Modes"]')
+  const toast = await rect(p, 'div[role=status].fixed'), nav = await rect(p, 'nav[aria-label="Modes"], nav[aria-label="Selection tools"]')
   ok('messages: never cover the mode bar', toast && nav && toast.bottom < nav.top, JSON.stringify({ toast, nav }))
   // Back and the start screen: recent designs show their actions and when they were edited
   await p.tap('button[aria-label="Back to start"]'); await p.waitForTimeout(1200)
@@ -182,6 +191,84 @@ for (const [label, vp] of [['iPhone SE', { width: 375, height: 667 }], ['iPhone 
   console.log('speed (4x CPU):', JSON.stringify({ startScreen: tStart, photoToCanvas: tOpen, addHeadingToCaret: tType }))
   ok('speed: Add heading to typing under 400 ms (4x slower CPU)', tType < 400, `${tType} ms`)
   ok('speed: photo to canvas under 2.5 s (4x slower CPU)', tOpen < 2500, `${tOpen} ms`)
+  await ctx.close()
+}
+
+// ───────────── the selection's own tools (2 Oct: moving, alignment, a bar for what is picked) ─────────────
+{
+  const { ctx, p, cdp } = await phone('tools', { width: 390, height: 844 })
+  await p.goto(`${BASE}/editor`); await p.waitForSelector('button:has-text("Open a photo")')
+  await (await p.$('input[type=file]')).setInputFiles(FIX.land); await p.waitForFunction(() => window.__voidEditor?.getState().layers.length > 0); await p.waitForTimeout(800)
+  ok('tools: a design that opens with its photo selected keeps the main bar', !!(await p.$('nav[aria-label="Modes"]')) && !(await p.$('[data-context-bar]')))
+  const bar = () => p.$eval('[data-context-bar]', e => ({ kind: e.getAttribute('data-context-bar'), items: Array.from(e.querySelectorAll('button')).map(x => x.innerText.trim()) })).catch(() => null)
+  // Tap the photo: its tools take the place of the main bar.
+  const d = await E(p, () => { const s = window.__voidEditor.getState(); return { w: s.doc.width, h: s.doc.height } })
+  const c = await toScreen(p, d.w / 2, d.h / 2)
+  await p.touchscreen.tap(c.x, c.y); await p.waitForTimeout(400)
+  const b1 = await bar()
+  ok('tools: tapping a photo shows its tools in the bottom bar', b1?.kind === 'raster' && ['Back', 'Crop', 'Replace', 'Cut out', 'Effects', 'Opacity', 'Arrange', 'Mask', 'Duplicate', 'Delete', 'Settings'].every(x => b1.items.includes(x)) && !(await p.$('nav[aria-label="Modes"]')), JSON.stringify(b1))
+  ok('tools: no sheet covers the canvas after a tap', !(await p.$('[data-mobile-sheet]')))
+  // A finger that rests before moving still drags (it used to open the actions instead).
+  const l0 = await E(p, () => { const l = window.__voidEditor.getState().layers[0]; return { x: l.x, y: l.y } })
+  await touch(cdp, 'touchStart', [c]); await p.waitForTimeout(700)
+  for (let i = 1; i <= 8; i++) { await touch(cdp, 'touchMove', [{ x: c.x + i * 6, y: c.y + i * 4 }]); await p.waitForTimeout(16) }
+  await touch(cdp, 'touchEnd', []); await p.waitForTimeout(400)
+  const l1 = await E(p, () => { const l = window.__voidEditor.getState().layers[0]; return { x: l.x, y: l.y, undo: window.__voidEditor.getState().history.at(-1)?.label } })
+  ok('tools: hold, then drag, moves the photo as one undo step', l1.x > l0.x + 50 && l1.y > l0.y + 30 && l1.undo === 'Move' && !(await p.$('[data-mobile-sheet]')), JSON.stringify({ l0, l1 }))
+  // Replace keeps the place.
+  const [fc] = await Promise.all([p.waitForEvent('filechooser'), p.locator('[data-context-bar] button[data-ctx="replace"]').tap()])
+  await fc.setFiles(FIX.portrait); await p.waitForTimeout(900)
+  const rep = await E(p, () => { const s = window.__voidEditor.getState(); const l = s.layers[0]; return { w: l.canvas.width, h: l.canvas.height, n: s.layers.length, undo: s.history.at(-1)?.label } })
+  ok('tools: Replace puts a new picture in the same layer', rep.n === 1 && rep.undo === 'Replace image', JSON.stringify(rep))
+  // Back: the main bar again, nothing selected.
+  await p.tap('[data-context-bar] button[aria-label="Back"]'); await p.waitForTimeout(300)
+  ok('tools: Back returns to the main bar', !!(await p.$('nav[aria-label="Modes"]')) && (await E(p, () => window.__voidEditor.getState().selectedIds.length)) === 0)
+  // Text: centred text grows from its middle while typing, right-aligned from its right edge.
+  await openMode(p, 'Text'); await p.tap('button:has-text("Add heading")'); await p.waitForSelector('[data-canvas-text-editor]')
+  await p.keyboard.type('Hi'); await p.waitForTimeout(150)
+  await p.tap('[data-text-edit-bar] button[aria-label^="Alignment"]'); await p.waitForTimeout(150)
+  const edge = () => p.$eval('[data-canvas-text-editor]', e => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, mid: (r.left + r.right) / 2 } })
+  const e0 = await edge(); await p.keyboard.type(' there, friends'); await p.waitForTimeout(250); const e1 = await edge()
+  ok('text: centred text grows from its middle as you type', Math.abs(e1.mid - e0.mid) < 2 && e1.l < e0.l - 40, JSON.stringify({ e0, e1 }))
+  await p.tap('[data-text-edit-bar] button[aria-label^="Alignment"]'); await p.waitForTimeout(150)
+  const r0 = await edge(); await p.keyboard.type('!!!'); await p.waitForTimeout(250); const r1 = await edge()
+  ok('text: right-aligned text grows to the left as you type', Math.abs(r1.r - r0.r) < 2 && r1.l < r0.l - 5, JSON.stringify({ r0, r1 }))
+  await p.tap('[data-text-edit-bar] button:has-text("Done")'); await p.waitForTimeout(300)
+  const b2 = await bar()
+  ok('tools: text gets edit, font, size, colour, align and spacing', b2?.kind === 'text' && ['Edit', 'Font', 'Size', 'Colour', 'Align', 'Spacing', 'Effects', 'Opacity', 'Arrange'].every(x => b2.items.includes(x)), JSON.stringify(b2))
+  // Every text tool opens its own short sheet.
+  const sheets = []
+  for (const id of ['font', 'size', 'colour', 'align', 'spacing', 'effects', 'opacity', 'arrange', 'more']) {
+    const btn = p.locator(`[data-context-bar] button[data-ctx="${id}"]`); await btn.scrollIntoViewIfNeeded(); await btn.tap(); await p.waitForTimeout(200)
+    sheets.push(await p.$eval('[data-mobile-sheet]', e => e.getAttribute('aria-label')).catch(() => 'none'))
+    await btn.tap(); await p.waitForTimeout(120)
+  }
+  ok('tools: each text tool opens its sheet', JSON.stringify(sheets) === JSON.stringify(['Font', 'Size', 'Colour', 'Align', 'Spacing', 'Effects', 'Opacity', 'Arrange', 'More']), JSON.stringify(sheets))
+  // A sheet never hides what it changes: text near the bottom moves up above the Font sheet.
+  await E(p, () => { const s = window.__voidEditor.getState(); const t = s.layers.find(l => l.type === 'text'); s.updateLayer(t.id, { y: s.doc.height - 110 }, 'Move') }); await p.waitForTimeout(200)
+  await p.locator('[data-context-bar] button[data-ctx="font"]').tap(); await p.waitForTimeout(450)
+  const rv = await E(p, () => { const s = window.__voidEditor.getState(); const t = s.layers.find(l => l.type === 'text'); const v = s.view; const st = document.querySelector('[data-stage]').getBoundingClientRect(); const sh = document.querySelector('[data-mobile-sheet]').getBoundingClientRect(); return { bottom: st.top + v.panY + (t.y + 100) * v.zoom, sheet: sh.top } })
+  ok('tools: the text stays in view above the sheet', rv.bottom <= rv.sheet, JSON.stringify(rv))
+  await p.tap('[data-ctx-sheet] button:has-text("Montserrat")'); await p.waitForTimeout(150)
+  ok('tools: a font is used straight away', (await E(p, () => window.__voidEditor.getState().layers.find(l => l.type === 'text').fontFamily)) === 'Montserrat')
+  await p.locator('[data-context-bar] button[data-ctx="font"]').tap(); await p.waitForTimeout(150)
+  // Picking in Layers closes the list and shows that layer's tools.
+  await p.tap('button[aria-label^="Layers"]'); await p.waitForTimeout(400)
+  await p.locator('[data-mobile-sheet] li[role=option]').last().tap(); await p.waitForTimeout(500)
+  ok('tools: picking a layer in Layers shows its tools on the canvas', !(await p.$('[data-mobile-sheet][aria-label="Layers"]')) && (await bar())?.kind === 'raster')
+  // A shape: fill from the brand and design colours.
+  await openMode(p, 'Shape'); await p.tap('[data-mobile-sheet] button:has-text("Rectangle")'); await p.waitForTimeout(400)
+  const b3 = await bar()
+  ok('tools: a shape gets fill, stroke and corners', b3?.kind === 'shape' && ['Fill', 'Stroke', 'Corners'].every(x => b3.items.includes(x)), JSON.stringify(b3))
+  await p.tap('[data-context-bar] button[data-ctx="fill"]'); await p.waitForTimeout(250)
+  const sw = await p.$$('[data-ctx-sheet] button[aria-label^="#"]'); const want = await sw[1]?.getAttribute('aria-label'); await sw[1]?.tap(); await p.waitForTimeout(200)
+  ok('tools: a colour sets the fill', !!want && (await E(p, () => { const s = window.__voidEditor.getState(); return s.layers.find(l => l.id === s.activeId).fill })).toLowerCase() === want.toLowerCase(), want)
+  // Long press, then lift: the actions sheet.
+  await p.tap('[data-context-bar] button[data-ctx="fill"]'); await p.waitForTimeout(150)
+  const sb = await E(p, () => { const s = window.__voidEditor.getState(); const l = s.layers.find(x => x.id === s.activeId); return { x: l.x + l.w / 2, y: l.y + l.h / 2 } })
+  const sp = await toScreen(p, sb.x, sb.y)
+  await touch(cdp, 'touchStart', [sp]); await p.waitForTimeout(750); await touch(cdp, 'touchEnd', []); await p.waitForTimeout(400)
+  ok('tools: long press then lift opens the actions', !!(await p.$('[data-mobile-sheet] button:has-text("Bring to front")')))
   await ctx.close()
 }
 

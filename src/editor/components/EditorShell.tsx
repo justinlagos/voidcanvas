@@ -37,7 +37,8 @@ import { useUi } from '../ui-store'
 import { useComments } from '../comments'
 import { effectLabel, newEffect, type FxTarget } from '../effects'
 import { recallView } from '../viewmemory'
-import type { Effect } from '../types'
+import type { Effect, Layer } from '../types'
+import { layerSize } from '../engine'
 import { FxScopeDialog } from './FxScopeDialog'
 import { MobileEditor, useIsPhone } from './MobileEditor'
 import { AfterExport } from './AfterExport'
@@ -101,6 +102,7 @@ export function EditorShell() {
     w.__voidEditor = useEditor; w.__voidUi = useUi
     // Browser checks (e2e/trust.mjs) read the design's rules and the save state through these.
     w.__vcCheck = () => checkInvariants(useEditor.getState())
+    w.__vcLayerSize = (l: Layer) => layerSize(l, useEditor.getState().doc ?? undefined)
     w.__vcSave = { flush: flushSave, unsaved: hasUnsaved }
     w.__vcComments = useComments
     // Effects checks (e2e/effects-scope.mjs): the design as the canvas previews it (at `scale`, as when zoomed out

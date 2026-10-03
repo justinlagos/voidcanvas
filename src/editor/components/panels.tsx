@@ -149,7 +149,7 @@ export function CharacterPanel() {
   const s = useEditor.getState()
   if (!l) return <Empty>Select a text layer to change its font, size, spacing and style. Use the Type tool (T) to add one.</Empty>
   const up = (patch: Partial<TextLayer>) => s.updateLayer(l.id, patch)
-  const setFont = async (fontFamily: string, fontWeight = l.fontWeight, italic = l.italic) => { await ensureFont(fontFamily, fontWeight, italic); s.updateLayer(l.id, { fontFamily, fontWeight, italic }, 'Font') }
+  const setFont = (fontFamily: string, fontWeight = l.fontWeight, italic = l.italic) => ops.setFontNow(l.id, { fontFamily, fontWeight, italic }, 'Font')
   const all = Array.from(new Set([l.fontFamily, ...FONTS]))
   const shown = q ? all.filter(f => f.toLowerCase().includes(q.toLowerCase())) : all
   const loadFile = () => {
@@ -318,7 +318,7 @@ export function BrandPanel() {
       </div>
       <div>
         <p className="text-[10.5px] uppercase tracking-wide text-void-500 mb-1.5">Fonts</p>
-        {kit.fonts.length ? kit.fonts.map(f => <button key={f} disabled={!text} onClick={async () => { if (!text) return; await ensureFont(f, text.fontWeight, text.italic); s.updateLayer(text.id, { fontFamily: f }, 'Brand font') }} className="block w-full text-left px-2 h-8 rounded-md text-[13.5px] text-void-200 hover:bg-white/[0.05] disabled:opacity-60" style={{ fontFamily: `"${f}"` }}>{f}</button>) : <p className="text-[12px] text-void-500">No brand fonts yet.</p>}
+        {kit.fonts.length ? kit.fonts.map(f => <button key={f} disabled={!text} onClick={() => { if (text) ops.setFontNow(text.id, { fontFamily: f }, 'Brand font') }} className="block w-full text-left px-2 h-8 rounded-md text-[13.5px] text-void-200 hover:bg-white/[0.05] disabled:opacity-60" style={{ fontFamily: `"${f}"` }}>{f}</button>) : <p className="text-[12px] text-void-500">No brand fonts yet.</p>}
       </div>
       <Button onClick={() => openModal('brand')} className="w-full">Edit brand kit</Button>
     </div>

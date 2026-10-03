@@ -508,9 +508,9 @@ export const articles: Article[] = [
     summary: "Crop with fixed ratios, change the canvas size without scaling, resize the whole image with resolution, and rotate or flip the canvas or a single layer.",
     category: 'editor',
     level: 'Beginner',
-    updated: '2026-09-25',
+    updated: '2026-10-02',
     related: ['image-resolution-explained', 'resize-to-every-format', 'ai-on-this-device', 'export-for-print'],
-    keywords: 'crop trim canvas size image size resize resample scale dpi resolution rotate flip mirror straighten aspect ratio square 4:5 16:9 9:16 expand extend border',
+    keywords: 'crop trim canvas size image size resize resample scale dpi resolution rotate flip mirror straighten aspect ratio square 4:5 16:9 9:16 expand extend border mm cm inches points millimetres centimetres units a4 print size',
     body: [
       { t: 'p', text: "These commands change the page itself: cutting it down, adding space around it, scaling everything to a new pixel size, or turning it round. Knowing which one to reach for keeps text sharp and saves you rebuilding a layout." },
 
@@ -537,12 +537,12 @@ export const articles: Article[] = [
       { t: 'p', text: "4:5 suits portrait social posts, 9:16 stories and reels, 16:9 video and slides, 3:2 most camera photos. To crop to an exact shape you have already selected, use **Image > Crop to selection**, which crops to the selection's bounding box." },
       { t: 'tip', text: "Cropping moves the edges of the page, not your layers' pixels. Image layers keep the parts that now sit off the page, so after a crop you can still drag a photo to show a different part of it." },
       { t: 'p', text: "**Image > Trim transparent edges** crops the page to whatever is visible, which is handy after [removing a background](/learn/remove-background)." },
-      { t: 'p', text: "On a phone, select a photo and tap **Crop** in the **Select** or **Image** tab, drag over the part to keep, and tap **Apply** in the pill at the top." },
+      { t: 'p', text: "On a phone, tap a photo and then **Crop** in the bar at the bottom, drag over the part to keep, and tap **Apply** in the pill at the top." },
 
       { t: 'h', text: 'Canvas size: add or remove space' },
       { t: 'p', text: "**Image > Canvas size…** ({{Ctrl+Alt+C}}; Cmd+Option+C on a Mac) changes the page size without scaling anything. Use it to add a border, make room for a caption, or turn a landscape photo into a square with space above and below." },
       { t: 'list', items: [
-        "Type the new **Width** and **Height** in pixels.",
+        "Type the new **Width** and **Height**. **Units** offers pixels, millimetres, centimetres, inches, points and percent. For a print unit, **Resolution (dpi)** turns it into pixels, and the line underneath shows the result, such as 2480 × 3508 px at 300 dpi for 210 × 297 mm. Applying in a print unit saves that dpi with the design.",
         "Tick **Relative** to type how much to add instead, for example 200 to add 200 px.",
         "Click a square in the 3 by 3 **Anchor** grid to choose where the current design sits in the new page. The centre square adds space evenly; the top-left square adds it only to the right and bottom.",
         "Typing smaller numbers takes space away. Layers are not deleted, only moved off the page.",
@@ -557,7 +557,7 @@ export const articles: Article[] = [
       { t: 'p', text: "**Image > Image size…** ({{Ctrl+Alt+I}}) scales every layer to a new pixel size. Text and shapes are redrawn, so they stay sharp at any size. Photos are resampled, which means scaling a photo up cannot add detail that was not there." },
       { t: 'list', items: [
         "**Width** and **Height** are linked by default so the proportions stay the same. Click the link button between them to unlink.",
-        "**Units** switches between **Pixels** and **Percent**.",
+        "**Units** offers **Pixels**, **Millimetres**, **Centimetres**, **Inches**, **Points** and **Percent**. Print units go through the **Resolution**. The Editor remembers the unit you chose last, here and in Canvas size.",
         "**Resolution** is the dpi saved with the design. It does not change the pixels; it tells you how big the design prints. The line underneath shows the size in centimetres at that dpi, and roughly how much memory each layer will take.",
       ] },
       { t: 'p', text: "For print, aim for 300 dpi at the final printed size. A 2480 by 3508 px design prints at A4 at 300 dpi. See [Image resolution explained](/learn/image-resolution-explained) and [Export for print](/learn/export-for-print)." },

@@ -10,6 +10,7 @@ import { useEditor } from '../store'
 import type { TextLayer } from '../types'
 import { useUi } from '../ui-store'
 import { saveVersion } from '../versions'
+import { SIZE_UNITS, dpiFor, fromPx, isSizeUnit, rememberUnit, rememberedUnit, toPx, type SizeUnit } from '../units'
 import { ColorButton } from './ColorPicker'
 import { Button, Modal, Select, Slider, focusRing } from './ui'
 
@@ -17,33 +18,59 @@ const FIELD = `w-full h-9 px-2.5 rounded-lg bg-surface-sunken border border-whit
 const Label = ({ children }: { children: React.ReactNode }) => <span className="block text-[12px] text-void-400 mb-1">{children}</span>
 const Foot = ({ children }: { children: React.ReactNode }) => <div className="flex justify-end gap-2 px-5 py-4 border-t border-void-800/70">{children}</div>
 
+/**
+ * A size field in any unit. It keeps what you type while you type (so "21." stays), and hands back pixels.
+ * `fmt` shows pixels in the unit; `parse` turns a typed number back into pixels.
+ */
+export function UnitField({ label, px, fmt, parse, className = FIELD }: { label: string; px: number; fmt: (px: number) => number; parse: (v: number) => void; className?: string }) {
+  const [text, setText] = useState<string | null>(null)
+  return (
+    <label><Label>{label}</Label>
+      <input inputMode="decimal" className={className} value={text ?? String(fmt(px))} aria-label={label}
+        onChange={e => { setText(e.target.value); const v = parseFloat(e.target.value.replace(',', '.')); if (Number.isFinite(v)) parse(v) }}
+        onBlur={() => setText(null)} />
+    </label>
+  )
+}
+
+/** The unit for sizes, and the resolution that turns print units into pixels. */
+export function UnitRow({ unit, setUnit, dpi, setDpi, extra }: { unit: string; setUnit: (u: any) => void; dpi: number; setDpi: (v: number) => void; extra?: { id: string; label: string }[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 items-end">
+      <label><Label>Units</Label>
+        <select aria-label="Units" value={unit} onChange={e => { setUnit(e.target.value); if (isSizeUnit(e.target.value)) rememberUnit(e.target.value) }} className={FIELD}>
+          {[...SIZE_UNITS, ...(extra ?? [])].map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
+        </select>
+      </label>
+      <label><Label>Resolution (dpi)</Label><input type="number" min={1} max={2400} aria-label="Resolution" value={dpi} onChange={e => setDpi(Math.max(1, Number(e.target.value) || 1))} className={FIELD} /></label>
+    </div>
+  )
+}
+
 // ─── Image size ────────────────────────────────────────────────────
 
 export function ImageSizeDialog({ onClose }: { onClose: () => void }) {
   const doc = useEditor(s => s.doc)!
   const [w, setW] = useState(doc.width), [h, setH] = useState(doc.height)
   const [linked, setLinked] = useState(true)
-  const [unit, setUnit] = useState<'px' | '%'>('px')
-  const [dpi, setDpi] = useState(doc.dpi ?? 72)
+  const [unit, setUnit] = useState<SizeUnit | '%'>(() => rememberedUnit())
+  const [dpi, setDpi] = useState(dpiFor(doc))
   const ratio = doc.width / doc.height
   const setWidth = (v: number) => { setW(v); if (linked) setH(Math.round(v / ratio)) }
   const setHeight = (v: number) => { setH(v); if (linked) setW(Math.round(v * ratio)) }
-  const shown = (v: number, base: number) => (unit === 'px' ? v : Math.round((v / base) * 1000) / 10)
-  const read = (v: number, base: number) => (unit === 'px' ? v : Math.round((v / 100) * base))
+  const shown = (v: number, base: number) => (unit === '%' ? Math.round((v / base) * 1000) / 10 : fromPx(v, unit, dpi))
+  const read = (v: number, base: number) => (unit === '%' ? Math.round((v / 100) * base) : toPx(v, unit, dpi))
   const mb = Math.round((w * h * 4) / 1048576)
   return (
     <Modal track="image-size" title="Image size" onClose={onClose}>
       <div className="p-5 space-y-4">
         <p className="text-[12.5px] text-void-400">Scales every layer. Text and shapes stay sharp; photos are resampled.</p>
         <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-          <label><Label>Width</Label><input type="number" className={FIELD} value={shown(w, doc.width)} onChange={e => setWidth(read(Number(e.target.value), doc.width))} /></label>
+          <UnitField label="Width" px={w} fmt={v => shown(v, doc.width)} parse={v => setWidth(read(v, doc.width))} />
           <button aria-label={linked ? 'Unlink width and height' : 'Link width and height'} onClick={() => setLinked(!linked)} className={`h-9 w-9 mb-0 inline-flex items-center justify-center rounded-lg ${linked ? 'text-accent-light' : 'text-void-500'} hover:bg-void-800`}>{linked ? <Link2 size={16} /> : <Unlink size={16} />}</button>
-          <label><Label>Height</Label><input type="number" className={FIELD} value={shown(h, doc.height)} onChange={e => setHeight(read(Number(e.target.value), doc.height))} /></label>
+          <UnitField label="Height" px={h} fmt={v => shown(v, doc.height)} parse={v => setHeight(read(v, doc.height))} />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Select label="Units" value={unit} options={[{ id: 'px', label: 'Pixels' }, { id: '%', label: 'Percent' }]} onChange={setUnit} />
-          <label className="flex items-center justify-between gap-3"><span className="text-[12px] text-void-400">Resolution</span><input type="number" value={dpi} onChange={e => setDpi(Number(e.target.value))} className={`${FIELD} !w-24`} /></label>
-        </div>
+        <UnitRow unit={unit} setUnit={setUnit} dpi={dpi} setDpi={setDpi} extra={[{ id: '%', label: 'Percent' }]} />
         <p className="text-[12px] text-void-500">{w} × {h} px · about {mb} MB per layer · prints at {(w / dpi * 2.54).toFixed(1)} × {(h / dpi * 2.54).toFixed(1)} cm at {dpi} dpi</p>
         {Math.max(w, h) > 8000 && <p className="text-[12px] text-amber-300/90 flex gap-2"><AlertTriangle size={14} className="shrink-0 mt-0.5" />Very large images may be slow in the browser. Save a version first.</p>}
       </div>
@@ -63,18 +90,25 @@ export function CanvasSizeDialog({ onClose, aiFill }: { onClose: () => void; aiF
   const [anchor, setAnchor] = useState(4)
   const [relative, setRelative] = useState(false)
   const [fill, setFill] = useState(!!aiFill)
+  const [unit, setUnit] = useState<SizeUnit | '%'>(() => rememberedUnit())
+  const [dpi, setDpi] = useState(dpiFor(doc))
+  // Percent is of the current size; print units go through the resolution.
+  const fmt = (px: number, base: number) => (unit === '%' ? Math.round((px / base) * 1000) / 10 : fromPx(px, unit, dpi))
+  const parse = (v: number, base: number) => (unit === '%' ? Math.round((v / 100) * base) : toPx(v, unit, dpi))
   return (
     <Modal track={aiFill ? 'ai-expand' : 'canvas-size'} title={aiFill ? 'Expand with AI fill' : 'Canvas size'} onClose={onClose}>
       <div className="p-5 space-y-4">
         <p className="text-[12.5px] text-void-400">{aiFill ? 'Make the canvas bigger, then fill the new edges to match the picture. Runs on your device.' : 'Add or remove space around the design. Layers are not scaled.'}</p>
         <div className="grid grid-cols-2 gap-2">
-          <label><Label>{relative ? 'Add to width' : 'Width'}</Label><input type="number" className={FIELD} value={relative ? w - doc.width : w} onChange={e => setW((relative ? doc.width : 0) + Number(e.target.value))} /></label>
-          <label><Label>{relative ? 'Add to height' : 'Height'}</Label><input type="number" className={FIELD} value={relative ? h - doc.height : h} onChange={e => setH((relative ? doc.height : 0) + Number(e.target.value))} /></label>
+          <UnitField key={`w${relative}${unit}`} label={relative ? 'Add to width' : 'Width'} px={relative ? w - doc.width : w} fmt={v => fmt(v, doc.width)} parse={v => setW((relative ? doc.width : 0) + parse(v, doc.width))} />
+          <UnitField key={`h${relative}${unit}`} label={relative ? 'Add to height' : 'Height'} px={relative ? h - doc.height : h} fmt={v => fmt(v, doc.height)} parse={v => setH((relative ? doc.height : 0) + parse(v, doc.height))} />
         </div>
+        <UnitRow unit={unit} setUnit={setUnit} dpi={dpi} setDpi={setDpi} extra={[{ id: '%', label: 'Percent' }]} />
+        {unit !== 'px' && <p data-size-px className="text-[12px] text-void-500 tabular-nums">{Math.max(1, w)} × {Math.max(1, h)} px{unit !== '%' ? ` at ${dpi} dpi` : ''}</p>}
         <label className="flex items-center gap-2 text-[12.5px] text-void-300"><input type="checkbox" checked={relative} onChange={e => setRelative(e.target.checked)} />Relative</label>
         <div className="flex items-center gap-4">
-          <div className="grid grid-cols-3 gap-1" role="radiogroup" aria-label="Anchor">
-            {Array.from({ length: 9 }, (_, i) => <button key={i} role="radio" aria-checked={anchor === i} aria-label={`Anchor ${i + 1}`} onClick={() => setAnchor(i)} className={`w-7 h-7 rounded ${anchor === i ? 'bg-accent' : 'bg-void-800 hover:bg-void-700'}`} />)}
+          <div className="grid grid-cols-3 gap-1.5 shrink-0" role="radiogroup" aria-label="Anchor">
+            {Array.from({ length: 9 }, (_, i) => <button key={i} role="radio" aria-checked={anchor === i} aria-label={`Anchor ${i + 1}`} onClick={() => setAnchor(i)} className={`w-8 h-8 [@media(pointer:coarse)]:w-10 [@media(pointer:coarse)]:h-10 rounded-md border ${anchor === i ? 'bg-accent border-accent' : 'bg-void-800 border-void-700 hover:bg-void-700'}`} />)}
           </div>
           <p className="text-[12px] text-void-500">The anchor is where the current design sits in the new canvas.</p>
         </div>
@@ -82,7 +116,7 @@ export function CanvasSizeDialog({ onClose, aiFill }: { onClose: () => void; aiF
       </div>
       <Foot>
         <Button onClick={onClose}>Cancel</Button>
-        <Button primary onClick={async () => { ops.canvasSize(w, h, anchor); onClose(); if (fill && (w > doc.width || h > doc.height)) await ai.aiFillTransparent() }}>Apply</Button>
+        <Button primary onClick={async () => { ops.canvasSize(Math.max(1, w), Math.max(1, h), anchor); if (unit !== 'px' && unit !== '%' && dpi !== doc.dpi) useEditor.getState().setDoc({ dpi }); onClose(); if (fill && (w > doc.width || h > doc.height)) await ai.aiFillTransparent() }}>Apply</Button>
       </Foot>
     </Modal>
   )

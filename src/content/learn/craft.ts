@@ -288,7 +288,7 @@ export const articles: Article[] = [
         '**Text and shapes stay sharp at any size.** They are redrawn at the export size, so a 2× or 3× export of text is crisp. Photos and painted layers are resampled and cannot gain detail.',
         '**Image size** (Image menu, {{Ctrl+Alt+I}}) scales every layer. It shows the size in pixels, about how many MB each layer takes, and what that prints at in centimetres at the **Resolution** you enter. Change the Resolution to see a different print size.',
         '**Export as…** ({{Ctrl+E}}) offers 1×, 2×, 3× and 4×, showing the pixel size you will get. Sizes the browser cannot draw (over 16,384 px on a side or about 67 megapixels) are not offered.',
-        '**Custom size** on the start screen accepts 16 to 8000 px per side.',
+        '**Custom size** on the start screen accepts 16 to 8000 px per side, in pixels or in mm, cm, inches or points at a resolution you set.',
       ] },
       { t: 'p', text: 'On a Mac, use Cmd in place of Ctrl.' },
       { t: 'try', label: 'Open the Editor', href: '/editor' },

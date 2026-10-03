@@ -417,12 +417,12 @@ export const articles: Article[] = [
   {
     slug: 'designing-on-a-phone',
     title: 'Design on a phone or tablet',
-    summary: 'On a phone the Editor becomes a thumb-first layout with five modes, a settings sheet for whatever you select, and a long press for actions. Learn the layout, the gestures and where everything is.',
+    summary: 'On a phone the Editor becomes a thumb-first layout: five modes, and a bottom bar that turns into the tools for whatever you pick. Learn the layout, the gestures and where everything is.',
     category: 'start',
     level: 'Beginner',
-    updated: '2026-09-28',
+    updated: '2026-10-02',
     related: ['your-first-design', 'install-as-an-app', 'retouching', 'export-for-screen'],
-    keywords: 'mobile phone iphone android tablet ipad touch gestures pinch zoom apple pencil stylus pen pressure share camera',
+    keywords: 'mobile phone iphone android tablet ipad touch gestures pinch zoom apple pencil stylus pen pressure share camera move drag select tools bar replace image font colour align',
     body: [
       { t: 'p', text: "You can make and export a full design on a phone. This page explains the phone layout, the gestures, and where the desktop tools went, so you are not hunting for them. It also covers tablets and pens." },
 
@@ -435,11 +435,22 @@ export const articles: Article[] = [
         "**Canvas** in the middle. A **Layers** button with the layer count sits at the top right.",
         "**Mode bar** along the bottom: **Select**, **Text**, **Image**, **Shape** and **Effects**. Each opens a sheet with the controls that matter. Tap **Done** or tap the mode again to close it.",
       ] },
-      { t: 'p', text: "Tapping a layer on the canvas opens the **Select** sheet for it. The sheet starts low so you can still see the design; tap the arrow in its corner to open it taller, or scroll inside it. Tapping empty canvas clears the selection. While you type on the canvas the sheets and mode bar hide to make room for the keyboard, and the design moves back when you finish." },
+
+      { t: 'h', text: 'Tools for what you pick' },
+      { t: 'p', text: "Tap something on the canvas, or its row in **Layers**, and the bottom bar turns into its tools. **Back**, at the left end, clears the selection and brings the mode bar back; so does tapping empty canvas. Each tool opens a short sheet with just that control, and the design moves up if the sheet would cover what you are changing." },
+      { t: 'table', head: ['You picked', 'Its tools'], rows: [
+        ['Text', '**Edit**, **Font** (every font, with a search), **Size**, **Colour**, **Align**, **Spacing**'],
+        ['A photo', '**Crop**, **Replace** (a new picture in the same place, keeping its effects and mask), **Cut out** (remove the background), **Mask**'],
+        ['A shape', '**Fill**, **Stroke**, **Corners** (rectangles)'],
+        ['A group', '**Ungroup**'],
+        ['Several layers', '**Group**, **Line up**, **Add more**'],
+      ] },
+      { t: 'p', text: "Everything also gets **Effects**, **Opacity**, **Arrange** (forward, backward, front, back, line up on the board, flip, transform), **Duplicate**, **More** (lock, hide, copy and paste style), **Delete** and **Settings**, which opens every setting for it. Scroll the bar sideways for the ones at the end. A design that opens with its photo already selected keeps the mode bar until you tap something." },
+      { t: 'p', text: "**Settings** in the bar (or the **Select** mode) opens the full settings for the layer. The sheet starts low so you can still see the design; tap the arrow in its corner to open it taller, or scroll inside it. Tapping empty canvas clears the selection. While you type on the canvas the sheets and mode bar hide to make room for the keyboard, and the design moves back when you finish." },
       { t: 'h', text: 'Settings for what you select' },
       { t: 'p', text: "Below its buttons, the **Select** sheet has every setting the desktop Properties panel has for that layer: a filter's amount and options, text size and spacing, a shape's fill and corners, shadow, opacity, blend, position, and masks. Select a filter layer (on the canvas or in **Layers**) to change the filter." },
       { t: 'h', text: 'Long press for actions' },
-      { t: 'p', text: "Hold a finger on a layer, on the canvas or in the **Layers** list, for its actions: **Settings**, **Duplicate**, **Lock**, **Hide**, **Select several**, **Copy style**, **Paste style**, **Bring to front**, **Send to back**, **Delete**. Where layers overlap, it also offers the layers underneath your finger, so you can pick one that is hard to tap." },
+      { t: 'p', text: "Hold a finger on a layer and lift it, on the canvas or in the **Layers** list, for its actions (if you move after holding, it just moves): **Settings**, **Duplicate**, **Lock**, **Hide**, **Select several**, **Copy style**, **Paste style**, **Bring to front**, **Send to back**, **Delete**. Where layers overlap, it also offers the layers underneath your finger, so you can pick one that is hard to tap." },
       { t: 'h', text: 'Selecting several' },
       { t: 'p', text: "Tap **Select several** (in the Select sheet, the Layers sheet or a long press). A pill at the top says how many are selected; tap layers on the canvas or in the list to add or remove them, then tap **Done**. The Select sheet then offers **Group**, **Duplicate**, **Delete**, the opacity of all of them, align and distribute." },
 
@@ -466,8 +477,8 @@ export const articles: Article[] = [
         ['Two-finger tap', 'Undo'],
         ['Three-finger tap', 'Redo'],
         ['Tap', 'Select a layer; tap empty canvas to clear the selection'],
-        ['Hold on a layer', 'Its actions'],
-        ['Drag a layer', 'Move it. Drag a corner handle to resize, or the round handle below the box to rotate'],
+        ['Hold on a layer, then lift', 'Its actions (hold, then drag, just moves it)'],
+        ['Drag a layer', 'Move it, even after resting your finger on it first. Drag a corner handle to resize, or the round handle below the box to rotate'],
       ] },
       { t: 'p', text: "The two and three finger taps count only when both fingers come down together, quickly, without moving. If you are moving a layer and a second finger lands, the move is kept as its own step and the fingers zoom. On a small layer, dragging from inside it always moves it; its resize handles answer from outside. These gestures work in the desktop layout on a tablet too." },
 

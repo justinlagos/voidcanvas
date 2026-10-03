@@ -1,4 +1,4 @@
-import { cloneCanvas, ctx2d, drawLayerContent, fullMaskSized, layerMatrix, layerSize, makeCanvas, maskBounds, paintPathOps, pathPolyline, renderDoc, tracePath, uid, vectorMaskCanvas } from './engine'
+import { cloneCanvas, ctx2d, drawLayerContent, fullMaskSized, keepTextAnchor, layerMatrix, layerSize, makeCanvas, maskBounds, paintPathOps, pathPolyline, renderDoc, tracePath, uid, vectorMaskCanvas } from './engine'
 import { base, isShown, layerFxMasksOnPage, mapDocMasks, maskOnPage, nextRev, shiftMask, useEditor } from './store'
 import { morph } from './styles'
 import type { Doc, Layer, LayerStyles, PathNode, PathOp, RasterLayer, ShapeLayer, SubPath, TextLayer, VectorPath } from './types'
@@ -886,7 +886,7 @@ export function applyBrief(next: import('./types').DesignBrief, label = 'Update 
     }
     if (text === l.text) return l
     touched.add(l.id); boards.add(l.frameId ?? '')
-    return { ...l, text, rev: nextRev() } as Layer
+    return keepTextAnchor(l, { ...l, text, rev: nextRev() } as Layer)
   })
   useEditor.setState({ layers, doc: { ...doc, brief: next }, docRev: s.docRev + 1, dirty: true })
   s.commit(label, { ifChanged: true })
@@ -905,4 +905,33 @@ export function replaceLike(text: string, from: string, to: string): string {
     i = j + from.length
   }
   return out + text.slice(i)
+}
+
+/**
+ * Put a new picture in a photo layer. It covers the box the old one showed in, centred, turned and flipped the
+ * same way; the layer keeps its name, effects, styles and mask (stretched to the new picture). One undo step.
+ */
+export function replaceImage(id: string, src: HTMLCanvasElement) {
+  const s = st(); const l = s.layers.find(x => x.id === id)
+  if (!l || l.type !== 'raster') return
+  const ow = l.canvas.width * Math.abs(l.scaleX), oh = l.canvas.height * Math.abs(l.scaleY)
+  const k = Math.max(ow / src.width, oh / src.height)
+  const cx = l.x + (l.canvas.width * l.scaleX) / 2, cy = l.y + (l.canvas.height * l.scaleY) / 2
+  const sx = k * (l.scaleX < 0 ? -1 : 1), sy = k * (l.scaleY < 0 ? -1 : 1)
+  let mask = l.mask
+  if (mask) { const m = makeCanvas(src.width, src.height); ctx2d(m).drawImage(mask, 0, 0, src.width, src.height); mask = m }
+  s.updateLayer(id, { canvas: src, mask, scaleX: sx, scaleY: sy, x: cx - (src.width * sx) / 2, y: cy - (src.height * sy) / 2 } as Partial<Layer>, 'Replace image')
+}
+
+/**
+ * Change a text layer's font, weight or style straight away. The text is redrawn once the font has loaded, so a
+ * slow connection never makes a font pick feel like a dead click. `label` makes it an undo step.
+ */
+export function setFontNow(id: string, patch: Partial<TextLayer>, label?: string) {
+  st().updateLayer(id, patch, label)
+  const l = st().layers.find(x => x.id === id)
+  if (l?.type !== 'text') return
+  import('./io').then(m => m.ensureFont(l.fontFamily, l.fontWeight, l.italic))
+    .then(() => useEditor.setState(x => ({ docRev: x.docRev + 1, layers: x.layers.map(y => (y.id === id ? ({ ...y, rev: nextRev() } as Layer) : y)) })))
+    .catch(() => {})
 }

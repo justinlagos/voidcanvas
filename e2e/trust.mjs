@@ -240,7 +240,16 @@ const cdp = await pc.newCDPSession(q)
 await q.goto(`${BASE}/editor`); await q.waitForSelector('button:has-text("Open a photo")')
 await (await q.$('input[type=file]')).setInputFiles(FIX.portrait); await q.waitForSelector('nav[aria-label="Modes"]')
 await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 })
-const openMode = async m => { const btn = await q.$(`nav[aria-label="Modes"] button:has-text("${m}")`); if ((await btn.getAttribute('aria-pressed')) !== 'true') await btn.tap(); await q.waitForTimeout(300) }
+const openMode = async (m, P = q) => {
+  // With something picked, the bottom bar is that thing's tools: Settings is the old Select sheet, Effects its
+  // effects. Any other mode is reached with Back first, as a person would.
+  if (await P.$('[data-context-bar]')) {
+    const ctx = { Select: 'settings', Effects: 'effects' }[m]
+    if (ctx) { const b = P.locator(`[data-context-bar] button[data-ctx="${ctx}"]`); await b.scrollIntoViewIfNeeded(); if ((await b.getAttribute('aria-pressed')) !== 'true') await b.tap(); await P.waitForTimeout(300); return }
+    await P.tap('[data-context-bar] button[aria-label="Back"]'); await P.waitForTimeout(300)
+  }
+  const btn = await P.$(`nav[aria-label="Modes"] button:has-text("${m}")`); if ((await btn.getAttribute('aria-pressed')) !== 'true') await btn.tap(); await P.waitForTimeout(300)
+}
 await openMode('Text'); await q.tap('button:has-text("Add heading")'); await q.waitForSelector('[data-canvas-text-editor]')
 await q.keyboard.type('Night Session'); await q.tap('[data-text-edit-bar] button:has-text("Done")'); await q.waitForTimeout(300)
 await openMode('Text'); await q.tap('button:has-text("Add heading")'); await q.waitForTimeout(300); await q.keyboard.type('Last words'); await q.tap('[data-text-edit-bar] button:has-text("Done")'); await q.waitForTimeout(120)

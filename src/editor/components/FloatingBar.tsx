@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Copy, Eclipse, ImageOff, MoreHorizontal, Move, PenLine, Scissors, Trash2 } from 'lucide-react'
 import { layerBounds } from '../engine'
 import { useEditor } from '../store'
+import { setFontNow } from '../ops'
 import type { Layer } from '../types'
 import { useIsPhone } from './MobileEditor'
 import { removeBackground } from './PropertiesPanel'
@@ -78,7 +79,7 @@ function TextQuick({ layer }: { layer: Extract<Layer, { type: 'text' }> }) {
   const [fonts, setFonts] = useState<string[]>([])
   useEffect(() => { import('../io').then(m => { const used = Array.from(new Set(useEditor.getState().layers.filter(l => l.type === 'text').map(l => (l as Extract<Layer, { type: 'text' }>).fontFamily))); setFonts(Array.from(new Set([...used, ...m.FONTS]))) }) }, [])
   const up = (patch: Partial<Extract<Layer, { type: 'text' }>>, label?: string) => useEditor.getState().updateLayer(layer.id, patch, label)
-  const setFont = async (fontFamily: string) => { const { ensureFont } = await import('../io'); await ensureFont(fontFamily, layer.fontWeight, layer.italic); up({ fontFamily }, 'Font') }
+  const setFont = (fontFamily: string) => setFontNow(layer.id, { fontFamily }, 'Font')
   return (
     <>
       <select aria-label="Font" value={layer.fontFamily} onChange={e => setFont(e.target.value)} className="h-8 max-w-[130px] px-2 rounded-lg bg-transparent text-[12.5px] text-void-100 hover:bg-void-700 outline-none" style={{ fontFamily: `"${layer.fontFamily}"` }}>

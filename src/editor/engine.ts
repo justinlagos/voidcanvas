@@ -115,6 +115,27 @@ export function layerSize(l: Layer, doc?: Doc): { w: number; h: number } {
   return { w: t.w, h: t.h }
 }
 
+/**
+ * Text grows from where its alignment says: left-aligned text from its left edge, centred text from its middle,
+ * right-aligned text from its right edge, and every line count from its top. Given a text layer before and after
+ * a change that altered its size (typing, font, size, spacing), returns the layer moved so that point stays where
+ * it was on the page, turned and flipped layers included. Any other change, or a change that also moved the
+ * layer, is returned as it is.
+ */
+export function keepTextAnchor<T extends Layer>(prev: Layer, next: T): T {
+  if (prev.type !== 'text' || next.type !== 'text' || next.onPath || prev.onPath) return next
+  if (next.x !== prev.x || next.y !== prev.y) return next
+  const a = layerSize(prev), b = layerSize(next)
+  if (Math.abs(a.w - b.w) < 1e-6 && Math.abs(a.h - b.h) < 1e-6) return next
+  const ax = next.align === 'center' ? 0.5 : next.align === 'right' ? 1 : 0
+  // Where the anchor sits from the centre, before and after, in page pixels (scale first, then rotation).
+  const vx = next.scaleX * (ax - 0.5) * (a.w - b.w), vy = next.scaleY * -0.5 * (a.h - b.h)
+  const c = Math.cos(next.rotation), sn = Math.sin(next.rotation)
+  const cx = prev.x + (a.w * prev.scaleX) / 2 + (vx * c - vy * sn)
+  const cy = prev.y + (a.h * prev.scaleY) / 2 + (vx * sn + vy * c)
+  return { ...next, x: cx - (b.w * next.scaleX) / 2, y: cy - (b.h * next.scaleY) / 2 }
+}
+
 /** Local (layer pixel) space to document space. */
 export function layerMatrix(l: Layer, doc?: Doc): DOMMatrix {
   const { w, h } = layerSize(l, doc)

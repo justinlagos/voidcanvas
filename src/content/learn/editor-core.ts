@@ -549,7 +549,7 @@ export const articles: Article[] = [
     summary: 'Type straight onto the canvas, choose Google fonts or your own font files, and set character and paragraph options, outline and shadow.',
     category: 'editor',
     level: 'Beginner',
-    updated: '2026-09-25',
+    updated: '2026-10-02',
     related: ['typography-fundamentals', 'brand-kit', 'layer-styles', 'shapes-and-pen'],
     keywords: 'text type typography font google fonts upload font file otf ttf woff paragraph text box wrap leading tracking kerning letter spacing line height outline stroke shadow caps',
     body: [
@@ -592,6 +592,7 @@ export const articles: Article[] = [
 
       { t: 'h', text: 'Paragraph settings' },
       { t: 'p', text: "The **Paragraph** panel (Window, Paragraph) sets alignment (**Align left**, **Centre**, **Align right**, **Justify**), **Wrap in a text box** with a **Box width**, **First-line indent** and **Space after paragraph**. It also tells you how many lines the text runs to." },
+      { t: 'p', text: "Alignment also sets where a line of text grows from. Left-aligned text grows to the right from its left edge, centred text grows both ways from its middle, and right-aligned text grows to the left from its right edge. This holds while you type, when you change the font or size, and when a brief change rewrites the words, so a centred headline stays centred where you put it. Turned text grows the same way, along its own angle." },
       { t: 'list', items: [
         "Justify needs a text box to spread lines across. Turn on Wrap in a text box first.",
         "Drag a text box's side handles to change its width: the text reflows rather than stretching.",
@@ -610,7 +611,7 @@ export const articles: Article[] = [
       { t: 'p', text: "With the Type tool, click on the outline of the selected shape, or on the path selected in the Paths panel, and the text flows along it. Properties then shows **Start along the path**, **Lift off the path**, **Flip side**, **Edit the path** and **Release from path**. See [Shapes and the Pen](/learn/shapes-and-pen) for drawing paths." },
 
       { t: 'h', text: 'On a phone' },
-      { t: 'p', text: "Tap **Text** in the bottom bar, then **Add heading** or **Add paragraph**. With a text layer selected, the same sheet offers fonts, a Size slider, Regular or Bold, alignment and Colour. Tap a text layer, then **Edit text**, to retype it." },
+      { t: 'p', text: "Tap **Text** in the bottom bar, then **Add heading** or **Add paragraph**. Tap a text layer and the bottom bar shows its tools: **Edit** to retype it, **Font** (every font, with a search), **Size**, **Colour**, **Align** and **Spacing**. While you type, the bar above the keyboard has smaller and larger, colour, bold, alignment and **Done**." },
 
       { t: 'h', text: 'Common problems' },
       { t: 'list', items: [
