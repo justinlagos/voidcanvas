@@ -122,12 +122,12 @@ export const articles: Article[] = [
         "The category buttons narrow the list: All, Artistic, Stylize, Color, Distort and Enhance.",
         "Click a filter to add it as a layer and close the gallery.",
       ] },
-      { t: 'p', text: "Other routes to the same place: the **Filter gallery** button in the Adjustments panel, **Filters and adjustments** under Quick actions in Properties when an image layer is selected, and **Filter gallery…** in the Layers panel's **New adjustment layer** menu. If you already know the name, each filter is also listed in its own submenu under **Filter** (Artistic, Stylize, Colour, Distort, Enhance), and in the command palette ({{Ctrl+K}}; Cmd+K on a Mac)." },
+      { t: 'p', text: "Other routes to the same place: the **Filter gallery** button in the Adjustments panel, **Filters and adjustments** under Quick actions in Properties when an image layer is selected, and **Filter gallery…** in the Layers panel's **New adjustment layer** menu. If you already know the name, each filter is also listed in its own submenu under **Filter** (Artistic, Stylize, Colour, Distort, Enhance), and in the command palette ({{Ctrl+K}}; Cmd+K on a Mac). These direct commands add an editable effect to your selected layer or group, or the active board when nothing is selected, and reveal its controls in Properties. The gallery remains available for adding an adjustment layer." },
       { t: 'try', label: 'Try filters in the Editor', href: '/editor' },
 
       { t: 'h', text: 'What a filter layer does' },
       { t: 'p', text: "A filter layer works like an adjustment layer. It takes everything below it in the Layers panel, runs the filter over it and shows the result. Layers above it are not affected. The layer is named after the filter, for example Halftone filter." },
-      { t: 'p', text: "Select it and the **Filter settings** section appears in Properties with that filter's controls. The reset button at the top of the section puts every setting back to its default. Filters with a random element, such as grain or noise, get a fresh random pattern each time you add one." },
+      { t: 'p', text: "Select it and the **Filter settings** section appears in Properties with that filter's controls. The reset button at the top of the section puts every setting back to its default. Filters with a random element, such as grain or noise, get a fresh random pattern each time you add one. **More settings** reveals secondary parameters; **Finish · tone and colour** adjusts brightness, contrast and saturation of the filtered result. Every slider also accepts a precise number." },
       { t: 'p', text: "Each filter and its settings are described in the Effects articles: [artistic](/learn/artistic-effects), [stylise](/learn/stylise-effects), [colour](/learn/colour-effects), [distortion](/learn/distortion-effects) and [texture](/learn/texture-effects)." },
 
       { t: 'h', text: 'Fade, blend and mask a filter' },
@@ -271,7 +271,7 @@ export const articles: Article[] = [
         ['Inner shadow', 'A shadow inside the edge, as if cut into the page', 'Colour, Angle, Distance, Choke, Size'],
         ['Inner glow', 'A glow from the edge inwards', 'Colour, Choke, Size'],
         ['Colour overlay', "Fills the layer's shape with one colour", 'Colour'],
-        ['Gradient overlay', 'Fills the shape with a two-colour gradient', 'From and to colours, Angle, Scale'],
+        ['Gradient overlay', 'Fills the shape with an editable gradient', 'Type, colour stops, Reverse, Angle, Scale, Centre, Shape ratio'],
         ['Stroke', 'An outline around the shape', 'Colour, Size, Position (Outside, Centre, Inside)'],
       ] },
       { t: 'p', text: "Every style also has **Blend mode** and **Opacity**. Size, Distance and Soften are in pixels; Spread and Choke are percentages." },

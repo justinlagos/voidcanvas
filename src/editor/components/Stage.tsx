@@ -1,4 +1,6 @@
 'use client'
+
+import { paintGradient } from '../gradient'
 import { uiFont } from '@/lib/ui-font'
 import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react'
 
@@ -2238,9 +2240,9 @@ export function Stage() {
           const target = s.ensurePaintable()
           if (target?.type === 'raster') {
             const g = makeCanvas(s.doc.width, s.doc.height), gx = ctx2d(g)
-            const grad = gx.createLinearGradient(d.start.x, d.start.y, d.cur.x, d.cur.y)
-            grad.addColorStop(0, s.fg); grad.addColorStop(1, s.bg)
-            gx.fillStyle = grad; gx.globalAlpha = s.options.opacity; gx.fillRect(0, 0, g.width, g.height)
+            const kind = s.options.gradientKind ?? 'linear', linear = kind === 'linear'
+            gx.globalAlpha = s.options.opacity
+            paintGradient(gx, g.width, g.height, { kind, from: s.fg, to: s.bg, stops: s.options.gradientStops, reverse: s.options.gradientReverse, x: linear ? (d.start.x + d.cur.x) / 2 : d.start.x, y: linear ? (d.start.y + d.cur.y) / 2 : d.start.y, radius: Math.hypot(d.cur.x - d.start.x, d.cur.y - d.start.y) / (linear ? 2 : 1), angle: -Math.atan2(d.cur.y - d.start.y, d.cur.x - d.start.x) * 180 / Math.PI })
             if (s.selection) { gx.globalAlpha = 1; gx.globalCompositeOperation = 'destination-in'; gx.drawImage(s.selection, 0, 0) }
             const c = cloneCanvas(target.canvas), cx = ctx2d(c)
             if (target.lockAlpha) cx.globalCompositeOperation = 'source-atop'

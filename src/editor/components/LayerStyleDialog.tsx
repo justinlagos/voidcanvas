@@ -5,6 +5,7 @@ import { GripVertical } from 'lucide-react'
 import { useEditor } from '../store'
 import { STYLE_KINDS, STYLE_LABELS, defaultStyle, emptyStyles } from '../styles'
 import { BLEND_MODES, type LayerStyles, type StyleKind } from '../types'
+import { GradientControls } from './GradientControls'
 import { ColorButton } from './ColorPicker'
 import { Button, Modal, Select, Slider, focusRing } from './ui'
 
@@ -58,20 +59,20 @@ export function LayerStyleDialog({ onClose, focus }: { onClose: () => void; focu
           </>}
           {e && <>
             <div className="flex items-center justify-between">
-              <h3 className="text-[14px] font-semibold">{STYLE_LABELS[sel as StyleKind]}</h3>
+              <h3 className="text-[14px] font-semibold">{STYLE_LABELS[sel as StyleKind]}</h3><button className="text-xs text-void-400 underline" onClick={() => put({ ...st, [sel]: defaultStyle(sel as StyleKind) })}>Reset effect</button>
               <label className="flex items-center gap-2 text-[12.5px] text-void-300"><input type="checkbox" checked={!!e.on} onChange={() => toggle(sel as StyleKind)} />On</label>
             </div>
             {'color' in e && <div className="flex items-center justify-between"><span className="text-[12px] text-void-400">Colour</span><ColorButton label="Effect colour" value={e.color} onChange={c => patch(sel as StyleKind, { color: c })} /></div>}
-            {sel === 'gradientOverlay' && <div className="flex items-center justify-between"><span className="text-[12px] text-void-400">From and to</span><span className="flex gap-2"><ColorButton label="Gradient start" value={e.from} onChange={c => patch('gradientOverlay', { from: c })} /><ColorButton label="Gradient end" value={e.to} onChange={c => patch('gradientOverlay', { to: c })} /></span></div>}
+            {sel === 'gradientOverlay' && <GradientControls value={e} patch={p => patch('gradientOverlay', p)} />}
             {sel === 'bevel' && <div className="flex items-center justify-between"><span className="text-[12px] text-void-400">Highlight and shadow</span><span className="flex gap-2"><ColorButton label="Highlight" value={e.highlight} onChange={c => patch('bevel', { highlight: c })} /><ColorButton label="Shadow" value={e.shadow} onChange={c => patch('bevel', { shadow: c })} /></span></div>}
             {blendSel(e.blend, v => patch(sel as StyleKind, { blend: v }))}
             <Slider label="Opacity" value={Math.round(e.opacity * 100)} min={0} max={100} unit="%" onChange={v => patch(sel as StyleKind, { opacity: v / 100 })} />
-            {'angle' in e && <Slider label={sel === 'bevel' ? 'Light angle' : 'Angle'} value={e.angle} min={-180} max={180} unit="°" onChange={v => patch(sel as StyleKind, { angle: v })} />}
+            {'angle' in e && sel !== 'gradientOverlay' && <Slider label={sel === 'bevel' ? 'Light angle' : 'Angle'} value={e.angle} min={-180} max={180} unit="°" onChange={v => patch(sel as StyleKind, { angle: v })} />}
             {'distance' in e && <Slider label="Distance" value={e.distance} min={0} max={300} unit="px" onChange={v => patch(sel as StyleKind, { distance: v })} />}
             {'spread' in e && <Slider label={sel === 'innerShadow' || sel === 'innerGlow' ? 'Choke' : 'Spread'} value={e.spread} min={0} max={100} unit="%" onChange={v => patch(sel as StyleKind, { spread: v })} />}
             {'size' in e && <Slider label="Size" value={e.size} min={0} max={250} unit="px" onChange={v => patch(sel as StyleKind, { size: v })} />}
             {sel === 'stroke' && <Select label="Position" value={e.position} options={[{ id: 'outside', label: 'Outside' }, { id: 'center', label: 'Centre' }, { id: 'inside', label: 'Inside' }]} onChange={v => patch('stroke', { position: v })} />}
-            {sel === 'gradientOverlay' && <Slider label="Scale" value={e.scale} min={10} max={150} unit="%" onChange={v => patch('gradientOverlay', { scale: v })} />}
+
             {sel === 'bevel' && <>
               <Slider label="Depth" value={e.depth} min={1} max={500} unit="%" onChange={v => patch('bevel', { depth: v })} />
               <Slider label="Soften" value={e.soften} min={0} max={50} unit="px" onChange={v => patch('bevel', { soften: v })} />

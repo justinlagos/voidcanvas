@@ -1171,7 +1171,7 @@ export const articles: Article[] = [
         '**Long and soft.** Drag across the whole page, not a short band. Hard, short transitions look like a 2012 button.',
         '**Grain.** A slow gradient shows steps (banding), especially after JPG export. **Filter, Enhance, Film Grain** at Amount 5 to 10 hides them. See [Add film grain](/learn/add-film-grain).',
       ] },
-      { t: 'note', text: 'The Gradient tool and Gradient overlay are linear. For a round falloff, use a Vignette on a flat layer, or a large soft brush.' },
+      { t: 'note', text: 'Choose Linear, Radial / circle, Angular, Reflected or Diamond in the Gradient tool or Gradient overlay. Overlays also support editable colour stops, reverse, centre, scale and ellipse ratio.' },
       { t: 'product', text: 'The Gradient tool for painting, Gradient overlay for anything that must stay editable, and Gradient map for photos, with grain one filter away.', label: 'Open the Editor', href: '/editor' },
       { t: 'faq', items: [
         { q: 'Why is my gradient muddy in the middle?', a: 'The two colours are far apart on the colour wheel, so their mix is greyish. Pick closer colours, or add a bright middle colour with a second gradient.' },

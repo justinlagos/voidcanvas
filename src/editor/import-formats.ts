@@ -98,9 +98,9 @@ function mapEffects(fx: any, report: ImportReport): LayerStyles | null {
   const go = fx.gradientOverlay?.[0]
   if (go) {
     const stops = go.gradient?.colorStops ?? []
-    st.gradientOverlay = { on: go.enabled !== false, opacity: go.opacity ?? 1, blend: PSD_BLEND[go.blendMode] ?? 'source-over', from: hexOf(stops[0]?.color), to: hexOf(stops[stops.length - 1]?.color ?? { r: 255, g: 255, b: 255 }), angle: go.angle ?? 90, scale: go.scale ?? 100 }
-    if (go.reverse) [st.gradientOverlay.from, st.gradientOverlay.to] = [st.gradientOverlay.to, st.gradientOverlay.from]
-    if (stops.length > 2) report.changed.push('Gradient overlays with more than two colours use their first and last colour')
+    st.gradientOverlay = { on: go.enabled !== false, opacity: go.opacity ?? 1, blend: PSD_BLEND[go.blendMode] ?? 'source-over', from: hexOf(stops[0]?.color), to: hexOf(stops[stops.length - 1]?.color ?? { r: 255, g: 255, b: 255 }), angle: go.angle ?? 90, scale: go.scale ?? 100, kind: go.type ?? 'linear', reverse: go.reverse, stops: stops.length >= 2 ? stops.map((s: any) => ({ position: s.location, color: hexOf(s.color) })) : undefined }
+    if (stops.some((s: any) => s.midpoint !== 0.5)) report.changed.push('Gradient overlay stop midpoints use an even transition')
+    if (go.gradient?.opacityStops?.some((s: any) => s.opacity < 1)) report.changed.push('Gradient overlay opacity stops are not imported; overall effect opacity is preserved')
     any = true
   }
   if (fx.bevel) { const b = fx.bevel; st.bevel = { on: b.enabled !== false, opacity: b.highlightOpacity ?? 0.75, blend: 'source-over', size: uv(b.size, 5), depth: b.strength ?? 100, angle: b.angle ?? 120, highlight: hexOf(b.highlightColor ?? { r: 255, g: 255, b: 255 }), shadow: hexOf(b.shadowColor), soften: uv(b.soften, 0) }; any = true }

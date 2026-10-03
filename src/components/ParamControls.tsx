@@ -1,5 +1,6 @@
 'use client'
 
+import { Slider } from '@/editor/components/ui'
 import { useStore, EffectType } from '@/store/useStore'
 import { RotateCcw } from 'lucide-react'
 import { matchPreset, presetsFor } from './effect-presets'
@@ -7,6 +8,7 @@ import { matchPreset, presetsFor } from './effect-presets'
 export type ParamConfig = {
   key: 'intensity' | 'scale' | 'threshold' | 'amount' | 'frequency' | 'amplitude'
     | 'color1' | 'color2' | 'color3' | 'seed' | 'angle' | 'opacity'
+    | 'finishBrightness' | 'finishContrast' | 'finishSaturation'
     | 'mixR' | 'mixG' | 'mixB' | 'radius' | 'density' | 'segments' | 'posX' | 'posY'
   label: string
   min?: number
@@ -14,6 +16,12 @@ export type ParamConfig = {
   type?: 'range' | 'color'
   unit?: string
 }
+
+export const FINISH_PARAMS: ParamConfig[] = [
+  { key: 'finishBrightness', label: 'Finish brightness', min: -100, max: 100 },
+  { key: 'finishContrast', label: 'Finish contrast', min: -100, max: 100 },
+  { key: 'finishSaturation', label: 'Finish saturation', min: -100, max: 100 },
+]
 
 // Common opacity param reused everywhere
 const opacityParam: ParamConfig = { key: 'opacity', label: 'Opacity', min: 0, max: 100, unit: '%' }
@@ -310,7 +318,7 @@ export const effectParams: Record<EffectType, ParamConfig[]> = {
 }
 
 export function ParamControls() {
-  const { activeEffect, params, setParam, resetParams, originalImage } = useStore()
+  const { activeEffect, params, setParam, resetParams, originalImage, setActiveEffect } = useStore()
   const config = effectParams[activeEffect]
   const presets = presetsFor(activeEffect)
   const current = matchPreset(activeEffect, params)
@@ -348,6 +356,7 @@ export function ParamControls() {
           Reset
         </button>
       </div>
+      {['blur', 'motionBlur', 'radialBlur'].includes(activeEffect) && <label className="flex items-center justify-between text-xs text-void-300">Blur type<select aria-label="Blur type" value={activeEffect} onChange={e => setActiveEffect(e.target.value as EffectType)} className="h-8 rounded bg-void-800 px-2"><option value="blur">Soft blur</option><option value="motionBlur">Motion / directional</option><option value="radialBlur">Radial / zoom</option></select></label>}
       {presets.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-1" role="group" aria-label="Starting points">
           {presets.map(p => (
@@ -356,10 +365,11 @@ export function ParamControls() {
           ))}
         </div>
       )}
+      <details className="rounded-lg border border-void-800 p-3"><summary className="text-xs text-void-300 cursor-pointer">Finish · tone and colour</summary><div className="space-y-3 pt-3">{FINISH_PARAMS.map(c => <Slider key={c.key} label={c.label} value={params[c.key] as number ?? 0} min={-100} max={100} onChange={v => setParam(c.key, v)} />)}<p className="text-xs text-void-500">Adjusts the filtered result before it is blended with the original. Zero keeps the filter's colour and tone.</p></div></details>
       <div className="space-y-4 bg-void-900/60 border border-void-800/50 rounded-lg p-4">
         {config.map((param) => (
           <div key={param.key} className="space-y-2">
-            <div className="flex items-center justify-between">
+            <div className={`flex items-center justify-between ${param.type === 'color' ? '' : 'hidden'}`}>
               <label className="text-sm text-void-300">{param.label}</label>
               {param.type !== 'color' && (
                 <span className="text-xs text-void-500 font-mono tabular-nums">
@@ -380,22 +390,7 @@ export function ParamControls() {
                 </span>
               </div>
             ) : (
-              <div className="relative">
-                <input
-                  type="range"
-                  min={param.min ?? 0}
-                  max={param.max ?? 100}
-                  value={params[param.key] as number}
-                  onChange={(e) => setParam(param.key, parseFloat(e.target.value))}
-                  className="w-full"
-                />
-                <div
-                  className="absolute top-[9px] left-0 h-[4px] bg-white/20 rounded-full pointer-events-none"
-                  style={{
-                    width: `${((params[param.key] as number) - (param.min ?? 0)) / ((param.max ?? 100) - (param.min ?? 0)) * 100}%`
-                  }}
-                />
-              </div>
+              <Slider label={param.label} value={params[param.key] as number} min={param.min ?? 0} max={param.max ?? 100} unit={param.unit} onChange={value => setParam(param.key, value)} />
             )}
           </div>
         ))}

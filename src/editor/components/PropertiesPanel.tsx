@@ -5,7 +5,8 @@ import { ROLE_LABEL } from '../adapt'
 const ROLE_OPTIONS = Object.entries(ROLE_LABEL).map(([id, label]) => ({ id, label }))
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, Eclipse, FolderPlus, FlipHorizontal2, FlipVertical2, ImageOff, Italic, RotateCcw } from 'lucide-react'
-import { effectParams } from '@/components/ParamControls'
+import { effects as effectDefinitions } from '@/components/effect-list'
+import { effectParams, FINISH_PARAMS } from '@/components/ParamControls'
 import { matchPreset, presetsFor } from '@/components/effect-presets'
 import { defaultParams, type EffectParams } from '@/store/useStore'
 import { ADJUSTMENT_DEFAULTS, HUE_BANDS, layerBounds, layerSize } from '../engine'
@@ -464,25 +465,45 @@ export function SettingsControls({ api }: { api: SettingsApi }) {
   const layer = api.value
   if (layer.kind === 'voidEffect' && layer.effect) {
     const cfg = effectParams[layer.effect] ?? []
-    const p = layer.effectParams ?? defaultParams
+    const p = { ...defaultParams, ...layer.effectParams }
     const set = (k: keyof EffectParams, v: number | string) => api.up({ effectParams: { ...p, [k]: v } })
     const presets = presetsFor(layer.effect), current = matchPreset(layer.effect, p as EffectParams)
+    const fields = cfg.filter(c => c.key !== 'opacity')
+    const controls = fields.map(c => c.type === 'color'
+      ? <ColorField key={c.key} label={c.label} value={p[c.key] as string} onChange={v => v && set(c.key, v)} onCommit={() => api.commit('Filter colour')} />
+      : <Slider key={c.key} label={c.label} value={p[c.key] as number} min={c.min ?? 0} max={c.max ?? 100} unit={c.unit} onChange={v => set(c.key, v)} onCommit={() => api.commit('Filter setting')} />)
     return (
       <Wrap api={api} title="Filter settings" action={<button aria-label="Reset" title="Reset" onClick={() => api.up({ effectParams: { ...defaultParams } }, 'Reset filter')} className={`text-void-400 hover:text-white rounded ${focusRing}`}><RotateCcw size={14} /></button>}>
         <div className="space-y-3">
+          {['blur', 'motionBlur', 'radialBlur'].includes(layer.effect) && <Select label="Blur type" value={layer.effect} options={[{ id: 'blur', label: 'Soft blur' }, { id: 'motionBlur', label: 'Motion / directional' }, { id: 'radialBlur', label: 'Radial / zoom' }]} onChange={effect => api.up({ effect: effect as typeof layer.effect }, 'Blur type')} />}
           {presets.length > 0 && (
             <div className="flex flex-wrap gap-1.5" role="group" aria-label="Starting points">
               {presets.map(pr => <button key={pr.label} onClick={() => api.up({ effectParams: { ...p, ...pr.values } }, `${pr.label} preset`)} aria-pressed={current === pr.label} className={`h-7 px-2.5 rounded-md text-[12px] border ${focusRing} ${current === pr.label ? 'border-accent bg-accent-soft text-white' : 'border-white/[0.06] bg-surface-sunken text-void-300 hover:text-white'}`}>{pr.label}</button>)}
             </div>
           )}
-          {cfg.filter(c => c.key !== 'opacity').map(c => c.type === 'color'
-            ? <ColorField key={c.key} label={c.label} value={p[c.key] as string} onChange={v => v && set(c.key, v)} onCommit={() => api.commit('Filter colour')} />
-            : <Slider key={c.key} label={c.label} value={p[c.key] as number} min={c.min ?? 0} max={c.max ?? 100} unit={c.unit} onChange={v => set(c.key, v)} onCommit={() => api.commit('Filter setting')} />)}
-          {cfg.length <= 1 && <p className="text-[12px] text-void-500">This filter has no settings. Use Opacity above to soften it.</p>}
+          <p className="text-xs text-void-500">{effectDefinitions.find(e => e.id === layer.effect)?.description}. Changes preview on the canvas. Use Reset to start again.</p>
+          {controls.slice(0, 2)}
+          {controls.length > 2 && <details><summary className="text-xs text-void-300 cursor-pointer">More settings · {fields.slice(2).map(c => c.label).join(', ')}</summary><div className="pt-3 space-y-3">{controls.slice(2)}</div></details>}
+          <details><summary className="text-xs text-void-300 cursor-pointer">Finish · tone and colour</summary><div className="pt-3 space-y-3">{FINISH_PARAMS.map(c => <Slider key={c.key} label={c.label} value={p[c.key] as number ?? 0} min={-100} max={100} onChange={v => set(c.key, v)} onCommit={() => api.commit('Filter finish')} />)}<p className="text-xs text-void-500">Fine-tune the filtered result before blending it with the original. Zero keeps its original tone.</p></div></details>
           {!api.embedded && <p className="text-[12px] text-void-500 leading-relaxed">Filters affect every layer beneath them and stay editable. Add a mask to limit where they apply.</p>}
         </div>
       </Wrap>
     )
+  }
+  if (layer.kind === 'blur') {
+    const v = layer.values, mode = v.mode ?? 0
+    const patch = (p: Record<string, number>) => api.up({ values: { ...v, ...p } })
+    const commit = () => api.commit('Blur settings')
+    return <Wrap api={api} title="Blur settings" action={<button className="text-xs text-void-400" onClick={() => api.up({ values: { ...ADJUSTMENT_DEFAULTS.blur } }, 'Reset blur')}>Reset</button>}>
+      <div className="space-y-3">
+        <Select label="Blur type" value={String(mode)} options={[{ id: '0', label: 'Soft blur' }, { id: '1', label: 'Motion / directional' }, { id: '2', label: 'Radial / zoom' }]} onChange={x => api.up({ values: { ...v, mode: Number(x) } }, 'Blur type')} />
+        <Slider label={mode === 1 ? 'Blur width / length' : 'Blur radius'} value={v.radius ?? 8} min={0} max={160} unit="px" onChange={radius => patch({ radius })} onCommit={commit} />
+        <Slider label="Intensity" value={v.strength ?? 100} min={0} max={100} unit="%" onChange={strength => patch({ strength })} onCommit={commit} />
+        {mode === 1 && <Slider label="Direction" value={v.angle ?? 0} min={-180} max={180} unit="°" onChange={angle => patch({ angle })} onCommit={commit} />}
+        {mode === 2 && <details><summary className="text-xs text-void-300 cursor-pointer">Blur centre</summary><div className="space-y-3 pt-2">{(['centerX', 'centerY'] as const).map(k => <Slider key={k} label={k === 'centerX' ? 'Centre X' : 'Centre Y'} value={v[k] ?? 50} min={0} max={100} unit="%" onChange={x => patch({ [k]: x })} onCommit={commit} />)}</div></details>}
+        <p className="text-xs text-void-500">Radius changes the reach. Intensity blends with the original. Motion adds direction; radial blurs towards a centre.</p>
+      </div>
+    </Wrap>
   }
   if (layer.kind === 'curves') return <CurvesProps api={api} />
   if (false as boolean) {
