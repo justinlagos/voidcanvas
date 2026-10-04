@@ -1,3 +1,4 @@
+import { restrictResult } from './painting'
 import { subjectMask } from './ai'
 import { cloneCanvas, ctx2d, healRegion, makeCanvas, maskBounds } from './engine'
 import { combineSelection, composite } from './ops'
@@ -164,8 +165,9 @@ async function inpaintRaw(src: HTMLCanvasElement, hole: HTMLCanvasElement): Prom
 }
 
 /** Remove whatever is painted in `hole` from the active layer. Falls back to patch healing if the model cannot load. */
-export async function removeObject(hole: HTMLCanvasElement) {
-  const l = s().ensurePaintable(); if (!l || l.type !== 'raster') return
+export async function removeObject(hole: HTMLCanvasElement, layerId?: string, selection = s().selection) {
+  const docId = s().doc?.id
+  const l = layerId ? s().layers.find(l => l.id === layerId) : s().ensurePaintable(); if (!l || l.type !== 'raster' || l.locked || l.lockPixels) return
   const src = l.canvas
   let out: HTMLCanvasElement | null = null
   if (consent('lama')) {
@@ -174,7 +176,9 @@ export async function removeObject(hole: HTMLCanvasElement) {
   }
   if (!out) out = healRegion(src, hole)
   if (!out) { s().notify('That area is too large to fill. Try a smaller area.'); return }
-  s().updateLayer(l.id, { canvas: out }, 'Remove object')
+  const current = s().layers.find(x => x.id === l.id)
+  if (s().doc?.id !== docId || current?.type !== 'raster' || current.canvas !== src || current.locked || current.lockPixels) { s().notify('The layer changed while removing the object. Try again on the current layer.'); return }
+  s().updateLayer(l.id, { canvas: restrictResult(src, out, selection) }, 'Remove object')
 }
 
 /** Fill transparent areas of the flattened image (after enlarging the canvas) using the inpainting model. */

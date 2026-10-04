@@ -200,7 +200,7 @@ interface EditorState {
   nudgeOrder: (id: string, dir: 1 | -1) => void
   mergeDown: (id: string) => void
   rasterize: (id: string) => RasterLayer | null
-  ensurePaintable: () => RasterLayer | AdjustmentLayer | null
+  ensurePaintable: () => Layer | null
   flip: (id: string, axis: 'h' | 'v') => void
 
   // masks
@@ -506,25 +506,25 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   newDoc: ({ name, width, height, background }) => {
     const doc: Doc = { id: uid(), name: name || 'Untitled design', width, height, background }
-    set({ doc, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move' })
+    set({ doc, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move' })
     get().commit('New design')
     set({ dirty: false })
   },
 
   loadProject: (doc, layers, swatches, groups) => {
     const top = layers[layers.length - 1]?.id ?? null
-    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, selection: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
+    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, selection: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
     get().commit('Open')
     set({ dirty: false })
   },
 
   loadFramed: (doc, layers, swatches, groups) => {
     const top = layers[layers.length - 1]?.id ?? null
-    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, activeFrameId: doc.frames?.[0]?.id ?? null, selection: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
+    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, activeFrameId: doc.frames?.[0]?.id ?? null, selection: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
     get().commit('Open'); set({ dirty: false })
   },
 
-  closeDoc: () => set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null }),
+  closeDoc: () => set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, cloneSource: null, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null }),
 
   setDoc: (patch, commit) => {
     const { doc } = get(); if (!doc) return
@@ -1325,6 +1325,12 @@ export const useEditor = create<EditorState>((set, get) => ({
   ensurePaintable: () => {
     const s = get(); if (!s.doc) return null
     let l = s.active()
+    if (l && (l.locked || l.lockPixels)) { get().notify('This layer is locked. Unlock it to paint.'); return null }
+    // Mask editing must keep editable type, shapes and their transforms intact.
+    if (l && s.editingMask && l.mask) {
+      if (!l.maskEnabled) { get().notify('This mask is disabled. Enable it before painting.'); return null }
+      return l
+    }
     if (l && l.type === 'adjustment') {
       if (!l.mask) get().updateLayer(l.id, { mask: fullMaskSized(s.doc.width, s.doc.height), maskAt: null } as Partial<Layer>)
       set({ editingMask: true })
@@ -1358,7 +1364,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   addMask: (id, fromSelection) => {
     const { layers, doc, selection } = get(); if (!doc) return
     let l = layers.find(x => x.id === id); if (!l) return
-    if (l.type === 'text' || l.type === 'shape') { l = get().rasterize(id) ?? undefined; if (!l) return }
+    if (l.locked || l.lockPixels) { get().notify('This layer is locked. Unlock it to add a mask.'); return }
     const { w, h } = layerSize(l, doc)
     let mask: HTMLCanvasElement
     if (fromSelection && selection) {
@@ -1441,6 +1447,7 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   clearSelectionPixels: () => {
     const s = get(); if (!s.selection) return
+    const a = s.active(); if (a?.lockAlpha) { s.notify('Transparent pixels are locked. Unlock them to clear pixels.'); return }
     const l = s.ensurePaintable()
     if (!l || l.type !== 'raster') return
     const c = cloneCanvas(l.canvas)
@@ -1455,7 +1462,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     const fill = makeCanvas(s.doc.width, s.doc.height)
     const f = ctx2d(fill); f.fillStyle = color; f.fillRect(0, 0, fill.width, fill.height)
     if (s.selection) { f.globalCompositeOperation = 'destination-in'; f.drawImage(s.selection, 0, 0) }
-    const c = cloneCanvas(l.canvas); ctx2d(c).drawImage(fill, 0, 0)
+    const c = cloneCanvas(l.canvas), cx = ctx2d(c); if (l.lockAlpha) cx.globalCompositeOperation = 'source-atop'; cx.drawImage(fill, 0, 0)
     get().updateLayer(l.id, { canvas: c }, 'Fill')
   },
 
