@@ -1,13 +1,14 @@
 'use client'
 
 import { paintGradient } from '../gradient'
+import { applyPaint, constrainPaint, restrictResult } from '../painting'
 import { uiFont } from '@/lib/ui-font'
 import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   brushTip, cloneCanvas, ctx2d, docToLocal, floodMask, fontString, healRegion, hitLayer, insideHiddenGroup, layerBounds, layerCorners, layerMatrix, layerSize,
-  makeCanvas, maskEdges, polygonPoints, renderDoc, toneStroke, tracePath, type LiveStroke,
+  makeCanvas, maskBounds, maskEdges, paintMask, polygonPoints, renderDoc, toneStroke, tracePath, type LiveStroke,
 } from '../engine'
 import { importFiles } from '../io'
 import { groupChain, inGroup, maskOnPage, pickGroupFor, selectionUnits, tipOnce, unionBox, useEditor } from '../store'
@@ -43,7 +44,7 @@ type Drag =
   | { kind: 'resize'; id: string; h: number; l0: Layer; w: number; hgt: number; anchor: Pt; snapX: number[]; snapY: number[] }
   | { kind: 'grotate'; center: Pt; a0: number; items: { id: string; cx: number; cy: number; hw: number; hh: number; r0: number }[] }
   | { kind: 'rotate'; id: string; center: Pt; a0: number; r0: number; l0: Layer }
-  | { kind: 'stroke'; last: Pt; smooth: Pt; carry: number; snapshot?: HTMLCanvasElement; offset?: Pt; tool: ToolId; quick?: boolean }
+  | { kind: 'stroke'; last: Pt; smooth: Pt; carry: number; snapshot?: HTMLCanvasElement; offset?: Pt; tool: ToolId; quick?: boolean; raw?: HTMLCanvasElement; selection?: HTMLCanvasElement | null }
   | { kind: 'box'; tool: ToolId; start: Pt; cur: Pt; pts: Pt[]; mode: 'new' | 'add' | 'sub' | 'intersect' }
   | { kind: 'guide'; axis: 'v' | 'h'; index: number; pos: number }
   | { kind: 'frame'; id: string; last: Pt; moved: boolean }
@@ -1025,7 +1026,7 @@ export function Stage() {
 
   function stamp(d: Extract<Drag, { kind: 'stroke' }>, p: Pt, pressure: number) {
     const s = useEditor.getState()
-    const L = live.current!; const bctx = ctx2d(L.buffer)
+    const L = live.current!; const bctx = ctx2d(d.raw ?? L.buffer)
     const o = s.options
     const sz = Math.max(1, o.size * (o.pressureSize !== false ? pressure : 1))
     const overlay = L.mode === 'overlay'
@@ -1056,7 +1057,7 @@ export function Stage() {
     while (t <= dd) { stamp(d, { x: d.last.x + (dx * t) / dd, y: d.last.y + (dy * t) / dd }, pressure); t += spacing }
     d.carry = dd - (t - spacing)
     d.last = p
-    if (s.selection && !d.quick) { const b = ctx2d(live.current!.buffer); b.globalCompositeOperation = 'destination-in'; b.drawImage(s.selection, 0, 0); b.globalCompositeOperation = 'source-over' }
+    if (d.raw) constrainPaint(d.raw, d.selection ?? null, live.current!.buffer)
     invalidate()
   }
 
@@ -1064,6 +1065,7 @@ export function Stage() {
     const s = useEditor.getState()
     const L = live.current; live.current = null
     if (!L) return
+    if (!maskBounds(L.buffer)) { invalidate(); return }
     if (d.quick) {
       const sel = s.selection ? cloneCanvas(s.selection) : makeCanvas(s.doc!.width, s.doc!.height), x = ctx2d(sel)
       x.globalAlpha = L.opacity; x.globalCompositeOperation = d.tool === 'eraser' ? 'destination-out' : 'source-over'
@@ -1075,13 +1077,11 @@ export function Stage() {
       if (!layer.mask) return
       // An adjustment's mask is page pixels placed where its board is; it is painted as a whole page at 0,0.
       const adj = layer.type === 'adjustment' && s.doc
-      const m = adj ? maskOnPage(s.doc!.width, s.doc!.height, cloneCanvas)(layer.mask, layer.maskAt).mask : cloneCanvas(layer.mask), x = ctx2d(m)
-      x.globalAlpha = L.opacity
-      x.globalCompositeOperation = L.mode === 'mask-hide' ? 'destination-out' : 'source-over'
-      x.drawImage(L.buffer, 0, 0)
+      const baseMask = adj ? maskOnPage(s.doc!.width, s.doc!.height, cloneCanvas)(layer.mask, layer.maskAt).mask : layer.mask
+      const m = paintMask(baseMask, L.buffer, L.opacity, L.mode === 'mask-hide' ? 0 : L.maskValue ?? 1, adj ? undefined : layerMatrix(layer, s.doc!).inverse())
       s.updateLayer(layer.id, { mask: m, ...(adj ? { maskAt: null } : {}) } as Partial<Layer>, 'Paint mask')
     } else if (layer.type === 'raster') {
-      if (d.tool === 'remove') { invalidate(); await import('../ai-tools').then(m => m.removeObject(L.buffer)); invalidate(true); return }
+      if (d.tool === 'remove') { invalidate(); await import('../ai-tools').then(m => m.removeObject(L.buffer, layer.id, d.selection ?? null)); invalidate(true); return }
       if (d.tool === 'dodge' || d.tool === 'burn' || d.tool === 'sponge') {
         const o = s.options
         s.updateLayer(layer.id, { canvas: toneStroke(layer.canvas, L.buffer, d.tool, o.toneRange ?? 'midtones', o.exposure ?? 0.5, o.spongeMode) }, d.tool === 'dodge' ? 'Dodge' : d.tool === 'burn' ? 'Burn' : 'Sponge')
@@ -1089,15 +1089,11 @@ export function Stage() {
       }
       if (d.tool === 'heal') {
         const out = healRegion(layer.canvas, L.buffer)
-        if (out) s.updateLayer(layer.id, { canvas: out }, 'Heal')
+        if (out) s.updateLayer(layer.id, { canvas: restrictResult(layer.canvas, out, d.selection ?? null) }, 'Heal')
         else { s.notify('That area is too large or too close to the edge to heal. Try a smaller spot, or use Remove object.'); invalidate(true) }
         return
       }
-      const c = cloneCanvas(layer.canvas), x = ctx2d(c)
-      x.globalAlpha = L.opacity
-      if (L.mode === 'erase') x.globalCompositeOperation = 'destination-out'
-      else if (layer.lockAlpha) x.globalCompositeOperation = 'source-atop'
-      x.drawImage(L.buffer, 0, 0)
+      const c = applyPaint(layer.canvas, L.buffer, { opacity: L.opacity, erase: L.mode === 'erase', lockAlpha: layer.lockAlpha })
       s.updateLayer(layer.id, { canvas: c }, d.tool === 'eraser' ? 'Erase' : d.tool === 'clone' ? 'Clone' : 'Brush')
     }
   }
@@ -1360,10 +1356,12 @@ export function Stage() {
       if (t === 'clone' && e.altKey) { useEditor.setState({ cloneSource: p }); invalidate(); return }
       if (t === 'clone' && !s.cloneSource) { s.notify('Hold Alt (Option) and click to choose where to copy from.'); return }
       const cur = s.active()
-      if (t === 'brush' && !s.editingMask && cur?.type === 'raster' && cur.source === 'photo') {
+      if (t === 'eraser' && !s.editingMask && cur?.lockAlpha) { s.notify('Transparent pixels are locked. Unlock them to erase.'); return }
+      if (t === 'brush' && !s.editingMask && cur?.type === 'raster' && cur.source === 'photo' && !cur.locked && !cur.lockPixels && !cur.lockAlpha) {
         s.addBlank()
         tipOnce('paint-layer', 'Your brush strokes go on a new layer, so the photo underneath stays untouched.')
       }
+      if (s.editingMask && !['brush', 'eraser'].includes(t)) { s.notify('Switch from the mask to the layer to use this tool.'); return }
       const target = useEditor.getState().ensurePaintable(); if (!target) return
       const st = useEditor.getState()
       const onMask = st.editingMask && !!target.mask
@@ -1372,10 +1370,24 @@ export function Stage() {
       const overlay = ['remove', 'dodge', 'burn', 'sponge'].includes(t)
       const mode: LiveStroke['mode'] = onMask ? (t === 'eraser' ? 'mask-hide' : 'mask-reveal') : overlay ? 'overlay' : t === 'eraser' ? 'erase' : 'paint'
       live.current = { layerId: target.id, buffer: makeCanvas(st.doc!.width, st.doc!.height), opacity: t === 'heal' ? 0.55 : overlay ? 1 : st.options.opacity, mode }
+      if (onMask) {
+        const rgb = parseInt(st.fg.slice(1), 16)
+        live.current.maskValue = (((rgb >> 16) & 255) * 0.299 + ((rgb >> 8) & 255) * 0.587 + (rgb & 255) * 0.114) / 255
+      }
       const d: Drag = { kind: 'stroke', last: p, smooth: p, carry: 0, tool: t }
-      if (t === 'clone' && target.type === 'raster') { d.snapshot = target.canvas; d.offset = { x: st.cloneSource!.x - p.x, y: st.cloneSource!.y - p.y } }
+      if (t === 'clone' && target.type === 'raster') {
+        d.snapshot = target.canvas
+        if (st.options.sampleAll !== false) {
+          d.snapshot = makeCanvas(st.doc!.width, st.doc!.height)
+          renderDoc(d.snapshot, st.doc!, st.layers, { groups: st.groups, noCache: true, transparent: true, frameRects: [] })
+        }
+        d.offset = { x: st.cloneSource!.x - p.x, y: st.cloneSource!.y - p.y }
+      }
+      d.selection = st.selection
+      if (d.selection) d.raw = makeCanvas(st.doc!.width, st.doc!.height)
       drag.current = d
       stamp(d, p, pressure)
+      if (d.raw) constrainPaint(d.raw, d.selection ?? null, live.current!.buffer)
       invalidate(); return
     }
 
@@ -1392,7 +1404,7 @@ export function Stage() {
         const target = s.ensurePaintable(); if (!target || target.type !== 'raster') return
         const m = floodMask(target.canvas, p.x, p.y, s.options.tolerance, s.options.contiguous)
         const x = ctx2d(m); x.globalCompositeOperation = 'source-in'; x.fillStyle = s.fg; x.fillRect(0, 0, m.width, m.height)
-        const c = cloneCanvas(target.canvas), cx = ctx2d(c); cx.globalAlpha = s.options.opacity; cx.drawImage(m, 0, 0)
+        const c = applyPaint(target.canvas, m, { opacity: s.options.opacity, lockAlpha: target.lockAlpha })
         s.updateLayer(target.id, { canvas: c }, 'Fill')
       }
       return
@@ -2244,9 +2256,7 @@ export function Stage() {
             gx.globalAlpha = s.options.opacity
             paintGradient(gx, g.width, g.height, { kind, from: s.fg, to: s.bg, stops: s.options.gradientStops, reverse: s.options.gradientReverse, x: linear ? (d.start.x + d.cur.x) / 2 : d.start.x, y: linear ? (d.start.y + d.cur.y) / 2 : d.start.y, radius: Math.hypot(d.cur.x - d.start.x, d.cur.y - d.start.y) / (linear ? 2 : 1), angle: -Math.atan2(d.cur.y - d.start.y, d.cur.x - d.start.x) * 180 / Math.PI })
             if (s.selection) { gx.globalAlpha = 1; gx.globalCompositeOperation = 'destination-in'; gx.drawImage(s.selection, 0, 0) }
-            const c = cloneCanvas(target.canvas), cx = ctx2d(c)
-            if (target.lockAlpha) cx.globalCompositeOperation = 'source-atop'
-            cx.drawImage(g, 0, 0)
+            const c = applyPaint(target.canvas, g, { lockAlpha: target.lockAlpha })
             s.updateLayer(target.id, { canvas: c }, 'Gradient')
           }
         }

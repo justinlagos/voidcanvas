@@ -147,7 +147,10 @@ export function OptionsBar() {
           <Sep />
           <Check2 on={o.pressureSize !== false} label="Pen size" onChange={v => set('pressureSize', v)} title="Pen pressure changes the size" />
           {['brush', 'eraser'].includes(tool) && <Check2 on={!!o.pressureOpacity} label="Pen opacity" onChange={v => set('pressureOpacity', v)} title="Pen pressure changes the opacity" />}
-          {editingMask && <span className="text-[12px] text-accent-light shrink-0">Painting on the mask: Brush shows, Eraser hides.</span>}
+          {selection && !quickMask && <span className="text-[12px] text-accent-light shrink-0">Painting inside selection</span>}
+          {active?.lockAlpha && !editingMask && <span className="text-[12px] text-void-400 shrink-0">Transparent pixels locked</span>}
+          {editingMask && <span className="text-[12px] text-accent-light shrink-0">Mask: white reveals, black hides, grey blends. Eraser hides.</span>}
+          {tool === 'clone' && <Check2 on={o.sampleAll !== false} label="Sample all layers" onChange={v => set('sampleAll', v)} title="Copy visible artwork onto this layer. Turn off to sample only this layer." />}
           {tool === 'clone' && <span className="text-[12px] text-void-400 shrink-0">{cloneSource ? 'Source set. Alt-click to change it.' : 'Alt-click to choose where to copy from.'}</span>}
           {tool === 'heal' && <span className="text-[12px] text-void-400 shrink-0">Paint over a spot, then let go.</span>}
           {tool === 'remove' && <span className="text-[12px] text-void-400 shrink-0">Paint over what you want gone. It is filled in on your device, free.</span>}

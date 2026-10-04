@@ -827,6 +827,8 @@ export interface LiveStroke {
   buffer: HTMLCanvasElement
   opacity: number
   mode: 'paint' | 'erase' | 'mask-hide' | 'mask-reveal' | 'overlay'
+  /** Foreground luminance: black hides, white reveals, grey sets partial visibility. */
+  maskValue?: number
 }
 
 export interface RenderOptions {
@@ -1086,12 +1088,12 @@ function renderDocInner(target: HTMLCanvasElement, doc: Doc, layers: Layer[], op
         const tmp = makeCanvas(w, h)
         const t = ctx2d(tmp)
         drawLayerContent(t, l)
-        if (live && live.mode === 'paint') { t.globalAlpha = live.opacity; t.drawImage(live.buffer, 0, 0); t.globalAlpha = 1 }
-        if (live && live.mode === 'erase') { t.globalCompositeOperation = 'destination-out'; t.globalAlpha = live.opacity; t.drawImage(live.buffer, 0, 0); t.globalAlpha = 1 }
+        if (live && live.mode === 'paint') { t.globalCompositeOperation = l.lockAlpha ? 'source-atop' : 'source-over'; t.globalAlpha = live.opacity; t.drawImage(live.buffer, 0, 0); t.globalAlpha = 1; t.globalCompositeOperation = 'source-over' }
+        if (live && live.mode === 'erase' && !l.lockAlpha) { t.globalCompositeOperation = 'destination-out'; t.globalAlpha = live.opacity; t.drawImage(live.buffer, 0, 0); t.globalAlpha = 1 }
         const maskSrc = l.mask && l.maskEnabled ? l.mask : null
         if (maskSrc || (live && live.mode.startsWith('mask'))) {
           t.globalCompositeOperation = 'destination-in'
-          t.drawImage(liveMask(maskSrc ?? fullMaskSized(w, h), live), 0, 0)
+          t.drawImage(liveMask(maskSrc ?? fullMaskSized(w, h), live, null, m.inverse()), 0, 0)
         }
         if (hasVectorMask(l)) { t.globalCompositeOperation = 'destination-in'; t.drawImage(vectorMaskCanvas(l, w, h), 0, 0); t.globalCompositeOperation = 'source-over' }
         if (clipBaseCanvas || styled || fx) {
@@ -1174,14 +1176,22 @@ function fullMask(doc: Doc) { return fullMaskSized(doc.width, doc.height) }
 export { fullMaskSized }
 
 /** A mask with the stroke being painted on it. The stroke is in document pixels; the mask's top left is at `at`. */
-function liveMask(mask: HTMLCanvasElement, live: LiveStroke | null, at?: MaskAt | null): HTMLCanvasElement {
-  if (!live || !live.mode.startsWith('mask')) return mask
-  const c = cloneCanvas(mask)
-  const x = ctx2d(c)
-  x.globalAlpha = live.opacity
-  x.globalCompositeOperation = live.mode === 'mask-hide' ? 'destination-out' : 'source-over'
-  x.drawImage(live.buffer, -(at?.x ?? 0), -(at?.y ?? 0))
+export function paintMask(mask: HTMLCanvasElement, buffer: HTMLCanvasElement, opacity: number, value: number, transform?: DOMMatrix, at?: MaskAt | null): HTMLCanvasElement {
+  const c = cloneCanvas(mask), x = ctx2d(c)
+  if (transform) x.setTransform(transform)
+  // Alpha masks represent visibility. Interpolate toward the foreground luminance.
+  x.globalAlpha = opacity; x.globalCompositeOperation = 'destination-out'
+  x.drawImage(buffer, -(at?.x ?? 0), -(at?.y ?? 0))
+  if (value > 0) {
+    x.globalAlpha = opacity * value; x.globalCompositeOperation = 'lighter'
+    x.drawImage(buffer, -(at?.x ?? 0), -(at?.y ?? 0))
+  }
   return c
+}
+
+function liveMask(mask: HTMLCanvasElement, live: LiveStroke | null, at?: MaskAt | null, transform?: DOMMatrix): HTMLCanvasElement {
+  if (!live || !live.mode.startsWith('mask')) return mask
+  return paintMask(mask, live.buffer, live.opacity, live.mode === 'mask-hide' ? 0 : live.maskValue ?? 1, transform, at)
 }
 
 // ─── Brush ─────────────────────────────────────────────────────────

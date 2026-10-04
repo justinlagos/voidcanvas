@@ -1,7 +1,6 @@
 'use client'
 
 import { useRef, useEffect, useCallback, useState } from 'react'
-import { motion } from 'framer-motion'
 import { useStore, fullStack, type StackItem } from '@/store/useStore'
 import { makeChannel, runStack } from '@/lib/effect-runner'
 import { FX_WORK, workSize } from '@/lib/effect-scale'
@@ -16,12 +15,16 @@ export function Canvas() {
   const wrapperRef = useRef<HTMLDivElement>(null)
 
   const {
-    originalImage, activeEffect, params, below, above, setIsProcessing,
+    originalImage, activeEffect, params, below, above, setIsProcessing, isProcessing,
     zoom, setZoom, showComparison, setShowComparison, comparisonPosition, setComparisonPosition,
   } = useStore()
 
   const [isDraggingSlider, setIsDraggingSlider] = useState(false)
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
+  const [renderError, setRenderError] = useState(false)
+  const [showBusy, setShowBusy] = useState(false)
+  const renderRef = useRef<() => void>(() => {})
+  const fullRevision = useRef(0)
   const [sourceSize, setSourceSize] = useState({ width: 0, height: 0 })
 
   // Rendering runs in a Worker (see effect-runner). Two channels: a quick low-res preview that keeps up with
@@ -33,11 +36,11 @@ export function Canvas() {
   const PREVIEW_MAX = 420
   const SLOW_MS = 120
 
-  const drawSource = (ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number) => { ctx.imageSmoothingQuality = 'high'; ctx.drawImage(img, 0, 0, w, h) }
+  const drawSource = (ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number) => { ctx.clearRect(0, 0, w, h); ctx.imageSmoothingQuality = 'high'; ctx.drawImage(img, 0, 0, w, h) }
   // The effects under the one being edited only change when the stack does, so their result is kept.
   const baseCache = useRef(new Map<string, { key: unknown[]; img: ImageData }>())
   const sourceWith = async (img: HTMLImageElement, w: number, h: number, list: StackItem[], k: number): Promise<ImageData> => {
-    const key = [img, w, h, list, k]
+    const key = [img, w, h, k, ...list]
     const slot = w + 'x' + h, c = baseCache.current.get(slot)
     if (c && c.key.length === key.length && c.key.every((v, i) => v === key[i])) return new ImageData(new Uint8ClampedArray(c.img.data), w, h)
     const work = document.createElement('canvas'); work.width = w; work.height = h
@@ -56,8 +59,10 @@ export function Canvas() {
     if (!canvas || !img) return
     const effect = activeEffect, p = params, b = below, a = above
     fullChan.current.request(async () => {
+      if (originalImageRef.current !== img || stale(effect, p, b, a)) return
       const ctx = canvas.getContext('2d', { willReadFrequently: true }); if (!ctx) return
       setIsProcessing(true)
+      setRenderError(false)
       try {
         const under = b.filter(x => x.effect !== 'none'), over = [...(effect === 'none' ? [] : [{ effect, params: p }]), ...a.filter(x => x.effect !== 'none')]
         if (!under.length && !over.length) { drawSource(ctx, img, canvas.width, canvas.height); lastFullMs.current = 0; return }
@@ -66,9 +71,10 @@ export function Canvas() {
         const { img: done } = over.length ? await runStack(base, over) : { img: base }
         lastFullMs.current = performance.now() - t0
         // Drop the result if the user has moved on.
-        if (stale(effect, p, b, a)) return
+        if (originalImageRef.current !== img || stale(effect, p, b, a)) return
         ctx.putImageData(done, 0, 0)
-      } finally { setIsProcessing(false) }
+        fullRevision.current++
+      } catch { if (originalImageRef.current === img && !stale(effect, p, b, a)) setRenderError(true) } finally { if (originalImageRef.current === img && !stale(effect, p, b, a)) setIsProcessing(false) }
     })
   }, [activeEffect, params, below, above, setIsProcessing]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -77,27 +83,43 @@ export function Canvas() {
     if (!canvas || !img || !fullStack({ activeEffect, params, below, above }, true).length) return
     const effect = activeEffect, p = params, b = below, a = above
     previewChan.current.request(async () => {
+      if (originalImageRef.current !== img || stale(effect, p, b, a)) return
       const ctx = canvas.getContext('2d', { willReadFrequently: true }); if (!ctx) return
-      const small = workSize(canvas.width, canvas.height, PREVIEW_MAX)
-      const k = Math.max(small.width, small.height) / Math.max(canvas.width, canvas.height)
-      const under = b.filter(x => x.effect !== 'none'), over = [...(effect === 'none' ? [] : [{ effect, params: p }]), ...a.filter(x => x.effect !== 'none')]
-      const base = await sourceWith(img, small.width, small.height, under, k)
-      const { img: done } = await runStack(base, over, k)
-      if (stale(effect, p, b, a)) return
-      const work = document.createElement('canvas'); work.width = small.width; work.height = small.height
-      work.getContext('2d')!.putImageData(done, 0, 0)
-      ctx.imageSmoothingQuality = 'high'; ctx.drawImage(work, 0, 0, canvas.width, canvas.height)
+      const revision = fullRevision.current
+      try {
+        const small = workSize(canvas.width, canvas.height, PREVIEW_MAX)
+        const k = Math.max(small.width, small.height) / Math.max(canvas.width, canvas.height)
+        const under = b.filter(x => x.effect !== 'none'), over = [...(effect === 'none' ? [] : [{ effect, params: p }]), ...a.filter(x => x.effect !== 'none')]
+        const base = await sourceWith(img, small.width, small.height, under, k)
+        const { img: done } = await runStack(base, over, k)
+        if (originalImageRef.current !== img || stale(effect, p, b, a)) return
+        const work = document.createElement('canvas'); work.width = small.width; work.height = small.height
+        work.getContext('2d')!.putImageData(done, 0, 0)
+        if (revision !== fullRevision.current) return
+        ctx.imageSmoothingQuality = 'high'; ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(work, 0, 0, canvas.width, canvas.height)
+      } catch { /* Keep the last successful frame; the full render reports failures. */ }
     })
   }, [activeEffect, params, below, above]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const render = useCallback(() => {
+    if (!originalImageRef.current) return
+    setIsProcessing(true)
     if (fullTimer.current) clearTimeout(fullTimer.current)
     if (lastFullMs.current > SLOW_MS) {
       // Slow effect: show a quick low-res version now, the real one once the sliders settle.
       renderPreview()
       fullTimer.current = setTimeout(renderFull, 280)
     } else renderFull()
-  }, [renderFull, renderPreview])
+  }, [renderFull, renderPreview, setIsProcessing])
+
+  renderRef.current = render
+
+  // Only show progress for perceptible waits, without covering the artwork.
+  useEffect(() => {
+    if (!isProcessing) { setShowBusy(false); return }
+    const timer = setTimeout(() => setShowBusy(true), 180)
+    return () => clearTimeout(timer)
+  }, [isProcessing])
 
   // Render original for comparison
   const renderOriginal = useCallback(() => {
@@ -123,8 +145,10 @@ export function Canvas() {
       originalImageRef.current = null
       return
     }
+    let cancelled = false
     const img = new Image()
     img.onload = () => {
+      if (cancelled) return
       const canvas = canvasRef.current
       const origCanvas = originalCanvasRef.current
       if (!canvas) return
@@ -137,17 +161,21 @@ export function Canvas() {
       setCanvasSize({ width, height })
       originalImageRef.current = img
       setZoom(fitZoom(width, height))
-      render()
+      // Paint the source immediately once on import. Effect changes never resize this canvas.
+      drawSource(canvas.getContext('2d')!, img, width, height)
+      renderRef.current()
       renderOriginal()
     }
+    img.onerror = () => { if (!cancelled) setRenderError(true) }
     img.src = originalImage
-  }, [originalImage, render, renderOriginal, fitZoom, setZoom])
+    return () => { cancelled = true; img.onload = null; img.onerror = null; if (fullTimer.current) clearTimeout(fullTimer.current) }
+  }, [originalImage, renderOriginal, fitZoom, setZoom])
 
   // Re-render on effect/param change
   useEffect(() => {
     if (animationRef.current) cancelAnimationFrame(animationRef.current)
     animationRef.current = requestAnimationFrame(render)
-    return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current) }
+    return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); if (fullTimer.current) clearTimeout(fullTimer.current) }
   }, [render])
 
   // Comparison slider: pointer events, so mouse, touch and pen all drag it. Position is relative to the image, not the scroll area.
@@ -183,7 +211,7 @@ export function Canvas() {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="relative flex-1 flex flex-col overflow-hidden">
       {/* Canvas toolbar */}
       <div className="vc-tap flex items-center justify-between px-4 py-2 border-b border-void-800/40">
         <div className="flex items-center gap-1">
@@ -200,6 +228,7 @@ export function Canvas() {
           </button>
         </div>
 
+
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-void-500 font-mono tabular-nums whitespace-nowrap" title={sourceSize.width > canvasSize.width ? `Preview at ${canvasSize.width} × ${canvasSize.height}. Downloads are ${sourceSize.width} × ${sourceSize.height}.` : undefined}>
             {sourceSize.width || canvasSize.width} × {sourceSize.height || canvasSize.height}
@@ -207,6 +236,7 @@ export function Canvas() {
           <div className="w-px h-4 bg-void-800" />
           <div className="flex items-center gap-1 bg-void-900 rounded-md p-0.5">
             <button
+              aria-label="Zoom out"
               onClick={() => setZoom(zoom <= 50 ? zoom - 10 : zoom - 25)}
               className="p-1 rounded hover:bg-void-800 text-void-400 hover:text-void-200 transition-colors"
             >
@@ -216,6 +246,7 @@ export function Canvas() {
               {zoom}%
             </span>
             <button
+              aria-label="Zoom in"
               onClick={() => setZoom(zoom < 50 ? zoom + 10 : zoom + 25)}
               className="p-1 rounded hover:bg-void-800 text-void-400 hover:text-void-200 transition-colors"
             >
@@ -238,6 +269,10 @@ export function Canvas() {
             </button>
           </div>
         </div>
+      </div>
+
+      <div role="status" aria-live="polite" className={`absolute bottom-3 left-3 z-10 rounded-md text-xs text-void-300 ${renderError || showBusy ? 'bg-void-950/95 border border-void-700 px-3 py-2' : ''}`}>
+        {renderError ? <button onClick={render} className="text-amber-300">Preview failed · Retry</button> : showBusy ? 'Updating preview…' : ''}
       </div>
 
       {/* Canvas area. The image box has real layout size, so it scrolls at any zoom, and margin:auto centres it only when it fits (no clipping at the top for tall images). */}

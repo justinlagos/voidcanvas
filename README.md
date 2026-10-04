@@ -25,6 +25,12 @@ npm run build && npm start
 
 Pushing to `master` deploys the site to Netlify at voidcanvas.app (voidcanvas.netlify.app redirects there). The desktop app is in `desktop/`; raising its version in `desktop/package.json` builds and publishes a release (`.github/workflows/desktop.yml`).
 
+## Effects workspace
+
+Choose an effect in the searchable library and adjust it beside the image. Desktop controls float over the workspace: drag the title to move them, collapse them to inspect the image, or reset their position. Arrow keys move a focused title handle, with Shift for larger steps. On phones, Browse effects and Adjust effect share a sheet below the image. Main parameters come first; optional finishing adjustments stay collapsed.
+
+The preview keeps its last frame during effect changes and slider drags. Changes preserve zoom, ignore outdated renders, and never reload the source image. Longer renders show a quiet status message; failed renders keep the image and offer Retry. The editor's Layer style / Blending options window can also be moved by its title, with live adjustments that preserve keyboard focus.
+
 ## Editor
 
 - Layers: image, text, shape, adjustment. Reorder by drag, rename, lock, hide, duplicate, merge down.

@@ -33,9 +33,9 @@ export function LayerStyleDialog({ onClose, focus }: { onClose: () => void; focu
   }
   const blendSel = (v: string, on: (b: any) => void) => <Select label="Blend mode" value={v} options={BLEND_MODES} onChange={on} />
   return (
-    <Modal track="layer-style" title="Layer style" onClose={cancel} wide preview>
+    <Modal track="layer-style" title="Layer style" onClose={cancel} wide preview movable>
       <div className="flex min-h-[420px]">
-        <ul className="w-52 shrink-0 p-2 border-r border-void-800/70 space-y-0.5">
+        <ul className="w-36 sm:w-44 shrink-0 p-2 border-r border-void-800/70 space-y-0.5">
           <li><button onClick={() => setSel('blend')} className={`w-full text-left px-3 h-9 rounded-lg text-[13px] ${sel === 'blend' ? 'bg-void-800 text-white' : 'text-void-300 hover:text-white'}`}>Blending options</button></li>
           {order.map(k => {
             const on = !!(st as any)[k]?.on
@@ -50,7 +50,7 @@ export function LayerStyleDialog({ onClose, focus }: { onClose: () => void; focu
           })}
           <li className="px-3 pt-2 text-[11px] text-void-600 leading-relaxed">Drag to change the order effects are drawn in.</li>
         </ul>
-        <div className="flex-1 p-5 space-y-3.5 overflow-y-auto max-h-[62vh]">
+        <div className="flex-1 min-w-0 p-3 sm:p-5 space-y-3.5 overflow-y-auto max-h-[62vh]">
           {sel === 'blend' && <>
             {blendSel(layer.blend, v => s.updateLayer(layer.id, { blend: v }))}
             <Slider label="Opacity" value={Math.round(layer.opacity * 100)} min={0} max={100} unit="%" onChange={v => s.updateLayer(layer.id, { opacity: v / 100 })} />

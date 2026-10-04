@@ -516,7 +516,7 @@ export function canvasMenu(under: string[]): MenuItem[] {
     ...pick,
     'edit.cut', 'edit.copy', 'edit.paste', 'edit.duplicate', 'layer.delete', '-',
     'style.copyAppearance', 'style.pasteAppearance', 'fx.copy', 'fx.pasteAdd', 'fx.pasteReplace', '-',
-    'layer.group', ...(inGroup ? ['layer.ungroup', 'layer.isolate'] : []), 'layer.clip',
+    'sel.layer', 'layer.group', ...(inGroup ? ['layer.ungroup', 'layer.isolate'] : []), 'layer.clip',
     { label: 'Arrange', items: ['layer.front', 'layer.up', 'layer.down', 'layer.back'] },
     ...(sel.length > 1 ? [{ label: 'Align', items: ['align.left', 'align.hcenter', 'align.right', '-', 'align.top', 'align.vcenter', 'align.bottom', '-', 'dist.h', 'dist.v'] } as MenuItem] : []),
     { label: 'Select same', items: ['sel.sameFill', 'sel.sameStroke', 'sel.sameFont', 'sel.sameKind', 'sel.sameStyle'] }, '-',

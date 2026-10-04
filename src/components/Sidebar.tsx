@@ -1,92 +1,34 @@
 'use client'
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Sliders, Layers } from 'lucide-react'
 import { EffectSelector } from './EffectSelector'
 import { ParamControls } from './ParamControls'
 import { useStore, fullStack } from '@/store/useStore'
 import { StackBar } from './StackBar'
+import { effects } from './effect-list'
 
-function CollapsibleSection({
-  title,
-  icon: Icon,
-  defaultOpen = true,
-  children,
-}: {
-  title: string
-  icon: React.ElementType
-  defaultOpen?: boolean
-  children: React.ReactNode
-}) {
-  const [isOpen, setIsOpen] = useState(defaultOpen)
-
-  return (
-    <div className="border-b border-void-800/60 last:border-b-0">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full px-4 py-3 hover:bg-void-900/50 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <Icon size={14} className="text-void-400" />
-          <span className="text-xs font-semibold text-void-300 uppercase tracking-wider">
-            {title}
-          </span>
-        </div>
-        <motion.div
-          animate={{ rotate: isOpen ? 0 : -90 }}
-          transition={{ duration: 0.15 }}
-        >
-          <ChevronDown size={14} className="text-void-500" />
-        </motion.div>
-      </button>
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-            className="overflow-hidden"
-          >
-            <div className="px-4 pb-4">
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
-export function Sidebar() {
+export function Sidebar({ onPick }: { onPick?: () => void }) {
   const { activeEffect } = useStore()
   const count = useStore(s => fullStack(s, true).length)
-
+  const [tab, setTab] = useState<'browse' | 'adjust'>('browse')
+  const choose = () => { if (useStore.getState().activeEffect !== 'none') setTab('adjust'); onPick?.() }
   return (
-    <motion.aside
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      data-effects-sidebar
-      // Phone and portrait tablet: a panel under the canvas with its own scroll. lg and up: the 320 px column beside it.
-      className="vc-tap w-full h-[42%] min-h-[220px] border-t lg:w-80 lg:h-auto lg:min-h-0 lg:border-t-0 lg:border-l border-void-800/60 bg-void-950 overflow-y-auto flex flex-col shrink-0"
-    >
-      <StackBar />
-
-      <CollapsibleSection title="Effects" icon={Layers} defaultOpen={true}>
-        <EffectSelector />
-      </CollapsibleSection>
-
-      <CollapsibleSection title="Parameters" icon={Sliders} defaultOpen={true}>
-        <ParamControls />
-      </CollapsibleSection>
-
-      <div className="mt-auto p-4 border-t border-void-800/40">
-        <div className="flex items-center justify-between text-[11px] text-void-600">
-          <span>{count > 1 ? `${count} effects` : `Active: ${activeEffect === 'none' ? 'None' : activeEffect}`}</span>
-          <span>Tip: Changes apply live</span>
-        </div>
+    <aside data-effects-sidebar className="vc-tap w-full h-[42%] min-h-[220px] border-t lg:w-80 lg:h-auto lg:min-h-0 lg:border-t-0 lg:border-l border-void-800/60 bg-void-950 flex flex-col shrink-0 overflow-hidden">
+      <div className="shrink-0 max-h-[32%] overflow-auto"><StackBar onPick={choose} /></div>
+      <div className="lg:hidden flex shrink-0 border-b border-void-800" role="tablist" aria-label="Effects workspace">
+        {(['browse', 'adjust'] as const).map(id => <button key={id} id={`fx-tab-${id}`} role="tab" aria-controls={`fx-${id}`} aria-selected={tab === id}
+          onClick={() => setTab(id)} className={`flex-1 px-3 py-3 text-sm ${tab === id ? 'text-white border-b-2 border-white' : 'text-void-400'}`}>{id === 'browse' ? 'Browse effects' : 'Adjust effect'}</button>)}
       </div>
-    </motion.aside>
+      <div id="fx-browse" role="tabpanel" aria-labelledby="fx-tab-browse" className={`flex-1 min-h-0 overflow-y-auto overscroll-contain ${tab === 'browse' ? '' : 'hidden'} lg:block`}>
+        <EffectSelector onPick={choose} />
+      </div>
+      <div id="fx-adjust" role="tabpanel" aria-labelledby="fx-tab-adjust" className={`flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 lg:hidden ${tab === 'adjust' ? '' : 'hidden'}`}>
+        <h2 className="text-sm font-medium text-white mb-3">{effects.find(e => e.id === activeEffect)?.name ?? 'Choose an effect'}</h2>
+        <ParamControls />
+      </div>
+      <div className="hidden lg:flex shrink-0 items-center justify-between p-3 border-t border-void-800 text-xs text-void-400">
+        <span>{count} {count === 1 ? 'effect' : 'effects'}</span><span>Changes apply live</span>
+      </div>
+    </aside>
   )
 }

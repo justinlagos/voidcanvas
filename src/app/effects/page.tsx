@@ -5,12 +5,14 @@ import { MobileActionBar } from '@/components/Toolbar'
 import { Canvas } from '@/components/Canvas'
 import { Sidebar } from '@/components/Sidebar'
 import { Upload } from '@/components/Upload'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { EffectsInspector } from '@/components/EffectsInspector'
 import { useStore } from '@/store/useStore'
 import { effects } from '@/components/effect-list'
 
 export default function EffectsPage() {
-  const { originalImage } = useStore()
+  const { originalImage, activeEffect } = useStore()
+  const [controlsOpen, setControlsOpen] = useState(true)
 
   // A Learn guide can open Effects on a particular effect: /effects?effect=duotone. The photo is still yours to drop in.
   useEffect(() => {
@@ -28,8 +30,11 @@ export default function EffectsPage() {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {originalImage ? (
           <>
-            <Canvas />
-            <Sidebar />
+            <div className="relative flex flex-col flex-1 min-h-0 min-w-0">
+              <Canvas />
+              {activeEffect !== 'none' && <EffectsInspector open={controlsOpen} setOpen={setControlsOpen} />}
+            </div>
+            <Sidebar onPick={() => setControlsOpen(true)} />
           </>
         ) : (
           <Upload />

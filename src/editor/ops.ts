@@ -1,3 +1,4 @@
+import { applyPaint } from './painting'
 import { cloneCanvas, ctx2d, drawLayerContent, fullMaskSized, keepTextAnchor, layerMatrix, layerSize, makeCanvas, maskBounds, paintPathOps, pathPolyline, renderDoc, tracePath, uid, vectorMaskCanvas } from './engine'
 import { base, isShown, layerFxMasksOnPage, mapDocMasks, maskOnPage, nextRev, shiftMask, useEditor } from './store'
 import { morph } from './styles'
@@ -275,7 +276,7 @@ export function strokeSelection(color: string, width: number, position: 'inside'
   const cut = position === 'outside' ? sel : morph(sel, position === 'inside' ? -width : -width / 2)
   const r = ctx2d(ring); r.globalCompositeOperation = 'destination-out'; r.drawImage(cut, 0, 0)
   r.globalCompositeOperation = 'source-in'; r.fillStyle = color; r.fillRect(0, 0, ring.width, ring.height)
-  const c = cloneCanvas(l.canvas); ctx2d(c).drawImage(ring, 0, 0)
+  const c = applyPaint(l.canvas, ring, { lockAlpha: l.lockAlpha })
   s.updateLayer(l.id, { canvas: c }, 'Stroke')
 }
 
@@ -318,7 +319,7 @@ export function fillPath(color: string) {
   const l = s.ensurePaintable(); if (!l || l.type !== 'raster') return
   const m = pathMask(p.subpaths, s.doc.width, s.doc.height), x = ctx2d(m)
   x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, m.width, m.height)
-  const c = cloneCanvas(l.canvas); ctx2d(c).drawImage(m, 0, 0)
+  const c = applyPaint(l.canvas, m, { selection: s.selection, lockAlpha: l.lockAlpha })
   s.updateLayer(l.id, { canvas: c }, 'Fill path')
 }
 
@@ -329,7 +330,7 @@ export function fillPath(color: string) {
 export function strokePath(color: string, width: number, taper = false) {
   const s = st(); const p = needPath(); if (!p || !s.doc) return
   const l = s.ensurePaintable(); if (!l || l.type !== 'raster') return
-  const c = cloneCanvas(l.canvas), x = ctx2d(c)
+  const paint = makeCanvas(s.doc.width, s.doc.height), x = ctx2d(paint)
   x.strokeStyle = color; x.fillStyle = color; x.lineWidth = width; x.lineCap = 'round'; x.lineJoin = 'round'
   if (!taper) { x.beginPath(); tracePath(x, p.subpaths); x.stroke() }
   else {
@@ -340,7 +341,7 @@ export function strokePath(color: string, width: number, taper = false) {
       }
     }
   }
-  s.updateLayer(l.id, { canvas: c }, taper ? 'Stroke path (tapered)' : 'Stroke path')
+  s.updateLayer(l.id, { canvas: applyPaint(l.canvas, paint, { selection: s.selection, lockAlpha: l.lockAlpha }) }, taper ? 'Stroke path (tapered)' : 'Stroke path')
 }
 
 /** Turn the active path into a vector shape layer filled with the main colour. */
