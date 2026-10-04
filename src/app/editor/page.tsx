@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import { EditorShell } from '@/editor/components/EditorShell'
+import { EditorReuseShell } from '@/editor/components/EditorReuseShell'
 
 export const metadata: Metadata = { title: 'Editor · Voidcanvas', description: 'Layers, masks, retouching and type in your browser.' }
 
-export default function EditorPage() { return <EditorShell /> }
+export default function EditorPage() { return <EditorReuseShell /> }
