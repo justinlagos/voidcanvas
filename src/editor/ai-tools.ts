@@ -171,7 +171,7 @@ export async function removeObject(hole: HTMLCanvasElement, layerId?: string, se
   const src = l.canvas
   let out: HTMLCanvasElement | null = null
   if (consent('lama')) {
-    try { out = await inpaint(src, hole) } catch (e) { console.error(e); s().notify('The AI remover could not start in this browser, so a simpler fill was used.') }
+    try { const aiOut = await inpaint(src, hole); out=aiOut?restrictResult(src,aiOut,hole):null } catch (e) { console.error(e); s().notify('The AI remover could not start in this browser, so a simpler fill was used.') }
     finally { status(null) }
   }
   if (!out) out = healRegion(src, hole)
@@ -211,4 +211,16 @@ export async function clearModelCache() {
   try { await caches.delete('vc-models') } catch { /* ignore */ }
   try { const keys = await caches.keys(); for (const k of keys) if (/transformers/i.test(k)) await caches.delete(k) } catch { /* ignore */ }
   useUi.getState().setPref('aiConsent', {})
+}
+
+/** Repair a captured sample; caller guards asynchronous application and emits a separate patch. */
+export async function repairSource(src: HTMLCanvasElement, hole: HTMLCanvasElement, excluded: HTMLCanvasElement) {
+  const source={canvas:src} as import('./retouch').RetouchSource
+  let out = await import('./retouch').then(m=>m.repairAsync(source,hole,excluded))
+  if (!out && consent('lama')) {
+    try { const aiOut = await inpaint(src, hole); out=aiOut?restrictResult(src,aiOut,hole):null } catch { s().notify('The AI remover could not start. No changes were applied.') } finally { status(null) }
+  }
+  if(!out)return null
+  // AI fills can extend past the hole; keep its exact captured boundary.
+  return out
 }

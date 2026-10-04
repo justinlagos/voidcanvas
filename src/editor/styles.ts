@@ -1,3 +1,4 @@
+import { paintPattern } from './patterns'
 import { paintGradient } from './gradient'
 import type { BevelStyle, GlowStyle, GradientOverlayStyle, Layer, LayerStyles, ShadowStyle, StrokeStyle, StyleKind } from './types'
 
@@ -7,9 +8,9 @@ import type { BevelStyle, GlowStyle, GradientOverlayStyle, Layer, LayerStyles, S
 
 export const STYLE_LABELS: Record<StyleKind, string> = {
   dropShadow: 'Drop shadow', innerShadow: 'Inner shadow', outerGlow: 'Outer glow', innerGlow: 'Inner glow',
-  stroke: 'Stroke', colorOverlay: 'Colour overlay', gradientOverlay: 'Gradient overlay', bevel: 'Bevel and emboss',
+  stroke: 'Stroke', colorOverlay: 'Colour overlay', gradientOverlay: 'Gradient overlay', bevel: 'Bevel and emboss', patternOverlay: 'Pattern overlay',
 }
-export const STYLE_KINDS: StyleKind[] = ['dropShadow', 'outerGlow', 'bevel', 'innerShadow', 'innerGlow', 'colorOverlay', 'gradientOverlay', 'stroke']
+export const STYLE_KINDS: StyleKind[] = ['dropShadow', 'outerGlow', 'bevel', 'innerShadow', 'innerGlow', 'colorOverlay', 'gradientOverlay', 'patternOverlay', 'stroke']
 const EXTERIOR: StyleKind[] = ['dropShadow', 'outerGlow']
 
 export function defaultStyle(kind: StyleKind): any {
@@ -21,6 +22,7 @@ export function defaultStyle(kind: StyleKind): any {
     case 'stroke': return { on: true, opacity: 1, blend: 'source-over', color: '#000000', size: 4, position: 'outside' } as StrokeStyle
     case 'colorOverlay': return { on: true, opacity: 1, blend: 'source-over', color: '#8b7cff' }
     case 'gradientOverlay': return { on: true, opacity: 1, blend: 'source-over', from: '#000000', to: '#ffffff', angle: 90, scale: 100 } as GradientOverlayStyle
+    case 'patternOverlay': return { on:true,opacity:1,blend:'source-over',pattern:'lines',scale:100,angle:0,offsetX:0,offsetY:0 }
     case 'bevel': return { on: true, opacity: 0.75, blend: 'source-over', size: 8, depth: 100, angle: 120, highlight: '#ffffff', shadow: '#000000', soften: 0 } as BevelStyle
   }
 }
@@ -114,7 +116,7 @@ interface Pass { canvas: HTMLCanvasElement; blend: GlobalCompositeOperation; alp
 export function drawStyled(acc: CanvasRenderingContext2D, content: HTMLCanvasElement, l: Layer, s: number) {
   const st = l.styles!
   const sil = silhouette(content)
-  const order = st.order?.length ? st.order : STYLE_KINDS
+  const order = st.order?.length ? [...st.order,...STYLE_KINDS.filter(k=>!st.order.includes(k))] : STYLE_KINDS
   const below: Pass[] = []
   const fill = l.fillOpacity ?? 1
 
@@ -144,6 +146,9 @@ export function drawStyled(acc: CanvasRenderingContext2D, content: HTMLCanvasEle
     const e: any = (st as any)[k]
     if (!e?.on || EXTERIOR.includes(k)) continue
     if (k === 'colorOverlay') put(tint(sil, e.color), e.blend, e.opacity)
+    else if (k === 'patternOverlay') {
+      const c=mk(content.width,content.height);paintPattern(cx(c),e,c.width,c.height,s);put(clipTo(c,sil),e.blend,e.opacity)
+    }
     else if (k === 'gradientOverlay') {
       const g = e as GradientOverlayStyle
       const b = bounds(sil)

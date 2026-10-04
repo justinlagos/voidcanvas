@@ -1,3 +1,4 @@
+import { healPixels } from './healing'
 import { directionalBlur } from './blur'
 import { applyEffect } from '@/lib/effects'
 import { FX_WORK, scaleParams } from '@/lib/effect-scale'
@@ -188,7 +189,7 @@ export function rasterizeToDoc(l: RasterLayer, doc: Doc): Pick<RasterLayer, 'can
     ctx.drawImage(src, 0, 0)
     return c
   }
-  return { canvas: bake(l.canvas), mask: l.mask ? bake(l.mask) : null, x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
+  return { canvas: bake(l.canvas), mask: l.mask ? bake(localLayerMask(l,doc,l.mask)) : null, x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
 }
 
 /** True when any group around the layer, at any depth, is hidden. */
@@ -1093,7 +1094,7 @@ function renderDocInner(target: HTMLCanvasElement, doc: Doc, layers: Layer[], op
         const maskSrc = l.mask && l.maskEnabled ? l.mask : null
         if (maskSrc || (live && live.mode.startsWith('mask'))) {
           t.globalCompositeOperation = 'destination-in'
-          t.drawImage(liveMask(maskSrc ?? fullMaskSized(w, h), live, null, m.inverse()), 0, 0)
+          t.drawImage(localLayerMask(l, doc, liveMask(maskSrc ?? fullMaskSized(w, h), live, null, layerMaskMatrix(l,doc).inverse())), 0, 0)
         }
         if (hasVectorMask(l)) { t.globalCompositeOperation = 'destination-in'; t.drawImage(vectorMaskCanvas(l, w, h), 0, 0); t.globalCompositeOperation = 'source-over' }
         if (clipBaseCanvas || styled || fx) {
@@ -1162,7 +1163,7 @@ function renderLayerAlpha(doc: Doc, layer: Layer, s: number, rg: RenderOptions['
   const tmp = makeCanvas(w, h); const t = ctx2d(tmp)
   drawLayerContent(t, layer)
   const maskSrc = layer.mask && layer.maskEnabled ? layer.mask : null
-  if (maskSrc) { t.globalCompositeOperation = 'destination-in'; t.drawImage(maskSrc, 0, 0) }
+  if (maskSrc) { t.globalCompositeOperation = 'destination-in'; t.drawImage(localLayerMask(layer,doc,maskSrc), 0, 0) }
   if (hasVectorMask(layer)) { t.globalCompositeOperation = 'destination-in'; t.drawImage(vectorMaskCanvas(layer, w, h), 0, 0) }
   x.drawImage(tmp, 0, 0)
   x.restore()
@@ -1284,78 +1285,16 @@ export function maskBounds(mask: HTMLCanvasElement): Rect | null {
 }
 
 // ─── Heal: patch-based fill ────────────────────────────────────────
-// Finds the nearby patch whose surroundings best match the hole's surroundings,
-// colour-corrects it and blends it in with a feathered edge.
+// Finds a clean translation whose context and texture phase match the selected hole.
+// Selected donors are excluded; exact mask coverage is retained.
 
-export function healRegion(layerCanvas: HTMLCanvasElement, hole: HTMLCanvasElement): HTMLCanvasElement | null {
-  const b = maskBounds(hole)
-  if (!b) return null
-  const W = layerCanvas.width, H = layerCanvas.height
-  const size = Math.max(b.w, b.h)
-  const pad = Math.max(6, Math.round(size * 0.35))
-  const R: Rect = { x: Math.max(0, b.x - pad), y: Math.max(0, b.y - pad), w: 0, h: 0 }
-  R.w = Math.min(W, b.x + b.w + pad) - R.x
-  R.h = Math.min(H, b.y + b.h + pad) - R.y
-  if (R.w * R.h > 1_400_000) return null
-
-  const src = ctx2d(layerCanvas, true).getImageData(0, 0, W, H).data
-  const hm = ctx2d(hole, true).getImageData(R.x, R.y, R.w, R.h).data
-  const step = Math.max(1, Math.round(size / 60))
-
-  let best: { dx: number; dy: number; score: number } | null = null
-  const dists = [1.15, 1.8, 2.6, 3.6]
-  for (const k of dists) for (let a = 0; a < 12; a++) {
-    const ang = (a / 12) * Math.PI * 2
-    const dx = Math.round(Math.cos(ang) * (size + pad) * k), dy = Math.round(Math.sin(ang) * (size + pad) * k)
-    if (R.x + dx < 0 || R.y + dy < 0 || R.x + R.w + dx > W || R.y + R.h + dy > H) continue
-    let sum = 0, n = 0, bad = false
-    for (let y = 0; y < R.h && !bad; y += step) for (let x = 0; x < R.w; x += step) {
-      if (hm[(y * R.w + x) * 4 + 3] > 8) continue
-      const t = ((R.y + y) * W + R.x + x) * 4, s = ((R.y + y + dy) * W + R.x + x + dx) * 4
-      if (src[s + 3] < 200 && src[t + 3] >= 200) { bad = true; break }
-      const dr = src[t] - src[s], dg = src[t + 1] - src[s + 1], db = src[t + 2] - src[s + 2]
-      sum += dr * dr + dg * dg + db * db; n++
-    }
-    if (bad || !n) continue
-    const score = sum / n + k * 12
-    if (!best || score < best.score) best = { dx, dy, score }
-  }
-  if (!best) return null
-
-  // Mean colour difference over the ring.
-  const mean = [0, 0, 0]; let n = 0
-  for (let y = 0; y < R.h; y += step) for (let x = 0; x < R.w; x += step) {
-    if (hm[(y * R.w + x) * 4 + 3] > 8) continue
-    const t = ((R.y + y) * W + R.x + x) * 4, s = ((R.y + y + best.dy) * W + R.x + x + best.dx) * 4
-    mean[0] += src[t] - src[s]; mean[1] += src[t + 1] - src[s + 1]; mean[2] += src[t + 2] - src[s + 2]; n++
-  }
-  if (n) { mean[0] /= n; mean[1] /= n; mean[2] /= n }
-
-  const patch = makeCanvas(R.w, R.h)
-  const pctx = ctx2d(patch, true)
-  const pimg = pctx.createImageData(R.w, R.h)
-  for (let y = 0; y < R.h; y++) for (let x = 0; x < R.w; x++) {
-    const s = ((R.y + y + best.dy) * W + R.x + x + best.dx) * 4, o = (y * R.w + x) * 4
-    pimg.data[o] = clamp255(src[s] + mean[0]); pimg.data[o + 1] = clamp255(src[s + 1] + mean[1])
-    pimg.data[o + 2] = clamp255(src[s + 2] + mean[2]); pimg.data[o + 3] = src[s + 3]
-  }
-  pctx.putImageData(pimg, 0, 0)
-
-  // Feathered version of the hole: grow it slightly, then blur.
-  const feather = makeCanvas(R.w, R.h)
-  const fctx = ctx2d(feather, true)
-  const grow = Math.max(1, Math.round(pad * 0.25))
-  for (let a = 0; a < 8; a++) fctx.drawImage(hole, -R.x + Math.cos(a * Math.PI / 4) * grow, -R.y + Math.sin(a * Math.PI / 4) * grow)
-  fctx.drawImage(hole, -R.x, -R.y)
-  const fimg = fctx.getImageData(0, 0, R.w, R.h)
-  boxBlur(fimg, Math.max(1, pad * 0.22))
-  fctx.putImageData(fimg, 0, 0)
-
-  pctx.globalCompositeOperation = 'destination-in'
-  pctx.drawImage(feather, 0, 0)
-
-  const out = cloneCanvas(layerCanvas)
-  ctx2d(out).drawImage(patch, R.x, R.y)
+export function healRegion(layerCanvas: HTMLCanvasElement, hole: HTMLCanvasElement, excluded = hole): HTMLCanvasElement | null {
+  if (layerCanvas.width !== hole.width || layerCanvas.height !== hole.height) return null
+  const w = layerCanvas.width, h = layerCanvas.height
+  const src = ctx2d(layerCanvas, true).getImageData(0, 0, w, h)
+  const result = healPixels(src.data, ctx2d(hole, true).getImageData(0, 0, w, h).data, ctx2d(excluded, true).getImageData(0, 0, w, h).data, w, h)
+  if (!result) return null
+  const out = makeCanvas(w, h), x = ctx2d(out); src.data.set(result); x.putImageData(src, 0, 0)
   return out
 }
 
@@ -1500,3 +1439,11 @@ export function vectorMaskCanvas(l: Layer, w: number, h: number): HTMLCanvasElem
   return out
 }
 export const hasVectorMask = (l: Layer) => !!(l.vmask && l.vmask.enabled && l.vmask.subpaths.length)
+
+/** Frozen document transform for an unlinked mask, otherwise the host's live transform. */
+export function layerMaskMatrix(l: Layer, doc: Doc): DOMMatrix { return l.maskLinked === false && l.maskMatrix?.length === 6 ? new DOMMatrix(l.maskMatrix) : layerMatrix(l,doc) }
+function localLayerMask(l: Layer, doc: Doc, mask: HTMLCanvasElement) {
+  if(l.maskLinked!==false || !l.maskMatrix)return mask
+  const {w,h}=layerSize(l,doc),c=makeCanvas(w,h),x=ctx2d(c)
+  x.setTransform(layerMatrix(l,doc).inverse().multiply(layerMaskMatrix(l,doc)));x.drawImage(mask,0,0);return c
+}

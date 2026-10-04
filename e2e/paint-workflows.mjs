@@ -109,9 +109,9 @@ for (const tool of ['heal', 'remove']) {
     window.__paintBefore = Array.from(x.getImageData(0, 0, 400, 400).data)
     window.confirm = () => false // Exercise the existing local patch fallback without downloading a model.
   }, tool)
-  await dab(105, 150); await p.waitForTimeout(150)
-  const changes = await E(() => {
-    const s = window.__voidEditor.getState(), now = s.active().canvas.getContext('2d').getImageData(0, 0, 400, 400).data, sel = s.selection.getContext('2d').getImageData(0, 0, 400, 400).data
+  await dab(105, 150); await p.waitForFunction(()=>window.__voidEditor.getState().layers.length===2)
+  const changes = await E(async () => {
+    const s = window.__voidEditor.getState(), now = await window.__vcPixels({x:0,y:0,w:400,h:400}), sel = s.selection.getContext('2d').getImageData(0, 0, 400, 400).data
     let inside = 0, outside = 0
     for (let i = 0; i < now.length; i += 4) if (now[i] !== window.__paintBefore[i] || now[i + 1] !== window.__paintBefore[i + 1] || now[i + 2] !== window.__paintBefore[i + 2]) { if (sel[i + 3]) inside++; else outside++ }
     return { inside, outside }

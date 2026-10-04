@@ -40,3 +40,8 @@ e2e/.out
 *.bundle
 *.patch
 research/**/.tmp/
+
+# LittleCMS runtime copied from the pinned dependency at install time
+/public/colour/lcms.js
+/public/colour/lcms.wasm
+/public/colour/LICENSE.md

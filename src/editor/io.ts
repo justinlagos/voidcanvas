@@ -633,6 +633,12 @@ export async function storeDesign(doc: Doc, layers: Layer[], groups: Group[], sw
     const l = l0.effects?.some(e => e.mask) ? ({ ...l0, effects: await packFx(l0.effects, l0.id) } as Layer) : l0
     const { mask, ...rest } = l as any
     if (mask) blobs[l.id + ':mask'] = await encodePng(mask)
+    if(l.type==='raster' && l.liquify){blobs[l.id+':liquify']=await encodePng(l.liquify.source);rest.liquify={strokes:l.liquify.strokes}}
+    if (l.type === 'raster' && l.smart) {
+      blobs[l.id + ':smart'] = l.smart.contents
+      if (l.smart.original) blobs[l.id + ':original'] = l.smart.original
+      rest.smart = { ...l.smart, contents: undefined, original: undefined }
+    }
     if (l.type === 'raster') { blobs[l.id] = await encodePng(l.canvas); delete rest.canvas }
     return { ...rest, hasMask: !!mask }
   }))
@@ -671,7 +677,12 @@ export async function restoreStored(p: StoredProject): Promise<{ doc: Doc; layer
   const layers: Layer[] = await Promise.all(p.layers.map(async m => {
     const { hasMask, ...rest } = m
     const l: any = { ...rest, rev: nextRev(), mask: hasMask && p.blobs[m.id + ':mask'] ? await fromPng(p.blobs[m.id + ':mask']) : null }
+    if(m.liquify && p.blobs[m.id+':liquify'])l.liquify={...m.liquify,source:await fromPng(p.blobs[m.id+':liquify'])}
+    else if(m.liquify)delete l.liquify
+    if (m.smart && p.blobs[m.id + ':smart']) l.smart = { ...m.smart, contents: p.blobs[m.id + ':smart'], original: p.blobs[m.id + ':original'] }
+    else if (m.smart) delete l.smart
     if (m.type === 'raster') l.canvas = p.blobs[m.id] ? await fromPng(p.blobs[m.id]) : makeCanvas(1, 1)
+    if(l.styles?.patternOverlay?.asset) await import('./patterns').then(x=>x.preparePattern(l.styles.patternOverlay.asset))
     return l as Layer
   }))
   const doc = await unpackDoc(p.doc, async k => (p.blobs[k] ? fromPng(p.blobs[k]) : null))

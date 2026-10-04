@@ -65,17 +65,20 @@ Next to build:
 - One-at-a-time contextual reuse suggestions that can be dismissed permanently.
 - Brand-system colour roles and type-in-use documentation from the 26 Sept audit.
 
-### 2. Professional nondestructive editing gaps
+### 2. Professional nondestructive editing workflows
 
-From the 4 October designer-workflow audit:
+Implemented in PR #8; pending merge to `master`:
 
-- Smart objects / embedded editable sources, explicit rasterisation, replace-content and nested editing.
-- Dedicated Draw Inside mode with a visible host and exit control.
-- Textured brush-tip and preset system: tip assets, spacing, angle, roundness and saved presets.
-- Non-destructive healing/removal source modes and separate retouch output.
-- Mask link/unlink and explicit resize policy when host geometry changes.
-- Pattern overlays with transform controls and reliable PSD import/render parity.
-- Liquify-class reversible deformation workflow.
+- Embedded editable smart sources, nested source tabs, replace content and explicit rasterisation.
+- Draw Inside with a visible host and inherited live clipping.
+- Textured/custom brush tips and saved presets with spacing, angle and roundness.
+- Selected-area repair preview, three sampling modes and separate retouch patches.
+- Mask link/unlink, independent placement and fixed/scale geometry policies.
+- Pattern assets and embedded PSD pattern import.
+- Reversible Liquify with retained source and Apply/Cancel.
+- User-ICC soft proof and verified CMYK TIFF export; editing remains RGB.
+
+See `../DESIGNER-PRODUCTION-WORKFLOWS.md` for entry points, validation and practical limits. Reviews at three experience levels are simulated, not human usability studies.
 
 ### 3. Effects follow-ups
 
@@ -94,12 +97,12 @@ Still a separate engineering track:
 
 - WebGL/tiled compositor for very large documents beyond the comfortable Canvas 2D range.
 - OPFS-backed scratch/history strategy if needed by the tiled engine.
-- CMYK/soft-proof colour management and verified print export.
+- Native CMYK editing and certified print formats beyond the ICC proof/CMYK TIFF export in PR #8.
 - Real-GPU browser validation for the WebGPU any-subject background-removal path.
 
 ### 5. Import/export gaps
 
-- Smart-object import currently falls back to pixels until the smart-object model exists.
+- PR #8 retains embedded originals and opens supported sources for editing. Unsupported source formats retain a cached editable source and are reported; complex placed PSD updates preserve bounds rather than original warp parameters.
 - Layered PSD export is still not shipped.
 - SVG export has shipped in Phase 6, so older README text saying there is no SVG export is stale and should not be used as current status.
 
@@ -110,18 +113,17 @@ Keep this outside the current implementation sequence until deliberately reactiv
 ## Branch housekeeping
 
 - `master` is the deployment source of truth.
-- `phase7-reuse-foundation` was merged through PR #10 on 4 October 2026. Do not treat that branch as pending work.
-- `effects-ux-workspace` was merged through PR #7 on 4 October 2026.
-- `effects-controls-depth` was merged through PR #6; its apparent divergence is a consequence of merge/squash history, not missing product work.
+- `phase7-reuse-foundation` was merged through PR #10 on 4 October 2026.
+- The original `effects-ux-workspace` changes were merged through PR #7. This branch now carries PR #8 designer workflows.
+- `effects-controls-depth` was merged through PR #6; its divergence follows the squash history.
 - `campaign/make-something` is an older experimental branch from 25 September and is far behind current `master`; do not merge it wholesale. Any useful campaign mechanics should be re-evaluated against the current codebase and selectively reimplemented.
 - Old feature branches should be considered historical unless a current issue or PR explicitly revives them.
 
 ## Next execution order
 
 1. Phase 7B: wider reusable library, `used in` relationships and campaign shared tokens.
-2. Smart objects / embedded editable sources.
-3. Brush presets + Draw Inside.
-4. Gradient handles/presets and remaining Effects UX follow-ups.
-5. Large-document engine and colour-management work as separate infrastructure projects.
+2. Review and merge PR #8 for embedded smart sources, brush presets, Draw Inside and the other designer workflows.
+3. Gradient handles/presets and remaining Effects UX follow-ups.
+4. Large-document engine and colour-management work as separate infrastructure projects.
 
 Every new capability should ship with migration/persistence tests, undo/redo coverage where relevant, save/reload coverage, canvas/export parity where it affects rendering, phone reachability and Learn documentation.
