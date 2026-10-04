@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Check, ChevronRight, Download, Menu as MenuIcon, Plus, Redo2, Search, Undo2 } from 'lucide-react'
+import { Check, ChevronRight, Download, Library, Menu as MenuIcon, Plus, Redo2, Search, Undo2 } from 'lucide-react'
 import { MENUS, buildActions, keyFor, prettyKey, resolveAction, type Action, type MenuItem } from '../actions'
 import { useEditor } from '../store'
 import { Button, IconButton, focusRing } from './ui'
@@ -192,6 +192,8 @@ export function MenuBar({ onExport, onAdd, onSearch }: { onExport: () => void; o
           <IconButton label="Redo" shortcut={prettyKey('Ctrl+Shift+Z')} disabled={!canRedo} onClick={s.redo} tipSide="bottom"><Redo2 size={16} /></IconButton>
           <button onClick={onSearch} title="Search every action" className={`hidden xl:flex items-center gap-2 h-8 ml-1 pl-2.5 pr-2 rounded-lg bg-surface-sunken border border-white/[0.06] text-[12.5px] text-void-400 hover:text-white ${focusRing}`}><Search size={13} />Search<kbd className="ml-1 text-[10.5px] px-1.5 py-0.5 rounded bg-void-800 text-void-300">{prettyKey('Ctrl+K')}</kbd></button>
           <IconButton label="Search every action" shortcut={prettyKey('Ctrl+K')} onClick={onSearch} className="xl:hidden" tipSide="bottom"><Search size={16} /></IconButton>
+          <Button onClick={() => window.dispatchEvent(new Event('vc:reuse'))} className="!h-8 !px-2.5 hidden lg:!inline-flex"><Library size={15} /><span>Reuse</span></Button>
+          <IconButton label="Reuse library" shortcut={prettyKey('Alt+Shift+L')} onClick={() => window.dispatchEvent(new Event('vc:reuse'))} className="lg:hidden" tipSide="bottom"><Library size={16} /></IconButton>
           <Button onClick={onAdd} className="!h-8 !bg-accent !text-white hover:!bg-[#9a8dff] !px-2.5 lg:!px-3 ml-1"><Plus size={15} /><span className="hidden lg:inline">Add</span><span className="sr-only lg:hidden">Add</span></Button>
           <Button primary onClick={onExport} className="!h-8 !px-2.5 lg:!px-3"><Download size={15} /><span className="hidden lg:inline">Export</span><span className="sr-only lg:hidden">Export</span></Button>
         </div>

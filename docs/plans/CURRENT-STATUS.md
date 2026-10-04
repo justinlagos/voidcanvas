@@ -4,153 +4,141 @@ Updated: 4 October 2026
 
 This file is the authoritative status summary for active product work. Older plan files remain useful as historical specifications, but their build-status tables may be stale.
 
-## Recovered development-session note
+The AI connector / MCP concept was explicitly removed from the current implementation sequence on 28 September. It remains a separate future product track and is not part of Phase 7.
 
-A Claude development session from late September / early October was recovered on 4 October. It confirms the shipped sequence below and that the session stopped immediately after the post-Phase-6 mobile/text repair batch, just as Phase 7 reuse work was beginning.
-
-The AI connector / MCP concept is strategically interesting, but it was explicitly removed from this implementation plan by Justin on 28 September. It is **not** part of the current Phase 7 build. Treat it as a separate future product track rather than mixing it into editor/reuse execution.
-
-## Workflow, reliability and effect scope plan
+## Workflow plan
 
 | Phase | Status | Shipped evidence |
 |---|---|---|
-| 0 Stop losing work | Shipped | `452dd87` — save queue, reopen state, single-tab ownership, safe board/layer operations, lock guards, merge/cut fixes, invariant tests |
+| 0 Stop losing work | Shipped | `452dd87` — save queue, reopen state, single-tab ownership, safe board/layer operations, invariant tests |
 | 1 Phone | Shipped | `2e748a0`, with later phone fixes in `4367fb8` |
 | 2 Everyday desktop speed | Shipped | `2e748a0` |
 | 3 Versions and comments | Shipped | `a3f504e` |
-| 4 Effect scope | Shipped | `d621010` — stacks on layers/groups/boards/document, linked effects, masks, `.void` v4 effect persistence, canvas/export parity suite |
-| 5 Brief check + photography page | Shipped | `5f73552` |
-| 6 Export finish + coming back | Shipped | `4438995`, with analytics quality work in `35aef30` |
-| 7 Reuse: looks, library, campaigns | In progress | Phase 7A `a9e3ba6`; Phase 7B `1fb45b9`; campaign tokens/suggestions remain |
+| 4 Effect scope | Shipped | `d621010` — layer/group/board/document effect stacks, masks, persistence and parity |
+| 5 Brief check + photography | Shipped | `5f73552` |
+| 6 Export finish + coming back | Shipped | `4438995`, analytics quality work in `35aef30` |
+| 7 Reuse, Library and campaigns | **Shipped** | 7A `a9e3ba6`, 7B `1fb45b9`, 7C/7D `577909f` |
 
-The four items that were originally listed as “next” in the 26 September audit are no longer pending: guideline photography shipped in Phase 5, brief checking shipped in Phase 5, named/staged review versions shipped in Phase 3, and client comments linked to layers shipped in Phase 3.
+## Phase 7A — reusable Looks and text styles
 
-## Phase 7A shipped: reusable Looks and text styles
+PR #10 shipped as `a9e3ba6`.
 
-PR #10 shipped on `master` as `a9e3ba6`.
+- Named editable Looks from layers and whole group composites.
+- Reusable text styles that never replace copy or placement.
+- Fresh effect IDs on apply; masks/links never leak to another target.
+- Existing Studio colour-match Looks appear in the same Library.
+- Desktop/phone Library workflow and Alt+Shift+L.
+- Local-first persistence and portability tests.
 
-It adds:
+## Phase 7B — cross-design Library and reference safety
 
-- A local-first reusable-item model using the existing IndexedDB abstraction.
-- Named Looks from layers, including opacity/blend/fill, layer styles, compatible text/shape appearance and ordered live effects.
-- Named Looks from selected groups, preserving the group composite treatment rather than copying effects onto each child.
-- Reusable text styles that preserve typography without replacing copy, position, opacity or effects.
-- Fresh effect IDs on every Look application; effect links and painted masks never leak into another target.
-- One undoable Look application to one/many layers or a whole group.
-- One Reuse library surface for new Looks/text styles and the older Studio colour-match Looks.
-- Desktop and phone reachability; narrow screens use a bottom sheet and desktop also supports Alt+Shift+L.
-- Unit coverage for effect portability, fresh identity, text-content safety, shape styling and group-composite Looks.
-- A browser regression for save/apply/undo/content preservation and phone reachability, included in the full e2e runner.
-- `docs/reuse-library.md`.
+PR #12 shipped as `1fb45b9`, reconciled on top of the newer designer-production work from PR #8.
 
-Validation before merge: TypeScript passed, unit tests passed, production build passed and the Netlify deploy preview passed.
+- Logos, images, textures, colours, fonts and templates share the same Reuse Library as Looks/text styles.
+- Search, filters and recent-use ordering.
+- Local raster/font/template source preservation.
+- Design and brand text-style scopes.
+- Per-design/layer/slot dependency references and `used in N designs` counts.
+- Safe delete with affected-design warning.
+- Safe Replace source that never silently rewrites existing/approved designs.
+- Raster replacement uses the existing Replace Image workflow or creates a new layer when appropriate.
 
-## Phase 7B shipped: wider cross-design Library and reference safety
+## Phase 7C — campaign shared details
 
-PR #12 shipped on `master` as `1fb45b9` after being reconciled on top of PR #8.
+PR #13 shipped as `577909f`.
 
-It adds:
+- A Studio job is the campaign container for its saved designs.
+- Existing brief-linked text (`briefKey`) is the shared-token mechanism for date, time, venue, price, CTA and other parsed brief details.
+- Studio exposes an explicit **Change everywhere** action rather than silently propagating edits.
+- The batch updates every saved design belonging to the job.
+- Only text that still contains the previous linked value changes. A designer-edited/per-format value is treated as an intentional override and left alone.
+- The result reports affected designs/layers and preserved overrides.
+- One-shot **Undo update** restores the saved project/index snapshots for the campaign batch.
+- No new `.void` schema was introduced for campaign dependency tracking.
 
-- Reusable logos, images, textures, colours, fonts and templates in the same Reuse Library as Looks/text styles.
-- Search, type filters and recent-use ordering.
-- Raster source preservation as local PNG + preview; local-font blobs are kept when available.
-- Reusable templates as separate immutable template projects, so the source design is never silently converted into a template.
-- Design/brand text-style scope hooks, including a Brand text style action when the open design has a brand id.
-- Separate per-design/layer/slot reference records without changing the `.void` document schema.
-- `used in N designs` counts that ignore designs which have been deleted.
-- Safe delete: referenced library items cannot be removed without an explicit second confirmation that names affected designs.
-- Safe Replace source: the library source can be updated for future use without rewriting existing/approved designs behind the user’s back.
-- Raster reuse through the existing Replace Image workflow when a raster target is selected, or new-layer placement when no raster target is selected.
-- Colour/font application that leaves unrelated layer properties intact.
-- Expanded `e2e/reuse.mjs` covering Looks/text styles, colour/font assets, search/filter, dependency warning, logo placement and phone reachability.
-- Expanded `docs/reuse-library.md` documenting the dependency model and propagation boundary.
+## Phase 7D — reuse/brand finish and workspace cleanup
 
-Validation on the reconciled final head: TypeScript passed, unit tests passed, production build passed and the Netlify deploy preview passed. The expanded Playwright reuse regression is included in the full E2E runner but was not claimed as executed by the normal GitHub CI workflow.
+Also shipped through PR #13 as `577909f`.
+
+- The floating **Reuse** pill was removed from the bottom-right canvas/work area. The artwork area stays clear.
+- Reuse now lives in the controlled editor top chrome, with compact small-screen access and Alt+Shift+L retained.
+- Contextual reuse guidance appears only inside the Library, one suggestion at a time.
+- **Don't suggest again** is persistent on the device.
+- Brand colour roles continue to use the existing primary/secondary/accent/neutral/background/text model rather than introducing another token system.
+- Text styles use the design/brand scope model established in 7B.
+
+Validation for the final 7C/7D head (`4132d497`): strict TypeScript passed, unit tests passed, production build passed, and the Netlify deploy preview passed. The full Playwright browser suite was not executed by the normal CI workflow and is not claimed as passed.
 
 ## Designer production workflows
 
-PR #8 shipped on `master` as `c8ab5b5` before Phase 7B was merged.
-
-It includes:
+PR #8 shipped as `c8ab5b5` before Phase 7B.
 
 - Embedded editable smart sources, nested source tabs, replace content and explicit rasterisation.
-- Draw Inside with a visible host and inherited live clipping.
-- Textured/custom brush tips and saved presets with spacing, angle and roundness.
-- Selected-area repair preview, three sampling modes and separate retouch patches.
+- Draw Inside with visible host and inherited live clipping.
+- Textured/custom brush tips and saved presets.
+- Selected-area repair preview, sampling modes and separate retouch patches.
 - Mask link/unlink, independent placement and fixed/scale geometry policies.
 - Pattern assets and embedded PSD pattern import.
-- Reversible Liquify with retained source and Apply/Cancel.
+- Reversible Liquify.
 - User-ICC soft proof and verified CMYK TIFF export; editing remains RGB.
 
-See `../DESIGNER-PRODUCTION-WORKFLOWS.md` for entry points, validation and practical limits. Reviews at three experience levels are simulated, not human usability studies.
+See `../DESIGNER-PRODUCTION-WORKFLOWS.md` for engineering boundaries and verification details.
 
-## Effects and painting follow-up
+## Effects work already shipped
 
-- PR #6 shipped on `master` as `07518f6`: deeper effect controls, gradient types, blur modes, aligned sliders and numeric entry.
-- PR #7 shipped on `master` as `6173b8c`: stable Effects preview, movable controls, predictable painting inside selections, editable masks on live text/shapes, alpha-lock parity, safer clone/heal/removal workflows.
-- PR #8 shipped on `master` as `c8ab5b5`: selected-area repair plus the wider nondestructive designer-production workflow set above.
+- PR #6 `07518f6`: deeper controls, gradient types, blur modes, aligned sliders and numeric entry.
+- PR #7 `6173b8c`: stable Effects preview, movable controls, selection-safe painting/masks and safer retouch workflows.
+- PR #8 `c8ab5b5`: production-grade retouch/smart-source/brush/mask/pattern/Liquify/print additions.
 
-## Remaining planned product work
+## Remaining product work
 
-### 1. Phase 7C: campaigns, shared tokens and suggestions
-
-Next coherent Phase 7 slice:
-
-- Treat a Studio job as the campaign container for related designs and boards.
-- Shared brief tokens such as date, time, venue, price, CTA and other repeatable campaign facts.
-- Link tagged text across related designs without flattening or replacing unrelated typography.
-- Explicit **Change everywhere** updates as reversible operations.
-- Preserve intentional per-format/manual overrides unless the user deliberately resets them to the shared value.
-- Surface one-at-a-time contextual reuse suggestions that can be dismissed permanently.
-- Finish brand-system colour roles and type-in-use documentation from the 26 September audit.
-
-Phase 7B source replacement is deliberately non-propagating. Cross-design propagation belongs here so it can be explicit, reversible and override-aware.
-
-### 2. Effects follow-ups
-
-PR #6 intentionally left these for later:
+### 1. Effects completion
 
 - Live on-canvas gradient handles.
-- Saved personal gradient presets shared between painted and editable gradients.
-- Gradient opacity stops and midpoint interpolation for better PSD parity.
-- Before/after split view for effects.
-- Large-document preview performance budget.
-- Better physical/unit semantics for controls such as exposure, gamma and pixel-based parameters.
+- Saved personal gradient presets shared between painted/editable gradients.
+- Gradient opacity stops and midpoint interpolation for stronger PSD parity.
+- Before/after split view.
+- Preview performance budget for large/heavy stacks.
+- Better physical/unit semantics for parameters.
 
-### 3. Engine and colour pipeline
+### 2. Large-document engine
 
-Still a separate engineering track:
+- WebGL/tiled compositor for documents beyond the comfortable Canvas 2D range.
+- Tile-level invalidation and memory budgeting.
+- OPFS-backed scratch/history if required by the tiled engine.
+- Real-GPU validation for WebGPU background removal.
 
-- WebGL/tiled compositor for very large documents beyond the comfortable Canvas 2D range.
-- OPFS-backed scratch/history strategy if needed by the tiled engine.
-- Native CMYK editing and certified print formats beyond the ICC proof/CMYK TIFF export in PR #8.
-- Real-GPU browser validation for the WebGPU any-subject background-removal path.
+### 3. Import/export and print depth
 
-### 4. Import/export gaps
-
-- PR #8 retains embedded originals and opens supported sources for editing. Unsupported source formats retain a cached editable source and are reported; complex placed PSD updates preserve bounds rather than original warp parameters.
 - Layered PSD export is still not shipped.
-- SVG export has shipped in Phase 6, so older README text saying there is no SVG export is stale and should not be used as current status.
+- Continue smart-object/PSD round-trip fidelity where source formats permit it.
+- Native CMYK editing and certified print formats remain beyond the current ICC proof/CMYK TIFF path.
+- SVG export already shipped in Phase 6; older documentation saying otherwise is stale.
+
+### 4. Studio production automation
+
+With campaigns, dependencies and reusable assets now established, later Studio work can safely build production automation: stale-deliverable detection, approved-master propagation, batch delivery packaging and version-aware output.
 
 ## Separate future track: AI connector / design API
 
-Keep this outside the current implementation sequence until deliberately reactivated. The strategic concept is still valid: an MCP/design API through which Claude, ChatGPT or another compatible agent can inspect and operate structured, editable VoidCanvas projects. If revived, it should be designed around permissions, protected elements, transaction-level undo, AI-created versions, ownership of the resulting `.void` project, and explicit privacy boundaries. Do not bolt it onto Phase 7.
+Keep this outside the current sequence until deliberately reactivated. If revived, it should operate structured editable VoidCanvas projects with permissions, protected elements, transaction-level undo, AI-created versions, project ownership and explicit privacy boundaries.
 
 ## Branch housekeeping
 
 - `master` is the deployment source of truth.
-- `phase7-reuse-foundation` was merged through PR #10 on 4 October 2026.
-- `phase7b-library` was merged through PR #12 on 4 October 2026.
-- `effects-ux-workspace` shipped its original UX work through PR #7 and its later designer-production workflow work through PR #8.
-- `effects-controls-depth` was merged through PR #6; its divergence follows the squash history.
-- `campaign/make-something` is an older experimental branch from 25 September and is far behind current `master`; do not merge it wholesale. Any useful campaign mechanics should be re-evaluated against the current codebase and selectively reimplemented.
-- Old feature branches should be considered historical unless a current issue or PR explicitly revives them.
+- Phase 7A merged through PR #10.
+- Phase 7B merged through PR #12.
+- Phase 7C/7D merged through PR #13.
+- PR #8 designer-production workflows are on master.
+- `campaign/make-something` is an old experimental branch and must not be merged wholesale.
+- Old feature branches are historical unless a current issue/PR explicitly revives them.
 
 ## Next execution order
 
-1. Phase 7C: Studio campaign container, shared tokens, reversible Change everywhere and override handling.
-2. Contextual reuse suggestions plus brand colour-role/type-in-use follow-ups.
-3. Gradient handles/presets and remaining Effects UX follow-ups.
-4. Large-document engine and colour-management work as separate infrastructure projects.
+1. Effects completion: gradient handles/presets, before/after and remaining control polish.
+2. Large-document/tiled rendering engine.
+3. Layered PSD/export and deeper print/colour workflows.
+4. Studio production automation.
+5. AI/design API only when deliberately reactivated as a separate track.
 
-Every new capability should ship with migration/persistence tests, undo/redo coverage where relevant, save/reload coverage, canvas/export parity where it affects rendering, phone reachability and Learn documentation.
+Phase 7 is complete. New work should no longer be filed as Phase 7 unless it is a regression in the shipped reuse/campaign system.

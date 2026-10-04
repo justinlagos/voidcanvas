@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookmarkPlus, FileStack, Image as ImageIcon, Library, Palette, RefreshCw, Search, Sparkles, Trash2, Type, X } from 'lucide-react'
+import { BookmarkPlus, FileStack, Image as ImageIcon, Palette, RefreshCw, Search, Sparkles, Trash2, Type, X } from 'lucide-react'
 import { EditorShell } from './EditorShell'
 import { useEditor } from '../store'
 import {
@@ -26,6 +26,7 @@ import { replaceReusableAsset } from '../reuse-replace'
 
 const button = 'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[.06] px-3 text-xs font-medium text-zinc-100 transition hover:bg-white/[.1] disabled:cursor-not-allowed disabled:opacity-35'
 const quiet = 'text-[11px] leading-5 text-zinc-400'
+const DISMISS_KEY = 'vc:reuse-suggestion-dismissed'
 
 type Filter = 'all' | 'look' | 'textStyle' | AssetKind
 
@@ -66,6 +67,7 @@ export function EditorReuseShell() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [saving, setSaving] = useState(false)
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(true)
 
   const active = useMemo(() => activeId ? useEditor.getState().layers.find(l => l.id === activeId) ?? null : null, [activeId])
   const wholeGroup = useMemo(() => selectedWholeGroup(), [selectedIds, activeId])
@@ -82,6 +84,7 @@ export function EditorReuseShell() {
     setCounts(await usageCounts(next))
   }, [])
   useEffect(() => { if (open) refresh() }, [open, refresh])
+  useEffect(() => { try { setSuggestionsDismissed(localStorage.getItem(DISMISS_KEY) === '1') } catch { setSuggestionsDismissed(false) } }, [])
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -90,8 +93,10 @@ export function EditorReuseShell() {
       if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return
       e.preventDefault(); setOpen(v => !v)
     }
+    const openLibrary = () => { if (hasDoc) setOpen(true) }
     window.addEventListener('keydown', key)
-    return () => window.removeEventListener('keydown', key)
+    window.addEventListener('vc:reuse', openLibrary)
+    return () => { window.removeEventListener('keydown', key); window.removeEventListener('vc:reuse', openLibrary) }
   }, [hasDoc])
 
   const save = async (kind: 'look' | 'text' | 'brandText' | 'logo' | 'image' | 'texture' | 'color' | 'font' | 'template') => {
@@ -146,6 +151,12 @@ export function EditorReuseShell() {
     if (result.removed) { await refresh(); useEditor.getState().notify(`Removed “${item.name}” from your library.`) }
   }
 
+  const dismissSuggestion = () => {
+    setSuggestionsDismissed(true)
+    try { localStorage.setItem(DISMISS_KEY, '1') } catch { /* local storage unavailable */ }
+  }
+  const suggestion = !suggestionsDismissed && canSaveLook && !items.some(i => i.kind === 'look' && i.name.toLowerCase().includes(targetName.toLowerCase()))
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     return items.filter(item => {
@@ -158,8 +169,6 @@ export function EditorReuseShell() {
   return <>
     <EditorShell />
 
-    {hasDoc && <button type="button" data-reuse-library onClick={() => setOpen(true)} title="Reusable assets · Alt+Shift+L" className="fixed bottom-[70px] right-3 z-[115] inline-flex h-9 items-center gap-2 rounded-full border border-white/15 bg-zinc-950/90 px-3 text-xs font-semibold text-white shadow-xl backdrop-blur md:bottom-3"><Library size={14} />Reuse</button>}
-
     {open && <div className="fixed inset-0 z-[180] flex items-end justify-center bg-black/35 md:items-center" onMouseDown={e => { if (e.currentTarget === e.target) setOpen(false) }}>
       <section aria-label="Reusable library" className="max-h-[88dvh] w-full overflow-hidden rounded-t-2xl border border-white/10 bg-[#111214] shadow-2xl md:w-[600px] md:rounded-2xl">
         <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
@@ -168,6 +177,12 @@ export function EditorReuseShell() {
         </header>
 
         <div className="max-h-[calc(88dvh-70px)] overflow-y-auto p-4">
+          {suggestion && <div className="mb-3 flex items-start gap-3 rounded-xl border border-white/10 bg-white/[.04] p-3">
+            <Sparkles size={15} className="mt-0.5 shrink-0 text-zinc-300" />
+            <div className="min-w-0 flex-1"><div className="text-xs font-medium text-zinc-100">This treatment may be worth reusing.</div><div className={quiet}>Save the selected {wholeGroup ? 'group' : 'layer'} as a Look instead of rebuilding it in another design.</div></div>
+            <button className="text-[11px] text-zinc-500 hover:text-zinc-200" onClick={dismissSuggestion}>Don’t suggest again</button>
+          </div>}
+
           <div className="rounded-xl border border-white/10 bg-white/[.025] p-3">
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-zinc-200"><BookmarkPlus size={14} />Save for reuse</div>
             <input value={name} onChange={e => setName(e.target.value)} placeholder={targetName ? `Name from ${targetName}` : 'Name this reusable item'} className="mb-2 h-9 w-full rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-white/25" />
