@@ -6,6 +6,9 @@ const p = await b.newPage({ viewport: { width: 1440, height: 900 } })
 const errors = []
 p.on('pageerror', e => errors.push(e.message))
 const E = (fn, arg) => p.evaluate(fn, arg)
+const library = () => p.getByLabel('Reusable library')
+const nameInput = () => library().locator('input').first()
+const rowFor = name => p.getByText(name, { exact: true }).locator('..').locator('..')
 
 try {
   await p.goto(`${process.env.BASE || 'http://localhost:3123'}/editor`)
@@ -28,10 +31,16 @@ try {
   assert(source)
 
   await p.getByRole('button', { name: 'Reuse', exact: true }).click()
-  await p.getByPlaceholder('Name this style').fill('Editorial Gold')
-  await p.getByRole('button', { name: 'Save as Look', exact: true }).click()
-  await p.getByPlaceholder('Name this style').fill('Campaign Headline')
-  await p.getByRole('button', { name: 'Save text style', exact: true }).click()
+  await nameInput().fill('Editorial Gold')
+  await p.getByRole('button', { name: 'Look', exact: true }).click()
+  await nameInput().fill('Campaign Headline')
+  await p.getByRole('button', { name: 'Text style', exact: true }).click()
+  await nameInput().fill('Campaign Gold')
+  await p.getByRole('button', { name: 'Colour', exact: true }).click()
+  await nameInput().fill('Arial Family')
+  await p.getByRole('button', { name: 'Font', exact: true }).click()
+  await nameInput().fill('Launch Template')
+  await p.getByRole('button', { name: 'Template', exact: true }).click()
   await p.getByLabel('Close reuse library').click()
 
   const target = await E(() => {
@@ -47,9 +56,7 @@ try {
   assert(target)
 
   await p.getByRole('button', { name: 'Reuse', exact: true }).click()
-  const lookName = p.getByText('Editorial Gold', { exact: true })
-  const lookRow = lookName.locator('..').locator('..')
-  await lookRow.getByRole('button', { name: 'Apply', exact: true }).click()
+  await rowFor('Editorial Gold').getByRole('button', { name: 'Apply', exact: true }).click()
 
   let state = await E(() => {
     const l = window.__voidEditor.getState().active()
@@ -62,6 +69,7 @@ try {
   assert.equal(state.effects, 1)
   assert.equal(state.opacity, 0.82)
   assert.equal(state.blend, 'screen')
+  assert(await rowFor('Editorial Gold').getByText(/used in 1 design/).isVisible(), 'Applying a reusable item should record a design dependency')
 
   await E(() => window.__voidEditor.getState().undo())
   state = await E(() => {
@@ -72,8 +80,7 @@ try {
   assert.equal(state.font, 'Georgia')
   assert.equal(state.effects, 0)
 
-  const textRow = p.getByText('Campaign Headline', { exact: true }).locator('..').locator('..')
-  await textRow.getByRole('button', { name: 'Apply', exact: true }).click()
+  await rowFor('Campaign Headline').getByRole('button', { name: 'Apply', exact: true }).click()
   state = await E(() => {
     const l = window.__voidEditor.getState().active()
     return { text: l.text, font: l.fontFamily, size: l.fontSize, color: l.color, effects: l.effects?.length ?? 0, opacity: l.opacity }
@@ -85,13 +92,55 @@ try {
   assert.equal(state.effects, 0, 'A text style must not copy the Look effect stack')
   assert.equal(state.opacity, 1, 'A text style must not replace layer opacity')
 
+  await rowFor('Campaign Gold').getByRole('button', { name: 'Apply', exact: true }).click()
+  assert.equal(await E(() => window.__voidEditor.getState().active().color), '#f2d36b')
+  await rowFor('Arial Family').getByRole('button', { name: 'Apply', exact: true }).click()
+  assert.equal(await E(() => window.__voidEditor.getState().active().fontFamily), 'Arial')
+
+  // Search/filter is part of the cross-design library, not a decorative control.
+  await p.getByLabel('Search reuse library').fill('Launch Template')
+  assert(await p.getByText('Launch Template', { exact: true }).isVisible())
+  assert.equal(await p.getByText('Editorial Gold', { exact: true }).count(), 0)
+  await p.getByLabel('Search reuse library').fill('')
+  await p.getByLabel('Filter reuse library').selectOption('color')
+  assert(await p.getByText('Campaign Gold', { exact: true }).isVisible())
+  assert.equal(await p.getByText('Campaign Headline', { exact: true }).count(), 0)
+  await p.getByLabel('Filter reuse library').selectOption('all')
+
+  // Referenced items cannot be silently deleted. Dismissing the warning must keep the item.
+  let warned = false
+  p.once('dialog', async d => { warned = /used in 1 design/.test(d.message()); await d.dismiss() })
+  await rowFor('Editorial Gold').getByLabel('Delete Editorial Gold').click()
+  assert(warned, 'Deleting a referenced reusable item should explain its dependency')
+  assert(await p.getByText('Editorial Gold', { exact: true }).isVisible())
+
+  // Raster assets: save a logo, then reuse it as a placed image when nothing raster is selected.
+  await p.getByLabel('Close reuse library').click()
+  await E(() => {
+    const s = window.__voidEditor.getState(), c = document.createElement('canvas')
+    c.width = 80; c.height = 50
+    const x = c.getContext('2d'); x.fillStyle = '#26d07c'; x.fillRect(0, 0, 80, 50)
+    s.addImage(c, 80, 50, 'Logo source', { role: 'logo' })
+  })
+  await p.getByRole('button', { name: 'Reuse', exact: true }).click()
+  await nameInput().fill('QA Logo')
+  await p.getByRole('button', { name: 'Logo', exact: true }).click()
+  await p.getByLabel('Close reuse library').click()
+  await E(() => window.__voidEditor.getState().setActive(null))
+  await p.getByRole('button', { name: 'Reuse', exact: true }).click()
+  const before = await E(() => window.__voidEditor.getState().layers.length)
+  await rowFor('QA Logo').getByRole('button', { name: 'Apply', exact: true }).click()
+  const after = await E(() => window.__voidEditor.getState().layers.length)
+  assert.equal(after, before + 1, 'Applying a raster library asset with no raster target should place a new layer')
+
+  // Phone: same library remains reachable without hover/right click.
   await p.getByLabel('Close reuse library').click()
   await p.setViewportSize({ width: 390, height: 844 })
   await p.getByRole('button', { name: 'Reuse', exact: true }).click()
-  await p.getByLabel('Reusable library').waitFor()
+  await library().waitFor()
   assert(await p.getByText('Editorial Gold', { exact: true }).isVisible())
-  assert(await p.getByText('Campaign Headline', { exact: true }).isVisible())
-  const sheet = await p.getByLabel('Reusable library').boundingBox()
+  assert(await p.getByText('QA Logo', { exact: true }).isVisible())
+  const sheet = await library().boundingBox()
   assert(sheet && sheet.width >= 380, 'Phone reuse library should become a full-width bottom sheet')
 
   assert.deepEqual(errors, [])
