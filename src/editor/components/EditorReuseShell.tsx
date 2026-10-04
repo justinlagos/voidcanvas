@@ -12,6 +12,7 @@ import {
   removeReusableItem,
   saveLook,
   saveTextStyle,
+  selectedWholeGroup,
   type ReusableItem,
 } from '../reuse'
 
@@ -36,6 +37,10 @@ export function EditorReuseShell() {
     if (!activeId) return null
     return useEditor.getState().layers.find(l => l.id === activeId) ?? null
   }, [activeId])
+  const wholeGroup = useMemo(() => selectedWholeGroup(), [selectedIds, activeId])
+  const targetName = wholeGroup?.name ?? active?.name ?? ''
+  const canSaveLook = !!wholeGroup || (!!active && active.type !== 'adjustment')
+  const canSaveText = selectedIds.length === 1 && active?.type === 'text'
 
   const refresh = useCallback(async () => setItems(await listLibrary()), [])
   useEffect(() => { if (open) refresh() }, [open, refresh])
@@ -53,12 +58,12 @@ export function EditorReuseShell() {
   }, [hasDoc])
 
   const save = async (kind: 'look' | 'text') => {
-    const n = name.trim() || (kind === 'text' ? 'Text style' : active?.name ? `${active.name} look` : 'New look')
+    const n = name.trim() || (kind === 'text' ? 'Text style' : targetName ? `${targetName} look` : 'New look')
     setSaving(true)
     try {
       const item = kind === 'text' ? await saveTextStyle(n) : await saveLook(n)
       if (!item) {
-        useEditor.getState().notify(kind === 'text' ? 'Select a text layer first.' : 'Select a layer or group appearance first.')
+        useEditor.getState().notify(kind === 'text' ? 'Select one text layer first.' : 'Select a layer or group appearance first.')
         return
       }
       setName('')
@@ -70,7 +75,7 @@ export function EditorReuseShell() {
   const apply = (item: ReusableItem) => {
     const ok = item.kind === 'look' ? applyLook(item) : item.kind === 'textStyle' ? applyTextStyle(item) : applyColourLook(item)
     if (!ok) {
-      useEditor.getState().notify(item.kind === 'textStyle' ? 'Select one or more text layers.' : 'Select a compatible layer first.')
+      useEditor.getState().notify(item.kind === 'textStyle' ? 'Select one or more text layers.' : 'Select a compatible layer or group first.')
       return
     }
     useEditor.getState().notify(item.kind === 'textStyle' ? `Applied “${item.name}”.` : `Applied Look “${item.name}”.`)
@@ -103,17 +108,17 @@ export function EditorReuseShell() {
         <div className="max-h-[calc(84dvh-70px)] overflow-y-auto p-4">
           <div className="rounded-xl border border-white/10 bg-white/[.025] p-3">
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-zinc-200"><BookmarkPlus size={14} />Save what is selected</div>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder={active?.name ? `${active.name} look` : 'Name this style'} className="mb-2 h-9 w-full rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-white/25" />
+            <input value={name} onChange={e => setName(e.target.value)} placeholder={targetName ? `${targetName} look` : 'Name this style'} className="mb-2 h-9 w-full rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-white/25" />
             <div className="flex flex-wrap gap-2">
-              <button className={button} disabled={saving || !active || active.type === 'adjustment'} onClick={() => save('look')}><Sparkles size={14} />Save as Look</button>
-              <button className={button} disabled={saving || active?.type !== 'text'} onClick={() => save('text')}><Type size={14} />Save text style</button>
+              <button className={button} disabled={saving || !canSaveLook} onClick={() => save('look')}><Sparkles size={14} />Save as Look</button>
+              <button className={button} disabled={saving || !canSaveText} onClick={() => save('text')}><Type size={14} />Save text style</button>
             </div>
-            <p className={`${quiet} mt-2`}>A Look keeps appearance and the ordered effect stack, not the content. Effect masks stay with their original layer.</p>
+            <p className={`${quiet} mt-2`}>{wholeGroup ? `Saving “${wholeGroup.name}” as one composite Look.` : 'A Look keeps appearance and the ordered effect stack, not the content.'} Effect masks stay with their original layer or group.</p>
           </div>
 
           <div className="mt-5 flex items-center justify-between">
             <div className="text-xs font-semibold text-zinc-200">Your library</div>
-            <div className={quiet}>{selectedIds.length ? `${selectedIds.length} selected` : 'Select a target to apply'}</div>
+            <div className={quiet}>{wholeGroup ? `Group: ${wholeGroup.name}` : selectedIds.length ? `${selectedIds.length} selected` : 'Select a target to apply'}</div>
           </div>
 
           {!items.length ? <div className="mt-3 rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-zinc-500">Nothing saved yet. Treat something once, save it, then reuse it instead of rebuilding it.</div> :
@@ -121,7 +126,7 @@ export function EditorReuseShell() {
               {item.kind === 'colourLook' && item.thumb ? <img src={item.thumb} alt="" className="h-10 w-10 rounded-lg object-cover" /> : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/[.06] text-zinc-300">{item.kind === 'textStyle' ? <Type size={16} /> : <Sparkles size={16} />}</div>}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium text-zinc-100">{item.name}</div>
-                <div className={quiet}>{item.kind === 'textStyle' ? 'Text style' : item.kind === 'colourLook' ? 'Colour look · Studio reference' : `${item.appearance.effects.length} effect${item.appearance.effects.length === 1 ? '' : 's'} · appearance`}</div>
+                <div className={quiet}>{item.kind === 'textStyle' ? 'Text style' : item.kind === 'colourLook' ? 'Colour look · Studio reference' : `${item.appearance.source === 'group' ? 'Group Look' : 'Look'} · ${item.appearance.effects.length} effect${item.appearance.effects.length === 1 ? '' : 's'}`}</div>
               </div>
               <button className={button} onClick={() => apply(item)}>Apply</button>
               <button aria-label={`Delete ${item.name}`} title="Remove from library" className="rounded-lg p-2 text-zinc-500 hover:bg-white/[.06] hover:text-red-300" onClick={() => remove(item)}><Trash2 size={14} /></button>
