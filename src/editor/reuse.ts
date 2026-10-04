@@ -1,7 +1,7 @@
 import { uid } from './engine'
 import { ensureFont, idb } from './io'
 import { useEditor } from './store'
-import type { Effect, Layer, ShapeLayer, TextLayer } from './types'
+import type { BlendMode, Effect, Layer, LayerStyles, ShapeLayer, TextLayer } from './types'
 
 /**
  * Phase 7's local-first reuse model. The first items are Looks and text styles; images, logos,
@@ -20,9 +20,9 @@ export type PortableEffect = Omit<Effect, 'id' | 'link' | 'mask' | 'maskAt' | 'h
 export interface ReusableAppearance {
   common: {
     opacity: number
-    blend: Layer['blend']
+    blend: BlendMode
     fillOpacity?: number
-    styles?: Layer['styles'] | null
+    styles?: LayerStyles | null
   }
   effects: PortableEffect[]
   text?: Partial<TextLayer>
@@ -74,7 +74,7 @@ const deep = <T,>(v: T): T => (v == null ? v : JSON.parse(JSON.stringify(v)))
 export function portableEffects(effects: Effect[] | null | undefined): PortableEffect[] {
   return (effects ?? []).map(effect => {
     const { id: _id, link: _link, mask: _mask, maskAt: _maskAt, hasMask: _hasMask, ...portable } = effect
-    return deep({ ...portable, maskOn: portable.maskOn && !_mask ? false : portable.maskOn }) as PortableEffect
+    return deep({ ...portable, maskOn: false }) as PortableEffect
   })
 }
 
@@ -152,13 +152,13 @@ export function captureTextStyle(layer: TextLayer): Partial<TextLayer> {
   }
 }
 
-function patchForAppearance(layer: Layer, appearance: ReusableAppearance): Partial<Layer> {
+function patchForAppearance(layer: Layer, appearance: ReusableAppearance): any {
   return {
     ...appearance.common,
     effects: materializeEffects(appearance.effects),
     ...(layer.type === 'text' && appearance.text ? appearance.text : {}),
     ...(layer.type === 'shape' && appearance.shape ? appearance.shape : {}),
-  } as Partial<Layer>
+  }
 }
 
 export async function saveLook(name: string, layer?: Layer): Promise<SavedLook | null> {
@@ -171,7 +171,11 @@ export async function saveLook(name: string, layer?: Layer): Promise<SavedLook |
 }
 
 export async function saveTextStyle(name: string, layer?: TextLayer): Promise<SavedTextStyle | null> {
-  const source = layer ?? (useEditor.getState().active()?.type === 'text' ? useEditor.getState().active() as TextLayer : undefined)
+  let source = layer
+  if (!source) {
+    const active = useEditor.getState().active()
+    if (active?.type === 'text') source = active
+  }
   if (!source) return null
   const now = Date.now()
   const item: SavedTextStyle = { id: `${PREFIX}${uid()}`, kind: 'textStyle', name: name.trim(), at: now, updatedAt: now, style: captureTextStyle(source) }
@@ -221,7 +225,7 @@ export function applyTextStyle(item: SavedTextStyle, ids?: string[]): boolean {
     return l?.type === 'text' && !l.locked
   })
   if (!targets.length) return false
-  s.updateLayers(targets.map(id => ({ id, patch: deep(item.style) as Partial<Layer> })))
+  s.updateLayers(targets.map(id => ({ id, patch: deep(item.style) as any })))
   s.commit(`Apply text style: ${item.name}`)
   const family = item.style.fontFamily
   if (family) ensureFont(family, item.style.fontWeight, item.style.italic).then(() => useEditor.setState(x => ({ docRev: x.docRev + 1 }))).catch(() => {})
