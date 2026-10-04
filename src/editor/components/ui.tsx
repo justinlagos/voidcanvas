@@ -83,7 +83,7 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
       </span>
       <span className="vc-slider-track relative block h-4">
         <span className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded bg-void-800" />
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded bg-accent" style={{ width: `calc(6px + (100% - 12px) * ${pct / 100})` }} />
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded bg-accent" style={{ width: `calc(${pct}% + ${6 - 12 * pct / 100}px)` }} />
         <input
           aria-label={label} type="range" min={min} max={max} step={step} value={safeValue}
           onChange={e => { begin(); onChange(Number(e.target.value)) }}
