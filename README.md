@@ -4,11 +4,13 @@
 
 Docs: `docs/void-format.md` (file format), `docs/accounts-and-keys.md` (accounts and encryption), `docs/plans/` (build plans), `supabase/analytics.md` (backend tables). How this repo is worked on and shipped: `CLAUDE.md`.
 
-One app, three modules. Each works alone and they pass work to each other.
+One app, four modules. Each works alone and they pass work to each other.
 
 | Route | Module | What it does |
 |---|---|---|
 | `/` | Hub | Entry point and recent designs |
+| `/brand` | Brand | Client brand workspace, guideline builder, explicit publishing and Editor handoff. |
+| `/b/{slug}/{section?}` | Brand portal | Published, responsive brand guideline with operational copy and download actions. |
 | `/studio` | Studio | Brief, reference board, palette pulled from references, size preset. "Start design in Editor" opens it all as a design. |
 | `/editor` | Editor | Layered image editor: raster, text, shape and adjustment layers, masks, 16 blend modes, selections, retouching, 58 live filters, export. |
 | `/effects` | Effects | The original one-click effects tool. "Open in Editor" sends the result across. |
@@ -180,3 +182,15 @@ MIT
 
 - `npm test`: unit tests (the brief reader).
 - `npm run build && npm run e2e`: 151 browser checks at desktop, tablet and phone sizes, one per QA bug and per UX phase (needs Playwright's Chromium; `npx playwright install chromium` once).
+
+## Living brand guidelines
+
+`/brand` promotes the existing brand records and guideline builder into a separate product workspace. Saved builder brands retain tokens, page order, logo decisions and original logo source locally. Existing Studio brands and job connections remain available. Editor's Brand panel can attach or switch the design's brand.
+
+Publish requires the existing signed-in account. A readable snapshot is uploaded only after clicking Publish; later edits need Publish update. The default is anyone with link (noindex), with public indexing optional. These are readable portals, separate from encrypted team sharing. Local drafts and team sharing remain the choices for confidential work. Address ownership persists after unpublishing. Conditional Blobs writes prevent slug races and stale updates. The API authenticates against Supabase Auth, does not trust a client owner ID, and never exposes owner/source IDs in public responses.
+
+Portals support section URLs, HEX/RGB/OKLCH/CSS copies, typography CSS, raster logo and photography inspection, PNG assets, a ZIP, tokens JSON/CSS/Tailwind, and screen PDF from published guideline pages. Create with this brand stores an independent local copy, attaches its rules to a new Editor document and loads its kit. Font files and editable sources stay local; only Google font sources are linked. SVG downloads, print PDFs from a portal, password/private hosted links, custom domains, historical restore, analytics, paid limits and cloud image generation remain future releases. Existing local builder exports remain unchanged.
+
+Hosting: Netlify's framework runtime supplies the Blobs context; no separate database migration or service key is required. Node 22.12+ is required by the SDK. Plain `next start` has no Blobs context and returns an explicit publishing-unavailable response. The entire JSON publication is capped at 4 MB; reduce large imagery if it does not fit. Owner draft data still resides on the device or existing encrypted team sync; this does not add account-wide cloud draft sync. Web-only portal and API routes are excluded from desktop static exports.
+
+Verification: `node e2e/brand-portals.mjs` after `npm run build` runs reader checks against an isolated local Blobs server, including deep links, copied values, downloads, mobile width, indexing, unpublish and Editor handoff. API unit tests cover authentication, ownership, concurrent writes, stale versions, validation and payload limits. The local reader test does not certify production Supabase authentication or Netlify context wiring; those need a real deploy smoke check.

@@ -158,6 +158,8 @@ export function newJob(partial: Partial<Job> = {}): Job {
 
 /** Client brands: colours with jobs, type, logos, voice. Checked live in the Editor. */
 export interface ClientBrand {
+  guideline?: import("@/brand/model").Guideline
+  publication?: { slug: string; version: number; updatedAt: string; visibility: import("@/brand/model").Visibility; fingerprint: string; live: boolean }
   id: string
   name: string
   client: string

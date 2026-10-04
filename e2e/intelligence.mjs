@@ -51,7 +51,7 @@ await p.screenshot({ path: OUT('intel_logo_page.png') })
 ok('I jpg: black gets the reversed version, grey the mono', /Black Reversed white/.test(await inner('aside')) && /Neutral grey Dark mono/.test(await inner('aside')))
 await p.fill('input[placeholder="e.g. Northbound"]', 'Kobo Pay')
 await p.click('[role=tab]:has-text("Export")'); await p.waitForTimeout(300)
-await p.click('button:has-text("Save as a client brand in Studio")'); await p.waitForTimeout(1500)
+await p.click('button:has-text("Save to Brand workspace")'); await p.waitForTimeout(1500)
 
 // ── Brands view carries the logo system and rules with sources ──
 await p.click('button:has-text("Studio")'); await p.waitForTimeout(700)
