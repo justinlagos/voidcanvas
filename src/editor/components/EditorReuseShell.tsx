@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookmarkPlus, FileStack, Image as ImageIcon, Library, Palette, Search, Sparkles, Trash2, Type, X } from 'lucide-react'
+import { BookmarkPlus, FileStack, Image as ImageIcon, Library, Palette, RefreshCw, Search, Sparkles, Trash2, Type, X } from 'lucide-react'
 import { EditorShell } from './EditorShell'
 import { useEditor } from '../store'
 import {
@@ -22,6 +22,7 @@ import {
   type AssetKind,
   type ReusableItem,
 } from '../reuse'
+import { replaceReusableAsset } from '../reuse-replace'
 
 const button = 'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[.06] px-3 text-xs font-medium text-zinc-100 transition hover:bg-white/[.1] disabled:cursor-not-allowed disabled:opacity-35'
 const quiet = 'text-[11px] leading-5 text-zinc-400'
@@ -57,6 +58,7 @@ export function EditorReuseShell() {
   const hasDoc = useEditor(s => !!s.doc)
   const activeId = useEditor(s => s.activeId)
   const selectedIds = useEditor(s => s.selectedIds)
+  const brandId = useEditor(s => s.doc?.brandId ?? null)
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<ReusableItem[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
@@ -92,19 +94,20 @@ export function EditorReuseShell() {
     return () => window.removeEventListener('keydown', key)
   }, [hasDoc])
 
-  const save = async (kind: 'look' | 'text' | 'logo' | 'image' | 'texture' | 'color' | 'font' | 'template') => {
-    const fallback = kind === 'text' ? 'Text style' : kind === 'font' ? active?.type === 'text' ? active.fontFamily : 'Font' : kind === 'template' ? `${useEditor.getState().doc?.name ?? 'Design'} template` : targetName || `New ${kind}`
+  const save = async (kind: 'look' | 'text' | 'brandText' | 'logo' | 'image' | 'texture' | 'color' | 'font' | 'template') => {
+    const fallback = kind === 'text' || kind === 'brandText' ? 'Text style' : kind === 'font' ? active?.type === 'text' ? active.fontFamily : 'Font' : kind === 'template' ? `${useEditor.getState().doc?.name ?? 'Design'} template` : targetName || `New ${kind}`
     const n = name.trim() || fallback
     setSaving(true)
     try {
       const item = kind === 'look' ? await saveLook(n)
-        : kind === 'text' ? await saveTextStyle(n)
+        : kind === 'text' ? await saveTextStyle(n, undefined, 'design')
+        : kind === 'brandText' ? await saveTextStyle(n, undefined, 'brand')
         : kind === 'color' ? await saveColorAsset(n)
         : kind === 'font' ? await saveFontAsset(n)
         : kind === 'template' ? await saveTemplateAsset(n)
         : await saveRasterAsset(kind, n)
       if (!item) {
-        useEditor.getState().notify(kind === 'text' || kind === 'font' ? 'Select one text layer first.' : kind === 'color' ? 'Select one text or shape layer first.' : kind === 'template' ? 'Open a design first.' : kind === 'look' ? 'Select a layer or group appearance first.' : 'Select one image layer first.')
+        useEditor.getState().notify(kind === 'text' || kind === 'brandText' || kind === 'font' ? 'Select one text layer first.' : kind === 'color' ? 'Select one text or shape layer first.' : kind === 'template' ? 'Open a design first.' : kind === 'look' ? 'Select a layer or group appearance first.' : 'Select one image layer first.')
         return
       }
       setName(''); await refresh()
@@ -120,6 +123,16 @@ export function EditorReuseShell() {
     }
     await refresh()
     useEditor.getState().notify(item.kind === 'asset' && item.assetKind === 'template' ? `Started a new design from “${item.name}”.` : `Applied “${item.name}”.`)
+  }
+
+  const replace = async (item: ReusableItem) => {
+    if (item.kind !== 'asset') return
+    const result = await replaceReusableAsset(item)
+    if (!result.updated) { useEditor.getState().notify(result.reason ?? 'Select a compatible source first.'); return }
+    await refresh()
+    useEditor.getState().notify(result.usages.length
+      ? `Updated “${item.name}” for future use. ${result.usages.length} existing design${result.usages.length === 1 ? ' keeps' : 's keep'} the current placed version until you reapply it.`
+      : `Updated the reusable source for “${item.name}”.`)
   }
 
   const remove = async (item: ReusableItem) => {
@@ -148,7 +161,7 @@ export function EditorReuseShell() {
     {hasDoc && <button type="button" data-reuse-library onClick={() => setOpen(true)} title="Reusable assets · Alt+Shift+L" className="fixed bottom-[70px] right-3 z-[115] inline-flex h-9 items-center gap-2 rounded-full border border-white/15 bg-zinc-950/90 px-3 text-xs font-semibold text-white shadow-xl backdrop-blur md:bottom-3"><Library size={14} />Reuse</button>}
 
     {open && <div className="fixed inset-0 z-[180] flex items-end justify-center bg-black/35 md:items-center" onMouseDown={e => { if (e.currentTarget === e.target) setOpen(false) }}>
-      <section aria-label="Reusable library" className="max-h-[88dvh] w-full overflow-hidden rounded-t-2xl border border-white/10 bg-[#111214] shadow-2xl md:w-[560px] md:rounded-2xl">
+      <section aria-label="Reusable library" className="max-h-[88dvh] w-full overflow-hidden rounded-t-2xl border border-white/10 bg-[#111214] shadow-2xl md:w-[600px] md:rounded-2xl">
         <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div><div className="text-sm font-semibold text-white">Reuse Library</div><div className={quiet}>Looks, type, assets and templates you can carry across designs.</div></div>
           <button aria-label="Close reuse library" className="rounded-lg p-2 text-zinc-400 hover:bg-white/[.06] hover:text-white" onClick={() => setOpen(false)}><X size={16} /></button>
@@ -161,6 +174,7 @@ export function EditorReuseShell() {
             <div className="flex flex-wrap gap-2">
               <button className={button} disabled={saving || !canSaveLook} onClick={() => save('look')}><Sparkles size={14} />Look</button>
               <button className={button} disabled={saving || !canSaveText} onClick={() => save('text')}><Type size={14} />Text style</button>
+              {brandId && <button className={button} disabled={saving || !canSaveText} onClick={() => save('brandText')}><Type size={14} />Brand text style</button>}
               <button className={button} disabled={saving || !canSaveRaster} onClick={() => save('logo')}><ImageIcon size={14} />Logo</button>
               <button className={button} disabled={saving || !canSaveRaster} onClick={() => save('image')}><ImageIcon size={14} />Image</button>
               <button className={button} disabled={saving || !canSaveRaster} onClick={() => save('texture')}><ImageIcon size={14} />Texture</button>
@@ -185,6 +199,7 @@ export function EditorReuseShell() {
               <ItemIcon item={item} />
               <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium text-zinc-100">{item.name}</div><div className={quiet}>{typeLabel(item)}{counts[item.id] ? ` · used in ${counts[item.id]} design${counts[item.id] === 1 ? '' : 's'}` : ''}</div></div>
               <button className={button} onClick={() => apply(item)}>Apply</button>
+              {item.kind === 'asset' && <button aria-label={`Replace ${item.name} source`} title="Replace reusable source from the current selection" className="rounded-lg p-2 text-zinc-500 hover:bg-white/[.06] hover:text-zinc-200" onClick={() => replace(item)}><RefreshCw size={14} /></button>}
               <button aria-label={`Delete ${item.name}`} title="Remove from library" className="rounded-lg p-2 text-zinc-500 hover:bg-white/[.06] hover:text-red-300" onClick={() => remove(item)}><Trash2 size={14} /></button>
             </div>)}</div>}
         </div>
