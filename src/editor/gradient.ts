@@ -1,5 +1,5 @@
 export type GradientKind = 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond'
-export interface GradientStop { position: number; color: string }
+export interface GradientStop { position: number; color: string; opacity?: number; midpoint?: number }
 export const GRADIENT_TYPES: { id: GradientKind; label: string }[] = [
   { id: 'linear', label: 'Linear' }, { id: 'radial', label: 'Radial / circle' },
   { id: 'angle', label: 'Angular' }, { id: 'reflected', label: 'Reflected' }, { id: 'diamond', label: 'Diamond' },
@@ -11,6 +11,36 @@ export const GRADIENT_PRESETS = [
   { name: 'Forest', colors: ['#143d2a', '#649b53', '#e3edb7'] },
   { name: 'Copper', colors: ['#38211c', '#b97045', '#f2d8bb'] },
 ]
+
+const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
+const hex = (c: string) => {
+  const s = c.replace('#', '')
+  const x = s.length === 3 ? s.split('').map(v => v + v).join('') : s.slice(0, 6).padEnd(6, '0')
+  return [parseInt(x.slice(0, 2), 16) || 0, parseInt(x.slice(2, 4), 16) || 0, parseInt(x.slice(4, 6), 16) || 0]
+}
+const css = (a: number[], alpha: number) => `rgba(${Math.round(a[0])},${Math.round(a[1])},${Math.round(a[2])},${clamp01(alpha)})`
+
+/** Expand midpoint/opacity-aware stops to a CanvasGradient-friendly sampled list. */
+export function sampledGradientStops(input: GradientStop[]): GradientStop[] {
+  const src = input.map(s => ({ ...s, position: clamp01(s.position), opacity: clamp01(s.opacity ?? 1), midpoint: clamp01(s.midpoint ?? 0.5) })).sort((a, b) => a.position - b.position)
+  if (src.length < 2) return src
+  const out: GradientStop[] = []
+  for (let i = 0; i < src.length - 1; i++) {
+    const a = src[i], b = src[i + 1], ca = hex(a.color), cb = hex(b.color), mid = Math.max(0.05, Math.min(0.95, a.midpoint ?? 0.5))
+    const steps = 16
+    for (let n = 0; n < steps; n++) {
+      const q = n / steps
+      // Piecewise curve guarantees that the 50% colour lands at the chosen midpoint.
+      const t = q <= mid ? 0.5 * q / mid : 0.5 + 0.5 * (q - mid) / (1 - mid)
+      const rgb = ca.map((v, k) => v + (cb[k] - v) * t)
+      const alpha = (a.opacity ?? 1) + ((b.opacity ?? 1) - (a.opacity ?? 1)) * t
+      out.push({ position: a.position + (b.position - a.position) * q, color: css(rgb, alpha) })
+    }
+  }
+  const z = src[src.length - 1]
+  out.push({ position: z.position, color: css(hex(z.color), z.opacity ?? 1) })
+  return out
+}
 
 /** Shared geometry for the painted tool and editable overlays. Radius is in output pixels. */
 export function gradientPosition(kind: GradientKind, dx: number, dy: number, radius: number, angle: number, aspect = 1): number {
@@ -28,11 +58,10 @@ export function paintGradient(ctx: CanvasRenderingContext2D, width: number, heig
   kind?: GradientKind; from: string; to: string; stops?: GradientStop[]; reverse?: boolean;
   x: number; y: number; radius: number; angle: number; aspect?: number;
 }) {
-  const stops = (opts.stops?.length ? opts.stops : [{ position: 0, color: opts.from }, { position: 1, color: opts.to }])
-    .map(s => ({ ...s, position: Math.max(0, Math.min(1, s.position)) })).sort((a, b) => a.position - b.position)
+  const raw = (opts.stops?.length ? opts.stops : [{ position: 0, color: opts.from }, { position: 1, color: opts.to }])
+  const stops = sampledGradientStops(raw)
   const kind = opts.kind ?? 'linear', a = opts.angle * Math.PI / 180
   const ca = Math.cos(a), sa = Math.sin(a), r = Math.max(0.001, opts.radius), aspect = Math.max(0.01, opts.aspect ?? 1)
-  // Most gradients stay on the native canvas path, including full-resolution exports.
   if (kind !== 'diamond' && !(kind === 'radial' && aspect !== 1)) {
     const native = kind === 'radial' ? ctx.createRadialGradient(opts.x, opts.y, 0, opts.x, opts.y, r)
       : kind === 'angle' ? ctx.createConicGradient(-a, opts.x, opts.y)
@@ -44,7 +73,6 @@ export function paintGradient(ctx: CanvasRenderingContext2D, width: number, heig
     } else for (const s of list) native.addColorStop(s.position, s.color)
     ctx.fillStyle = native; ctx.fillRect(0, 0, width, height); return
   }
-  // A 1D native colour ramp avoids parsing/interpolating colours in the image-sized loop.
   const ramp = document.createElement('canvas'); ramp.width = 1024; ramp.height = 1
   const rx = ramp.getContext('2d', { willReadFrequently: true })!
   const grad = rx.createLinearGradient(0, 0, 1023, 0)
@@ -57,11 +85,10 @@ export function paintGradient(ctx: CanvasRenderingContext2D, width: number, heig
     const u = (dx * ca - dy * sa) / r, v = (dx * sa + dy * ca) / r / aspect
     let t = kind === 'radial' ? Math.hypot(u, v) : kind === 'diamond' ? Math.abs(u) + Math.abs(v)
       : kind === 'reflected' ? Math.abs(u) : kind === 'angle' ? (Math.atan2(v, u) / (2 * Math.PI) + 1) % 1 : (u + 1) / 2
-    t = Math.max(0, Math.min(1, t)); if (opts.reverse) t = 1 - t
+    t = clamp01(t); if (opts.reverse) t = 1 - t
     const ci = Math.round(t * 1023) * 4, i = (y * width + x) * 4
     d[i] = colors[ci]; d[i + 1] = colors[ci + 1]; d[i + 2] = colors[ci + 2]; d[i + 3] = colors[ci + 3]
   }
-  // drawImage respects opacity, transforms and compositing of the caller; putImageData does not.
   const out = document.createElement('canvas'); out.width = width; out.height = height
   out.getContext('2d')!.putImageData(img, 0, 0); ctx.drawImage(out, 0, 0)
 }
