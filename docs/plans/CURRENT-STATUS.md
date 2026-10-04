@@ -21,7 +21,7 @@ The AI connector / MCP concept is strategically interesting, but it was explicit
 | 4 Effect scope | Shipped | `d621010` — stacks on layers/groups/boards/document, linked effects, masks, `.void` v4 effect persistence, canvas/export parity suite |
 | 5 Brief check + photography page | Shipped | `5f73552` |
 | 6 Export finish + coming back | Shipped | `4438995`, with analytics quality work in `35aef30` |
-| 7 Reuse: looks, library, campaigns | In progress | Phase 7A shipped in `a9e3ba6`; wider library, usage relationships and campaigns remain |
+| 7 Reuse: looks, library, campaigns | In progress | Phase 7A `a9e3ba6`; Phase 7B `1fb45b9`; campaign tokens/suggestions remain |
 
 The four items that were originally listed as “next” in the 26 September audit are no longer pending: guideline photography shipped in Phase 5, brief checking shipped in Phase 5, named/staged review versions shipped in Phase 3, and client comments linked to layers shipped in Phase 3.
 
@@ -45,29 +45,33 @@ It adds:
 
 Validation before merge: TypeScript passed, unit tests passed, production build passed and the Netlify deploy preview passed.
 
-## Effects and painting follow-up
+## Phase 7B shipped: wider cross-design Library and reference safety
 
-- PR #6 shipped on `master` as `07518f6`: deeper effect controls, gradient types, blur modes, aligned sliders and numeric entry.
-- PR #7 shipped on `master` as `6173b8c`: stable Effects preview, movable controls, predictable painting inside selections, editable masks on live text/shapes, alpha-lock parity, safer clone/heal/removal workflows.
+PR #12 shipped on `master` as `1fb45b9` after being reconciled on top of PR #8.
 
-## Remaining planned product work
+It adds:
 
-### 1. Phase 7B: wider library + relationships + campaigns
+- Reusable logos, images, textures, colours, fonts and templates in the same Reuse Library as Looks/text styles.
+- Search, type filters and recent-use ordering.
+- Raster source preservation as local PNG + preview; local-font blobs are kept when available.
+- Reusable templates as separate immutable template projects, so the source design is never silently converted into a template.
+- Design/brand text-style scope hooks, including a Brand text style action when the open design has a brand id.
+- Separate per-design/layer/slot reference records without changing the `.void` document schema.
+- `used in N designs` counts that ignore designs which have been deleted.
+- Safe delete: referenced library items cannot be removed without an explicit second confirmation that names affected designs.
+- Safe Replace source: the library source can be updated for future use without rewriting existing/approved designs behind the user’s back.
+- Raster reuse through the existing Replace Image workflow when a raster target is selected, or new-layer placement when no raster target is selected.
+- Colour/font application that leaves unrelated layer properties intact.
+- Expanded `e2e/reuse.mjs` covering Looks/text styles, colour/font assets, search/filter, dependency warning, logo placement and phone reachability.
+- Expanded `docs/reuse-library.md` documenting the dependency model and propagation boundary.
 
-Next to build:
+Validation on the reconciled final head: TypeScript passed, unit tests passed, production build passed and the Netlify deploy preview passed. The expanded Playwright reuse regression is included in the full E2E runner but was not claimed as executed by the normal GitHub CI workflow.
 
-- Organise reusable text styles per design and allow promotion to a client brand.
-- Extend the cross-design library to logos, images, textures, colours, fonts and templates.
-- Add `used in` counts and dependency awareness before replace/delete.
-- Add search/filter and recent-use ordering across reusable assets.
-- Treat a Studio job as the campaign container with shared brief details/tokens across related designs.
-- Campaign-wide updates such as changing one event date everywhere while preserving intentional per-format overrides.
-- One-at-a-time contextual reuse suggestions that can be dismissed permanently.
-- Brand-system colour roles and type-in-use documentation from the 26 Sept audit.
+## Designer production workflows
 
-### 2. Professional nondestructive editing workflows
+PR #8 shipped on `master` as `c8ab5b5` before Phase 7B was merged.
 
-Implemented in PR #8; pending merge to `master`:
+It includes:
 
 - Embedded editable smart sources, nested source tabs, replace content and explicit rasterisation.
 - Draw Inside with a visible host and inherited live clipping.
@@ -80,7 +84,29 @@ Implemented in PR #8; pending merge to `master`:
 
 See `../DESIGNER-PRODUCTION-WORKFLOWS.md` for entry points, validation and practical limits. Reviews at three experience levels are simulated, not human usability studies.
 
-### 3. Effects follow-ups
+## Effects and painting follow-up
+
+- PR #6 shipped on `master` as `07518f6`: deeper effect controls, gradient types, blur modes, aligned sliders and numeric entry.
+- PR #7 shipped on `master` as `6173b8c`: stable Effects preview, movable controls, predictable painting inside selections, editable masks on live text/shapes, alpha-lock parity, safer clone/heal/removal workflows.
+- PR #8 shipped on `master` as `c8ab5b5`: selected-area repair plus the wider nondestructive designer-production workflow set above.
+
+## Remaining planned product work
+
+### 1. Phase 7C: campaigns, shared tokens and suggestions
+
+Next coherent Phase 7 slice:
+
+- Treat a Studio job as the campaign container for related designs and boards.
+- Shared brief tokens such as date, time, venue, price, CTA and other repeatable campaign facts.
+- Link tagged text across related designs without flattening or replacing unrelated typography.
+- Explicit **Change everywhere** updates as reversible operations.
+- Preserve intentional per-format/manual overrides unless the user deliberately resets them to the shared value.
+- Surface one-at-a-time contextual reuse suggestions that can be dismissed permanently.
+- Finish brand-system colour roles and type-in-use documentation from the 26 September audit.
+
+Phase 7B source replacement is deliberately non-propagating. Cross-design propagation belongs here so it can be explicit, reversible and override-aware.
+
+### 2. Effects follow-ups
 
 PR #6 intentionally left these for later:
 
@@ -91,7 +117,7 @@ PR #6 intentionally left these for later:
 - Large-document preview performance budget.
 - Better physical/unit semantics for controls such as exposure, gamma and pixel-based parameters.
 
-### 4. Engine and colour pipeline
+### 3. Engine and colour pipeline
 
 Still a separate engineering track:
 
@@ -100,7 +126,7 @@ Still a separate engineering track:
 - Native CMYK editing and certified print formats beyond the ICC proof/CMYK TIFF export in PR #8.
 - Real-GPU browser validation for the WebGPU any-subject background-removal path.
 
-### 5. Import/export gaps
+### 4. Import/export gaps
 
 - PR #8 retains embedded originals and opens supported sources for editing. Unsupported source formats retain a cached editable source and are reported; complex placed PSD updates preserve bounds rather than original warp parameters.
 - Layered PSD export is still not shipped.
@@ -114,15 +140,16 @@ Keep this outside the current implementation sequence until deliberately reactiv
 
 - `master` is the deployment source of truth.
 - `phase7-reuse-foundation` was merged through PR #10 on 4 October 2026.
-- The original `effects-ux-workspace` changes were merged through PR #7. This branch now carries PR #8 designer workflows.
+- `phase7b-library` was merged through PR #12 on 4 October 2026.
+- `effects-ux-workspace` shipped its original UX work through PR #7 and its later designer-production workflow work through PR #8.
 - `effects-controls-depth` was merged through PR #6; its divergence follows the squash history.
 - `campaign/make-something` is an older experimental branch from 25 September and is far behind current `master`; do not merge it wholesale. Any useful campaign mechanics should be re-evaluated against the current codebase and selectively reimplemented.
 - Old feature branches should be considered historical unless a current issue or PR explicitly revives them.
 
 ## Next execution order
 
-1. Phase 7B: wider reusable library, `used in` relationships and campaign shared tokens.
-2. Review and merge PR #8 for embedded smart sources, brush presets, Draw Inside and the other designer workflows.
+1. Phase 7C: Studio campaign container, shared tokens, reversible Change everywhere and override handling.
+2. Contextual reuse suggestions plus brand colour-role/type-in-use follow-ups.
 3. Gradient handles/presets and remaining Effects UX follow-ups.
 4. Large-document engine and colour-management work as separate infrastructure projects.
 
