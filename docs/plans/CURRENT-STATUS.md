@@ -4,6 +4,12 @@ Updated: 4 October 2026
 
 This file is the authoritative status summary for active product work. Older plan files remain useful as historical specifications, but their build-status tables may be stale.
 
+## Recovered development-session note
+
+A Claude development session from late September / early October was recovered on 4 October. It confirms the shipped sequence below and that the session stopped immediately after the post-Phase-6 mobile/text repair batch, just as Phase 7 reuse work was beginning. No Phase 7 implementation from that session was found on `master`.
+
+The AI connector / MCP concept is strategically interesting, but it was explicitly removed from this implementation plan by Justin on 28 September. It is **not** part of the current Phase 7 build. Treat it as a separate future product track rather than mixing it into editor/reuse execution.
+
 ## Workflow, reliability and effect scope plan
 
 | Phase | Status | Shipped evidence |
@@ -16,6 +22,8 @@ This file is the authoritative status summary for active product work. Older pla
 | 5 Brief check + photography page | Shipped | `5f73552` |
 | 6 Export finish + coming back | Shipped | `4438995`, with analytics quality work in `35aef30` |
 | 7 Reuse: looks, library, campaigns | Not complete | Foundations exist, but the cross-design reuse system described in the plan has not shipped |
+
+The four items that were originally listed as “next” in the 26 September audit are no longer pending: guideline photography shipped in Phase 5, brief checking shipped in Phase 5, named/staged review versions shipped in Phase 3, and client comments linked to layers shipped in Phase 3.
 
 ## Effects and painting follow-up
 
@@ -77,6 +85,10 @@ Still a separate engineering track:
 - Smart-object import currently falls back to pixels until the smart-object model exists.
 - Layered PSD export is still not shipped.
 - SVG export has shipped in Phase 6, so older README text saying there is no SVG export is stale and should not be used as current status.
+
+## Separate future track: AI connector / design API
+
+Keep this outside the current implementation sequence until deliberately reactivated. The strategic concept is still valid: an MCP/design API through which Claude, ChatGPT or another compatible agent can inspect and operate structured, editable VoidCanvas projects. If revived, it should be designed around permissions, protected elements, transaction-level undo, AI-created versions, ownership of the resulting `.void` project, and explicit privacy boundaries. Do not bolt it onto Phase 7.
 
 ## Branch housekeeping
 
