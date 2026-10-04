@@ -1,16 +1,14 @@
 import { writePsd } from 'ag-psd'
 import { layerBounds, makeCanvas, renderDoc } from './engine'
+import { assertProductionSafe } from './hardening'
 import { downloadBlob } from './io'
 import type { Doc, Group, Layer } from './types'
 
 const safe = (n: string) => n.replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '') || 'design'
 
-/**
- * Layered interchange export. Every editable VoidCanvas layer remains a separate PSD layer.
- * Unsupported live constructs are rasterised per layer rather than flattening the document, so the receiving
- * application can still move, mask, reorder and replace individual artwork. Group nesting is retained.
- */
+/** Layered interchange export. Unsupported live constructs rasterise per layer, never as one flattened page. */
 export function layeredPsd(doc: Doc, layers: Layer[], groups: Group[]): ArrayBuffer {
+  assertProductionSafe(doc, layers, groups)
   const rendered = new Map<string, any>()
   for (const layer of layers) {
     if (!layer.visible) continue
@@ -23,17 +21,14 @@ export function layeredPsd(doc: Doc, layers: Layer[], groups: Group[]): ArrayBuf
     renderDoc(canvas, doc, [layer], { groups: [], region, scale: 1, noShadow: true, noCache: true, fullRes: true })
     rendered.set(layer.id, { name: layer.name || 'Layer', left: x, top: y, canvas, opacity: Math.round((layer.opacity ?? 1) * 255), hidden: !layer.visible })
   }
-
   const groupNodes = new Map<string, any>()
   for (const g of groups) groupNodes.set(g.id, { name: g.name || 'Group', opened: true, children: [] as any[] })
   const root: any[] = []
-  // PSD children are top-to-bottom; VoidCanvas layers are stored bottom-to-top.
   for (const layer of [...layers].reverse()) {
     const node = rendered.get(layer.id); if (!node) continue
     const parent = layer.groupId ? groupNodes.get(layer.groupId) : null
     ;(parent?.children ?? root).push(node)
   }
-  // Preserve nested groups where the model has a parent group; otherwise add at root.
   for (const g of [...groups].reverse()) {
     const node = groupNodes.get(g.id); if (!node || !node.children.length) continue
     const parentId = (g as any).parentId ?? (g as any).groupId ?? null
