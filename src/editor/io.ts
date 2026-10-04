@@ -108,7 +108,8 @@ export async function wipeEverything(): Promise<void> {
 
 export interface Handoff {
   id: string
-  from: 'effects' | 'studio' | 'editor'
+  from: 'effects' | 'studio' | 'editor' | 'brand'
+  brandId?: string
   name: string
   images: { name: string; blob: Blob }[]
   palette?: string[]

@@ -269,6 +269,7 @@ export function EditorShell() {
         return
       }
       const tagJob = () => {
+        if (h.brandId && !h.job) { const d = useEditor.getState().doc; if (d) useEditor.setState({ doc: { ...d, brandId: h.brandId }, dirty: true }); return }
         if (!h.job) return
         const d = useEditor.getState().doc; if (!d) return
         useEditor.setState({ doc: { ...d, id: h.job.docId ?? d.id, jobId: h.job.id, brandId: h.job.brandId ?? null }, dirty: true })

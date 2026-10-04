@@ -5,3 +5,7 @@
   to = "https://voidcanvas.app/:splat"
   status = 301
   force = true
+
+# Brand publishing uses Netlify Blobs, whose current SDK requires Node 22.12+.
+[build.environment]
+  NODE_VERSION = "22"

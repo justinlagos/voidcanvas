@@ -61,7 +61,7 @@ function authMessage(status: number, data: any): string {
 }
 
 let refreshing: Promise<void> | null = null
-async function freshToken(): Promise<string> {
+export async function freshToken(): Promise<string> {
   if (!session) throw new AccountError('Not signed in.')
   if (session.expires_at - Date.now() > 60_000) return session.access_token
   refreshing ??= (async () => {

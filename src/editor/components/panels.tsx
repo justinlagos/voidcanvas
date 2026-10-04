@@ -1,4 +1,5 @@
 'use client'
+import { EditorBrandSwitcher } from '@/brand/EditorBrandSwitcher'
 import { uiFont } from '@/lib/ui-font'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -305,13 +306,15 @@ export function NavigatorPanel() {
 // ─── Brand ─────────────────────────────────────────────────────────
 
 export function BrandPanel() {
+  const brandId = useEditor(s => s.doc?.brandId)
   const [kit, setKit] = useState<BrandKit | null>(null)
-  useEffect(() => { getBrand().then(setKit).catch(() => {}) }, [])
+  useEffect(() => { getBrand().then(setKit).catch(() => {}) }, [brandId])
   const s = useEditor.getState()
   if (!kit) return null
   const text = s.active()?.type === 'text' ? s.active() as TextLayer : null
   return (
     <div className="p-3 space-y-3">
+      <EditorBrandSwitcher />
       <div>
         <p className="text-[10.5px] uppercase tracking-wide text-void-500 mb-1.5">Colours</p>
         {kit.colors.length ? <div className="flex flex-wrap gap-1">{kit.colors.map(c => <button key={c} title={`${c}: click for main colour, Alt-click to apply to the selected layer`} onClick={e => { if (e.altKey) { const l = s.active(); if (l?.type === 'text') s.updateLayer(l.id, { color: c }, 'Brand colour'); else if (l?.type === 'shape') s.updateLayer(l.id, { fill: c }, 'Brand colour') } else s.setFg(c) }} className={`w-7 h-7 rounded-md border border-white/10 ${focusRing}`} style={{ background: c }} />)}</div> : <p className="text-[12px] text-void-500">No brand colours yet.</p>}
