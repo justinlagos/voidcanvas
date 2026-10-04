@@ -4,7 +4,9 @@ Phase 7 starts with two things designers repeatedly rebuild: an appearance treat
 
 ## Looks
 
-Select a layer in the Editor and open **Reuse**. **Save as Look** keeps the layer's reusable appearance:
+Select a layer or a whole group in the Editor and open **Reuse**. **Save as Look** keeps the reusable appearance of that target.
+
+For a layer it can keep:
 
 - opacity and blend mode
 - fill opacity and layer styles
@@ -12,15 +14,17 @@ Select a layer in the Editor and open **Reuse**. **Save as Look** keeps the laye
 - text appearance when the source is text
 - shape appearance when the source is a shape
 
-A Look does **not** keep the source content, position, identity, effect links or effect masks. Effect masks are tied to the geometry of the layer where they were painted, so carrying them into another object would be unsafe. Applying a Look creates fresh effect IDs and no shared links back to the source.
+For a selected group it saves the **group composite** treatment: group opacity, compositing/blend behaviour, group styles and the group's ordered effect stack. It does not copy the same effect onto every child. That preserves the distinction between “blur this group as one image” and “blur each child separately.”
 
-Apply a Look to one or several selected compatible layers. It is one undoable operation. The content and placement of each target stay its own.
+A Look does **not** keep source content, position, identity, effect links or effect masks. Effect masks are tied to the geometry of the layer/group where they were painted, so carrying them into another target would be unsafe. Applying a Look creates fresh effect IDs and no shared links back to the source.
+
+Apply a Look to a whole selected group, or to one or several selected compatible layers. It is one undoable operation. Content and placement stay their own.
 
 ## Text styles
 
-When the selected layer is text, **Save text style** keeps typography only: font, size, weight, italic, colour, alignment, line height, letter spacing, paragraph settings, underline/strike/caps, outline and text shadow.
+When exactly one selected layer is text, **Save text style** keeps typography only: font, size, weight, italic, colour, alignment, line height, letter spacing, paragraph settings, underline/strike/caps, outline and text shadow.
 
-It does not keep the words, layer name, position, rotation, dimensions or effects. A text style can therefore be safely applied to another text layer without replacing its copy.
+It does not keep the words, layer name, position, rotation, dimensions, opacity or effects. A text style can therefore be safely applied to another text layer without replacing its copy or treatment.
 
 ## Studio colour looks
 
