@@ -17,6 +17,16 @@ const PREFIX = 'reuse:'
 
 export type PortableEffect = Omit<Effect, 'id' | 'link' | 'mask' | 'maskAt' | 'hasMask'>
 
+export type TextStyleData = Pick<TextLayer,
+  'fontFamily' | 'fontSize' | 'fontWeight' | 'italic' | 'color' | 'align' | 'lineHeight' |
+  'letterSpacing' | 'underline' | 'strike' | 'caps' | 'kerning' | 'wordSpacing' | 'stretch' |
+  'indent' | 'spaceAfter' | 'baselineShift' | 'shadow' | 'outline'
+>
+
+export type ShapeStyleData = Pick<ShapeLayer,
+  'fill' | 'stroke' | 'strokeWidth' | 'radius' | 'strokeAlign' | 'strokeCap' | 'strokeJoin' | 'strokeDash'
+>
+
 export interface ReusableAppearance {
   common: {
     opacity: number
@@ -25,8 +35,8 @@ export interface ReusableAppearance {
     styles?: LayerStyles | null
   }
   effects: PortableEffect[]
-  text?: Partial<TextLayer>
-  shape?: Partial<ShapeLayer>
+  text?: TextStyleData
+  shape?: ShapeStyleData
 }
 
 export interface SavedLook {
@@ -44,7 +54,7 @@ export interface SavedTextStyle {
   name: string
   at: number
   updatedAt: number
-  style: Partial<TextLayer>
+  style: TextStyleData
 }
 
 /** Existing Studio "Take the look" records, represented in the same library result. */
@@ -82,53 +92,7 @@ export function materializeEffects(effects: PortableEffect[]): Effect[] {
   return effects.map(effect => ({ ...deep(effect), id: uid(), link: null, mask: null, maskAt: null, hasMask: false, maskOn: false } as Effect))
 }
 
-export function captureAppearance(layer: Layer): ReusableAppearance {
-  const common: ReusableAppearance['common'] = {
-    opacity: layer.opacity,
-    blend: layer.blend,
-    fillOpacity: layer.fillOpacity,
-    styles: deep(layer.styles ?? null),
-  }
-  const appearance: ReusableAppearance = { common, effects: portableEffects(layer.effects) }
-
-  if (layer.type === 'text') {
-    appearance.text = {
-      fontFamily: layer.fontFamily,
-      fontSize: layer.fontSize,
-      fontWeight: layer.fontWeight,
-      italic: layer.italic,
-      color: layer.color,
-      align: layer.align,
-      lineHeight: layer.lineHeight,
-      letterSpacing: layer.letterSpacing,
-      underline: layer.underline,
-      strike: layer.strike,
-      caps: layer.caps,
-      kerning: layer.kerning,
-      wordSpacing: layer.wordSpacing,
-      stretch: layer.stretch,
-      indent: layer.indent,
-      spaceAfter: layer.spaceAfter,
-      baselineShift: layer.baselineShift,
-      shadow: deep(layer.shadow ?? null),
-      outline: deep(layer.outline ?? null),
-    }
-  } else if (layer.type === 'shape') {
-    appearance.shape = {
-      fill: layer.fill,
-      stroke: layer.stroke,
-      strokeWidth: layer.strokeWidth,
-      radius: layer.radius,
-      strokeAlign: layer.strokeAlign,
-      strokeCap: layer.strokeCap,
-      strokeJoin: layer.strokeJoin,
-      strokeDash: deep(layer.strokeDash),
-    }
-  }
-  return appearance
-}
-
-export function captureTextStyle(layer: TextLayer): Partial<TextLayer> {
+export function captureTextStyle(layer: TextLayer): TextStyleData {
   return {
     fontFamily: layer.fontFamily,
     fontSize: layer.fontSize,
@@ -149,6 +113,33 @@ export function captureTextStyle(layer: TextLayer): Partial<TextLayer> {
     baselineShift: layer.baselineShift,
     shadow: deep(layer.shadow ?? null),
     outline: deep(layer.outline ?? null),
+  }
+}
+
+export function captureShapeStyle(layer: ShapeLayer): ShapeStyleData {
+  return {
+    fill: layer.fill,
+    stroke: layer.stroke,
+    strokeWidth: layer.strokeWidth,
+    radius: layer.radius,
+    strokeAlign: layer.strokeAlign,
+    strokeCap: layer.strokeCap,
+    strokeJoin: layer.strokeJoin,
+    strokeDash: deep(layer.strokeDash),
+  }
+}
+
+export function captureAppearance(layer: Layer): ReusableAppearance {
+  return {
+    common: {
+      opacity: layer.opacity,
+      blend: layer.blend,
+      fillOpacity: layer.fillOpacity,
+      styles: deep(layer.styles ?? null),
+    },
+    effects: portableEffects(layer.effects),
+    ...(layer.type === 'text' ? { text: captureTextStyle(layer) } : {}),
+    ...(layer.type === 'shape' ? { shape: captureShapeStyle(layer) } : {}),
   }
 }
 
@@ -189,7 +180,9 @@ export async function listLibrary(): Promise<ReusableItem[]> {
     idb.all<LegacyStudioLook>('looks').catch(() => []),
   ])
   const local = reuse.filter(x => typeof x?.id === 'string' && x.id.startsWith(PREFIX) && (x.kind === 'look' || x.kind === 'textStyle')) as (SavedLook | SavedTextStyle)[]
-  const old = studio.filter(x => x?.id && x?.name && Array.isArray(x?.mean) && Array.isArray(x?.std)).map(x => ({ ...x, kind: 'colourLook' as const, source: 'studio' as const }))
+  const old: SavedColourLook[] = studio
+    .filter(x => x?.id && x?.name && Array.isArray(x?.mean) && Array.isArray(x?.std))
+    .map(x => ({ ...x, kind: 'colourLook', source: 'studio' }))
   return [...local, ...old].sort((a, b) => b.at - a.at)
 }
 
@@ -227,8 +220,9 @@ export function applyTextStyle(item: SavedTextStyle, ids?: string[]): boolean {
   if (!targets.length) return false
   s.updateLayers(targets.map(id => ({ id, patch: deep(item.style) as any })))
   s.commit(`Apply text style: ${item.name}`)
-  const family = item.style.fontFamily
-  if (family) ensureFont(family, item.style.fontWeight ?? 400, item.style.italic ?? false).then(() => useEditor.setState(x => ({ docRev: x.docRev + 1 }))).catch(() => {})
+  ensureFont(item.style.fontFamily, item.style.fontWeight, item.style.italic)
+    .then(() => useEditor.setState(x => ({ docRev: x.docRev + 1 })))
+    .catch(() => {})
   return true
 }
 
