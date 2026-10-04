@@ -228,7 +228,7 @@ export function applyTextStyle(item: SavedTextStyle, ids?: string[]): boolean {
   s.updateLayers(targets.map(id => ({ id, patch: deep(item.style) as any })))
   s.commit(`Apply text style: ${item.name}`)
   const family = item.style.fontFamily
-  if (family) ensureFont(family, item.style.fontWeight, item.style.italic).then(() => useEditor.setState(x => ({ docRev: x.docRev + 1 }))).catch(() => {})
+  if (family) ensureFont(family, item.style.fontWeight ?? 400, item.style.italic ?? false).then(() => useEditor.setState(x => ({ docRev: x.docRev + 1 }))).catch(() => {})
   return true
 }
 
