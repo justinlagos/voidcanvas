@@ -1,7 +1,8 @@
 import { writePsd } from 'ag-psd'
-import { layerBounds, makeCanvas, renderDoc } from './engine'
+import { ctx2d, layerBounds, makeCanvas, renderDoc } from './engine'
 import { assertProductionSafe } from './hardening'
 import { downloadBlob } from './io'
+import { renderBudget, visibleTiles } from './performance'
 import type { Doc, Group, Layer } from './types'
 
 const safe = (n: string) => n.replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '') || 'design'
@@ -9,7 +10,7 @@ const safe = (n: string) => n.replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '') 
 /** Layered interchange export. Unsupported live constructs rasterise per layer, never as one flattened page. */
 export function layeredPsd(doc: Doc, layers: Layer[], groups: Group[]): ArrayBuffer {
   assertProductionSafe(doc, layers, groups)
-  const rendered = new Map<string, any>()
+  const rendered = new Map<string, any>(), budget = renderBudget(doc.width, doc.height)
   for (const layer of layers) {
     if (!layer.visible) continue
     const b = layerBounds(layer, doc)
@@ -18,7 +19,16 @@ export function layeredPsd(doc: Doc, layers: Layer[], groups: Group[]): ArrayBuf
     if (r <= x || bot <= y) continue
     const region = { x, y, w: r - x, h: bot - y }
     const canvas = makeCanvas(region.w, region.h)
-    renderDoc(canvas, doc, [layer], { groups: [], region, scale: 1, noShadow: true, noCache: true, fullRes: true })
+    if (budget.large && region.w * region.h > budget.tileSize * budget.tileSize * 2) {
+      // Render bounded chunks into the layer canvas. This keeps effect scratch canvases from scaling with the
+      // entire document while the final PSD layer still has its exact dimensions.
+      const out = ctx2d(canvas)
+      for (const tile of visibleTiles(region, doc.width, doc.height, budget.tileSize)) {
+        const c = makeCanvas(tile.w, tile.h)
+        renderDoc(c, doc, [layer], { groups: [], region: tile, scale: 1, noShadow: true, noCache: true, fullRes: true })
+        out.drawImage(c, tile.x - region.x, tile.y - region.y); c.width = 0; c.height = 0
+      }
+    } else renderDoc(canvas, doc, [layer], { groups: [], region, scale: 1, noShadow: true, noCache: true, fullRes: true })
     rendered.set(layer.id, { name: layer.name || 'Layer', left: x, top: y, canvas, opacity: Math.round((layer.opacity ?? 1) * 255), hidden: !layer.visible })
   }
   const groupNodes = new Map<string, any>()
