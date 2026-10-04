@@ -141,7 +141,7 @@ export const posts: Post[] = [
         "Smart objects and vector shapes arrive as pixels.",
         "Blend modes the Editor cannot draw, such as linear burn, vivid light and dissolve, use the nearest match.",
         "16-bit files become 8-bit, and CMYK or other colour modes become RGB.",
-        "Gradient or pattern strokes become a solid colour. Gradient overlays with more than two colours use the first and last.",
+        "Gradient or pattern strokes become a solid colour. Gradient overlays preserve multiple colour stops and gradient type; custom opacity stops and midpoint interpolation are simplified.",
         "Group masks are left out, and an adjustment clipped to one layer opens unclipped, so it affects everything below it.",
         "Satin and pattern overlay effects are not supported yet.",
       ] },

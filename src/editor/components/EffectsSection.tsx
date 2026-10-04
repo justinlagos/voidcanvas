@@ -13,6 +13,7 @@ import { STYLE_KINDS, STYLE_LABELS, defaultStyle, emptyStyles } from '../styles'
 import { openModal } from '../actions'
 import { Floating } from './ColorPicker'
 import { ColorField, Section, Select, Slider, focusRing } from './ui'
+import { GradientControls } from './GradientControls'
 import { SettingsControls } from './PropertiesPanel'
 
 // The Effects section of Properties, for one target (a layer, a group, a board, the whole design) or for several
@@ -90,6 +91,7 @@ export function EffectsSection({ targets, title = 'Effects', note }: { targets: 
   const tKey = targets.map(t => t.type + (('id' in t) ? t.id : '')).join(',')
   useEffect(() => {
     const ids = list.map(e => e.id), prev = seen.current
+    if (!prev && ids.length) setOpen(ids[ids.length - 1])
     if (prev && prev.key === tKey && ids.length > prev.ids.length) { const added = ids.find(id => !prev.ids.includes(id)); if (added) setOpen(added) }
     seen.current = { key: tKey, ids }
   })
@@ -255,11 +257,13 @@ function StyleControls({ kind, v, set, layerTarget }: { kind: StyleKind; v: any;
   return (
     <div className="space-y-2.5">
       {'color' in v && <ColorField label="Colour" value={v.color} onChange={c => c && set({ ...v, color: c })} onCommit={commit} />}
-      {(kind === 'dropShadow' || kind === 'innerShadow') && <>{num('distance', 'Distance', 0, 300)}{num('size', 'Blur', 0, 250)}{num('angle', 'Angle', -180, 180, '°')}</>}
+      {(kind === 'dropShadow' || kind === 'innerShadow') && <>{num('distance', 'Distance', 0, 300)}{num('size', 'Blur', 0, 250)}{num('spread', 'Spread / choke', 0, 100, '%')}{num('angle', 'Angle', -180, 180, '°')}</>}
       {(kind === 'outerGlow' || kind === 'innerGlow') && <>{num('size', 'Size', 0, 250)}{num('spread', 'Spread', 0, 100, '%')}</>}
       {kind === 'stroke' && <>{num('size', 'Width', 1, 100)}<Select label="Position" value={v.position} options={[{ id: 'outside', label: 'Outside' }, { id: 'center', label: 'Centre' }, { id: 'inside', label: 'Inside' }]} onChange={p => set({ ...v, position: p }, 'Stroke position')} /></>}
-      {kind === 'gradientOverlay' && <><ColorField label="From" value={v.from} onChange={c => c && set({ ...v, from: c })} onCommit={commit} /><ColorField label="To" value={v.to} onChange={c => c && set({ ...v, to: c })} onCommit={commit} />{num('angle', 'Angle', -180, 180, '°')}</>}
-      {kind === 'bevel' && <>{num('size', 'Size', 1, 100)}{num('depth', 'Depth', 1, 500, '%')}</>}
+      {kind === 'gradientOverlay' && <GradientControls value={v} patch={p => set({ ...v, ...p })} commit={commit} />}
+      {kind === 'bevel' && <>{num('size', 'Size', 1, 100)}{num('depth', 'Depth', 1, 500, '%')}{num('angle', 'Light angle', -180, 180, '°')}{num('soften', 'Soften', 0, 50)}<ColorField label="Highlight" value={v.highlight} onChange={c => c && set({ ...v, highlight: c })} onCommit={commit} /><ColorField label="Shadow" value={v.shadow} onChange={c => c && set({ ...v, shadow: c })} onCommit={commit} /></>}
+      <Select label="Blend mode" value={v.blend} options={BLEND_MODES} onChange={blend => set({ ...v, blend }, 'Effect blend mode')} />
+      <button className="text-xs text-void-400 underline" onClick={() => set(defaultStyle(kind), 'Reset effect')}>Reset effect</button>
       <Slider label="Opacity" value={Math.round((v.opacity ?? 1) * 100)} min={0} max={100} unit="%" onChange={x => set({ ...v, opacity: x / 100 })} onCommit={commit} />
       {layerTarget && <button onClick={() => openModal('layerStyle')} className={`text-[11.5px] text-void-400 underline underline-offset-2 hover:text-white rounded ${focusRing}`}>Every setting, in Blending options…</button>}
     </div>

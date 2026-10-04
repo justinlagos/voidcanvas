@@ -1182,6 +1182,14 @@ export function applyEffect(
 
   // Apply opacity blending with original
   if (effect !== 'none') {
+    const brightness = Math.max(-100, Math.min(100, params.finishBrightness ?? 0)) * 2.55
+    const contrast = Math.max(-100, Math.min(100, params.finishContrast ?? 0)) / 100
+    const factor = contrast >= 0 ? 1 / Math.max(0.01, 1 - contrast) : 1 + contrast
+    const saturation = 1 + Math.max(-100, Math.min(100, params.finishSaturation ?? 0)) / 100
+    if (brightness || contrast || saturation !== 1) for (let i = 0; i < out.length; i += 4) {
+      const gray = out[i] * 0.299 + out[i + 1] * 0.587 + out[i + 2] * 0.114
+      for (let c = 0; c < 3; c++) out[i + c] = clamp((gray + (out[i + c] - gray) * saturation - 128) * factor + 128 + brightness)
+    }
     const opacity = params.opacity / 100
     if (opacity < 1) {
       for (let i = 0; i < data.length; i += 4) {

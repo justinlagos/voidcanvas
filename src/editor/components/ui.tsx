@@ -63,9 +63,10 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
   /** Several layers with different values: shows "Mixed" until moved. */
   mixed?: boolean
 }) {
-  const pct = ((value - min) / (max - min)) * 100
+  const safeValue = Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : min
+  const pct = max > min ? ((safeValue - min) / (max - min)) * 100 : 0
   const scrub = useRef<{ x: number; v: number } | null>(null)
-  const snap = (v: number) => Math.min(max, Math.max(min, Math.round(v / step) * step))
+  const snap = (v: number) => Math.min(max, Math.max(min, min + Math.round((v - min) / step) * step))
   // Only a change is an undo step: a click, a Tab onto the slider or an arrow at the end of the range is not.
   const now = useRef(value); now.current = value
   const start = useRef<number | null>(null)
@@ -77,17 +78,17 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
         <span title="Drag sideways to change. Hold Shift for big steps." className="cursor-ew-resize select-none touch-none"
           onPointerDown={e => { e.preventDefault(); scrub.current = { x: e.clientX, v: value }; begin(); (e.target as HTMLElement).setPointerCapture(e.pointerId) }}
           onPointerMove={e => { if (scrub.current) onChange(snap(scrub.current.v + ((e.clientX - scrub.current.x) * (max - min) * (e.shiftKey ? 4 : 1)) / 260)) }}
-          onPointerUp={() => { if (scrub.current) { scrub.current = null; end() } }}>{label}</span>
-        <span className="tabular-nums text-void-200">{mixed ? 'Mixed' : <>{format ? format(value) : Math.round(value * 100) / 100}{unit}</>}</span>
+          onPointerUp={() => { if (scrub.current) { scrub.current = null; end() } }} onPointerCancel={() => { scrub.current = null; end() }}>{label}</span>
+        <span className="flex items-center gap-1 tabular-nums text-void-200">{mixed ? 'Mixed' : <><input aria-label={`${label} value`} type="number" min={min} max={max} step={step} value={safeValue} onKeyDown={e => e.stopPropagation()} onFocus={begin} onChange={e => { if (e.target.value !== '') { begin(); onChange(snap(Number(e.target.value))) } }} onBlur={end} className="w-14 text-right bg-transparent rounded border border-transparent focus:border-void-600 outline-none" />{unit}</>}</span>
       </span>
       <span className="vc-slider-track relative block h-4">
         <span className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded bg-void-800" />
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded bg-accent" style={{ width: `${pct}%` }} />
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded bg-accent" style={{ width: `calc(${pct}% + ${6 - 12 * pct / 100}px)` }} />
         <input
-          type="range" min={min} max={max} step={step} value={value}
+          aria-label={label} type="range" min={min} max={max} step={step} value={safeValue}
           onChange={e => { begin(); onChange(Number(e.target.value)) }}
-          onPointerDown={begin} onKeyDown={begin} onPointerUp={end} onKeyUp={end} onBlur={end}
-          className="vc-range absolute inset-0"
+          onPointerDown={begin} onKeyDown={begin} onPointerUp={end} onPointerCancel={end} onKeyUp={end} onBlur={end}
+          className="vc-range absolute inset-0 !m-0 !h-4"
         />
       </span>
     </label>
@@ -150,7 +151,7 @@ export function Select<T extends string | number>({ label, value, options, onCha
     <label className="flex items-center justify-between gap-3">
       <span className="text-[12px] text-void-400 shrink-0">{label}</span>
       <select
-        value={value} onChange={e => { noteControl(label); onChange((typeof value === 'number' ? Number(e.target.value) : e.target.value) as T) }}
+        aria-label={label} value={value} onChange={e => { noteControl(label); onChange((typeof value === 'number' ? Number(e.target.value) : e.target.value) as T) }}
         className={`h-8 min-w-0 flex-1 max-w-[170px] px-2 rounded-md bg-surface-sunken border border-white/[0.06] text-[12.5px] text-void-100 ${focusRing}`}
       >
         {options.map(o => <option key={String(o.id)} value={o.id}>{o.label}</option>)}

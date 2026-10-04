@@ -420,7 +420,7 @@ export const articles: Article[] = [
         ['Layer masks', 'Vector shapes and vector masks: kept as pixels', 'Group masks'],
         ['Simple text: font, size, colour, alignment, leading, tracking, paragraph boxes, underline, strikethrough, caps', 'Blend modes Voidcanvas does not have, such as Linear burn or Vivid light: shown as the nearest match', 'Black and white tint'],
         ['Adjustment layers: Brightness/contrast, Levels, Curves, Exposure, Vibrance, Hue/saturation, Colour balance, Black and white, Photo filter, Channel mixer, Invert, Posterize, Threshold, Gradient map', 'Adjustments clipped to one layer: now affect everything below', 'Any other adjustment type'],
-        ['Layer styles: drop shadow, inner shadow, outer and inner glow, stroke, colour overlay, gradient overlay, bevel and emboss', 'Gradient or pattern strokes: solid colour. Gradient overlays with more than two colours: first and last colour only', ''],
+        ['Layer styles: drop shadow, inner shadow, outer and inner glow, stroke, colour overlay, gradient overlay, bevel and emboss', 'Gradient or pattern strokes: solid colour. Gradient overlays: custom opacity stops and midpoint interpolation are simplified', ''],
         ['Clipping masks, locks, colour labels', '16 and 32-bit files: converted to 8-bit. CMYK and other colour modes: converted to RGB', ''],
         ['Artboards: become boards, with their background colour', '', ''],
       ] },

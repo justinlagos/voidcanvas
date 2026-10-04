@@ -1,3 +1,4 @@
+import { directionalBlur } from './blur'
 import { applyEffect } from '@/lib/effects'
 import { FX_WORK, scaleParams } from '@/lib/effect-scale'
 import type { AdjustmentLayer, AdjustmentSettings, Doc, Effect, Frame, Group, HueBand, Layer, MaskAt, RasterLayer, Rect, ShapeLayer, SubPath, TextLayer } from './types'
@@ -666,7 +667,19 @@ function applyBuiltIn(img: ImageData, l: AdjustmentSettings, scale: number) {
       }
       break
     }
-    case 'blur': blurPremultiplied(img, Math.max(1, v.radius * scale * 0.6)); break
+    case 'blur': {
+      const radius = Math.max(0, v.radius * scale * 0.6), strength = Math.max(0, Math.min(1, (v.strength ?? 100) / 100))
+      if (!radius || !strength) break
+      const original = strength < 1 ? new Uint8ClampedArray(img.data) : null
+      if (v.mode === 1 || v.mode === 2) directionalBlur(img, radius, v.angle ?? 0, v.mode === 1 ? 'motion' : 'radial', v.centerX ?? 50, v.centerY ?? 50)
+      else blurPremultiplied(img, radius)
+      if (original) for (let i = 0; i < img.data.length; i += 4) {
+        const aa = original[i + 3] / 255 * (1 - strength), ba = img.data[i + 3] / 255 * strength, alpha = aa + ba
+        for (let c = 0; c < 3; c++) img.data[i + c] = alpha ? (original[i + c] * aa + img.data[i + c] * ba) / alpha : 0
+        img.data[i + 3] = alpha * 255
+      }
+      break
+    }
   }
 }
 

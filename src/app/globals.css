@@ -50,16 +50,23 @@ body {
   background: #42424b;
 }
 
-/* Range slider styling */
-input[type="range"] {
+/* Low base specificity lets range controls retain their positioning and size. */
+:where(input[type="range"]) {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
   cursor: pointer;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  display: block;
   width: 100%;
   position: relative;
   z-index: 1;
 }
+
+/* Invisible before/after controls cover their whole image rather than a standard rail. */
+input[type="range"].vc-cover { position: absolute; height: 100%; }
 
 input[type="range"]::-webkit-slider-runnable-track {
   background: #34343d;
@@ -132,8 +139,12 @@ input[type="color"]::-webkit-color-swatch {
   color: #fff;
 }
 
+/* Keep the native hit target directly over the painted rail. Otherwise the
+   global relative positioning moves it into normal flow, below the visible thumb. */
+input[type="range"].vc-range { position: absolute; inset: 0; height: 100%; }
+input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 /* Editor sliders draw their own filled track underneath the native input. */
-input[type="range"].vc-range::-webkit-slider-runnable-track { background: transparent; }
+input[type="range"].vc-range::-webkit-slider-runnable-track { background: transparent; height: 4px; }
 input[type="range"].vc-range::-moz-range-track { background: transparent; }
 
 @media (prefers-reduced-motion: reduce) {

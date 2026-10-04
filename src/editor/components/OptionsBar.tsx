@@ -1,6 +1,7 @@
 'use client'
 
 import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignStartHorizontal, AlignStartVertical, AlignVerticalDistributeCenter, Check, MinusSquare, PlusSquare, Square, SquareDot, X } from 'lucide-react'
+import { GRADIENT_TYPES, GRADIENT_PRESETS, type GradientKind } from '../gradient'
 import { FAMILIES, TOOLS } from './ToolRail'
 import * as ops from '../ops'
 import * as ai from '../ai-tools'
@@ -173,8 +174,11 @@ export function OptionsBar() {
         <Num label="Opacity" value={o.opacity * 100} min={1} max={100} unit="%" onChange={v => set('opacity', v / 100)} />
       </>}
       {tool === 'gradient' && <>
+        <select aria-label="Gradient type" value={o.gradientKind ?? 'linear'} onChange={e => set('gradientKind', e.target.value as GradientKind)} className="h-7 rounded bg-void-800 text-xs">{GRADIENT_TYPES.map(k => <option key={k.id} value={k.id}>{k.label}</option>)}</select>
+        <select aria-label="Gradient preset" value={GRADIENT_PRESETS.find(p => p.colors.join() === o.gradientStops?.map(s => s.color).join())?.name ?? ''} onChange={e => { const p = GRADIENT_PRESETS.find(p => p.name === e.target.value); set('gradientStops', p?.colors.map((color, i) => ({ color, position: i / (p.colors.length - 1) }))) }} className="h-7 rounded bg-void-800 text-xs"><option value="">Main / second colours</option>{GRADIENT_PRESETS.map(p => <option key={p.name}>{p.name}</option>)}</select>
+        <Check2 on={o.gradientReverse ?? false} label="Reverse" onChange={v => set('gradientReverse', v)} />
         <Num label="Opacity" value={o.opacity * 100} min={1} max={100} unit="%" onChange={v => set('opacity', v / 100)} />
-        <span className="text-[12px] text-void-400 shrink-0">Drag to blend from the main colour to the second colour.</span>
+        <span className="text-[12px] text-void-400 shrink-0">Drag to set direction and size. Radial starts at your pointer.</span>
       </>}
 
       {tool === 'shape' && (

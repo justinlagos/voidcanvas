@@ -824,7 +824,7 @@ export const articles: Article[] = [
         "Press {{G}} for the Gradient tool.",
         "Drag across the canvas in the direction you want the blend to run. A longer drag gives a softer blend.",
       ] },
-      { t: 'p', text: "The gradient is painted onto the selected image layer, or a new layer if none is selected, and stays inside any active selection. Set its **Opacity** in the options bar. For an editable gradient, use a **Gradient overlay** layer style (from and to colours, angle and scale), or a **Gradient map** adjustment for two-colour and duotone looks." },
+      { t: 'p', text: "The gradient is painted onto the selected image layer, or a new layer if none is selected, and stays inside any active selection. Choose **Linear**, **Radial / circle**, **Angular**, **Reflected** or **Diamond**, a preset and **Reverse** in the options bar. Set its **Opacity** there too. For an editable gradient, use a **Gradient overlay** layer style (type, colour stops, reverse, angle, scale, centre and shape ratio), or a **Gradient map** adjustment for two-colour and duotone looks." },
 
       { t: 'h', text: 'Paint bucket and Fill' },
       { t: 'list', items: [

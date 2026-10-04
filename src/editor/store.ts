@@ -1138,6 +1138,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     }
     if (kind === 'voidEffect' && effect) l.name = effect.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()) + ' filter'
     get().addLayer(l, 'Add ' + l.name.toLowerCase())
+    useUi.getState().showPanel('properties')
   },
 
   // Text keeps its anchor (left edge, middle or right edge, and top) when a change alters its size, unless the
