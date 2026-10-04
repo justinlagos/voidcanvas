@@ -365,7 +365,7 @@ export function ParamControls() {
           ))}
         </div>
       )}
-      <details className="rounded-lg border border-void-800 p-3"><summary className="text-xs text-void-300 cursor-pointer">Finish · tone and colour</summary><div className="space-y-3 pt-3">{FINISH_PARAMS.map(c => <Slider key={c.key} label={c.label} value={params[c.key] as number ?? 0} min={-100} max={100} onChange={v => setParam(c.key, v)} />)}<p className="text-xs text-void-500">Adjusts the filtered result before it is blended with the original. Zero keeps the filter's colour and tone.</p></div></details>
+
       <div className="space-y-4 bg-void-900/60 border border-void-800/50 rounded-lg p-4">
         {config.map((param) => (
           <div key={param.key} className="space-y-2">
@@ -395,6 +395,7 @@ export function ParamControls() {
           </div>
         ))}
       </div>
+      <details className="rounded-lg border border-void-800 p-3"><summary className="text-xs text-void-300 cursor-pointer">Finish · tone and colour</summary><div className="space-y-3 pt-3">{FINISH_PARAMS.map(c => <Slider key={c.key} label={c.label} value={params[c.key] as number ?? 0} min={-100} max={100} onChange={v => setParam(c.key, v)} />)}<p className="text-xs text-void-500">Adjusts the filtered result before it is blended with the original. Zero keeps the filter's colour and tone.</p></div></details>
     </div>
   )
 }

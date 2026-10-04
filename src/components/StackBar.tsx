@@ -7,10 +7,10 @@ import { effects } from './effect-list'
 const nameOf = (id: string) => effects.find(e => e.id === id)?.name ?? id
 
 /**
- * The effects on the photo, in the order they run. The highlighted one is the one the controls below change;
+ * The effects on the photo, in the order they run. The highlighted one is the one the controls change;
  * tap another to change it instead. "Add another effect" keeps what is there and starts a new one on top.
  */
-export function StackBar() {
+export function StackBar({ onPick }: { onPick?: () => void }) {
   const s = useStore()
   const all = fullStack(s)
   if (!s.originalImage || !fullStack(s, true).length) return null
@@ -27,7 +27,7 @@ export function StackBar() {
           return (
             <span key={i} data-fx-stack-item={e.effect} data-editing={on || undefined}
               className={`inline-flex items-center rounded-md border text-[12px] ${on ? 'border-accent bg-accent/15 text-white' : 'border-void-700/60 bg-void-900 text-void-300 hover:text-white'}`}>
-              <button onClick={() => s.editAt(i)} className="pl-2 pr-1.5 py-1 min-h-[30px]" aria-pressed={on} title={on ? 'The controls below change this one' : 'Change this one'}>
+              <button onClick={() => { s.editAt(i); onPick?.() }} className="pl-2 pr-1.5 py-1 min-h-[30px]" aria-pressed={on} title={on ? 'Adjusting this effect' : 'Change this one'}>
                 <span className="text-void-500 mr-1">{i + 1}</span>{name}
               </button>
               {e.effect !== 'none' && (

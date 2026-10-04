@@ -184,6 +184,7 @@ export const useStore = create<Store>((set, get) => ({
 
   activeEffect: 'none',
   setActiveEffect: (effect) => {
+    if (get().activeEffect === effect) return
     get().pushHistory()
     if (effect !== 'none') track('effect.apply', { id: effect, tool: 'effects' })
     // Some effects do nothing at the shared defaults (hue 0, channels at 100%), so they start at a visible setting.

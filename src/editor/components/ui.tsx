@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ChevronDown, X } from 'lucide-react'
+import { ChevronDown, X, GripVertical, LocateFixed } from 'lucide-react'
 import { createPortal } from 'react-dom'
+import { useMovablePanel } from '@/hooks/useMovablePanel'
 import { evalNumber } from '../numexpr'
 import { noteAbandon, noteControl, usageTotals } from '@/lib/analytics'
 
@@ -172,24 +173,38 @@ export function useAbandonWatch(id?: string) {
   }, [id])
 }
 
-export function Modal({ title, onClose, children, wide, preview, track }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean; preview?: boolean; track?: string }) {
+export function Modal({ title, onClose, children, wide, preview, track, movable = false }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean; preview?: boolean; track?: string; movable?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
+  const movement = useMovablePanel(ref)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
   useAbandonWatch(track)
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }
+    const previous = document.activeElement as HTMLElement | null
+    const k = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeRef.current(); return }
+      if (e.key !== 'Tab' || !ref.current?.contains(document.activeElement)) return
+      const elements = Array.from(ref.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]') ?? []).filter(el => el.getClientRects().length)
+      const first = elements[0], last = elements[elements.length - 1]
+      if (!first) { e.preventDefault(); ref.current?.focus(); return }
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === ref.current)) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && (document.activeElement === last || document.activeElement === ref.current)) { e.preventDefault(); first.focus() }
+    }
     window.addEventListener('keydown', k, true)
     ref.current?.focus()
-    return () => window.removeEventListener('keydown', k, true)
-  }, [onClose])
+    return () => { window.removeEventListener('keydown', k, true); if (previous?.isConnected) previous.focus() }
+  }, [])
   return (
-    <div className={`fixed inset-0 z-[70] flex items-end sm:items-center p-0 sm:p-6 ${preview ? 'justify-center sm:justify-end bg-black/15' : 'justify-center bg-black/60 backdrop-blur-[2px]'}`} onPointerDown={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title}
-        className={`w-full ${wide ? 'sm:max-w-3xl' : 'sm:max-w-md'} max-h-[88vh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-[#17171c] border border-void-800 shadow-2xl outline-none`}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-void-800/70">
-          <h2 className="text-[15px] font-semibold">{title}</h2>
+    <div className={`fixed inset-0 z-[70] flex items-end sm:items-center p-0 sm:p-6 ${preview ? 'justify-center sm:justify-end bg-transparent' : 'justify-center bg-black/60 backdrop-blur-[2px]'}`} onPointerDown={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} style={movable ? movement.style : undefined}
+        className={`w-full ${wide ? (movable ? 'sm:max-w-[640px]' : 'sm:max-w-3xl') : 'sm:max-w-md'} max-h-[88dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-[#17171c] border border-void-800 shadow-2xl outline-none ${movable ? 'max-sm:!relative max-sm:!left-auto max-sm:!top-auto' : ''}`}>
+        <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-3 border-b border-void-800/70">
+          {movable && <button {...movement.handle} aria-label={`Move ${title} window`} title="Drag to move. Arrow keys move; Shift moves faster." className={`hidden sm:flex flex-1 items-center gap-2 p-2 text-void-400 hover:text-white cursor-grab active:cursor-grabbing touch-none rounded ${focusRing}`}><GripVertical size={17} /><span className="text-[15px] font-semibold text-white">{title}</span></button>}
+          <h2 className={`flex-1 text-[15px] font-semibold ${movable ? 'sm:hidden' : ''}`}>{title}</h2>
+          {movable && <IconButton label="Reset window position" onClick={movement.reset} className="hidden sm:inline-flex"><LocateFixed size={16} /></IconButton>}
           <IconButton label="Close" onClick={onClose}><X size={17} /></IconButton>
         </div>
-        <div className="overflow-y-auto">{children}</div>
+        <div className="overflow-y-auto min-h-0">{children}</div>
       </div>
     </div>
   )

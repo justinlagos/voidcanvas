@@ -31,7 +31,7 @@ describe('filter finishing controls', () => {
   const ctx = { createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }) } as CanvasRenderingContext2D
   const img = { width: 1, height: 1, data: new Uint8ClampedArray([100, 150, 200, 128]) } as ImageData
   it('neutral finishing preserves the old result and alpha', () => {
-    expect([...applyEffect(ctx, img, 'invert', defaultParams).data]).toEqual([155, 105, 55, 128])
+    expect(Array.from(applyEffect(ctx, img, 'invert', defaultParams).data)).toEqual([155, 105, 55, 128])
   })
   it('saturation at minus 100 is monochrome and brightness adjusts real pixels', () => {
     const gray = applyEffect(ctx, img, 'invert', { ...defaultParams, finishSaturation: -100 }).data
@@ -40,7 +40,7 @@ describe('filter finishing controls', () => {
     expect(bright[0]).toBeGreaterThan(155); expect(bright[3]).toBe(128)
   })
   it('zero opacity restores the original even when finish settings are active', () => {
-    expect([...applyEffect(ctx, img, 'invert', { ...defaultParams, finishContrast: 50, finishBrightness: 30, opacity: 0 }).data]).toEqual([...img.data])
+    expect(Array.from(applyEffect(ctx, img, 'invert', { ...defaultParams, finishContrast: 50, finishBrightness: 30, opacity: 0 }).data)).toEqual(Array.from(img.data))
   })
 })
 
