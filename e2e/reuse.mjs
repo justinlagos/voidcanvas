@@ -15,7 +15,7 @@ try {
     const s = window.__voidEditor.getState()
     s.newDoc({ name: 'Reuse QA', width: 800, height: 800, background: '#121212' })
     s.addText(120, 140)
-    const id = s.activeId
+    const id = window.__voidEditor.getState().activeId
     s.updateLayer(id, {
       text: 'SOURCE HEADLINE', fontFamily: 'Arial', fontSize: 72, fontWeight: 700,
       color: '#f2d36b', align: 'center', letterSpacing: -2, opacity: 0.82, blend: 'screen',
@@ -28,16 +28,16 @@ try {
   assert(source)
 
   await p.getByRole('button', { name: 'Reuse', exact: true }).click()
-  await p.getByPlaceholder('Name this style').fill('Editorial Gold')
+  await p.getByLabel('Reusable library').getByRole('textbox').fill('Editorial Gold')
   await p.getByRole('button', { name: 'Save as Look', exact: true }).click()
-  await p.getByPlaceholder('Name this style').fill('Campaign Headline')
+  await p.getByLabel('Reusable library').getByRole('textbox').fill('Campaign Headline')
   await p.getByRole('button', { name: 'Save text style', exact: true }).click()
   await p.getByLabel('Close reuse library').click()
 
   const target = await E(() => {
     const s = window.__voidEditor.getState()
     s.addText(120, 360)
-    const id = s.activeId
+    const id = window.__voidEditor.getState().activeId
     s.updateLayer(id, {
       text: 'KEEP THESE WORDS', fontFamily: 'Georgia', fontSize: 28, fontWeight: 400,
       color: '#ffffff', align: 'left', letterSpacing: 0, opacity: 1, blend: 'source-over',
