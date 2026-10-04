@@ -6,6 +6,8 @@ import { FONTS, canvasToBlob, ensureFont, getBrand, saveBrand as saveKit } from 
 import { uid } from '@/editor/engine'
 import { logoVariant, newBrand, primaryLogo, useJobs, type BrandLogo, type ClientBrand } from '../jobs'
 import { Btn, Empty, INPUT, Label, Panel, focusRing, isLight, useObjectUrl } from '../ui'
+import { PublishControl } from '@/brand/PublishControl'
+import { createWithBrand } from '@/brand/client'
 import { ShareControl } from '@/components/account/ShareControl'
 import { VARIANT_LABEL, VARIANT_USE, planVariants, variantProfile, type VariantId } from '@/lib/intelligence/logo'
 import { analyseLogoFile, deriveVariants, plainProfile } from '@/lib/intelligence/dom'
@@ -39,7 +41,7 @@ export function BrandsView({ initial, onBack, onGuidelines }: { initial?: string
   return (
     <div className="max-w-6xl w-full mx-auto px-5 sm:px-8 py-8">
       <div className="flex flex-wrap items-center gap-3">
-        <button onClick={onBack} aria-label="Back to Studio" className={`w-8 h-8 rounded-lg text-void-400 hover:text-white hover:bg-void-800 flex items-center justify-center ${focusRing}`}><ArrowLeft size={16} /></button>
+        <button onClick={onBack} aria-label="Back to brands" className={`w-8 h-8 rounded-lg text-void-400 hover:text-white hover:bg-void-800 flex items-center justify-center ${focusRing}`}><ArrowLeft size={16} /></button>
         <div className="flex-1"><h1 className="text-[24px] font-semibold tracking-tight">Brands</h1><p className="text-[13px] text-void-400">Each client&apos;s logo system, colours, type and voice. Pick a brand on a job and the Editor checks every design against it as you work.</p></div>
         <Btn onClick={onGuidelines}><BookOpen size={14} />Build one with the guideline builder</Btn>
         <Btn primary onClick={create}><Plus size={15} />New brand</Btn>
@@ -139,6 +141,8 @@ function BrandEditor({ b, set, onDelete, onUseInEditor, saved }: { b: ClientBran
         <label className="flex-1 min-w-[200px]"><Label>Brand</Label><input value={b.name} onChange={e => set({ name: e.target.value })} className={`${INPUT} w-full !h-10 !text-[15px] font-semibold`} /></label>
         <label className="flex-1 min-w-[200px]"><Label>Client</Label><input value={b.client} onChange={e => set({ client: e.target.value })} className={`${INPUT} w-full !h-10`} /></label>
         <ShareControl kind="brand" item={b} />
+        <PublishControl brand={b} />
+        <Btn onClick={async () => { window.location.assign(await createWithBrand(b)) }}>Create design</Btn>
         <Btn onClick={onUseInEditor}>Use as the Editor brand kit</Btn>
         <Btn subtle onClick={onDelete}><Trash2 size={14} /></Btn>
       </div>

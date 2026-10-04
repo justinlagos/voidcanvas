@@ -229,8 +229,8 @@ const EFFECTS = [
 const QA = [
   ['Is Voidcanvas really free?', 'Yes. Every tool, every filter, every export format, at full size, with no watermark. There is nothing to unlock and no account to make.'],
   ['Do I need an account?', 'No. Open the Editor and start. Your designs are saved in your browser on this device, so they are there when you come back.'],
-  ['Where are my files stored?', 'On your device, in the browser’s own database (IndexedDB). Nothing is uploaded. A private session keeps everything in memory instead, for shared computers, and “Delete all my data” wipes the local database.'],
-  ['What does the app send over the internet?', 'Web fonts, a one-time download of the background-removal model, and anonymous usage counts (event names, never images, file names or text). Usage counts are off in a private session, when Do Not Track is on, or when you turn them off.²'],
+  ['Where are my files stored?', 'On your device, in the browser’s own database (IndexedDB). Nothing is uploaded during local editing. Publishing a brand guideline uploads the copy you choose to share. A private session keeps everything in memory instead, for shared computers, and “Delete all my data” wipes the local database.'],
+  ['What does the app send over the internet?', 'Optional published brand guidelines and team sharing, web fonts, a one-time download of the background-removal model, and anonymous usage counts (event names, never images, file names or text). Usage counts are off in a private session, when Do Not Track is on, or when you turn them off.²'],
   ['Can I open my Photoshop files?', 'Yes. PSD import keeps layers, groups, opacity and blend modes. PDF import turns each page into a layer. Shortcuts follow Photoshop, so V, B, E, T, M and the rest do what you expect.'],
   ['Does it work on my phone?', 'Yes. The Editor has a touch layout with pinch zoom and pen pressure, and the whole app can be installed to your home screen and used offline.'],
   ['What happens if I clear my browser data?', 'Your designs go with it, because they only exist on your device. Export anything you want to keep, or save it as a template first.'],
@@ -290,7 +290,7 @@ export function Landing({ learn }: { learn: LandingLearn }) {
         <div className="max-w-[1120px] mx-auto h-full px-5 sm:px-8 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3"><Logo /><PrivateBadge /></div>
           <nav aria-label="Sections" className="hidden md:flex items-center gap-6 text-[13px] text-lp-dim">
-            {[['#editor', 'Editor'], ['#studio', 'Studio'], ['#effects', 'Effects'], ['#learn', 'Learn'], ['#questions', 'Questions']].map(([h, l]) => (
+            {[['#editor', 'Editor'], ['#brand', 'Brand'] , ['#studio', 'Studio'], ['#effects', 'Effects'], ['#learn', 'Learn'], ['#questions', 'Questions']].map(([h, l]) => (
               <a key={h} href={h} aria-current={here === h.slice(1) ? 'true' : undefined} className={`relative py-1 rounded transition-colors ${here === h.slice(1) ? 'text-lp-fg' : 'hover:text-lp-fg'} ${focus}`}>
                 {l}<span className={`absolute left-0 right-0 -bottom-[13px] h-[2px] rounded-full bg-accent transition-transform duration-300 origin-center ${here === h.slice(1) ? 'scale-x-100' : 'scale-x-0'}`} />
               </a>
@@ -363,6 +363,15 @@ export function Landing({ learn }: { learn: LandingLearn }) {
         <div className="mt-10 sm:mt-14"><Gallery id="editor" items={EDITOR} /></div>
       </Seen>
 
+      <section id="brand" className="max-w-[1120px] mx-auto px-5 sm:px-8 py-16 scroll-mt-16">
+        <Reveal className="rounded-[28px] border border-lp-line bg-lp-panel p-7 sm:p-12">
+          <p className="text-sm text-lp-dim mb-4">Brand Guidelines</p>
+          <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight text-lp-fg max-w-xl">Build a living brand guideline.</h2>
+          <p className="text-lg text-lp-dim mt-5 max-w-2xl">Colours, typography, logo rules, downloadable assets and a shareable brand website. Build the system, hand it over, then create with it in Editor.</p>
+          <div className="flex gap-1 h-14 rounded-xl overflow-hidden my-7 max-w-md" aria-hidden="true">{['#192c23','#51775b','#adcda2','#e7ede0','#f8f7ef'].map(c => <span key={c} className="flex-1" style={{background:c}} />)}</div>
+          <Cta href="/brand" where="brand" big>Build your brand guideline</Cta>
+        </Reveal>
+      </section>
       {/* Studio */}
       <Seen id="studio" className="pt-28 sm:pt-40">
         <div className="max-w-[1120px] mx-auto px-5 sm:px-8 mb-10 sm:mb-14"><Reveal className="rounded-[28px] overflow-hidden border border-lp-line aspect-[16/10] bg-void-950"><StudioFrame /></Reveal></div>
@@ -386,10 +395,10 @@ export function Landing({ learn }: { learn: LandingLearn }) {
         <div className="max-w-[1120px] mx-auto px-5 sm:px-8">
           <Reveal className="rounded-[32px] bg-lp-card border border-lp-line px-6 sm:px-12 py-12 sm:py-16 text-center">
             <Eyebrow>Your privacy</Eyebrow>
-            <H2 className="mt-3">Your files don’t leave your browser.</H2>
-            <p className="mt-5 text-[17px] text-lp-muted max-w-[640px] mx-auto leading-relaxed">Everything runs on your device. Designs are saved in the browser’s own database, and a private session keeps them in memory only. There is no server holding your work, because there is no server.</p>
+            <H2 className="mt-3">Private by default. Shared by choice.</H2>
+            <p className="mt-5 text-[17px] text-lp-muted max-w-[640px] mx-auto leading-relaxed">Editing runs on your device, and drafts are saved in this browser. Publish a brand guideline only when you want to upload a readable copy for others. Team sharing is optional too. A private session keeps local work in memory only.</p>
             <div className="mt-10 grid grid-cols-3 gap-4 max-w-[640px] mx-auto">
-              {[['0', 'uploads'], ['0', 'accounts'], ['0', 'servers with your files']].map(([n, l]) => <div key={l}><p className="text-[40px] sm:text-[56px] font-semibold tracking-[-0.04em] text-lp-fg leading-none">{n}</p><p className="mt-2 text-[13px] sm:text-[14px] text-lp-dim">{l}</p></div>)}
+              {[['Local', 'editing and drafts'], ['Optional', 'accounts and sharing'], ['You', 'choose what to publish']].map(([n, l]) => <div key={l}><p className="text-[24px] sm:text-[38px] font-semibold tracking-[-0.04em] text-lp-fg leading-none">{n}</p><p className="mt-2 text-[13px] sm:text-[14px] text-lp-dim">{l}</p></div>)}
             </div>
             <button onClick={() => { setPrivacy(true); track('landing.cta', { where: 'privacy', href: 'privacy' }) }} className={`mt-10 inline-flex items-center gap-1.5 text-[15px] font-medium text-lp-accent hover:text-lp-fg ${focus}`}>Exactly what is and isn’t sent <ArrowRight size={15} /></button>
           </Reveal>

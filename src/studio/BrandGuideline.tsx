@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, AlertCircle, ChevronDown, ChevronRight, Copy, Download, Eye, EyeOff, FileText, Globe, ImagePlus, Layers, Lock, Unlock, Monitor, Printer, RefreshCw, RotateCcw, Upload } from 'lucide-react'
+import { tokensFor } from '@/brand/model'
 import { Button, focusRing } from '@/editor/components/ui'
 import { canvasToBlob, downloadBlob, sendHandoff, type LayeredItem, type LayeredPage } from '@/editor/io'
 import { MAX_PHOTOS, guardUnload, useBrand } from './brand/store'
@@ -290,7 +291,7 @@ function ExportTab({ brand, o, onPdf, onPrint, onHtml, onEditor, onSave, busy, c
           <Button onClick={onPrint} disabled={busy || !count} className="w-full"><Printer size={15} />Print PDF</Button>
           <Button onClick={onHtml} disabled={busy || !count} className="w-full"><Globe size={15} />HTML handoff</Button>
           <Button onClick={onEditor} disabled={busy || !count} className="w-full"><Layers size={15} />Editor</Button>
-          <Button onClick={onSave} disabled={busy} className="w-full col-span-2">Save as a client brand in Studio</Button>
+          <Button onClick={onSave} disabled={busy} className="w-full col-span-2">Save to Brand workspace</Button>
         </div>
         <p className="mt-2 text-[11.5px] text-void-500 leading-snug">Print PDF: {PRINT_TRIM[o].label}, 300 dpi, 3 mm bleed, crop marks. Images are RGB, so ask your printer to convert with their profile. HTML handoff is one file the client opens in a browser: pages with arrow-key navigation, logo downloads and click-to-copy colours.</p>
       </Field>
@@ -485,8 +486,9 @@ function Photography() {
 const TABS = ['Identity', 'Colour', 'Type', 'Export'] as const
 const initialColor = '#3d5afe'
 
-export function BrandGuideline({ onBack }: { onBack: () => void }) {
+export function BrandGuideline({ onBack, initialBrand, backLabel = 'Studio' }: { onBack: () => void; initialBrand?: import('./jobs').ClientBrand; backLabel?: string }) {
   const router = useRouter()
+  const savedId = useRef<string | null>(initialBrand?.id ?? null)
   const tokens = useBrand(s => s.tokens), set = useBrand(s => s.set), newTake = useBrand(s => s.newTake), pages = useBrand(s => s.pages)
   const logo = useBrand(s => s.logo), setLogoInfo = useBrand(s => s.setLogo), hydration = useBrand(s => s.hydration), hydrate = useBrand(s => s.hydrate), startOver = useBrand(s => s.startOver)
   const decisions = useBrand(s => s.decisions)
@@ -496,7 +498,24 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
   const [suggestedColor, setSuggestedColor] = useState<string | null>(null)
   const [takeMenu, setTakeMenu] = useState(false)
   const [restoredNote, setRestoredNote] = useState<'show' | 'confirm' | 'hidden'>('show')
-  useEffect(() => { hydrate(); return guardUnload() }, [hydrate])
+  useEffect(() => {
+    let live = true
+    const load = async () => {
+      await hydrate()
+      const source = initialBrand?.guideline?.source
+      if (!source || !live) return
+      savedId.current = initialBrand!.id
+      const { blobToCanvas } = await import('@/editor/io')
+      const restoredPhotos = await Promise.all((initialBrand!.imagery ?? []).map(async p => ({ ...p, img: await blobToCanvas(p.blob, 1600) })))
+      const file = source.logoFile ? new File([source.logoFile], 'brand-logo', { type: source.logoFile.type }) : null
+      const info = file ? await analyseLogo(file) : null
+      if (!live) return
+      useBrand.setState({ tokens: tokensFor(initialBrand!), pages: source.pages, decisions: source.decisions, photos: restoredPhotos, logo: info, logoFile: file })
+      setO(source.orientation)
+    }
+    load().catch(() => setErr('Could not restore this guideline. Your saved brand is safe.'))
+    const cleanup = guardUnload(); return () => { live = false; cleanup() }
+  }, [hydrate, initialBrand?.id])
   // For checks: where the photography page put the logo on each photo.
   useEffect(() => { (window as unknown as { __vcGuide: unknown }).__vcGuide = { photoPlan: () => lastPhotoPlan } }, [])
   const [o, setO] = useState<Orientation>('landscape')
@@ -543,7 +562,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
     if (missing.length) setErr(`Saved. ${missing.join(', ')} could not be embedded, so the file loads ${missing.length === 1 ? 'it' : 'them'} from Google when online.`)
   })
   // Brand memory: the resolved system becomes a client brand Studio jobs can check against.
-  const saveAsClient = async () => {
+  const saveAsClient = () => run('Saving brand', async () => {
     const { newBrand, useJobs } = await import('./jobs')
     const roleOf = (i: number) => (i === 0 ? 'primary' : i === 1 ? 'secondary' : 'accent') as 'primary' | 'secondary' | 'accent'
     // The logo system travels with the brand: the supplied file, every honest version, the measured profile and the rules with their source.
@@ -566,17 +585,22 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
       backgrounds: logo ? logoPlacements(brand, logo, decisions).map(p => ({ hex: p.bg, name: p.bgName, use: VARIANT_OF[p.mode], level: p.level, source: p.designer ? 'designer' as const : 'suggested' as const, why: p.why })) : [],
     }
     const b = newBrand({
-      name: brand.name, client: brand.name,
+      ...(savedId.current === initialBrand?.id ? initialBrand : {}), ...(savedId.current ? { id: savedId.current } : {}),
+      name: brand.name, client: initialBrand?.client ?? brand.name,
       colors: [...brand.roles.map((r, i) => ({ hex: r.hex, role: roleOf(i) })), { hex: brand.surfaces.light, role: 'background' as const }, { hex: brand.surfaces.inkOnLight, role: 'text' as const }, ...(brand.neutrals[4] ? [{ hex: brand.neutrals[4], role: 'neutral' as const }] : [])],
       display: brand.fonts.heading.family, body: brand.fonts.body.family, scale: { base: brand.baseSize, ratio: brand.ratio },
       logos, logoMin: Math.round(brand.logo.minWidth), clearSpace: Math.min(2, Math.max(0.1, brand.logo.clearSpace)), logoRules: rules,
       voice: brand.voice.tone.split(/,\s*/), dos: brand.voice.dos, donts: brand.voice.donts,
       imagery: photos.map(p => ({ id: p.id, name: p.name, blob: p.blob, w: p.img.width, h: p.img.height })),
     })
+    const savedPages: import('@/brand/model').Asset[] = []
+    await eachPage(pages, brand, logo, o, 0.7, async c => { savedPages.push({ name: `Guideline page ${savedPages.length + 1}`, data: c.toDataURL('image/jpeg', 0.8) }) }, decisions, photos)
+    b.guideline = { system: brand, pages: savedPages, source: { tokens, pages, orientation: o, decisions, logoFile: useBrand.getState().logoFile } }
+    savedId.current = b.id
     await useJobs.getState().saveBrand(b)
     setErr(null); setBusy(null)
-    setErr(`Saved. ${brand.name} is in Studio > Brands. Pick it on a job and the Editor checks every design against it.`)
-  }
+    setErr(`Saved. ${brand.name} is in Brand. Open it there to publish. Pick it on a job and the Editor checks every design against it.`)
+  })
   const openInEditor = async () => {
     setBusy('Opening in Editor'); setErr(null)
     try {
@@ -604,7 +628,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <header className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-void-800/60">
-        <button onClick={onBack} className={`flex items-center gap-1.5 text-[12.5px] text-void-400 hover:text-white rounded ${focusRing}`}><ArrowLeft size={14} />Studio</button>
+        <button onClick={onBack} className={`flex items-center gap-1.5 text-[12.5px] text-void-400 hover:text-white rounded ${focusRing}`}><ArrowLeft size={14} />{backLabel}</button>
         <span className="text-void-700">/</span>
         <h1 className="text-[13.5px] font-semibold truncate max-w-[40vw]">{tokens.name || 'Untitled brand'}</h1>
         <div className="ml-auto flex items-center gap-2">
@@ -636,7 +660,7 @@ export function BrandGuideline({ onBack }: { onBack: () => void }) {
             <button onClick={() => setRestoredNote('hidden')} aria-label="Dismiss" className={`h-7 px-2 rounded-md text-void-400 hover:text-white ${focusRing}`}>Dismiss</button>
           </> : <>
             <span>Start a new brand? The saved one on this device will be cleared.</span>
-            <button onClick={() => { startOver(); setRestoredNote('hidden') }} className={`ml-auto h-7 px-2.5 rounded-md bg-red-900/60 border border-red-800 text-white ${focusRing}`}>Clear and start over</button>
+            <button onClick={() => { savedId.current = null; startOver(); setRestoredNote('hidden') }} className={`ml-auto h-7 px-2.5 rounded-md bg-red-900/60 border border-red-800 text-white ${focusRing}`}>Clear and start over</button>
             <button onClick={() => setRestoredNote('show')} className={`h-7 px-2 rounded-md text-void-400 hover:text-white ${focusRing}`}>Keep it</button>
           </>}
         </div>
