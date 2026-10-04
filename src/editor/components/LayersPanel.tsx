@@ -183,6 +183,9 @@ function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
           {l.type === 'text' && l.name === 'Text' ? (l.text.split('\n')[0] || 'Text') : l.name}
         </span>
       )}
+      {l.type==='raster' && l.smart && <button title="Edit embedded smart contents" aria-label="Edit smart contents" className="text-[10px] text-accent-light shrink-0 px-1" onClick={e=>{e.stopPropagation();s.setActive(l.id);import('../smart').then(m=>m.editSmart()).catch(e=>s.notify(String(e)))}}>Smart</button>}
+      {l.type==='raster' && l.liquify && <button className="text-[10px] text-accent-light shrink-0 px-1" title="Edit Liquify" onClick={e=>{e.stopPropagation();s.setActive(l.id);openModal('liquify')}}>Liquify</button>}
+      {l.mask && l.maskLinked===false && <button title="Unlinked mask: placement settings" className="text-[10px] text-void-400" onClick={e=>{e.stopPropagation();s.setActive(l.id);openModal('maskSettings')}}>Unlinked</button>}
       {l.linkId && <Link size={12} className="shrink-0 text-void-400" aria-label="Linked" />}
       {fx && <button onClick={e => { e.stopPropagation(); s.setActive(l.id); openModal('layerStyle') }} className="shrink-0 text-[10.5px] italic font-semibold text-accent-light px-1 rounded hover:bg-white/10" title="Layer style">fx</button>}
       {(l.locked || l.lockPosition || l.lockPixels || l.lockAlpha) ? (
@@ -268,6 +271,7 @@ function ContextMenu({ at, id, onClose }: { at: DOMRect; id: string; onClose: ()
         {item('Rename', () => window.dispatchEvent(new CustomEvent('vc:rename', { detail: id })))}
         {sep}
         {item(l.clipId ? 'Release clipping mask' : 'Create clipping mask', () => (l.clipId ? s.releaseClippingMask(id) : s.createClippingMask(id)), !l.clipId && !s.canClip(id))}
+        {l.mask && l.type!=='adjustment' && item('Mask position and resize…',()=>{s.setActive(id);openModal('maskSettings')})}
         {item(l.mask ? 'Delete mask' : 'Add mask', () => (l.mask ? s.removeMask(id) : s.addMask(id, !!s.selection)))}
         {item(l.vmask ? 'Delete vector mask' : 'Add vector mask', () => { s.setActive(id); l.vmask ? ops.deleteVectorMask() : ops.addVectorMask(false) }, l.type === 'adjustment')}
         {item('Select layer pixels', () => ops.selectLayerPixels(id), l.type === 'adjustment')}

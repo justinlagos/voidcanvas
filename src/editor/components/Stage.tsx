@@ -1,5 +1,9 @@
 'use client'
 
+import { softProof } from '../colour'
+import { texturedTip } from '../brushes'
+import { retouchSource, repairAsync, applyRepair, type RetouchSource } from '../retouch'
+
 import { paintGradient } from '../gradient'
 import { applyPaint, constrainPaint, restrictResult } from '../painting'
 import { uiFont } from '@/lib/ui-font'
@@ -7,7 +11,7 @@ import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
-  brushTip, cloneCanvas, ctx2d, docToLocal, floodMask, fontString, healRegion, hitLayer, insideHiddenGroup, layerBounds, layerCorners, layerMatrix, layerSize,
+  brushTip, cloneCanvas, ctx2d, docToLocal, floodMask, fontString, healRegion, hitLayer, insideHiddenGroup, layerBounds, layerCorners, layerMatrix, layerMaskMatrix, layerSize,
   makeCanvas, maskBounds, maskEdges, paintMask, polygonPoints, renderDoc, toneStroke, tracePath, type LiveStroke,
 } from '../engine'
 import { importFiles } from '../io'
@@ -44,7 +48,7 @@ type Drag =
   | { kind: 'resize'; id: string; h: number; l0: Layer; w: number; hgt: number; anchor: Pt; snapX: number[]; snapY: number[] }
   | { kind: 'grotate'; center: Pt; a0: number; items: { id: string; cx: number; cy: number; hw: number; hh: number; r0: number }[] }
   | { kind: 'rotate'; id: string; center: Pt; a0: number; r0: number; l0: Layer }
-  | { kind: 'stroke'; last: Pt; smooth: Pt; carry: number; snapshot?: HTMLCanvasElement; offset?: Pt; tool: ToolId; quick?: boolean; raw?: HTMLCanvasElement; selection?: HTMLCanvasElement | null }
+  | { kind: 'stroke'; last: Pt; smooth: Pt; carry: number; snapshot?: HTMLCanvasElement; retouch?: RetouchSource; offset?: Pt; tool: ToolId; quick?: boolean; raw?: HTMLCanvasElement; selection?: HTMLCanvasElement | null }
   | { kind: 'box'; tool: ToolId; start: Pt; cur: Pt; pts: Pt[]; mode: 'new' | 'add' | 'sub' | 'intersect' }
   | { kind: 'guide'; axis: 'v' | 'h'; index: number; pos: number }
   | { kind: 'frame'; id: string; last: Pt; moved: boolean }
@@ -105,6 +109,7 @@ export function Stage() {
   const wrap = useRef<HTMLDivElement>(null)
   const viewC = useRef<HTMLCanvasElement>(null)
   const overC = useRef<HTMLCanvasElement>(null)
+  const proofComp = useRef<HTMLCanvasElement | null>(null)
   const comp = useRef<HTMLCanvasElement | null>(null)
   const chanView = useRef<{ key: string; canvas: HTMLCanvasElement | null }>({ key: '', canvas: null })
   const live = useRef<LiveStroke | null>(null)
@@ -239,7 +244,7 @@ export function Stage() {
     sharpTimer.current = setTimeout(() => {
       sharpTimer.current = null
       const s = useEditor.getState(), doc = s.doc
-      if (!doc || live.current || s.viewChannel !== 'rgb' || needComposite.current) return
+      if (!doc || doc.proof?.enabled || live.current || s.viewChannel !== 'rgb' || needComposite.current) return
       // Void effects, and effects on a whole board or design, run over all of what they are for; a part of it
       // would look different.
       if (anyVoidFx(doc, s.layers, s.groups) || hasFx(doc.effects) || doc.frames?.some(f => hasFx(f.effects))) return
@@ -283,12 +288,13 @@ export function Stage() {
       const cap = Math.max(2048, Math.min(4096, Math.max(w, h) * dpr))
       const vs = Math.min(1, cap / Math.max(doc.width, doc.height))
       renderDoc(comp.current, doc, shownLayers(), { groups: s.groups, scale: vs, live: live.current && live.current.mode !== 'overlay' ? live.current : null, noShadow: !!doc.frames?.length, noFx: s.compare || s.fxOff })
+      proofComp.current=softProof(comp.current, doc.proof)
       needComposite.current = false
       compRev.current++
       compScale.current = vs
     }
     const sh = sharp.current
-    const sharpView = s.viewChannel === 'rgb' && !live.current && sh && sh.compRev === compRev.current && sh.zoom === zoom ? sh : null
+    const sharpView = !doc.proof?.enabled && s.viewChannel === 'rgb' && !live.current && sh && sh.compRev === compRev.current && sh.zoom === zoom ? sh : null
     const drawSharp = () => {
       if (!sharpView) return
       const r = sharpView.region
@@ -302,7 +308,7 @@ export function Stage() {
       const vx0 = Math.max(0, -panX / zoom), vy0 = Math.max(0, -panY / zoom), vx1 = Math.min(doc.width, (w - panX) / zoom), vy1 = Math.min(doc.height, (h - panY) / zoom)
       if (vx0 < r.x - 1 || vy0 < r.y - 1 || vx1 > r.x + r.w + 1 || vy1 > r.y + r.h + 1) scheduleSharp()
     }
-    let shownComp = comp.current
+    let shownComp = doc.proof?.enabled ? proofComp.current : comp.current
     if (s.viewChannel !== 'rgb' && comp.current) shownComp = channelImage(comp.current)
 
     const dw = doc.width * zoom, dh = doc.height * zoom
@@ -883,10 +889,16 @@ export function Stage() {
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | null = null
     const save = () => { const s = useEditor.getState(); if (s.doc && restoredFor.current === s.doc.id) rememberView(s.doc.id, s.view, size.current, s.activeFrameId, s.selectedIds) }
-    const off = useEditor.subscribe((st, prev) => {
+    const proofError=(e:Event)=>{const s=useEditor.getState();s.notify('Could not enable print proof: '+(e as CustomEvent).detail);if(s.doc?.proof)s.setDoc({proof:{...s.doc.proof,enabled:false}},true)}
+    window.addEventListener('vc:proof-error',proofError)
+    const proofReady=()=>invalidate(true)
+    window.addEventListener('vc:proof-ready',proofReady)
+    window.addEventListener('vc:pattern-ready',proofReady)
+    const off0 = useEditor.subscribe((st, prev) => {
       if (st.view === prev.view && st.activeFrameId === prev.activeFrameId && st.selectedIds === prev.selectedIds) return
       if (t) clearTimeout(t); t = setTimeout(save, 400)
     })
+    const off = () => { off0(); window.removeEventListener('vc:proof-error',proofError); window.removeEventListener('vc:proof-ready',proofReady); window.removeEventListener('vc:pattern-ready',proofReady) }
     return () => { off(); if (t) { clearTimeout(t); save() } }
   }, [])
 
@@ -1032,7 +1044,7 @@ export function Stage() {
     const overlay = L.mode === 'overlay'
     const color = d.tool === 'heal' ? '#ff3b6b' : d.tool === 'brush' && !s.editingMask && !overlay ? s.fg : '#ffffff'
     const hard = ['heal', 'remove'].includes(d.tool) ? 0.85 : o.hardness
-    const tip = brushTip(sz, hard, color)
+    const tip = ['brush','eraser','clone'].includes(d.tool) ? texturedTip(sz, hard, color, o) : brushTip(sz,hard,color)
     bctx.globalAlpha = ['brush', 'eraser', 'clone'].includes(d.tool) ? (o.flow ?? 1) * (o.pressureOpacity ? pressure : 1) : 1
     if (d.tool === 'clone' && d.snapshot && d.offset) {
       const t = makeCanvas(tip.width, tip.height), tx = ctx2d(t)
@@ -1050,7 +1062,7 @@ export function Stage() {
     const k = ['brush', 'eraser'].includes(d.tool) ? 1 - (s.options.smoothing ?? 0) * 0.85 : 1
     d.smooth = { x: d.smooth.x + (target.x - d.smooth.x) * k, y: d.smooth.y + (target.y - d.smooth.y) * k }
     const p = d.smooth
-    const spacing = Math.max(1, s.options.size * 0.12)
+    const spacing = Math.max(1, s.options.size * Math.max(.01, Math.min(2,s.options.spacing ?? .12)))
     const dx = p.x - d.last.x, dy = p.y - d.last.y
     const dd = Math.hypot(dx, dy)
     let t = spacing - d.carry
@@ -1078,8 +1090,17 @@ export function Stage() {
       // An adjustment's mask is page pixels placed where its board is; it is painted as a whole page at 0,0.
       const adj = layer.type === 'adjustment' && s.doc
       const baseMask = adj ? maskOnPage(s.doc!.width, s.doc!.height, cloneCanvas)(layer.mask, layer.maskAt).mask : layer.mask
-      const m = paintMask(baseMask, L.buffer, L.opacity, L.mode === 'mask-hide' ? 0 : L.maskValue ?? 1, adj ? undefined : layerMatrix(layer, s.doc!).inverse())
+      const m = paintMask(baseMask, L.buffer, L.opacity, L.mode === 'mask-hide' ? 0 : L.maskValue ?? 1, adj ? undefined : layerMaskMatrix(layer, s.doc!).inverse())
       s.updateLayer(layer.id, { mask: m, ...(adj ? { maskAt: null } : {}) } as Partial<Layer>, 'Paint mask')
+    } else if (d.retouch) {
+      let out:HTMLCanvasElement|null=null
+      try {
+      if(d.tool==='heal')out=await repairAsync(d.retouch,L.buffer,d.selection??L.buffer)
+      if (d.tool === 'remove') out = await import('../ai-tools').then(m => m.repairSource(d.retouch!.canvas, L.buffer, d.selection ?? L.buffer))
+      }catch(e){s.notify(String(e));invalidate(true);return}
+      if (out) applyRepair(d.retouch, out, L.buffer, d.tool === 'heal' ? 'Heal' : 'Remove object')
+      else s.notify('No clean donor fits here. Select the unwanted area and use Remove selected area to preview a repair.')
+      invalidate(true); return
     } else if (layer.type === 'raster') {
       if (d.tool === 'remove') { invalidate(); await import('../ai-tools').then(m => m.removeObject(L.buffer, layer.id, d.selection ?? null)); invalidate(true); return }
       if (d.tool === 'dodge' || d.tool === 'burn' || d.tool === 'sponge') {
@@ -1362,7 +1383,8 @@ export function Stage() {
         tipOnce('paint-layer', 'Your brush strokes go on a new layer, so the photo underneath stays untouched.')
       }
       if (s.editingMask && !['brush', 'eraser'].includes(t)) { s.notify('Switch from the mask to the layer to use this tool.'); return }
-      const target = useEditor.getState().ensurePaintable(); if (!target) return
+      const retouch = ['heal', 'remove'].includes(t) ? retouchSource() : null
+      const target = ['heal', 'remove'].includes(t) ? (retouch ? s.active() : null) : useEditor.getState().ensurePaintable(); if (!target) return
       const st = useEditor.getState()
       const onMask = st.editingMask && !!target.mask
       if (target.type === 'adjustment' && !onMask) return
@@ -1374,7 +1396,7 @@ export function Stage() {
         const rgb = parseInt(st.fg.slice(1), 16)
         live.current.maskValue = (((rgb >> 16) & 255) * 0.299 + ((rgb >> 8) & 255) * 0.587 + (rgb & 255) * 0.114) / 255
       }
-      const d: Drag = { kind: 'stroke', last: p, smooth: p, carry: 0, tool: t }
+      const d: Drag = { kind: 'stroke', last: p, smooth: p, carry: 0, tool: t, ...(retouch ? { retouch } : {}) }
       if (t === 'clone' && target.type === 'raster') {
         d.snapshot = target.canvas
         if (st.options.sampleAll !== false) {

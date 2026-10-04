@@ -7,7 +7,7 @@ const errors = []
 p.on('pageerror', e => errors.push(e.message))
 const E = (fn, arg) => p.evaluate(fn, arg)
 const library = () => p.getByLabel('Reusable library')
-const nameInput = () => library().locator('input').first()
+const nameInput = () => library().getByRole('textbox').first()
 const rowFor = name => p.getByText(name, { exact: true }).locator('..').locator('..')
 
 try {
@@ -18,7 +18,7 @@ try {
     const s = window.__voidEditor.getState()
     s.newDoc({ name: 'Reuse QA', width: 800, height: 800, background: '#121212' })
     s.addText(120, 140)
-    const id = s.activeId
+    const id = window.__voidEditor.getState().activeId
     s.updateLayer(id, {
       text: 'SOURCE HEADLINE', fontFamily: 'Arial', fontSize: 72, fontWeight: 700,
       color: '#f2d36b', align: 'center', letterSpacing: -2, opacity: 0.82, blend: 'screen',
@@ -46,7 +46,7 @@ try {
   const target = await E(() => {
     const s = window.__voidEditor.getState()
     s.addText(120, 360)
-    const id = s.activeId
+    const id = window.__voidEditor.getState().activeId
     s.updateLayer(id, {
       text: 'KEEP THESE WORDS', fontFamily: 'Georgia', fontSize: 28, fontWeight: 400,
       color: '#ffffff', align: 'left', letterSpacing: 0, opacity: 1, blend: 'source-over',
@@ -97,7 +97,6 @@ try {
   await rowFor('Arial Family').getByRole('button', { name: 'Apply', exact: true }).click()
   assert.equal(await E(() => window.__voidEditor.getState().active().fontFamily), 'Arial')
 
-  // Search/filter is part of the cross-design library, not a decorative control.
   await p.getByLabel('Search reuse library').fill('Launch Template')
   assert(await p.getByText('Launch Template', { exact: true }).isVisible())
   assert.equal(await p.getByText('Editorial Gold', { exact: true }).count(), 0)
@@ -107,14 +106,12 @@ try {
   assert.equal(await p.getByText('Campaign Headline', { exact: true }).count(), 0)
   await p.getByLabel('Filter reuse library').selectOption('all')
 
-  // Referenced items cannot be silently deleted. Dismissing the warning must keep the item.
   let warned = false
   p.once('dialog', async d => { warned = /used in 1 design/.test(d.message()); await d.dismiss() })
   await rowFor('Editorial Gold').getByLabel('Delete Editorial Gold').click()
   assert(warned, 'Deleting a referenced reusable item should explain its dependency')
   assert(await p.getByText('Editorial Gold', { exact: true }).isVisible())
 
-  // Raster assets: save a logo, then reuse it as a placed image when nothing raster is selected.
   await p.getByLabel('Close reuse library').click()
   await E(() => {
     const s = window.__voidEditor.getState(), c = document.createElement('canvas')
@@ -133,7 +130,6 @@ try {
   const after = await E(() => window.__voidEditor.getState().layers.length)
   assert.equal(after, before + 1, 'Applying a raster library asset with no raster target should place a new layer')
 
-  // Phone: same library remains reachable without hover/right click.
   await p.getByLabel('Close reuse library').click()
   await p.setViewportSize({ width: 390, height: 844 })
   await p.getByRole('button', { name: 'Reuse', exact: true }).click()

@@ -1,5 +1,9 @@
 'use client'
 
+import { BrushPresetsDialog, MaskSettingsDialog } from './DesignerDialogs'
+import { LiquifyDialog } from './LiquifyDialog'
+import { ProofDialog } from './ProofDialog'
+import { RepairDialog } from './RepairDialog'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PanelRight } from 'lucide-react'
 import { blobToCanvas, flushSave, getBrand, hasUnsaved, importFiles, openProject, saveProject, startAutosave, takeHandoff } from '../io'
@@ -579,6 +583,11 @@ export function EditorShell() {
       {m === 'selectMask' && hasDoc && <SelectMask onClose={close} />}
       {m === 'missingFonts' && hasDoc && <MissingFontsDialog onClose={close} fonts={modal?.props?.fonts ?? []} />}
       {m === 'importReport' && <ImportReportDialog onClose={close} report={modal?.props} />}
+      {m === 'brushPresets' && hasDoc && <BrushPresetsDialog onClose={close} />}
+      {m === 'maskSettings' && hasDoc && <MaskSettingsDialog onClose={close} />}
+      {m === 'liquify' && hasDoc && <LiquifyDialog onClose={close} />}
+      {m === 'proof' && hasDoc && <ProofDialog onClose={close} />}
+      {m === 'repair' && hasDoc && <RepairDialog onClose={close} />}
       {m === 'looks' && hasDoc && <LooksDialog onClose={close} />}
 
       {busy && (

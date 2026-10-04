@@ -73,6 +73,7 @@ interface EditorState {
   compare: boolean
   /** View, Effects off: shows the design with every effect switched off (the design itself is unchanged). */
   fxOff: boolean
+  drawInsideId: string | null
   editingMask: boolean
   selection: HTMLCanvasElement | null
   selRev: number
@@ -459,7 +460,11 @@ function coverFrames(doc: Doc): Doc {
 
 /** A layer with a patch applied; text keeps its anchor unless the patch places it or sizes its box. */
 function anchored(l: Layer, patch: Partial<Layer>): Layer {
-  const next = { ...l, ...patch, rev: nextRev() } as Layer
+  let next = { ...l, ...patch, rev: nextRev() } as Layer
+  if(l.mask && l.maskLinked!==false && l.maskResize==='scale' && !('mask' in patch) && l.type!=='adjustment') {
+    const a=layerSize(l),b=layerSize(next)
+    if(a.w!==b.w || a.h!==b.h){const mask=makeCanvas(b.w,b.h);ctx2d(mask).drawImage(l.mask,0,0,b.w,b.h);next={...next,mask} as Layer}
+  }
   return 'x' in patch || 'y' in patch || 'boxWidth' in patch ? next : keepTextAnchor(l, next)
 }
 
@@ -475,6 +480,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   activeFrameId: null,
   compare: false,
   fxOff: false,
+  drawInsideId: null,
   editingMask: false,
   selection: null,
   selRev: 0,
@@ -506,25 +512,25 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   newDoc: ({ name, width, height, background }) => {
     const doc: Doc = { id: uid(), name: name || 'Untitled design', width, height, background }
-    set({ doc, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move' })
+    set({ doc, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, drawInsideId: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move' })
     get().commit('New design')
     set({ dirty: false })
   },
 
   loadProject: (doc, layers, swatches, groups) => {
     const top = layers[layers.length - 1]?.id ?? null
-    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, selection: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
+    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, selection: null, drawInsideId: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
     get().commit('Open')
     set({ dirty: false })
   },
 
   loadFramed: (doc, layers, swatches, groups) => {
     const top = layers[layers.length - 1]?.id ?? null
-    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, activeFrameId: doc.frames?.[0]?.id ?? null, selection: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
+    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, activeFrameId: doc.frames?.[0]?.id ?? null, selection: null, drawInsideId: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
     get().commit('Open'); set({ dirty: false })
   },
 
-  closeDoc: () => set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, cloneSource: null, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null }),
+  closeDoc: () => set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, drawInsideId: null, cloneSource: null, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null }),
 
   setDoc: (patch, commit) => {
     const { doc } = get(); if (!doc) return
@@ -1025,7 +1031,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     if (box.y != null) patch.y = l.y + (box.y - b.y)
     if (box.w != null && b.w > 0) { const k = box.w / b.w; if (l.type === 'text') patch.fontSize = Math.max(1, l.fontSize * k); else patch.scaleX = l.scaleX * k }
     if (box.h != null && b.h > 0) { const k = box.h / b.h; if (l.type === 'text') { /* text height follows fontSize */ } else patch.scaleY = l.scaleY * k }
-    set({ layers: layers.map(x => x.id === id ? ({ ...x, ...patch, rev: nextRev() } as Layer) : x), docRev: get().docRev + 1 })
+    set({ layers: layers.map(x => x.id === id ? anchored(x,patch) : x), docRev: get().docRev + 1 })
   },
 
   removeSelected: () => {
@@ -1036,14 +1042,19 @@ export const useEditor = create<EditorState>((set, get) => ({
     if (!gone.size) { get().notify(kept > 1 ? 'These layers are locked. Unlock them to delete them.' : 'This layer is locked. Unlock it to delete it.'); return }
     const next = releaseOrphans(layers.filter(l => !gone.has(l.id)))
     const keep = next[next.length - 1]?.id ?? null
-    set({ layers: next, groups: prune(groups, next), activeId: keep, selectedIds: keep ? [keep] : [], editingMask: false, docRev: get().docRev + 1 })
+    set({ drawInsideId: gone.has(get().drawInsideId??'')?null:get().drawInsideId, layers: next, groups: prune(groups, next), activeId: keep, selectedIds: keep ? [keep] : [], editingMask: false, docRev: get().docRev + 1 })
     get().commit(gone.size > 1 ? 'Delete layers' : 'Delete layer')
     if (kept) get().notify(`${kept} locked ${kept > 1 ? 'layers were' : 'layer was'} kept.`)
   },
 
   addLayer: (l, label) => {
     const { layers, activeId } = get()
-    const idx = activeId ? layers.findIndex(x => x.id === activeId) : layers.length - 1
+    let idx = activeId ? layers.findIndex(x => x.id === activeId) : layers.length - 1
+    const inside = layers.find(x => x.id === get().drawInsideId)
+    if (inside && l.type !== 'adjustment') {
+      if(layers[idx]?.clipId!==inside.id)idx=layers.indexOf(inside)
+      l = { ...l, clipId: inside.id, groupId: inside.groupId??null, frameId: inside.frameId??null } as Layer
+    }
     const next = [...layers]
     const st = get(); const host = idx >= 0 ? layers[idx] : null
     if (st.doc?.frames?.length && l.frameId === undefined) l = { ...l, frameId: boardFor(st.doc, l, st.activeFrameId) } as Layer
@@ -1162,7 +1173,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     if (layers[idx].locked) { get().notify('This layer is locked. Unlock it to delete it.'); return }
     const next = releaseOrphans(layers.filter(l => l.id !== id))
     const act = activeId === id ? (next[Math.max(0, idx - 1)]?.id ?? null) : activeId
-    set({ layers: next, groups: prune(get().groups, next), activeId: act, selectedIds: act ? [act] : [], editingMask: false, docRev: get().docRev + 1 })
+    set({ drawInsideId: get().drawInsideId===id?null:get().drawInsideId, layers: next, groups: prune(get().groups, next), activeId: act, selectedIds: act ? [act] : [], editingMask: false, docRev: get().docRev + 1 })
     get().commit('Delete layer')
   },
 
@@ -1303,8 +1314,9 @@ export const useEditor = create<EditorState>((set, get) => ({
     const { layers, doc } = get(); if (!doc) return null
     const l = layers.find(x => x.id === id)
     if (!l || l.type === 'adjustment') return null
+    if(l.locked || l.lockPixels){get().notify('Unlock this layer before rasterizing it.');return null}
     if (l.type === 'raster') {
-      const baked = rasterizeToDoc(l, doc)
+      const baked = { ...rasterizeToDoc(l, doc), smart: undefined, liquify: undefined, maskLinked:true, maskMatrix:undefined }
       get().updateLayer(id, baked)
       return get().layers.find(x => x.id === id) as RasterLayer
     }
@@ -1339,6 +1351,8 @@ export const useEditor = create<EditorState>((set, get) => ({
     if (!l || l.type !== 'raster') { get().addBlank(); l = get().active() }
     if (!l || l.type !== 'raster') return null
     if (l.locked || l.lockPixels) { get().notify('This layer is locked. Unlock it to paint.'); return null }
+    if(l.liquify){get().notify('Rasterize this liquified layer explicitly before painting, or paint on a new layer.');return null}
+    if (l.smart) { get().notify('Edit this smart object’s contents or explicitly rasterize it before painting.'); return null }
     const aligned = l.x === 0 && l.y === 0 && l.scaleX === 1 && l.scaleY === 1 && l.rotation === 0 && l.canvas.width === s.doc.width && l.canvas.height === s.doc.height
     if (!aligned) return get().rasterize(l.id)
     return l

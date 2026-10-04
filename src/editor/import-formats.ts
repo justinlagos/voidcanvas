@@ -1,3 +1,6 @@
+import { storeDesign, blobToCanvas } from './io'
+import { writeVoid } from './voidfile'
+import { preparePattern } from './patterns'
 import { readPsd } from 'ag-psd'
 import { ctx2d, makeCanvas, uid } from './engine'
 import { nextRev, useEditor } from './store'
@@ -78,7 +81,7 @@ function maskFor(n: any, w: number, h: number, ox: number, oy: number): HTMLCanv
   return out
 }
 
-function mapEffects(fx: any, report: ImportReport): LayerStyles | null {
+function mapEffects(fx: any, report: ImportReport, patterns: Map<string,string>): LayerStyles | null {
   if (!fx || fx.disabled) return null
   const st: LayerStyles = { order: [...STYLE_KINDS] }
   let any = false
@@ -105,7 +108,11 @@ function mapEffects(fx: any, report: ImportReport): LayerStyles | null {
   }
   if (fx.bevel) { const b = fx.bevel; st.bevel = { on: b.enabled !== false, opacity: b.highlightOpacity ?? 0.75, blend: 'source-over', size: uv(b.size, 5), depth: b.strength ?? 100, angle: b.angle ?? 120, highlight: hexOf(b.highlightColor ?? { r: 255, g: 255, b: 255 }), shadow: hexOf(b.shadowColor), soften: uv(b.soften, 0) }; any = true }
   if (fx.satin) report.missing.push('Satin effect')
-  if (fx.patternOverlay) report.missing.push('Pattern overlay effect')
+  if (fx.patternOverlay) {
+    const p=fx.patternOverlay,asset=patterns.get(p.pattern?.id)
+    if(asset){st.patternOverlay={on:p.enabled!==false,opacity:p.opacity??1,blend:PSD_BLEND[p.blendMode]??'source-over',pattern:'lines',asset,scale:p.scale??100,angle:0,offsetX:p.phase?.x??0,offsetY:p.phase?.y??0};any=true}
+    else report.missing.push('Pattern overlay: its tile is not embedded or could not be decoded')
+  }
   return any ? st : null
 }
 
@@ -189,6 +196,9 @@ export async function importPsd(file: Blob, name: string) {
   const W = psd.width, H = psd.height
   const docName = name.replace(/\.psd$/i, '')
   const report: ImportReport = { name, kept: [], changed: [], missing: [] }
+  const patterns = new Map<string,string>(), smartJobs:Promise<void>[]=[]
+  const collectPatterns=(nodes:any[])=>{for(const n of nodes){for(const p of n.patterns??[]){if(p.bounds?.w>0 && p.bounds?.h>0 && p.data?.length===p.bounds.w*p.bounds.h*4){const c=makeCanvas(p.bounds.w,p.bounds.h),x=ctx2d(c),im=x.createImageData(c.width,c.height);im.data.set(p.data);x.putImageData(im,0,0);patterns.set(p.id,c.toDataURL())}}if(n.children)collectPatterns(n.children)}}
+  collectPatterns([psd]);await Promise.all(Array.from(patterns.values()).map(preparePattern))
   const layers: Layer[] = []
   const groups: Group[] = []
   const counts = { pixels: 0, text: 0, adj: 0, masks: 0, styles: 0, groups: 0, smart: 0, vector: 0 }
@@ -230,7 +240,7 @@ export async function importPsd(file: Blob, name: string) {
       if (n.text) {
         const t = textFrom(n, report)
         if (t) {
-          const l = { ...common, type: 'text', text: '', fontFamily: 'Inter', fontSize: 24, fontWeight: 400, italic: false, color: '#000000', align: 'left', lineHeight: 1.2, letterSpacing: 0, ...t, styles: mapEffects(n.effects, report) } as TextLayer
+          const l = { ...common, type: 'text', text: '', fontFamily: 'Inter', fontSize: 24, fontWeight: 400, italic: false, color: '#000000', align: 'left', lineHeight: 1.2, letterSpacing: 0, ...t, styles: mapEffects(n.effects, report, patterns) } as TextLayer
           if (n.clipping) { const b = clipTo(); if (b) l.clipId = b }
           layers.push(l); counts.text++; if (l.styles) counts.styles++
           continue
@@ -239,7 +249,13 @@ export async function importPsd(file: Blob, name: string) {
       if (!c || !c.width || !c.height) continue
       if (n.placedLayer) counts.smart++
       if (n.vectorMask || n.vectorFill) counts.vector++
-      const l = { ...common, type: 'raster', canvas: c, x: n.left ?? 0, y: n.top ?? 0, mask: maskFor(n, c.width, c.height, n.left ?? 0, n.top ?? 0), styles: mapEffects(n.effects, report) } as RasterLayer
+      const l = { ...common, type: 'raster', canvas: c, x: n.left ?? 0, y: n.top ?? 0, mask: maskFor(n, c.width, c.height, n.left ?? 0, n.top ?? 0), styles: mapEffects(n.effects, report, patterns) } as RasterLayer
+      if(n.placedLayer) {
+        const embedded=psd.linkedFiles?.find((f:any)=>f.id===n.placedLayer.id), original=embedded?.data?.length ? new Blob([embedded.data]) : undefined
+        const child:Doc={id:uid(),name:l.name+' contents',width:c.width,height:c.height,background:null}
+        const pixels:RasterLayer={...baseLayer(l.name),type:'raster',canvas:c}
+        smartJobs.push((async()=>{if(original && !/\.ps[db]$/i.test(embedded?.name??'')){try{const raw=await blobToCanvas(original,1e6);child.width=raw.width;child.height=raw.height;pixels.canvas=raw}catch{report.changed.push('Smart source '+l.name+': unable to decode the embedded format; cached source is editable')}}const contents=await writeVoid((await storeDesign(child,[pixels],[],[])).stored);l.smart={id:uid(),contents,original,originalName:embedded?.name,editOriginal:!!original && /\.ps[db]$/i.test(embedded?.name??'')};if(!original)report.changed.push('Smart object '+l.name+': embedded source unavailable; editable cached pixels retained');else report.kept.push('Embedded source of smart object '+l.name);report.changed.push('Smart object '+l.name+': placed appearance retained; updating contents preserves its displayed bounds')})())
+      }
       if (l.mask) counts.masks++
       if (l.styles) counts.styles++
       if (n.clipping) { const b = clipTo(); if (b) l.clipId = b; else report.changed.push(`"${l.name}" was clipped to an adjustment layer; the clip was removed`) }
@@ -254,7 +270,7 @@ export async function importPsd(file: Blob, name: string) {
     if (counts.groups) report.kept.push(`${counts.groups} group${counts.groups === 1 ? '' : 's'}, nesting kept`)
     if (counts.masks) report.kept.push(`${counts.masks} layer mask${counts.masks === 1 ? '' : 's'}`)
     if (counts.styles) report.kept.push(`Layer styles on ${counts.styles} layer${counts.styles === 1 ? '' : 's'}, still editable`)
-    if (counts.smart) report.changed.push(`${counts.smart} smart object${counts.smart === 1 ? '' : 's'} kept as pixels (editing the contents is not supported yet)`)
+    if (counts.smart) report.kept.push(`${counts.smart} smart object${counts.smart === 1 ? '' : 's'} with embedded editable contents`)
     if (counts.vector) report.changed.push(`${counts.vector} vector shape${counts.vector === 1 ? '' : 's'} kept as pixels`)
     report.changed = Array.from(new Set(report.changed)); report.missing = Array.from(new Set(report.missing))
     ed.setBusy(null)
@@ -266,6 +282,7 @@ export async function importPsd(file: Blob, name: string) {
 
   if (!artboards.length) {
     walk(top, null, null)
+    await Promise.all(smartJobs)
     // A flattened PSD has no layer records, only the composite picture. Open that as one layer.
     if (!layers.length && psd.canvas?.width && psd.canvas?.height) layers.push({ ...baseLayer('Background'), type: 'raster', canvas: psd.canvas, x: 0, y: 0 } as RasterLayer)
     if (!layers.length) { ed.setBusy(null); ed.notify(NOTHING_READABLE); return }
@@ -288,6 +305,7 @@ export async function importPsd(file: Blob, name: string) {
       walk(n.children ?? [], null, f.id)
     } else walk([n], null, null)
   }
+  await Promise.all(smartJobs)
   if (!layers.length && !frames.length) { ed.setBusy(null); ed.notify(NOTHING_READABLE); return }
 
   const boxes = [...frames.map(f => ({ x: f.x, y: f.y, r: f.x + f.width, b: f.y + f.height })),
