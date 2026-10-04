@@ -77,6 +77,7 @@ export function OptionsBar() {
   const transform = useEditor(s => s.transform)
   const active = useEditor(s => s.layers.find(l => l.id === s.activeId))
   const count = useEditor(s => s.selectedIds.length)
+  const drawInsideId = useEditor(s=>s.drawInsideId)
   const hasBoards = useEditor(s => !!s.doc?.frames?.length)
   const s = useEditor.getState()
   const set = s.setOption
@@ -129,12 +130,15 @@ export function OptionsBar() {
         </>
       )}
 
+      {drawInsideId && <span className="flex gap-2 text-xs text-accent-light">Draw Inside: {useEditor.getState().layers.find(l=>l.id===useEditor.getState().drawInsideId)?.name ?? 'host removed'}<button onClick={()=>useEditor.setState({drawInsideId:null})}>Exit</button></span>}
+      {useEditor.getState().doc?.smartParent && <Button onClick={()=>import('../smart').then(m=>m.applySmart())}>Save contents to parent</Button>}
       {brushy && (
         <>
           <Num label="Size" value={o.size} min={1} max={1000} unit="px" onChange={v => set('size', v)} />
           {!['heal', 'remove'].includes(tool) && <Num label="Hardness" value={o.hardness * 100} min={0} max={100} unit="%" onChange={v => set('hardness', v / 100)} />}
           {['brush', 'eraser', 'clone'].includes(tool) && <Num label="Opacity" value={o.opacity * 100} min={1} max={100} unit="%" onChange={v => set('opacity', v / 100)} />}
           {['brush', 'eraser', 'clone'].includes(tool) && <Num label="Flow" value={(o.flow ?? 1) * 100} min={1} max={100} unit="%" onChange={v => set('flow', v / 100)} title="How much paint each dab lays down. Low flow builds up as you go over an area." />}
+          {['brush', 'eraser','clone'].includes(tool) && <Button onClick={()=>openModal('brushPresets')}>Brush preset…</Button>}
           {['brush', 'eraser'].includes(tool) && <Num label="Smoothing" value={(o.smoothing ?? 0) * 100} min={0} max={100} unit="%" onChange={v => set('smoothing', v / 100)} title="Steadies shaky strokes" />}
           {['dodge', 'burn'].includes(tool) && <>
             <select aria-label="Range" value={o.toneRange ?? 'midtones'} onChange={e => set('toneRange', e.target.value as any)} className="h-7 px-1.5 rounded-md bg-surface-sunken border border-white/[0.06] text-[12px] shrink-0"><option value="shadows">Shadows</option><option value="midtones">Midtones</option><option value="highlights">Highlights</option></select>
@@ -152,6 +156,7 @@ export function OptionsBar() {
           {editingMask && <span className="text-[12px] text-accent-light shrink-0">Mask: white reveals, black hides, grey blends. Eraser hides.</span>}
           {tool === 'clone' && <Check2 on={o.sampleAll !== false} label="Sample all layers" onChange={v => set('sampleAll', v)} title="Copy visible artwork onto this layer. Turn off to sample only this layer." />}
           {tool === 'clone' && <span className="text-[12px] text-void-400 shrink-0">{cloneSource ? 'Source set. Alt-click to change it.' : 'Alt-click to choose where to copy from.'}</span>}
+          {['heal','remove'].includes(tool) && <><select aria-label="Healing sample" value={o.retouchSample ?? 'all'} onChange={e => set('retouchSample', e.target.value as any)} className="bg-void-800 rounded px-2 h-7 text-xs"><option value="current">Current layer</option><option value="below">Current and below</option><option value="all">All visible layers</option></select><Check2 on={o.retouchSeparate !== false} label="Separate patch" onChange={v => set('retouchSeparate', v)} />{selection && <Button onClick={() => openModal('repair')}>Remove selected area…</Button>}</>}
           {tool === 'heal' && <span className="text-[12px] text-void-400 shrink-0">Paint over a spot, then let go.</span>}
           {tool === 'remove' && <span className="text-[12px] text-void-400 shrink-0">Paint over what you want gone. It is filled in on your device, free.</span>}
         </>
@@ -160,6 +165,7 @@ export function OptionsBar() {
       {['marquee', 'ellipse', 'lasso', 'polylasso', 'wand', 'objectselect'].includes(tool) && (
         <>
           <SelectionMode />
+          {selection && <Button onClick={()=>openModal('repair')}>Remove selected area…</Button>}
           {['marquee', 'ellipse', 'lasso', 'polylasso'].includes(tool) && <Num label="Feather" value={o.feather} min={0} max={200} unit="px" onChange={v => set('feather', v)} />}
           {tool === 'wand' && <>
             <Num label="Tolerance" value={o.tolerance} min={0} max={255} onChange={v => set('tolerance', v)} />

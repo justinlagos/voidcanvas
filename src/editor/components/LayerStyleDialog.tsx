@@ -1,5 +1,7 @@
 'use client'
 
+import { preparePattern } from '../patterns'
+import { blobToCanvas } from '../io'
 import { useRef, useState } from 'react'
 import { GripVertical } from 'lucide-react'
 import { useEditor } from '../store'
@@ -19,7 +21,7 @@ export function LayerStyleDialog({ onClose, focus }: { onClose: () => void; focu
   const s = useEditor.getState()
   if (!layer || layer.type === 'adjustment') return <Modal track="layer-style" title="Layer style" onClose={onClose}><p className="p-5 text-[13px] text-void-400">Select an image, text or shape layer first.</p></Modal>
   const st: LayerStyles = layer.styles ?? emptyStyles()
-  const order = st.order?.length ? st.order : STYLE_KINDS
+  const order = st.order?.length ? [...st.order,...STYLE_KINDS.filter(k=>!st.order.includes(k))] : STYLE_KINDS
   const put = (next: LayerStyles) => s.updateLayer(layer.id, { styles: next })
   const patch = (k: StyleKind, p: any) => put({ ...st, [k]: { ...(defaultStyle(k)), ...((st as any)[k] ?? {}), ...p } })
   const toggle = (k: StyleKind) => { const cur = (st as any)[k]; put({ ...st, [k]: cur ? { ...cur, on: !cur.on } : defaultStyle(k) }); setSel(k) }
@@ -63,6 +65,7 @@ export function LayerStyleDialog({ onClose, focus }: { onClose: () => void; focu
               <label className="flex items-center gap-2 text-[12.5px] text-void-300"><input type="checkbox" checked={!!e.on} onChange={() => toggle(sel as StyleKind)} />On</label>
             </div>
             {'color' in e && <div className="flex items-center justify-between"><span className="text-[12px] text-void-400">Colour</span><ColorButton label="Effect colour" value={e.color} onChange={c => patch(sel as StyleKind, { color: c })} /></div>}
+            {sel === 'patternOverlay' && <><Select label="Pattern" value={e.asset ? 'asset' : e.pattern} options={[{id:'lines',label:'Diagonal lines'},{id:'dots',label:'Dots'},{id:'grid',label:'Grid'},...(e.asset?[{id:'asset',label:'Imported tile'}]:[])]} onChange={v=>patch('patternOverlay',{pattern:v,asset:undefined})}/><label className="text-xs">Import repeating tile<input aria-label="Import pattern tile" type="file" accept="image/*" onChange={async ev=>{try{const file=ev.target.files?.[0];if(!file)return;const c=await blobToCanvas(file,1024),asset=c.toDataURL();await preparePattern(asset);patch('patternOverlay',{asset})}catch{useEditor.getState().notify('Could not read the pattern tile.')}}}/></label><Slider label="Scale" value={e.scale} min={1} max={1000} unit="%" onChange={v=>patch('patternOverlay',{scale:v})}/><Slider label="Offset X" value={e.offsetX} min={-1000} max={1000} onChange={v=>patch('patternOverlay',{offsetX:v})}/><Slider label="Offset Y" value={e.offsetY} min={-1000} max={1000} onChange={v=>patch('patternOverlay',{offsetY:v})}/></>}
             {sel === 'gradientOverlay' && <GradientControls value={e} patch={p => patch('gradientOverlay', p)} />}
             {sel === 'bevel' && <div className="flex items-center justify-between"><span className="text-[12px] text-void-400">Highlight and shadow</span><span className="flex gap-2"><ColorButton label="Highlight" value={e.highlight} onChange={c => patch('bevel', { highlight: c })} /><ColorButton label="Shadow" value={e.shadow} onChange={c => patch('bevel', { shadow: c })} /></span></div>}
             {blendSel(e.blend, v => patch(sel as StyleKind, { blend: v }))}

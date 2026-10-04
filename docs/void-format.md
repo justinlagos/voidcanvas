@@ -1,6 +1,6 @@
 # The .void file format
 
-Version 4. Written by `src/editor/voidfile.ts`. Keep this document and that module in step.
+Version 5. Written by `src/editor/voidfile.ts`. Keep this document and that module in step.
 
 A `.void` file holds one complete, editable Voidcanvas design. It is the unit used everywhere: saving to disk, backups, the desktop app, and later sync and share links. The format is open so people own their work: anyone can read a `.void` file without Voidcanvas.
 
@@ -24,8 +24,8 @@ Extensions: `png`, `jpg`, `webp`, `ttf`, `otf`, `woff`, `woff2`, or `bin` for an
 ```json
 {
   "format": "voidcanvas",
-  "version": 4,
-  "minReader": 3,
+  "version": 5,
+  "minReader": 5,
   "app": "voidcanvas-web",
   "savedAt": "2026-09-26T13:00:00.000Z",
   "doc": { "id": "…", "name": "Poster", "width": 1080, "height": 1350, "background": "#ffffff", "frames": [], "channelMeta": [] },
@@ -76,3 +76,16 @@ Editing the PNG in another app will usually drop the chunk and with it the proje
 - File, Download project file (.void), and Download .void on the start screen
 - Export dialog, Save editable file (.void.png)
 - Later: the desktop app's library folder, sync and share links (see `plans/desktop-and-sync.md` in the project)
+
+## Version 5: editable production assets
+
+Version 5 requires a version-5 reader so an older editor cannot silently bake or discard smart sources, deformation or pattern styles. It still reads versions 1–4.
+
+- Raster `smart` metadata refers to the layer's `L:smart` asset (an embedded `.void` document) and optional `L:original` source bytes. The ordinary `L` PNG is a cached placed appearance. Native Blob fields are removed from JSON and restored from assets.
+- Raster `liquify` stores normalized inverse-deformation dabs in metadata; `L:liquify` stores the original source PNG independently of the cached rendered pixels.
+- A pixel mask can carry `maskLinked`, a six-number document affine `maskMatrix` when unlinked, and `maskResize` (`fixed` or `scale`).
+- Pattern overlay metadata carries its tile data URL and scale/rotation/offset controls.
+- Document `proof` carries the supplied printer ICC bytes as base64, its name, rendering intent and preview switch. These settings never alter the RGB editing pixels.
+- Nested contents tabs carry `smartParent` with parent document/layer/source identity. The embedded source strips this editing-session link to avoid cycles.
+
+Asset content hashes continue to deduplicate identical embedded sources and original snapshots.

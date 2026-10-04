@@ -18,9 +18,9 @@ import { crc32, isZip, unzip, zipFiles } from './zip'
 
 export const VOID_MIME = 'application/vnd.voidcanvas+zip'
 /** The version this build writes. */
-export const VOID_VERSION = 4
+export const VOID_VERSION = 5
 /** The oldest reader that can open what this build writes. Raise it only for a change older readers would get wrong. */
-export const VOID_MIN_READER = 3
+export const VOID_MIN_READER = 5
 /** Layer types this build knows how to draw. Newer types in a file are left out, with a note. */
 export const KNOWN_LAYER_TYPES = ['raster', 'text', 'shape', 'adjustment']
 

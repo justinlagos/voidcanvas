@@ -33,7 +33,9 @@ Selecting an object alone remains different from making a pixel selection. The M
 
 The editor already has clipping masks, layer/group effects, per-layer masks, vector masks, groups, paths, on-path text, selection modifiers, channels, transforms, undo/history, artboards and export. These should be strengthened through workflow checks rather than rebuilt from a stale feature list. The inherited Effects workspace change also keeps previews stable and exposes movable controls; it is an earlier change, not a new implementation in this audit.
 
-## Remaining product gaps, not implemented in this patch
+## Gaps identified in the initial selection-painting patch
+
+These were the follow-up scope. Their implementations and remaining boundaries are now documented in [Designer production workflows](DESIGNER-PRODUCTION-WORKFLOWS.md).
 
 | Gap | Practical consequence | Recommended next implementation |
 | --- | --- | --- |

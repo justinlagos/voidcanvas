@@ -10,11 +10,13 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "e2e": "node e2e/run.mjs"
+    "e2e": "node e2e/run.mjs",
+    "postinstall": "node scripts/install-colour.mjs"
   },
   "dependencies": {
     "ag-psd": "^31.0.2",
     "framer-motion": "^11.0.0",
+    "lcms-wasm": "^1.0.5",
     "lucide-react": "^0.330.0",
     "next": "14.1.0",
     "paper": "^0.12.18",

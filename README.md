@@ -31,6 +31,12 @@ Choose an effect in the searchable library and adjust it beside the image. Deskt
 
 The preview keeps its last frame during effect changes and slider drags. Changes preserve zoom, ignore outdated renders, and never reload the source image. Longer renders show a quiet status message; failed renders keep the image and offer Retry. The editor's Layer style / Blending options window can also be moved by its title, with live adjustments that preserve keyboard focus.
 
+## Designer production workflows
+
+Selected raster text can be removed with **Filter → Remove selected area**: preview a clean texture repair and apply it on its own layer. Healing excludes every selected region from sampling and offers Current, Current and below, or All visible sources. Complex scenes can use the on-device AI fallback.
+
+The editor also includes embedded smart-object contents tabs, Draw Inside with a live clipping host, textured brush presets, independent mask positioning and resize policies, pattern overlays, reversible Liquify, and printer ICC soft proof / CMYK TIFF export. See [Designer production workflows](docs/DESIGNER-PRODUCTION-WORKFLOWS.md) for usage, verification and engineering boundaries. Version-5 `.void` files preserve these sources and settings and require a compatible reader.
+
 ## Editor
 
 - Layers: image, text, shape, adjustment. Reorder by drag, rename, lock, hide, duplicate, merge down.

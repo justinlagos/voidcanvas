@@ -40,6 +40,9 @@ interface LayerBase {
   /** Alpha mask in layer-local pixels (document pixels for adjustment layers). Opaque = visible. */
   mask: HTMLCanvasElement | null
   maskEnabled: boolean
+  maskLinked?: boolean
+  maskMatrix?: number[]
+  maskResize?: 'fixed' | 'scale'
   /** Group this layer belongs to. Members of a group are always next to each other in the stack. */
   groupId?: string | null
   /** Artboard this layer lives on, when the document uses frames. */
@@ -80,7 +83,7 @@ export interface VectorMask { subpaths: SubPath[]; enabled: boolean; invert?: bo
 
 // ─── Layer styles ──────────────────────────────────────────────────
 
-export type StyleKind = 'dropShadow' | 'innerShadow' | 'outerGlow' | 'innerGlow' | 'stroke' | 'colorOverlay' | 'gradientOverlay' | 'bevel'
+export type StyleKind = 'dropShadow' | 'innerShadow' | 'outerGlow' | 'innerGlow' | 'stroke' | 'colorOverlay' | 'gradientOverlay' | 'bevel' | 'patternOverlay'
 
 export interface StyleBase { on: boolean; opacity: number; blend: BlendMode }
 export interface ShadowStyle extends StyleBase { color: string; angle: number; distance: number; size: number; spread: number }
@@ -89,6 +92,8 @@ export interface StrokeStyle extends StyleBase { color: string; size: number; po
 export interface ColorOverlayStyle extends StyleBase { color: string }
 export interface GradientOverlayStyle extends StyleBase { from: string; to: string; angle: number; scale: number; kind?: import('./gradient').GradientKind; stops?: import('./gradient').GradientStop[]; reverse?: boolean; centerX?: number; centerY?: number; aspect?: number }
 export interface BevelStyle extends StyleBase { size: number; depth: number; angle: number; highlight: string; shadow: string; soften: number }
+
+export interface PatternOverlayStyle extends StyleBase { pattern: 'lines' | 'dots' | 'grid'; asset?: string; scale: number; angle: number; offsetX: number; offsetY: number }
 
 export interface LayerStyles {
   /** Drawing order, bottom to top. Reorderable, unlike Photoshop. */
@@ -100,6 +105,7 @@ export interface LayerStyles {
   stroke?: StrokeStyle
   colorOverlay?: ColorOverlayStyle
   gradientOverlay?: GradientOverlayStyle
+  patternOverlay?: PatternOverlayStyle
   bevel?: BevelStyle
 }
 
@@ -120,6 +126,8 @@ export interface VectorPath { id: string; name: string; subpaths: SubPath[] }
 
 export interface RasterLayer extends LayerBase {
   type: 'raster'
+  liquify?: { source: HTMLCanvasElement; strokes: import('./liquify').LiquifyDab[] }
+  smart?: { id: string; contents: Blob; original?: Blob; originalName?: string; editOriginal?: boolean }
   canvas: HTMLCanvasElement
   /** Set on imported photos so brushes paint on a fresh layer above instead of on the photo. */
   source?: 'photo'
@@ -299,6 +307,9 @@ export interface Frame {
 }
 
 export interface Doc {
+  proof?: { profile: string; name: string; intent: 0 | 1; enabled: boolean }
+  smartParent?: { docId: string; layerId: string; sourceId: string }
+
   id: string
   name: string
   width: number
@@ -367,6 +378,11 @@ export interface ToolOptions {
   /** Brush flow (0..1) and stroke smoothing (0..1). */
   flow?: number
   smoothing?: number
+  tip?: 'round' | 'chalk' | 'scatter' | 'flat'
+  tipAsset?: string
+  spacing?: number
+  angle?: number
+  roundness?: number
   sides?: number
   star?: number
   /** Selection combine mode shown in the options bar. */
@@ -375,6 +391,8 @@ export interface ToolOptions {
   toneRange?: 'shadows' | 'midtones' | 'highlights'
   exposure?: number
   /** Sample all layers (wand, fill, heal). */
+  retouchSample?: 'current' | 'below' | 'all'
+  retouchSeparate?: boolean
   sampleAll?: boolean
   pressureSize?: boolean
   pressureOpacity?: boolean
