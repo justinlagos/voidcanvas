@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { captureAppearance, captureTextStyle, materializeEffects, portableEffects } from '../reuse'
-import type { Effect, ShapeLayer, TextLayer } from '../types'
+import type { Effect, Group, ShapeLayer, TextLayer } from '../types'
 
 const fx = (id = 'fx-source'): Effect => ({
   id,
@@ -33,6 +33,11 @@ const shape = (): ShapeLayer => ({
   mask: null, maskEnabled: true, rev: 1, fill: '#111111', stroke: '#ffffff', strokeWidth: 3,
   radius: 24, w: 400, h: 200, strokeAlign: 'inside', strokeCap: 'round', strokeJoin: 'round',
   strokeDash: [2, 1], effects: [fx('shape-fx')],
+})
+
+const group = (): Group => ({
+  id: 'group-1', name: 'Night Session', visible: true, opacity: 0.72, collapsed: false,
+  blend: 'pass', effects: [fx('group-fx')], styles: null,
 })
 
 describe('Phase 7 reusable appearance', () => {
@@ -77,15 +82,28 @@ describe('Phase 7 reusable appearance', () => {
 
   it('captures compatible text and shape appearance plus the ordered effect stack', () => {
     const ta = captureAppearance(text())
+    expect(ta.source).toBe('layer')
     expect(ta.common.opacity).toBe(0.9)
     expect(ta.common.blend).toBe('overlay')
     expect(ta.text?.fontSize).toBe(64)
     expect(ta.effects).toHaveLength(1)
 
     const sa = captureAppearance(shape())
+    expect(sa.source).toBe('layer')
     expect(sa.shape?.fill).toBe('#111111')
     expect(sa.shape?.strokeAlign).toBe('inside')
     expect(sa.shape?.strokeDash).toEqual([2, 1])
     expect(sa.effects).toHaveLength(1)
+  })
+
+  it('captures a group as one composite Look rather than child styling', () => {
+    const ga = captureAppearance(group())
+    expect(ga.source).toBe('group')
+    expect(ga.common.opacity).toBe(0.72)
+    expect(ga.common.blend).toBe('pass')
+    expect(ga.effects).toHaveLength(1)
+    expect(ga.effects[0].values.radius).toBe(12)
+    expect(ga.text).toBeUndefined()
+    expect(ga.shape).toBeUndefined()
   })
 })
