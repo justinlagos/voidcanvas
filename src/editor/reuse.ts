@@ -207,7 +207,7 @@ export function applyLook(item: SavedLook, ids?: string[]): boolean {
     const layer = useEditor.getState().layers.find(x => x.id === id)
     if (layer?.type === 'text') fonts.add(layer.fontFamily)
   }
-  Promise.all([...fonts].map(f => ensureFont(f).catch(() => {}))).then(() => useEditor.setState(x => ({ docRev: x.docRev + 1 })))
+  Promise.all(Array.from(fonts).map(f => ensureFont(f).catch(() => {}))).then(() => useEditor.setState(x => ({ docRev: x.docRev + 1 })))
   return true
 }
 
