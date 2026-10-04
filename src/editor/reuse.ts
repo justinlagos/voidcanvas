@@ -1,7 +1,7 @@
 import { uid } from './engine'
 import { ensureFont, idb } from './io'
-import { useEditor } from './store'
-import type { BlendMode, Effect, Layer, LayerStyles, ShapeLayer, TextLayer } from './types'
+import { groupDepth, inGroup, useEditor } from './store'
+import type { BlendMode, Effect, Group, Layer, LayerStyles, ShapeLayer, TextLayer } from './types'
 
 /**
  * Phase 7's local-first reuse model. The first items are Looks and text styles; images, logos,
@@ -28,9 +28,10 @@ export type ShapeStyleData = Pick<ShapeLayer,
 >
 
 export interface ReusableAppearance {
+  source: 'layer' | 'group'
   common: {
     opacity: number
-    blend: BlendMode
+    blend: BlendMode | 'pass'
     fillOpacity?: number
     styles?: LayerStyles | null
   }
@@ -73,8 +74,27 @@ export interface SavedColourLook {
 export type ReusableItem = SavedLook | SavedTextStyle | SavedColourLook
 
 type LegacyStudioLook = Omit<SavedColourLook, 'kind' | 'source'>
+type LookSource = Layer | Group
 
 const deep = <T,>(v: T): T => (v == null ? v : JSON.parse(JSON.stringify(v)))
+const isLayer = (source: LookSource): source is Layer => 'type' in source
+
+/**
+ * When selecting a group, the editor selects every descendant layer. This resolves that exact
+ * selection back to the deepest matching group, so a saved/applied Look targets the group
+ * composite instead of silently duplicating the treatment onto each child.
+ */
+export function selectedWholeGroup(): Group | null {
+  const s = useEditor.getState()
+  if (!s.selectedIds.length) return null
+  const selected = new Set(s.selectedIds)
+  const matches = s.groups.filter(g => {
+    const members = s.layers.filter(l => inGroup(l, g.id, s.groups))
+    return members.length > 0 && members.length === selected.size && members.every(l => selected.has(l.id))
+  })
+  matches.sort((a, b) => groupDepth(b.id, s.groups) - groupDepth(a.id, s.groups))
+  return matches[0] ?? null
+}
 
 /**
  * Effect masks are deliberately target-specific and are not baked into a reusable Look.
@@ -129,34 +149,54 @@ export function captureShapeStyle(layer: ShapeLayer): ShapeStyleData {
   }
 }
 
-export function captureAppearance(layer: Layer): ReusableAppearance {
+export function captureAppearance(source: LookSource): ReusableAppearance {
+  if (!isLayer(source)) {
+    return {
+      source: 'group',
+      common: { opacity: source.opacity, blend: source.blend ?? 'pass', styles: deep(source.styles ?? null) },
+      effects: portableEffects(source.effects),
+    }
+  }
   return {
+    source: 'layer',
     common: {
-      opacity: layer.opacity,
-      blend: layer.blend,
-      fillOpacity: layer.fillOpacity,
-      styles: deep(layer.styles ?? null),
+      opacity: source.opacity,
+      blend: source.blend,
+      fillOpacity: source.fillOpacity,
+      styles: deep(source.styles ?? null),
     },
-    effects: portableEffects(layer.effects),
-    ...(layer.type === 'text' ? { text: captureTextStyle(layer) } : {}),
-    ...(layer.type === 'shape' ? { shape: captureShapeStyle(layer) } : {}),
+    effects: portableEffects(source.effects),
+    ...(source.type === 'text' ? { text: captureTextStyle(source) } : {}),
+    ...(source.type === 'shape' ? { shape: captureShapeStyle(source) } : {}),
   }
 }
 
-function patchForAppearance(layer: Layer, appearance: ReusableAppearance): any {
+function patchForLayer(layer: Layer, appearance: ReusableAppearance): any {
   return {
-    ...appearance.common,
+    opacity: appearance.common.opacity,
+    blend: appearance.common.blend === 'pass' ? 'source-over' : appearance.common.blend,
+    fillOpacity: appearance.common.fillOpacity,
+    styles: deep(appearance.common.styles ?? null),
     effects: materializeEffects(appearance.effects),
     ...(layer.type === 'text' && appearance.text ? appearance.text : {}),
     ...(layer.type === 'shape' && appearance.shape ? appearance.shape : {}),
   }
 }
 
-export async function saveLook(name: string, layer?: Layer): Promise<SavedLook | null> {
-  const source = layer ?? useEditor.getState().active()
-  if (!source || source.type === 'adjustment') return null
+function patchForGroup(appearance: ReusableAppearance): Partial<Group> {
+  return {
+    opacity: appearance.common.opacity,
+    blend: appearance.common.blend,
+    styles: deep(appearance.common.styles ?? null),
+    effects: materializeEffects(appearance.effects),
+  }
+}
+
+export async function saveLook(name: string, source?: LookSource): Promise<SavedLook | null> {
+  const target = source ?? selectedWholeGroup() ?? useEditor.getState().active()
+  if (!target || (isLayer(target) && target.type === 'adjustment')) return null
   const now = Date.now()
-  const item: SavedLook = { id: `${PREFIX}${uid()}`, kind: 'look', name: name.trim(), at: now, updatedAt: now, appearance: captureAppearance(source) }
+  const item: SavedLook = { id: `${PREFIX}${uid()}`, kind: 'look', name: name.trim(), at: now, updatedAt: now, appearance: captureAppearance(target) }
   await idb.put('account', item)
   return item
 }
@@ -165,7 +205,7 @@ export async function saveTextStyle(name: string, layer?: TextLayer): Promise<Sa
   let source = layer
   if (!source) {
     const active = useEditor.getState().active()
-    if (active?.type === 'text') source = active
+    if (active?.type === 'text' && useEditor.getState().selectedIds.length === 1) source = active
   }
   if (!source) return null
   const now = Date.now()
@@ -192,6 +232,13 @@ export async function removeReusableItem(item: ReusableItem): Promise<void> {
 
 export function applyLook(item: SavedLook, ids?: string[]): boolean {
   const s = useEditor.getState()
+  if (!ids) {
+    const group = selectedWholeGroup()
+    if (group && !group.locked) {
+      s.updateGroup(group.id, patchForGroup(item.appearance), `Apply Look: ${item.name}`)
+      return true
+    }
+  }
   const targets = (ids ?? s.selectedIds).filter(id => {
     const l = s.layers.find(x => x.id === id)
     return !!l && !l.locked && l.type !== 'adjustment'
@@ -199,7 +246,7 @@ export function applyLook(item: SavedLook, ids?: string[]): boolean {
   if (!targets.length) return false
   s.updateLayers(targets.map(id => {
     const layer = s.layers.find(x => x.id === id)!
-    return { id, patch: patchForAppearance(layer, item.appearance) }
+    return { id, patch: patchForLayer(layer, item.appearance) }
   }))
   s.commit(`Apply Look: ${item.name}`)
   const fonts = new Set<string>()
