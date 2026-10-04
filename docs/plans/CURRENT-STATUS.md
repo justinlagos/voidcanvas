@@ -6,7 +6,7 @@ This file is the authoritative status summary for active product work. Older pla
 
 ## Recovered development-session note
 
-A Claude development session from late September / early October was recovered on 4 October. It confirms the shipped sequence below and that the session stopped immediately after the post-Phase-6 mobile/text repair batch, just as Phase 7 reuse work was beginning. No Phase 7 implementation from that session was found on `master`.
+A Claude development session from late September / early October was recovered on 4 October. It confirms the shipped sequence below and that the session stopped immediately after the post-Phase-6 mobile/text repair batch, just as Phase 7 reuse work was beginning.
 
 The AI connector / MCP concept is strategically interesting, but it was explicitly removed from this implementation plan by Justin on 28 September. It is **not** part of the current Phase 7 build. Treat it as a separate future product track rather than mixing it into editor/reuse execution.
 
@@ -21,9 +21,29 @@ The AI connector / MCP concept is strategically interesting, but it was explicit
 | 4 Effect scope | Shipped | `d621010` — stacks on layers/groups/boards/document, linked effects, masks, `.void` v4 effect persistence, canvas/export parity suite |
 | 5 Brief check + photography page | Shipped | `5f73552` |
 | 6 Export finish + coming back | Shipped | `4438995`, with analytics quality work in `35aef30` |
-| 7 Reuse: looks, library, campaigns | Not complete | Foundations exist, but the cross-design reuse system described in the plan has not shipped |
+| 7 Reuse: looks, library, campaigns | In progress | Phase 7A shipped in `a9e3ba6`; wider library, usage relationships and campaigns remain |
 
 The four items that were originally listed as “next” in the 26 September audit are no longer pending: guideline photography shipped in Phase 5, brief checking shipped in Phase 5, named/staged review versions shipped in Phase 3, and client comments linked to layers shipped in Phase 3.
+
+## Phase 7A shipped: reusable Looks and text styles
+
+PR #10 shipped on `master` as `a9e3ba6`.
+
+It adds:
+
+- A local-first reusable-item model using the existing IndexedDB abstraction.
+- Named Looks from layers, including opacity/blend/fill, layer styles, compatible text/shape appearance and ordered live effects.
+- Named Looks from selected groups, preserving the group composite treatment rather than copying effects onto each child.
+- Reusable text styles that preserve typography without replacing copy, position, opacity or effects.
+- Fresh effect IDs on every Look application; effect links and painted masks never leak into another target.
+- One undoable Look application to one/many layers or a whole group.
+- One Reuse library surface for new Looks/text styles and the older Studio colour-match Looks.
+- Desktop and phone reachability; narrow screens use a bottom sheet and desktop also supports Alt+Shift+L.
+- Unit coverage for effect portability, fresh identity, text-content safety, shape styling and group-composite Looks.
+- A browser regression for save/apply/undo/content preservation and phone reachability, included in the full e2e runner.
+- `docs/reuse-library.md`.
+
+Validation before merge: TypeScript passed, unit tests passed, production build passed and the Netlify deploy preview passed.
 
 ## Effects and painting follow-up
 
@@ -32,21 +52,18 @@ The four items that were originally listed as “next” in the 26 September aud
 
 ## Remaining planned product work
 
-### 1. Phase 7 reuse system
+### 1. Phase 7B: wider library + relationships + campaigns
 
-Still to build as a coherent product layer:
+Next to build:
 
-- Save arbitrary effect stacks and appearance as named Looks.
-- Apply Looks to any compatible layer/group without flattening.
-- Reusable text styles such as Heading, Body and Caption per design and per brand.
-- Cross-design library for logos, images, textures, colours, fonts, Looks and templates.
-- `used in` counts and safe dependency awareness.
-- Studio job as the campaign container, with shared brief details/tokens across related designs.
-- Campaign-wide updates such as changing one event date everywhere.
+- Organise reusable text styles per design and allow promotion to a client brand.
+- Extend the cross-design library to logos, images, textures, colours, fonts and templates.
+- Add `used in` counts and dependency awareness before replace/delete.
+- Add search/filter and recent-use ordering across reusable assets.
+- Treat a Studio job as the campaign container with shared brief details/tokens across related designs.
+- Campaign-wide updates such as changing one event date everywhere while preserving intentional per-format overrides.
 - One-at-a-time contextual reuse suggestions that can be dismissed permanently.
 - Brand-system colour roles and type-in-use documentation from the 26 Sept audit.
-
-Existing `saveLook()` / `getLooks()` support for Studio reference-derived colour looks is a useful foundation, but it is not the full Phase 7 library described above.
 
 ### 2. Professional nondestructive editing gaps
 
@@ -93,18 +110,18 @@ Keep this outside the current implementation sequence until deliberately reactiv
 ## Branch housekeeping
 
 - `master` is the deployment source of truth.
-- `effects-ux-workspace` was merged through PR #7 on 4 October 2026. Do not treat that branch as pending work.
-- `effects-controls-depth` was merged through PR #6; its apparent divergence is a consequence of the merge/squash history, not missing product work.
+- `phase7-reuse-foundation` was merged through PR #10 on 4 October 2026. Do not treat that branch as pending work.
+- `effects-ux-workspace` was merged through PR #7 on 4 October 2026.
+- `effects-controls-depth` was merged through PR #6; its apparent divergence is a consequence of merge/squash history, not missing product work.
 - `campaign/make-something` is an older experimental branch from 25 September and is far behind current `master`; do not merge it wholesale. Any useful campaign mechanics should be re-evaluated against the current codebase and selectively reimplemented.
 - Old feature branches should be considered historical unless a current issue or PR explicitly revives them.
 
 ## Next execution order
 
-1. Phase 7 foundations: shared reusable-asset model, named Looks and text styles.
-2. Campaign-level shared tokens and library/`used in` relationships.
-3. Smart objects / embedded editable sources.
-4. Brush presets + Draw Inside.
-5. Gradient handles/presets and remaining Effects UX follow-ups.
-6. Large-document engine and colour-management work as separate infrastructure projects.
+1. Phase 7B: wider reusable library, `used in` relationships and campaign shared tokens.
+2. Smart objects / embedded editable sources.
+3. Brush presets + Draw Inside.
+4. Gradient handles/presets and remaining Effects UX follow-ups.
+5. Large-document engine and colour-management work as separate infrastructure projects.
 
 Every new capability should ship with migration/persistence tests, undo/redo coverage where relevant, save/reload coverage, canvas/export parity where it affects rendering, phone reachability and Learn documentation.
