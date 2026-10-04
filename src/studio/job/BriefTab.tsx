@@ -1,13 +1,14 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Check, Copy, Plus, Trash2, X } from 'lucide-react'
+import { Check, Copy, Plus, RotateCcw, Trash2, X } from 'lucide-react'
 import { briefItems, readBrief } from '../drafts'
 import { FORMATS, deliverableFrom, useJobs, type Deliverable } from '../jobs'
 import { uid } from '@/editor/engine'
 import { Btn, INPUT, Label, Panel, focusRing } from '../ui'
 import type { TabProps } from './JobView'
 import { briefCheck, formatsIn, questionsEmail, sizesIn, type BriefSize } from '@/lib/intelligence/brief'
+import { changeCampaignEverywhere, undoCampaignChange } from '../campaign'
 
 /** Name the job from the brief until the designer names it themselves. */
 function autoName(job: { name: string; brief: string }, brief: string): { brief: string; name?: string } {
@@ -20,6 +21,8 @@ function autoName(job: { name: string; brief: string }, brief: string): { brief:
 export function BriefTab({ job, update, toast, onBrands }: TabProps) {
   const brands = useJobs(s => s.brands)
   const [allSizes, setAllSizes] = useState(false)
+  const [campaignBusy, setCampaignBusy] = useState(false)
+  const [campaignUndo, setCampaignUndo] = useState<string | null>(null)
   const read = useMemo(() => readBrief(job.brief, job.name), [job.brief, job.name])
   const items = useMemo(() => briefItems(read), [read])
   // What is missing or does not add up, asked before the work starts.
@@ -36,6 +39,26 @@ export function BriefTab({ job, update, toast, onBrands }: TabProps) {
   const copyQuestions = async () => {
     const text = questionsEmail(questions, { client: job.client || undefined, job: job.name && job.name !== 'New job' ? job.name : undefined })
     try { await navigator.clipboard.writeText(text); toast('Questions copied. Paste them into your email to the client.') } catch { toast('Copying is blocked here. Select the questions and copy them.') }
+  }
+  const changeEverywhere = async () => {
+    if (!job.designId || campaignBusy) return
+    setCampaignBusy(true)
+    try {
+      const result = await changeCampaignEverywhere(job, { title: job.name, text: job.brief, items })
+      setCampaignUndo(result.undoId ?? null)
+      const changed = result.layers ? `${result.layers} linked text layer${result.layers === 1 ? '' : 's'} across ${result.designs} design${result.designs === 1 ? '' : 's'}` : 'No linked text needed changing'
+      const overrides = result.overrides ? ` ${result.overrides} local override${result.overrides === 1 ? ' was' : 's were'} left alone.` : ''
+      toast(`${changed}.${overrides}`)
+    } finally { setCampaignBusy(false) }
+  }
+  const undoEverywhere = async () => {
+    if (!campaignUndo || campaignBusy) return
+    setCampaignBusy(true)
+    try {
+      const n = await undoCampaignChange(campaignUndo)
+      setCampaignUndo(null)
+      toast(n ? `Campaign update undone in ${n} design${n === 1 ? '' : 's'}.` : 'That campaign update is no longer available to undo.')
+    } finally { setCampaignBusy(false) }
   }
   const [custom, setCustom] = useState({ label: '', w: 1080, h: 1080 })
   const setD = (id: string, patch: Partial<Deliverable>) => update(j => ({ deliverables: j.deliverables.map(d => (d.id === id ? { ...d, ...patch } : d)) }))
@@ -54,12 +77,21 @@ export function BriefTab({ job, update, toast, onBrands }: TabProps) {
             <p className="mt-2.5 text-[12px] text-void-400">{read.audience && <>For <span className="text-void-200">{read.audience}</span>. </>}{read.feel.length ? <>Tone: <span className="text-void-200">{read.feel.join(', ')}</span>.</> : null}</p>
           ) : null}
           {items.length > 0 && (
-            <ul className="mt-4 space-y-1.5 border-t border-void-800/70 pt-3">
-              <li className="text-[11.5px] text-void-500 mb-1">Read from the brief. Goes to the Editor as a checklist.{job.designId ? ' Change the date, venue or price here and it changes on every board when you next open the design.' : ''}</li>
-              {items.map((it, i) => (
-                <li key={i} className="flex gap-3 text-[12.5px]"><span className="w-24 shrink-0 text-void-500">{it.label}</span><span className="text-void-100">{it.value}</span></li>
-              ))}
-            </ul>
+            <div className="mt-4 border-t border-void-800/70 pt-3">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11.5px] text-void-500">Read from the brief. Goes to the Editor as linked campaign details.</p>
+                {job.designId && <span className="flex items-center gap-1.5">
+                  {campaignUndo && <Btn onClick={undoEverywhere} disabled={campaignBusy} label="Undo the last campaign-wide token update"><RotateCcw size={12} />Undo update</Btn>}
+                  <Btn onClick={changeEverywhere} disabled={campaignBusy} label="Update linked campaign details across saved designs">{campaignBusy ? 'Updating…' : 'Change everywhere'}</Btn>
+                </span>}
+              </div>
+              <ul className="space-y-1.5">
+                {items.map((it, i) => (
+                  <li key={i} className="flex gap-3 text-[12.5px]"><span className="w-24 shrink-0 text-void-500">{it.label}</span><span className="text-void-100">{it.value}</span></li>
+                ))}
+              </ul>
+              {job.designId && <p className="mt-2 text-[11.5px] text-void-500">Change everywhere only updates text still linked to these details. Text you deliberately changed on an individual format is treated as an override and left alone.</p>}
+            </div>
           )}
           {brands.length > 0 && (
             <label className="mt-4 flex flex-wrap items-center gap-2 text-[12.5px] text-void-300 border-t border-void-800/70 pt-3">
