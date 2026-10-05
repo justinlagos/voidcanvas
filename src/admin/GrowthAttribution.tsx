@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
 import { activationRate, loadGrowthAttribution, type GrowthAttribution } from '@/growth/data'
 import { GrowthExperimentsPanel } from './GrowthExperiments'
+import { GrowthDecisionsPanel } from './GrowthDecisions'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const periods = [7, 30, 90] as const
@@ -71,6 +72,7 @@ export function GrowthAttributionPanel({ password }: { password: string }) {
         <p className="mt-3 text-[11.5px] text-void-500">Activation: {data.definition}</p>
       </>}
     </section>
+    {data && <GrowthDecisionsPanel data={data} />}
     <GrowthExperimentsPanel password={password} days={days} />
   </>
 }
