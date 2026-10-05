@@ -4,18 +4,18 @@ const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
 
 function jaccard(a: readonly string[], b: readonly string[]) {
   const aa = new Set(a), bb = new Set(b)
-  const union = new Set([...aa, ...bb])
+  const union = new Set(a.concat(b))
   if (!union.size) return 0
   let shared = 0
-  for (const x of aa) if (bb.has(x)) shared++
+  for (const x of Array.from(aa)) if (bb.has(x)) shared++
   return 1 - shared / union.size
 }
 
 function paramDistance(a: Record<string, number | string | boolean>, b: Record<string, number | string | boolean>) {
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)])
+  const keys = new Set(Object.keys(a).concat(Object.keys(b)))
   if (!keys.size) return 0
   let sum = 0
-  for (const k of keys) {
+  for (const k of Array.from(keys)) {
     const av = a[k], bv = b[k]
     if (typeof av === 'number' && typeof bv === 'number') {
       const scale = Math.max(1, Math.abs(av), Math.abs(bv))
@@ -69,7 +69,7 @@ export function structureSignature(doc: DocGenome) {
 
 export function recentCompositionPenalty(candidate: PageGenome, recent: readonly PageGenome[], window = 8) {
   const slice = recent.slice(-Math.max(0, window))
-  const lastSame = [...slice].reverse().findIndex((g) => g.compositionId === candidate.compositionId)
+  const lastSame = slice.slice().reverse().findIndex((g) => g.compositionId === candidate.compositionId)
   if (lastSame < 0) return 0
   return Math.max(0.15, 1 - lastSame / Math.max(1, window))
 }
