@@ -6,12 +6,11 @@
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { materializeFixtures } from './brand-fixtures.mjs'
+import { materializeBrandFixtures } from './brand-fixtures.mjs'
 
 const OUT = 'e2e/.out/brand-ir-parity'
 await mkdir(OUT, { recursive: true })
-const fixtureDir = `${OUT}/fixtures`
-const fixtures = await materializeFixtures(fixtureDir)
+const fixtures = await materializeBrandFixtures()
 const selected = fixtures.filter((f) => ['black-wordmark', 'red-symbol'].includes(f.id))
 
 const compiled = await build({
@@ -34,12 +33,12 @@ const compiled = await build({
 
 const payload = []
 for (const fixture of selected) {
-  const bytes = await readFile(fixture.path)
+  const bytes = await readFile(fixture.file)
   payload.push({
     id: fixture.id,
     name: fixture.name,
     mime: fixture.mime,
-    filename: fixture.path.split('/').pop(),
+    filename: fixture.file.split('/').pop(),
     bytes: bytes.toString('base64'),
   })
 }
@@ -112,7 +111,7 @@ const rows = await page.evaluate(async (fixtures) => {
   for (const fixture of fixtures) {
     const file = new File([from64(fixture.bytes)], fixture.filename, { type: fixture.mime })
     const logo = await api.analyseLogo(file)
-    const brandColor = fixture.id === 'red-symbol' ? '#d7283f' : '#94c11f'
+    const brandColor = fixture.id === 'red-symbol' ? '#e31f26' : '#94c11f'
     const brand = api.buildBrand(
       api.resolve({
         ...api.initialTokens(),
