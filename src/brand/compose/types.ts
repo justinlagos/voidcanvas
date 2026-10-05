@@ -76,6 +76,7 @@ export interface TextNode extends BaseNode {
   style: TextStyle
   align: 'left' | 'center' | 'right'
   valign?: 'top' | 'middle' | 'bottom'
+  baseline?: 'top' | 'middle' | 'alphabetic'
   case?: 'as-is' | 'upper' | 'sentence'
   color: Paint
   fit: 'wrap' | 'shrink' | 'clip'
