@@ -39,6 +39,9 @@ export interface TextStyle {
   lineHeight?: number
   tracking?: number
   italic?: boolean
+  /** Legacy pages often shrink in 4 px steps and stop at a defined floor. */
+  shrinkStep?: number
+  minimumSize?: number
 }
 
 export interface PageGenome {
