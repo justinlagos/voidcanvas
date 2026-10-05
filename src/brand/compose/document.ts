@@ -23,6 +23,20 @@ export interface ComposedBrandDocument {
   rejected: { kind: string; compositionId: string; reasons: string[] }[]
 }
 
+function hashString(value: string) {
+  let h = 2166136261
+  for (let i = 0; i < value.length; i++) {
+    h ^= value.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+export function structuralSeed(brand: Brand, seed: number) {
+  const identity = [brand.name, brand.roles[0]?.hex ?? '', brand.fonts.heading.family, brand.fonts.body.family].join('|')
+  return (seed ^ hashString(identity)) >>> 0
+}
+
 function jitter(seed: number, position: number, candidate: number) {
   let x = Math.imul(seed + 1, 0x9e3779b1) ^ Math.imul(position + 7, 0x85ebca6b) ^ Math.imul(candidate + 13, 0xc2b2ae35)
   x ^= x >>> 16
@@ -61,15 +75,16 @@ export function composeBrandDocument(input: BrandDocumentInput): ComposedBrandDo
   const pages: Page[] = []
   const rejected: ComposedBrandDocument['rejected'] = []
   let rhythm = createRhythmState()
+  const effectiveSeed = structuralSeed(input.brand, input.seed)
 
   const coverPages = composeCoverCandidates({
     brand: input.brand,
     family: input.family,
-    seed: input.seed,
+    seed: effectiveSeed,
     logoAspect: input.logoAspect,
     deviceAngle: input.deviceAngle,
   })
-  const coverCandidates = candidates(coverPages, input.family, input.seed, 0)
+  const coverCandidates = candidates(coverPages, input.family, effectiveSeed, 0)
   for (const candidate of coverCandidates) {
     if (candidate.lint.some((finding) => finding.level === 'attention')) {
       rejected.push({ kind: 'cover', compositionId: candidate.page.genome.compositionId, reasons: candidate.lint.filter((f) => f.level === 'attention').map((f) => f.message) })
@@ -89,16 +104,17 @@ export function composeBrandDocument(input: BrandDocumentInput): ComposedBrandDo
   for (let i = 0; i < kinds.length; i++) {
     const kind = kinds[i]
     const position = i + 1
+    const pageSeed = (effectiveSeed + position * 37) >>> 0
     const options = composeInteriorCandidates({
       kind,
       brand: input.brand,
       family: input.family,
-      seed: input.seed + position * 37,
+      seed: pageSeed,
       pageNo: position + 1,
       pageCount,
       deviceAngle: input.deviceAngle,
     })
-    const interiorCandidates = candidates(options, input.family, input.seed, position)
+    const interiorCandidates = candidates(options, input.family, pageSeed, position)
     for (const candidate of interiorCandidates) {
       if (candidate.lint.some((finding) => finding.level === 'attention')) {
         rejected.push({ kind, compositionId: candidate.page.genome.compositionId, reasons: candidate.lint.filter((f) => f.level === 'attention').map((f) => f.message) })
@@ -121,7 +137,7 @@ export function composeBrandDocument(input: BrandDocumentInput): ComposedBrandDo
     rejected,
     genome: {
       family: input.family.id,
-      parameters: { seed: input.seed, pageCount: pages.length },
+      parameters: { seed: input.seed, structuralSeed: effectiveSeed, pageCount: pages.length },
       pages: pages.map((page) => page.genome),
     },
   }
