@@ -57,6 +57,8 @@ export type Node =
       bind?: string
       align: 'left' | 'center' | 'right'
       valign?: 'top' | 'middle' | 'bottom'
+      /** Optional alphabetic baseline for the first line, in page units. Used when exact output parity matters. */
+      baseline?: Units
       case?: 'as-is' | 'upper' | 'sentence'
       color: Paint
       fit: 'wrap' | 'shrink'

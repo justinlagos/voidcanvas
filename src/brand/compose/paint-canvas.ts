@@ -92,6 +92,7 @@ function paintText(
       : node.valign === 'bottom'
         ? node.rect.y + node.rect.h - totalHeight
         : node.rect.y
+  const firstBaseline = node.baseline ?? top + style.size
   const x =
     node.align === 'center'
       ? node.rect.x + node.rect.w / 2
@@ -100,7 +101,7 @@ function paintText(
         : node.rect.x
 
   lines.forEach((line, i) => {
-    ctx.fillText(line, x, top + style.size + i * lineHeight)
+    ctx.fillText(line, x, firstBaseline + i * lineHeight)
   })
   ctx.textAlign = 'left'
 }
