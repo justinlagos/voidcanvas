@@ -4,6 +4,7 @@ import fs from 'node:fs'
 const base=process.env.BASE||'http://localhost:3123';const b=await chromium.launch();const errors=[]
 const c=await b.newContext({viewport:{width:1440,height:900}});await c.addInitScript(()=>{window.__vcDebugOn=true});const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));
 const inView=async locator=>locator.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.left>=-1&&r.right<=innerWidth+1&&r.top>=-1&&r.bottom<=innerHeight+1});
+const overlap=async(a,b)=>{const ar=await a.boundingBox(),br=await b.boundingBox();if(!ar||!br)return false;return ar.x<br.x+br.width&&ar.x+ar.width>br.x&&ar.y<br.y+br.height&&ar.y+ar.height>br.y};
 try{
  await p.goto(base+'/brand?view=guideline');await p.getByRole('navigation',{name:'Guideline tools'}).waitFor();
  assert.equal(await p.locator('#brand-controls').count(),0,'Preview starts uncluttered');
@@ -11,7 +12,13 @@ try{
   await p.setViewportSize({width,height:width<800?740:900});
   await p.getByRole('button',{name:'Identity',exact:true}).click();
   assert(await inView(p.getByRole('button',{name:'Close brand controls'})));
-  await p.locator('input[placeholder="e.g. Northbound"]').fill('Acme Studio');
+  const nameField=p.locator('input[placeholder="e.g. Northbound"]');
+  await nameField.fill('Acme Studio');
+  if(width===390){
+   const pageCards=p.locator('[data-page]:visible');
+   for(let i=0;i<await pageCards.count();i++)assert.equal(await overlap(nameField,pageCards.nth(i)),false,'B28: phone page strip must not cover the brand-name field');
+   assert(await inView(nameField),'B28: brand-name field remains fully visible at 390 x 740');
+  }
   const detail=p.locator('details').filter({has:p.locator('summary', {hasText:'Logo versions & usage rules'})});
   assert.equal(await detail.getAttribute('open'),null);await detail.locator('summary').click();
   await p.getByRole('button',{name:'Close brand controls'}).click();
@@ -25,7 +32,7 @@ try{
   await p.getByRole('button',{name:'Close brand controls'}).click();
  }
  await p.getByRole('button',{name:'Save brand',exact:true}).click();await p.getByRole('status').filter({hasText:'Saved.'}).waitFor({timeout:30000});
- console.log('PASS Brand disclosure, editable identity, page navigation, exports, save, narrow and desktop layouts');
+ console.log('PASS Brand disclosure, editable identity, B28 phone overlap, page navigation, exports, save, narrow and desktop layouts');
  await p.goto(base+'/editor');await p.waitForFunction(()=>!!window.__voidEditor);
  await p.evaluate(()=>{let s=window.__voidEditor.getState();s.newDoc({name:'Live drag',width:1200,height:900,background:'#ffffff'});s=window.__voidEditor.getState();s.addShape('rect',300,300,200,150,{fill:'#e53636',name:'Move me'});s.setTool('move')});await p.waitForTimeout(500);
  const stage=p.locator('[data-stage]');const box=await stage.boundingBox();const pos=await p.evaluate(()=>{const s=window.__voidEditor.getState();return {view:s.view,l:s.active()}});

@@ -11,6 +11,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "e2e": "node e2e/run.mjs",
+    "brand:baseline": "node e2e/brand-baseline.mjs",
+    "brand:visual-baseline": "node e2e/brand-visual-baseline.mjs",
     "postinstall": "node scripts/install-colour.mjs"
   },
   "dependencies": {

@@ -1,6 +1,6 @@
 # Brand Guidelines V2
 
-Status: Phase 0 plan
+Status: Phase 0 baseline measured
 Date: 5 October 2026
 Owner: Voidcanvas
 
@@ -126,7 +126,40 @@ Metrics:
 3. Same-position structure reuse across documents.
 4. Same-brand consecutive-take repetition.
 
-The Phase 0 script must write raw JSON and contact sheets under `e2e/.out/brand-diversity/`. The baseline numbers are recorded back into this document after the runner executes. Phase 2 is not allowed to tune thresholds until those contact sheets have been reviewed.
+The Phase 0 scripts write raw JSON and contact sheets under `e2e/.out/brand-diversity/`. Phase 2 is not allowed to tune thresholds without comparing against these numbers and reviewing the contact sheets.
+
+### Measured Phase 0 baseline
+
+Measured in GitHub Actions on 5 October 2026 from the 12 x 10 x 10 corpus.
+
+Structural baseline:
+
+- Documents: 1,200.
+- Page kinds: 16.
+- Available hand-drawn variants: 23.
+- Page kinds with one variant: 10.
+- Default visible pages: 15.
+- Observed art directions: editorial, graphic, systematic.
+- Unique document structure signatures: **1**.
+- Mean same-position structure reuse: **1.0000 / 100%**.
+- Maximum same-position structure reuse: **1.0000 / 100%**.
+- Share held by the most common structure: **1.0000 / 100%**.
+
+The structural result is unambiguous: all 1,200 baseline documents use the same page-kind and page-variant sequence. Colour, font, radius, grid and art-direction changes create surface variation, but the document skeleton does not vary.
+
+Rendered cover baseline, using an 8 x 8 64-bit average perceptual hash:
+
+- Covers measured: 1,200.
+- Pairwise Hamming distance minimum: **0 bits**.
+- Pairwise Hamming distance maximum: **63 bits**.
+- Pairwise Hamming distance mean: **14.042 bits**.
+- Same-brand ten-take minimum: **0 bits**.
+- Same-brand ten-take maximum: **53 bits**.
+- Same-brand ten-take mean: **17.667 bits**.
+
+A minimum distance of 0 means some generated covers are visually indistinguishable at the baseline perceptual-hash resolution. This is the failure condition the Phase 2 uniqueness gate is intended to remove.
+
+Contact-sheet review of the baseline confirms the same pattern: the cover and palette sometimes change, while Colour, Clear space and Typography retain almost the same composition across takes and brands. The black-wordmark fixture also demonstrates why an achromatic logo must not silently inherit the current default blue. The accented-capital and language fixtures make glyph-bound measurement a correctness requirement rather than a visual-polish task.
 
 Release target after Phase 2:
 
