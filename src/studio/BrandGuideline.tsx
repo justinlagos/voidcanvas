@@ -11,7 +11,7 @@ import { FONT_SUGGESTIONS, HARMONIES, PERSONALITIES, SCALES, buildBrand, resolve
 import { RAMP_STEPS, isHex } from './brand/color'
 import { loadFont, registerLocalFont } from './brand/fonts'
 import { fileSlug, toAse, toCss, toJson, toTailwind } from './brand/export'
-import { PAGE_DEFS, SIZES, eachPage, lastPhotoPlan, recordPages, renderPage, type Orientation, type PageSpec } from './brand-pages'
+import { PAGE_DEFS, SIZES, lastPhotoPlan, recordPages, type Orientation, type PageSpec } from './brand-pages'
 import { MODE_LABEL, MODE_OF, VARIANT_OF, analyseLogo, grayMark, logoChecks, logoPlacements, logoVariants, monoMark, type LogoDecisions, type LogoInfo } from './brand/logo'
 import { PRINT_TRIM } from './brand-pdf'
 import { describeProfile } from '@/lib/intelligence/asset'
@@ -20,7 +20,7 @@ import { suggestLogoName } from '@/lib/intelligence/naming'
 import { brandHealth, healthSummary, type HealthGroup } from '@/lib/intelligence/brand'
 import type { Level } from '@/lib/intelligence/contrast'
 import { composeRuntimePages } from '@/brand/compose/runtime'
-import { renderRuntimePage } from './brand-v2-render'
+import { eachRuntimePage, renderRuntimePage } from './brand-v2-render'
 
 function Page({ spec, pageNo, pageCount, brand, logo, o, cssWidth }: { spec: PageSpec; pageNo: number; pageCount: number; brand: Brand; logo: LogoInfo | null; o: Orientation; cssWidth: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -552,6 +552,7 @@ export function BrandGuideline({ onBack, initialBrand, backLabel = 'Studio' }: {
   const [active, setActive] = useState(0)
   const [err, setErr] = useState<string | null>(null)
   const brand = useMemo(() => buildBrand(tokens), [tokens])
+  const outputRuntime = useMemo(() => composeRuntimePages({ brand, logo, pages, salt: tokens.salt, layoutSalt: tokens.layoutSalt ?? 0 }), [brand, logo, pages, tokens.salt, tokens.layoutSalt])
   const checks = useMemo(() => [...brand.checks, ...logoChecks(brand, logo, decisions)], [brand, logo, decisions])
   const health = useMemo(() => brandHealth({
     colors: [{ hex: brand.roles[0].hex, role: 'primary' }, { hex: brand.roles[1].hex, role: 'secondary' }, { hex: brand.surfaces.light, role: 'background' }, { hex: brand.surfaces.inkOnLight, role: 'text' }],
@@ -576,13 +577,13 @@ export function BrandGuideline({ onBack, initialBrand, backLabel = 'Studio' }: {
   }
   const base = fileSlug(brand.name)
   const run = async (label: string, fn: () => Promise<void>) => { setBusy(label); setErr(null); try { await fn() } catch (e) { console.error(e); setErr(`${label.replace(/^Building /, 'The ')} could not be built. ${(e as Error)?.message || 'Try again.'}`) } finally { setBusy(null) } }
-  const exportPdf = () => run('Building screen PDF', async () => { const { exportBrandPdf } = await import('./brand-pdf'); await exportBrandPdf(brand, logo, pages, o, `${base}-guidelines-${o}.pdf`, decisions, photos) })
-  const exportPrint = () => run('Building print PDF', async () => { const { exportPrintPdf } = await import('./brand-pdf'); await exportPrintPdf(brand, logo, pages, o, `${base}-guidelines-print-${o}.pdf`, decisions, photos) })
+  const exportPdf = () => run('Building screen PDF', async () => { const { exportBrandPdf } = await import('./brand-pdf'); await exportBrandPdf(brand, logo, pages, o, `${base}-guidelines-${o}.pdf`, decisions, photos, outputRuntime.irByIndex) })
+  const exportPrint = () => run('Building print PDF', async () => { const { exportPrintPdf } = await import('./brand-pdf'); await exportPrintPdf(brand, logo, pages, o, `${base}-guidelines-print-${o}.pdf`, decisions, photos, outputRuntime.irByIndex) })
   const exportHtml = () => run('Building HTML handoff', async () => {
     const { buildHandoffHtml } = await import('./brand/handoff')
     const { inlineGoogleFontFaces } = await import('./brand/fonts')
     const slides: string[] = []
-    await eachPage(pages, brand, logo, o, 1, async c => { slides.push(c.toDataURL('image/jpeg', 0.85)) }, decisions, photos)
+    await eachRuntimePage({ pages, irByIndex: outputRuntime.irByIndex, brand, logo, orientation: o, scale: 1, decisions, photos, titleFor: spec => PAGE_DEFS[spec.kind].title, fn: async c => { slides.push(c.toDataURL('image/jpeg', 0.85)) } })
     // Fonts go into the file, so it reads the same offline. Anything that cannot be fetched is linked instead.
     setBusy('Embedding fonts')
     const google = Array.from(new Set([brand.fonts.heading, brand.fonts.body, brand.fonts.mono].filter(f => f.source === 'google').map(f => f.family)))
@@ -623,7 +624,7 @@ export function BrandGuideline({ onBack, initialBrand, backLabel = 'Studio' }: {
       imagery: photos.map(p => ({ id: p.id, name: p.name, blob: p.blob, w: p.img.width, h: p.img.height })),
     })
     const savedPages: import('@/brand/model').Asset[] = []
-    await eachPage(pages, brand, logo, o, 0.7, async c => { savedPages.push({ name: `Guideline page ${savedPages.length + 1}`, data: c.toDataURL('image/jpeg', 0.8) }) }, decisions, photos)
+    await eachRuntimePage({ pages, irByIndex: outputRuntime.irByIndex, brand, logo, orientation: o, scale: 0.7, decisions, photos, titleFor: spec => PAGE_DEFS[spec.kind].title, fn: async c => { savedPages.push({ name: `Guideline page ${savedPages.length + 1}`, data: c.toDataURL('image/jpeg', 0.8) }) } })
     b.guideline = { system: brand, pages: savedPages, source: { tokens, pages, orientation: o, decisions, logoFile: useBrand.getState().logoFile } }
     savedId.current = b.id
     await useJobs.getState().saveBrand(b)
