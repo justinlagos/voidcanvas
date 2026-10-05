@@ -6,16 +6,19 @@ import { cmykTiff } from '../cmyk-tiff'
 import { makeCanvas, renderDoc } from '../engine'
 import { downloadBlob, renderFrame } from '../io'
 import { renderBudget } from '../performance'
+import { preferredRecommendation, type PrintRegion } from '../print-profiles'
 import { Button, Modal } from './ui'
 export function ProofDialog({ onClose }: { onClose: () => void }) {
   const doc = useEditor((s) => s.doc),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
-    [board, setBoard] = useState(useEditor.getState().activeFrameId ?? 'document')
+    [board, setBoard] = useState(useEditor.getState().activeFrameId ?? 'document'),
+    [region, setRegion] = useState<PrintRegion>('uk-europe')
   if (!doc) return null
   const set = (proof: typeof doc.proof) => useEditor.getState().setDoc({ proof }, true)
   const setDpi = (dpi: number) => useEditor.getState().setDoc({ dpi }, true)
   const budget = renderBudget(doc.width, doc.height)
+  const recommended = preferredRecommendation(region)
   const load = async (file: File) => {
     setBusy(true); setError(''); const id = doc.id
     try {
@@ -51,14 +54,19 @@ export function ProofDialog({ onClose }: { onClose: () => void }) {
           <span className="text-sm text-void-300">Document resolution</span>
           {[72, 150, 300].map(dpi => <button key={dpi} onClick={() => setDpi(dpi)} className={`px-2.5 py-1 rounded text-xs border ${doc.dpi === dpi || (!doc.dpi && dpi === 300) ? 'border-accent text-white' : 'border-white/10 text-void-400'}`}>{dpi} DPI</button>)}
         </div>
+        <div className="rounded-lg border border-white/10 p-3 space-y-2">
+          <label className="block text-sm">Printer region / starting point <select aria-label="Printer region" className="bg-void-800 p-2 ml-2" value={region} onChange={(e) => setRegion(e.target.value as PrintRegion)}><option value="uk-europe">UK / Europe</option><option value="nigeria">Nigeria</option><option value="custom">Custom / printer supplied</option></select></label>
+          {recommended ? <p className="text-xs text-void-400"><strong className="text-void-200">Suggested starting point:</strong> {recommended.profileName}. {recommended.description}</p> : <p className="text-xs text-void-400">Use the ICC profile supplied by the printer or print provider.</p>}
+          <p className="text-xs text-amber-200">VoidCanvas will not silently convert through a guessed regional profile. The actual ICC file you load is the profile used for proofing and CMYK conversion.</p>
+        </div>
         <label className="block">Printer ICC profile <input aria-label="Printer ICC profile" type="file" accept=".icc,.icm" disabled={busy} onChange={(e) => { if (e.target.files?.[0]) load(e.target.files[0]) }} /></label>
         {doc.proof && <>
-          <p className="text-sm">{doc.proof.name}</p>
+          <p className="text-sm">Loaded: {doc.proof.name}</p>
           <label className="flex gap-2"><input type="checkbox" checked={doc.proof.enabled} disabled={busy} onChange={(e) => set({ ...doc.proof!, enabled: e.target.checked })} />Soft proof on canvas</label>
           <label className="block">Rendering intent <select aria-label="Print intent" className="bg-void-800 p-2 ml-2" disabled={busy} value={doc.proof.intent} onChange={(e) => set({ ...doc.proof!, intent: Number(e.target.value) as 0 | 1 })}><option value={1}>Relative colorimetric, black point compensation</option><option value={0}>Perceptual, black point compensation</option></select></label>
         </>}
         <label className="block">CMYK export target <select aria-label="Print board" className="bg-void-800 p-2 ml-2" value={board} onChange={(e) => setBoard(e.target.value)}><option value="document">Whole document</option>{doc.frames?.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>
-        <p className="text-xs text-void-400">{doc.dpi ?? 300} DPI · 8-bit CMYK TIFF · embedded output profile. Editing remains RGB; the loaded profile controls proof and conversion.</p>
+        <p className="text-xs text-void-400">{doc.dpi ?? 300} DPI · 8-bit CMYK TIFF · embedded output profile. Current editing remains RGB until Phase 9C native document colour is enabled; the loaded printer profile controls proof and conversion.</p>
         {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
         <div className="flex flex-wrap gap-2 justify-end">
           <Button onClick={onClose} disabled={busy}>Done</Button>
