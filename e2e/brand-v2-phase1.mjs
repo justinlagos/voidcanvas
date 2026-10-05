@@ -104,7 +104,8 @@ for (const direction of ['editorial', 'graphic', 'systematic']) {
   }
 }
 
-fs.writeFileSync(path.join(OUT, 'metrics.json'), JSON.stringify(metrics.map(({ old, next, ...rest }) => rest), null, 2))
+const report = metrics.map(({ old, next, ...rest }) => rest)
+fs.writeFileSync(path.join(OUT, 'metrics.json'), JSON.stringify(report, null, 2))
 
 await page.evaluate(() => {
   document.body.innerHTML = ''
@@ -138,7 +139,7 @@ for (const metric of metrics) {
 }
 await page.screenshot({ path: path.join(OUT, 'parity.png'), fullPage: true })
 
-console.log(JSON.stringify(metrics.map(({ old, next, ...rest }) => rest, null, 2))
+console.log(JSON.stringify(report, null, 2))
 
 // Text rasterisation and semantic hook ordering can move antialiasing pixels. Larger deltas are layout drift.
 for (const metric of metrics) {
