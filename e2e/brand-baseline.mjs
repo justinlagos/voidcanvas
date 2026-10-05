@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { build } from 'esbuild'
-import { BRAND_FIXTURES, BRAND_NAMES } from './brand-fixtures.mjs'
+import { BRAND_FIXTURE_CASES, BRAND_NAMES } from './brand-fixtures.mjs'
 
 const outDir = path.resolve('e2e/.out/brand-diversity')
 fs.mkdirSync(outDir, { recursive: true })
@@ -53,7 +53,7 @@ function signature(tokens) {
   }
 }
 
-for (const fixture of BRAND_FIXTURES) {
+for (const fixture of BRAND_FIXTURE_CASES) {
   for (const name of BRAND_NAMES) {
     for (let seed = 0; seed < 10; seed++) {
       const t = initialTokens()
@@ -89,7 +89,7 @@ for (let i = 0; i < documents.length; i++) {
 const summary = {
   generatedAt: new Date().toISOString(),
   corpus: {
-    fixtures: BRAND_FIXTURES.length,
+    fixtures: BRAND_FIXTURE_CASES.length,
     namesPerFixture: BRAND_NAMES.length,
     seedsPerName: 10,
     documents: documents.length,
@@ -108,7 +108,7 @@ const summary = {
     mostCommonStructureShare: +(Math.max(...structures.values()) / documents.length).toFixed(4),
   },
   variantCounts,
-  structures: [...structures.entries()].sort((a, b) => b[1] - a[1]).map(([signature, count]) => ({ signature, count })),
+  structures: [...structures.entries()].sort((a, b) => b[1] - a[1]).map(([structure, count]) => ({ structure, count })),
 }
 
 fs.writeFileSync(path.join(outDir, 'baseline-summary.json'), JSON.stringify(summary, null, 2))
