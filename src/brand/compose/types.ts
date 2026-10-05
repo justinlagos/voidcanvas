@@ -78,6 +78,7 @@ export type Node =
       rect: Rect
       role: string
       paint: Paint
+      radius?: number
       specs: ('hex' | 'rgb' | 'cmyk' | 'oklch' | 'token')[]
     }
   | {

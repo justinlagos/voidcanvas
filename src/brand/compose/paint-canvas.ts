@@ -18,12 +18,12 @@ function setFont(ctx: CanvasRenderingContext2D, style: TextRole, resolver: Paint
   ctx.font = `${italic}${style.weight} ${style.size}px ${JSON.stringify(resolver.font(style.family))}`
 }
 
-function linesFor(
+function wrappedParagraph(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
-  maxLines = Infinity,
 ) {
+  if (!text) return ['']
   const words = text.split(/\s+/).filter(Boolean)
   const lines: string[] = []
   let line = ''
@@ -32,10 +32,25 @@ function linesFor(
     if (line && ctx.measureText(next).width > maxWidth) {
       lines.push(line)
       line = word
-      if (lines.length >= maxLines) break
     } else line = next
   }
-  if (line && lines.length < maxLines) lines.push(line)
+  if (line) lines.push(line)
+  return lines
+}
+
+function linesFor(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines = Infinity,
+) {
+  const lines: string[] = []
+  for (const paragraph of text.split('\n')) {
+    for (const line of wrappedParagraph(ctx, paragraph, maxWidth)) {
+      if (lines.length >= maxLines) return lines
+      lines.push(line)
+    }
+  }
   return lines
 }
 
@@ -120,7 +135,8 @@ function paintNode(ctx: CanvasRenderingContext2D, node: Node, resolver: PaintRes
       break
     case 'swatch':
       ctx.fillStyle = resolver.colour(node.paint)
-      ctx.fillRect(node.rect.x, node.rect.y, node.rect.w, node.rect.h)
+      roundedPath(ctx, node.rect, node.radius)
+      ctx.fill()
       break
     case 'image':
       resolver.drawImage?.(node, ctx)
