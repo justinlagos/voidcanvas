@@ -1,6 +1,8 @@
 -- Growth OS, 5 Oct 2026: acquisition quality, not vanity traffic.
 -- This migration is additive. It reads the existing privacy-safe events table and
 -- exposes source/landing conversion to the password-protected admin surface.
+-- A `growth.touch` event may override the original session source when a person
+-- discovers VoidCanvas through an owned product loop without starting a new tab/session.
 
 create or replace function public.vc_admin_growth(p_password text, p_days integer default 30)
 returns jsonb
@@ -50,17 +52,31 @@ begin
     where name = 'session.start'
     order by session_id, ts asc
   ),
+  touches as (
+    select distinct on (session_id)
+      session_id,
+      nullif(props->>'source', '') source,
+      nullif(props->>'medium', '') medium,
+      nullif(props->>'campaign', '') campaign,
+      nullif(props->>'content', '') content,
+      nullif(props->>'to', '') landing
+    from real
+    where name = 'growth.touch'
+      and coalesce(props->>'source', '') ~ '^[a-z0-9][a-z0-9._-]{0,39}$'
+    order by session_id, ts desc
+  ),
   sessions as (
     select
       r.*,
-      coalesce(s.source, s.referrer, 'direct') source,
-      coalesce(s.medium, '') medium,
-      coalesce(s.campaign, '') campaign,
-      coalesce(s.content, '') content,
-      coalesce(s.landing, '/') landing,
+      coalesce(t.source, s.source, s.referrer, 'direct') source,
+      coalesce(t.medium, s.medium, '') medium,
+      coalesce(t.campaign, s.campaign, '') campaign,
+      coalesce(t.content, s.content, '') content,
+      coalesce(t.landing, s.landing, '/') landing,
       (r.started and r.steps >= 3 and (r.exported or r.saved)) activated
     from session_rollup r
     left join starts s using (session_id)
+    left join touches t using (session_id)
   ),
   source_rollup as (
     select
