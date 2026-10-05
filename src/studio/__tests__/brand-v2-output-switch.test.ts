@@ -16,4 +16,8 @@ describe('Brand V2 output rendering', () => {
     expect(pdf).toContain("import { eachRuntimePage } from './brand-v2-render'")
     expect(pdf.match(/eachRuntimePage\(\{/g)?.length).toBe(2)
   })
+
+  it('keeps PDF callers compatible when no V2 map is supplied', () => {
+    expect(pdf.match(/irByIndex: Map<number, IrPage> = new Map\(\)/g)?.length).toBe(2)
+  })
 })
