@@ -24,6 +24,16 @@ export interface SearchOpportunityEvidence {
   status: SearchStatus
 }
 
+export interface SearchDiscoveryArtifact {
+  schema: 1
+  source: string
+  evidence: string
+  total: number
+  clusters: string[]
+  statuses: Partial<Record<SearchStatus, number>>
+  opportunities: SearchOpportunityEvidence[]
+}
+
 export interface RankedSearchOpportunity extends SearchOpportunityEvidence {
   evidenceScore: number
   action: 'protect' | 'improve' | 'build' | 'hold'
