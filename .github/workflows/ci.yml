@@ -24,3 +24,25 @@ jobs:
         run: npm run brand:baseline
       - name: Build
         run: npm run build
+
+  brand-v2-visual:
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'brand-guidelines-v2')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Render Brand Guidelines V2 visual baseline
+        run: npm run brand:visual-baseline
+      - name: Upload visual baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: brand-v2-baseline
+          path: e2e/.out/brand-diversity
+          if-no-files-found: error
+          retention-days: 14
