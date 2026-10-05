@@ -2,6 +2,7 @@
 
 import { AlertTriangle, ArrowUpRight, CirclePause, Settings2, Sparkles } from 'lucide-react'
 import { buildGrowthDecisions, decisionCounts, type GrowthDecision } from '@/growth/decisions'
+import { buildExecutiveBrief } from '@/growth/executive'
 import type { GrowthAttribution } from '@/growth/data'
 
 const pct = (n: number) => `${Math.round(n * 100)}%`
@@ -23,10 +24,17 @@ const icon: Record<GrowthDecision['action'], typeof Sparkles> = {
 export function GrowthDecisionsPanel({ data }: { data: GrowthAttribution }) {
   const decisions = buildGrowthDecisions(data)
   const counts = decisionCounts(decisions)
+  const brief = buildExecutiveBrief(data)
 
   return (
     <section className="mt-6 rounded-2xl border border-void-800 bg-[#111116] p-4">
-      <div className="flex flex-wrap items-start gap-3">
+      <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.035] px-4 py-3">
+        <p className="text-[10.5px] uppercase tracking-[0.09em] font-semibold text-violet-300">What Voidcanvas learned</p>
+        <p className="mt-1 text-[15px] font-medium text-white">{brief.headline}</p>
+        <p className="mt-1.5 text-[12.5px] leading-relaxed text-void-300">{brief.summary}</p>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-start gap-3">
         <div>
           <h2 className="font-semibold">What the system should do next</h2>
           <p className="mt-1 text-[12.5px] text-void-400">Rules convert activation evidence into bounded action. Low samples remain in Hold.</p>
