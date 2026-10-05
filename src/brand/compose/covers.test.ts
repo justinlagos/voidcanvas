@@ -24,6 +24,16 @@ describe('cover compositions', () => {
     expect(a.map((p) => p.genome)).toEqual(b.map((p) => p.genome))
   })
 
+  it('keeps diagonal motion structurally separate from the vertical split cover', () => {
+    const pages = composeCoverCandidates({ brand, family: familyById('soft'), seed: 7, deviceAngle: 23 })
+    const diagonal = pages.find((p) => p.genome.compositionId === 'cover-diagonal-motion')
+    const split = pages.find((p) => p.genome.compositionId === 'cover-split-field')
+    expect(diagonal?.genome.colourBlocking).toBe('banded-flood')
+    expect(split?.genome.colourBlocking).toBe('flood')
+    expect(diagonal?.nodes.some((n) => n.t === 'frame' && n.id === 'type-band' && n.rect.w === 1600)).toBe(true)
+    expect(split?.nodes.some((n) => n.t === 'frame' && n.id === 'field' && n.rect.h === 900)).toBe(true)
+  })
+
   it('never truncates the brand name in the IR', () => {
     const longBrand = buildBrand(resolve({ ...initialTokens(), name: 'Òké International Cultural Design Collective', brandColor: '#111111', salt: 2 }))
     const pages = composeCoverCandidates({ brand: longBrand, family: familyById('poster'), seed: 7 })
