@@ -92,6 +92,19 @@ A directional lead is not described as statistical significance.
 
 The phase-6 decision engine does not itself publish, spend money, delete content or change allocation. It produces the governed action queue that later executors must obey.
 
+## Concurrent-agent discipline
+
+When another agent or workstream is changing the repository at the same time:
+
+1. inspect current master and open PRs before starting or resuming a slice,
+2. compare changed filenames before writing or merging,
+3. never merge a branch that has diverged from a newer production head without reconciling it,
+4. rebuild or rebase the slice from current master when concurrent work has advanced production,
+5. re-check master immediately before merge,
+6. keep unrelated workstreams in separate PRs and let CI validate the combined production base.
+
+If two active PRs touch the same production file, treat that as a coordination exception and reconcile before either merge. Do not rely on Git conflict detection alone to protect semantics.
+
 ## Changing thresholds
 
 A threshold change must:
