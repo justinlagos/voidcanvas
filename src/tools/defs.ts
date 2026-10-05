@@ -34,4 +34,26 @@ export const TOOLS: Record<string, ToolDef> = {
       { q: 'Is there a watermark?', a: 'No watermark, no account, no upload. The result is yours and it is made on your device.' },
     ],
   },
+  grain: {
+    slug: 'grain', effect: 'grain', name: 'Film Grain Generator',
+    tagline: 'Add controllable film grain and texture to a photo directly in your browser.',
+    labels: { amount: 'Grain amount', scale: 'Grain size', seed: 'Pattern' },
+    about: 'Film grain adds controlled texture to digital images so clean gradients and photographs feel less clinical. Upload a photo, tune the amount and grain size, shuffle the pattern, then download the result. The processing is local in your browser, so the image stays on your device and can be sent into the Editor for a larger design.',
+    faqs: [
+      { q: 'How much grain should I add?', a: 'Start low and judge at the final viewing size. Small amounts break up overly clean digital surfaces; heavier grain works as a deliberate poster or editorial treatment.' },
+      { q: 'What does grain size change?', a: 'Small grain reads as fine photographic texture. Larger grain becomes more graphic and obvious, especially in flat colours and smooth gradients.' },
+      { q: 'Can I keep the grain editable?', a: 'Yes. Send the result to the Editor as a live filter layer so you can change the grain while you continue building the artwork.' },
+    ],
+  },
+  'pixel-sort': {
+    slug: 'pixel-sort', effect: 'pixelSort', name: 'Pixel Sort Generator',
+    tagline: 'Create stretched pixel-sorting streaks from any image directly in your browser.',
+    labels: { threshold: 'Brightness threshold', seed: 'Pattern' },
+    about: 'Pixel sorting rearranges runs of pixels selected by brightness, producing long digital streaks without painting them by hand. Upload an image, choose the brightness threshold and shuffle the pattern until the streaks land where you want them. It runs locally on your device, and you can continue in the Editor with the effect kept inside a layered design.',
+    faqs: [
+      { q: 'What does brightness threshold do?', a: 'It controls which parts of the image are eligible for sorting. A lower threshold usually creates longer and more widespread streaks; a higher value keeps more of the original image intact.' },
+      { q: 'Why does shuffling change the result?', a: 'The pattern value changes how eligible pixel runs are distributed, giving you another composition without changing your threshold.' },
+      { q: 'Can I add type after pixel sorting?', a: 'Yes. Send the image to the Editor, then place typography, shapes, masks and other effects above the live pixel-sort layer.' },
+    ],
+  },
 }
