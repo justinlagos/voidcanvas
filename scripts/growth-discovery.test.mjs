@@ -8,6 +8,9 @@ const rows = parseCsv(good)
 assert.equal(rows.length, 2)
 assert.equal(rows[1][0], 'poster, print')
 
+const escaped = parseCsv(`${header}\nq,Print,workflow,designer,"Designer says ""make it bigger""",outcome,,gap,title,primary,secondary,L,H,Editor,guide,Open Editor,,1,planned\n`)
+assert.equal(escaped[1][4], 'Designer says "make it bigger"')
+
 const records = normalise(rows)
 assert.equal(records.length, 1)
 assert.equal(records[0].priority, 1)
