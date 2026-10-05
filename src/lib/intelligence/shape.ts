@@ -55,9 +55,11 @@ function edgeAngles(mask: Uint8Array, w: number, h: number) {
     for (let x = 1; x < w - 1; x++) {
       const i = y * w + x
       if (!mask[i]) continue
-      const left = mask[i - 1], right = mask[i + 1], top = mask[i - w], bottom = mask[i + w]
-      const gx = right - left
-      const gy = bottom - top
+      const tl = mask[i - w - 1], top = mask[i - w], tr = mask[i - w + 1]
+      const left = mask[i - 1], right = mask[i + 1]
+      const bl = mask[i + w - 1], bottom = mask[i + w], br = mask[i + w + 1]
+      const gx = (tr + 2 * right + br) - (tl + 2 * left + bl)
+      const gy = (bl + 2 * bottom + br) - (tl + 2 * top + tr)
       if (gx === 0 && gy === 0) continue
       let tangent = (Math.atan2(gy, gx) * 180) / Math.PI + 90
       tangent = ((tangent % 180) + 180) % 180
@@ -104,9 +106,12 @@ export function measureShape(src: Uint8ClampedArray, srcW: number, srcH: number,
   orthogonalShare = clamp(orthogonalShare)
   diagonalShare = clamp(diagonalShare)
 
-  // A circle spreads edge orientation broadly. Rectilinear marks concentrate it in a few bins.
+  // Curved marks distribute their edge orientations across many bins instead of concentrating
+  // them around one or two straight directions. Sobel gradients keep diagonal circle segments visible.
   const concentration = scored.slice(0, 2).reduce((n, b) => n + b.value, 0)
-  const curvedShare = clamp(1 - concentration * 1.45)
+  const occupiedBins = scored.filter((b) => b.value >= 0.025).length
+  const orientationSpread = clamp((occupiedBins - 3) / 8)
+  const curvedShare = clamp((1 - concentration) * 0.55 + orientationSpread * 0.65)
   const roundness = clamp(curvedShare * 0.7 + (1 - Math.min(1, asset.minStroke * 8)) * 0.08)
 
   const vertical = symmetryScore(mask, w, h, bounds, true)
