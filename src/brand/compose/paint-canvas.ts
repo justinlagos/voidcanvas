@@ -85,12 +85,13 @@ function paintText(
   ctx.textAlign = node.align
   ctx.textBaseline = node.baseline ?? (node.valign === 'middle' ? 'middle' : 'top')
   ctx.fillStyle = resolvePaint(node.color, brand)
-  ctx.globalAlpha *= node.opacity ?? 1
   ;(ctx as unknown as { letterSpacing?: string }).letterSpacing = `${(node.style.tracking ?? 0) * size}px`
 
   if (node.fit === 'shrink') {
-    while (size > 7 && ctx.measureText(text).width > node.rect.w) {
-      size -= 1
+    const floor = node.style.minimumSize ?? 7
+    const step = Math.max(0.25, node.style.shrinkStep ?? 1)
+    while (size > floor && ctx.measureText(text).width > node.rect.w) {
+      size = Math.max(floor, size - step)
       ctx.font = canvasFont({ ...node.style, size }, brand)
       ;(ctx as unknown as { letterSpacing?: string }).letterSpacing = `${(node.style.tracking ?? 0) * size}px`
     }
