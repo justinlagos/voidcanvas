@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
+import { Loader2, ShieldCheck } from 'lucide-react'
 import { loadDashboard } from './data'
+import { GrowthAttributionPanel } from './GrowthAttribution'
 import { OPPORTUNITIES } from '@/growth/opportunities'
 import { CAPABILITIES } from '@/growth/knowledge'
 
@@ -63,7 +64,7 @@ export function GrowthAdmin() {
       <header className="flex flex-wrap items-center gap-3 justify-between">
         <div>
           <div className="flex items-center gap-3"><h1 className="text-[18px] font-semibold">Growth OS</h1><Link href="/admin" className="text-void-400 hover:text-white">Analytics</Link><Link href="/admin/research" className="text-void-400 hover:text-white">Study</Link></div>
-          <p className="mt-1 text-void-400">Prioritised distribution opportunities, product truth and autonomy boundaries.</p>
+          <p className="mt-1 text-void-400">Prioritised distribution opportunities, live activation attribution, product truth and autonomy boundaries.</p>
         </div>
         <button onClick={() => { store.clear(); setPw(null) }} className={`h-8 px-3 rounded-lg border border-void-700 text-void-300 hover:text-white ${focus}`}>Sign out</button>
       </header>
@@ -74,6 +75,8 @@ export function GrowthAdmin() {
         <Stat label="Low risk" value={lowRisk} />
         <Stat label="Capabilities" value={CAPABILITIES.length} />
       </section>
+
+      <GrowthAttributionPanel password={pw} />
 
       <section className="mt-6 rounded-2xl border border-void-800 bg-[#111116] p-4">
         <div className="flex flex-wrap gap-2 items-center">
