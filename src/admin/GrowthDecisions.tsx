@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertTriangle, ArrowUpRight, CirclePause, Settings2, Sparkles } from 'lucide-react'
+import { AlertTriangle, ArrowUpRight, Clock, Settings2, Sparkles } from 'lucide-react'
 import { buildGrowthDecisions, decisionCounts, type GrowthDecision } from '@/growth/decisions'
 import { buildExecutiveBrief } from '@/growth/executive'
 import type { GrowthAttribution } from '@/growth/data'
@@ -18,7 +18,7 @@ const icon: Record<GrowthDecision['action'], typeof Sparkles> = {
   repeat: Sparkles,
   fix: Settings2,
   'pause-candidate': AlertTriangle,
-  hold: CirclePause,
+  hold: Clock,
 }
 
 export function GrowthDecisionsPanel({ data }: { data: GrowthAttribution }) {
