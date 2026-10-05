@@ -84,6 +84,24 @@ export const CAPABILITIES: CapabilityTruth[] = [
     advantages: ['brand-designer acquisition', 'shareable handoff opportunity'],
     risk: 'low',
   },
+  {
+    id: 'shared-work',
+    label: 'Encrypted review and delivery links',
+    summary: 'VoidCanvas can share work for client review or delivery through links whose content is decrypted in the recipient browser.',
+    routes: ['/s'],
+    advantages: ['product-led referral surface', 'client and collaborator exposure', 'delivery workflow proof'],
+    risk: 'medium',
+    claimNotes: ['Do not expose share-link fragments, decrypted manifests, comments, filenames or file contents to growth instrumentation.'],
+  },
+  {
+    id: 'open-gateway',
+    label: 'Open in Voidcanvas gateway',
+    summary: 'A stable VoidCanvas-owned redirect maps approved partner links to known internal product destinations with canonical attribution.',
+    routes: ['/open'],
+    advantages: ['resource-site integration', 'education and creator distribution', 'stable integration contract'],
+    risk: 'low',
+    claimNotes: ['Version 1 does not fetch or import a remote asset and must never become an arbitrary external redirect.'],
+  },
 ]
 
 export const capabilityById = (id: string) => CAPABILITIES.find(c => c.id === id)
