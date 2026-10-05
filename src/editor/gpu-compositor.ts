@@ -28,12 +28,18 @@ export function detectGpu(canvas?: HTMLCanvasElement | OffscreenCanvas): GpuCapa
 }
 
 interface ResidentTile<T> { key: string; value: T; used: number; bytes: number }
+export interface EvictedTile<T> { key: string; value: T; bytes: number }
 
 /** Renderer-agnostic LRU cache. WebGL texture ownership plugs in as T; CPU fallback can use ImageBitmap/canvas. */
 export class TileResidency<T> {
   private items = new Map<string, ResidentTile<T>>()
   private clock = 0
-  constructor(public maxTiles: number, public maxBytes = Number.POSITIVE_INFINITY, private dispose?: (value: T) => void) {}
+  constructor(
+    public maxTiles: number,
+    public maxBytes = Number.POSITIVE_INFINITY,
+    private dispose?: (value: T) => void,
+    private onEvict?: (tile: EvictedTile<T>) => void,
+  ) {}
 
   get size() { return this.items.size }
   get bytes() { return Array.from(this.items.values()).reduce((n, x) => n + x.bytes, 0) }
@@ -51,19 +57,27 @@ export class TileResidency<T> {
     this.trim()
   }
 
-  delete(key: string) {
-    const old = this.items.get(key); if (!old) return false
-    this.items.delete(key); this.dispose?.(old.value); return true
+  delete(key: string) { return this.drop(key, false) }
+
+  clear() {
+    Array.from(this.items.values()).forEach(x => this.dispose?.(x.value))
+    this.items.clear()
   }
 
-  clear() { Array.from(this.items.values()).forEach(x => this.dispose?.(x.value)); this.items.clear() }
+  private drop(key: string, evicted: boolean) {
+    const old = this.items.get(key); if (!old) return false
+    this.items.delete(key)
+    if (evicted) this.onEvict?.({ key: old.key, value: old.value, bytes: old.bytes })
+    this.dispose?.(old.value)
+    return true
+  }
 
   private trim() {
     while (this.items.size > this.maxTiles || this.bytes > this.maxBytes) {
       let oldest: ResidentTile<T> | undefined
       Array.from(this.items.values()).forEach(x => { if (!oldest || x.used < oldest.used) oldest = x })
       if (!oldest) break
-      this.delete(oldest.key)
+      this.drop(oldest.key, true)
     }
   }
 }
