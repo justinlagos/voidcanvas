@@ -23,7 +23,7 @@ const EXPECTED = [
   'cta', 'links', 'priority', 'status',
 ]
 const VALID_LEVEL = new Set(['L', 'M', 'H'])
-const VALID_STATUS = new Set(['live', 'existing', 'planned'])
+const VALID_STATUS = new Set(['live', 'existing', 'planned', 'skip'])
 
 export function parseCsv(input) {
   const rows = []
@@ -69,10 +69,11 @@ export function normalise(rows) {
     if (values.length !== headers.length) throw new Error(`Row ${index + 2}: expected ${headers.length} columns, got ${values.length}`)
     const record = Object.fromEntries(headers.map((h, i) => [h, values[i].trim()]))
     const priority = Number(record.priority)
-    if (!record.query || !record.cluster || !record.title) throw new Error(`Row ${index + 2}: query, cluster and title are required`)
+    if (!record.query || !record.cluster) throw new Error(`Row ${index + 2}: query and cluster are required`)
     if (!VALID_LEVEL.has(record.competition)) throw new Error(`Row ${index + 2}: invalid competition ${record.competition}`)
     if (!VALID_LEVEL.has(record.opportunity)) throw new Error(`Row ${index + 2}: invalid opportunity ${record.opportunity}`)
     if (!VALID_STATUS.has(record.status)) throw new Error(`Row ${index + 2}: invalid status ${record.status}`)
+    if (record.status !== 'skip' && !record.title) throw new Error(`Row ${index + 2}: title is required unless status is skip`)
     if (!Number.isInteger(priority) || priority < 1 || priority > 5) throw new Error(`Row ${index + 2}: priority must be 1-5`)
     return { ...record, priority }
   })
