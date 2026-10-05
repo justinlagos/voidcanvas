@@ -118,7 +118,7 @@ const monumentalType: CoverComposition = (ctx) => ({
 const croppedMark: CoverComposition = (ctx) => ({
   kind: 'cover', width: W, height: H, background: light,
   nodes: [
-    { t: 'device', id: 'supergraphic', rect: rect(800, -130, 950, 950), kind: 'supergraphic', params: { crop: true, opacity: 0.12 } },
+    { t: 'device', id: 'supergraphic', rect: rect(800, 0, 800, 900), kind: 'supergraphic', params: { crop: true, opacity: 0.12, scale: 1.2, offsetY: -0.14 } },
     eyebrow(rect(110, 130, 500, 40)),
     title(ctx, rect(110, 500, 980, 250), 154),
     logo(rect(110, 260, 220, 150), light),
