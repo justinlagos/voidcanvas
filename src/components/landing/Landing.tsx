@@ -298,7 +298,7 @@ export function Landing({ learn }: { learn: LandingLearn }) {
             <Link href="/blog" onClick={() => track('landing.nav', { to: 'blog' })} className={`py-1 rounded hover:text-lp-fg ${focus}`}>Blog</Link>
           </nav>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPrivacy(true)} className={`hidden sm:flex items-center gap-1.5 h-8 px-2 rounded-md text-[13px] text-lp-dim hover:text-lp-fg ${focus}`}><Lock size={13} />Your privacy</button>
+            <button onClick={() => setPrivacy(true)} className={`hidden lg:flex shrink-0 whitespace-nowrap items-center gap-1.5 h-8 px-2 rounded-md text-[13px] text-lp-dim hover:text-lp-fg ${focus}`}><Lock size={13} />Your privacy</button>
             <button onClick={flipTheme} aria-label={theme === 'dark' ? 'Switch to the light version' : 'Switch to the dark version'} title={theme === 'dark' ? 'Light version' : 'Dark version'} className={`w-8 h-8 rounded-full flex items-center justify-center text-lp-dim hover:text-lp-fg hover:bg-lp-panel ${focus}`}>{theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}</button>
             {/* Hidden while the hero's own button is on screen; the hero flies that button up into this spot. */}
             <span data-hero-dock className="lp-dock"><span data-hero-dock-ring className="hm-ring" /><Cta where="nav" className="shadow-[0_8px_26px_rgba(139,124,255,0.38)]">Start designing</Cta></span>
@@ -334,7 +334,7 @@ export function Landing({ learn }: { learn: LandingLearn }) {
       <Seen id="free" className="pt-24 sm:pt-32">
         <div className="max-w-[1120px] mx-auto px-5 sm:px-8">
           <Reveal className="text-center"><H2>One complete suite.<br />Nothing to pay. Nothing to upload.</H2></Reveal>
-          <div className="mt-10 sm:mt-14 grid md:grid-cols-3 gap-4 sm:gap-5">
+          <div className="mt-10 sm:mt-14 grid lg:grid-cols-3 gap-4 sm:gap-5">
             {[
               { k: 'Everyone', t: 'Free', b: `Every tool, every export, full size, no watermark. ${EFFECT_COUNT} effects, ${SIZE_PRESETS.length} formats, PSD and PDF import. No account to make.`, cta: 'Start designing', href: '/editor', where: 'free.everyone' },
               { k: 'Shared computers', t: 'Private session', b: 'Keeps everything in memory. Close the tab and nothing is left behind. Usage counts are off too.', cta: 'Read how privacy works', href: '#privacy', where: 'free.private' },
@@ -346,7 +346,7 @@ export function Landing({ learn }: { learn: LandingLearn }) {
                 <p className="mt-1 text-[26px] font-semibold tracking-tight text-lp-fg">{c.t}</p>
                 <p className="mt-3 text-[14.5px] text-lp-dim leading-relaxed">{c.b}</p>
                 {c.href.startsWith('#')
-                  ? <div className="mt-auto pt-6"><button onClick={() => { setPrivacy(true); track('landing.cta', { where: c.where, href: 'privacy' }) }} className={`inline-flex items-center gap-1.5 h-9 text-[14px] font-medium text-lp-accent hover:text-lp-fg ${focus}`}>{c.cta} <ArrowRight size={14} /></button></div>
+                  ? <div className="mt-auto pt-6"><button onClick={() => { setPrivacy(true); track('landing.cta', { where: c.where, href: 'privacy' }) }} className={`inline-flex whitespace-nowrap items-center gap-1.5 min-h-9 text-[14px] font-medium text-lp-accent hover:text-lp-fg ${focus}`}>{c.cta} <ArrowRight size={14} /></button></div>
                   : <div className="mt-auto pt-6"><Cta href={c.href} where={c.where}>{c.cta}</Cta></div>}
               </Reveal>
             ))}

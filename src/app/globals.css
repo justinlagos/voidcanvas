@@ -303,9 +303,9 @@ html[data-lp-theme="light"] .hm { --hm-line2: rgba(13,13,16,.16); --hm-shadow: 0
 .hm-ring { position: absolute; inset: 0; border-radius: 999px; box-shadow: 0 0 0 2px var(--hm-acc, #8b7cff); opacity: 0; pointer-events: none; }
 .hm-ghost { display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 16px; border-radius: 999px; color: var(--lp-dim); font-size: 15px; white-space: nowrap; }
 .hm-ghost:hover { color: var(--lp-fg); }
-.hm-pill { margin-top: 22px; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 13px; border-radius: 999px; background: var(--lp-panel); border: 1px solid var(--lp-line); font-size: 13px; color: var(--lp-muted); }
+.hm-pill { max-width: 100%; text-align: left; line-height: 1.4; margin-top: 22px; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 8px 13px; border-radius: 999px; background: var(--lp-panel); border: 1px solid var(--lp-line); font-size: 13px; color: var(--lp-muted); }
 .hm-pill:hover { color: var(--lp-fg); border-color: var(--lp-faint); }
-.hm-pill svg { color: var(--lp-accent-text); }
+.hm-pill svg { flex-shrink: 0; color: var(--lp-accent-text); }
 .hm-recents { margin-top: 26px; max-width: 560px; text-align: left; }
 .hm-slot { flex: none; pointer-events: none; }
 .hm-slot-hero { width: var(--hm-slot-w, 560px); height: var(--hm-slot-h, 700px); }

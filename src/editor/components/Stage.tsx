@@ -244,7 +244,7 @@ export function Stage() {
     sharpTimer.current = setTimeout(() => {
       sharpTimer.current = null
       const s = useEditor.getState(), doc = s.doc
-      if (!doc || doc.proof?.enabled || live.current || s.viewChannel !== 'rgb' || needComposite.current) return
+      if (!doc || drag.current || doc.proof?.enabled || live.current || s.viewChannel !== 'rgb' || needComposite.current) return
       // Void effects, and effects on a whole board or design, run over all of what they are for; a part of it
       // would look different.
       if (anyVoidFx(doc, s.layers, s.groups) || hasFx(doc.effects) || doc.frames?.some(f => hasFx(f.effects))) return
@@ -285,7 +285,10 @@ export function Stage() {
     if (needComposite.current || live.current) {
       if (!comp.current) comp.current = makeCanvas(1, 1)
       // The overview: the whole design at about screen size. Close-up detail comes from the sharp pass below.
-      const cap = Math.max(2048, Math.min(4096, Math.max(w, h) * dpr))
+      // While transforming, composite at the visible working size. Restore the detailed
+      // overview on release; document pixels and exports are never changed.
+      const moving = drag.current && ['move', 'resize', 'rotate', 'gresize', 'grotate', 'frame'].includes(drag.current.kind)
+      const cap = moving ? Math.min(1280, Math.max(768, Math.max(w, h))) : Math.max(2048, Math.min(4096, Math.max(w, h) * dpr))
       const vs = Math.min(1, cap / Math.max(doc.width, doc.height))
       renderDoc(comp.current, doc, shownLayers(), { groups: s.groups, scale: vs, live: live.current && live.current.mode !== 'overlay' ? live.current : null, noShadow: !!doc.frames?.length, noFx: s.compare || s.fxOff })
       proofComp.current=softProof(comp.current, doc.proof)
@@ -1007,8 +1010,11 @@ export function Stage() {
     return () => ro.disconnect()
   }, [fit, restoreOrFit, invalidate])
 
+  useEffect(() => useEditor.subscribe((next, prev) => {
+    if (next.docRev !== prev.docRev) invalidate(true)
+  }), [invalidate])
   useEffect(() => { restoreOrFit() }, [docId, restoreOrFit])
-  useEffect(() => { invalidate(true) }, [docRev, compare, fxOff, editingTextId, transform?.layerId, viewChannel, invalidate])
+  useEffect(() => { invalidate(true) }, [compare, fxOff, editingTextId, transform?.layerId, viewChannel, invalidate])
   useEffect(() => { invalidate() }, [selRev, view, tool, activeId, crop, optSize, transform, quickMask, activePathId, showRulers, showGuides, pixelGrid, isolated, commentPins, commentFocus, invalidate])
   useEffect(() => { if (tool !== 'pen' && tool !== 'curvature') penSub.current = null; if (!isPathTool(tool)) { sel.current = null; hover.current = null; if (useEditor.getState().vmaskEditId) useEditor.setState({ vmaskEditId: null }); pathSnap.current = { v: null, h: null, info: null } } if (tool !== 'polylasso') poly.current = null }, [tool])
   // Undo or another panel can remove the path being drawn.
@@ -2164,6 +2170,7 @@ export function Stage() {
     }
     const s = useEditor.getState()
     const d = drag.current; drag.current = null
+    if (d) invalidate(true)
     cancelLongPress()
     // Held without moving, then lifted: the actions for what is under the finger.
     const h = held.current; held.current = null

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { Download, RotateCcw, Undo2, Trash2, Layers, PlusSquare } from 'lucide-react'
+import { Download, RotateCcw, Undo2, Trash2, Layers, PlusSquare, MoreHorizontal, X } from 'lucide-react'
 import { useStore, fullStack } from '@/store/useStore'
 import { sendHandoff } from '@/editor/io'
 import { noteExportForPrompt, track } from '@/lib/analytics'
@@ -168,21 +168,27 @@ export function Toolbar() {
 /** Phone: a sticky bar at the bottom of the page, so export and Open in Editor are always within thumb reach. */
 export function MobileActionBar() {
   const a = useEffectsActions()
+  const [menu, setMenu] = useState<'export' | 'more' | null>(null)
+  useEffect(() => { if (!menu) return; const close = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(null) }; window.addEventListener('keydown', close); return () => window.removeEventListener('keydown', close) }, [menu])
   if (!a.hasImage) return null
-  const icon = 'flex flex-col items-center justify-center gap-0.5 min-w-[40px] h-11 rounded-md text-void-300 hover:text-white disabled:opacity-30 text-[10px]'
+  const icon = 'shrink-0 flex items-center justify-center w-11 h-11 rounded-lg text-void-300 hover:bg-void-800 disabled:opacity-30'
   return (
-    <div data-mobile-actions className="lg:hidden shrink-0 flex items-center gap-1 px-2 border-t border-void-800/60 bg-void-950/95 backdrop-blur-sm" style={{ paddingBottom: 'max(6px, env(safe-area-inset-bottom))', paddingTop: 6 }}>
-      <button onClick={a.undo} disabled={!a.canUndo} aria-label="Undo" className={icon}><Undo2 size={16} />Undo</button>
-      <button onClick={a.reset} aria-label="Reset parameters" className={icon}><RotateCcw size={16} />Reset</button>
-      <button onClick={a.clear} aria-label="Clear image" className={icon}><Trash2 size={16} />Clear</button>
-      <span className="flex-1" />
-      {a.openDesign && <button onClick={a.addToDesign} data-fx-to-design aria-label={`Add to my design, ${a.openDesign.name}`} className={icon}><PlusSquare size={16} />Add</button>}
-      <button onClick={() => a.openInEditor(false)} aria-label="Open in Editor" className="flex items-center gap-1.5 h-10 px-3 bg-accent text-white rounded-md text-[12px] font-medium whitespace-nowrap"><Layers size={14} />Editor</button>
-      <div className={`flex items-center gap-0.5 bg-void-900 rounded-md p-0.5 border border-void-800/50 ${a.exporting ? 'opacity-60 pointer-events-none' : ''}`}>
-        <button onClick={() => a.download('png')} className="flex items-center gap-1 h-9 px-2 bg-white text-void-900 rounded-[5px] text-[11px] font-semibold"><Download size={12} />{a.exporting ? 'Saving' : 'PNG'}</button>
-        <button onClick={() => a.download('jpg')} className="h-9 px-2 text-[11px] font-medium text-void-300">JPG</button>
-        <button onClick={() => a.download('webp')} className="h-9 px-2 text-[11px] font-medium text-void-300">WebP</button>
-      </div>
+    <div data-mobile-actions className="relative lg:hidden shrink-0 flex items-center gap-2 px-3 border-t border-void-800 bg-void-950" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))', paddingTop: 8 }}>
+      {menu && <>
+        <button aria-label="Close actions" className="fixed inset-0 z-30 cursor-default" onClick={() => setMenu(null)} />
+        <section aria-label={menu === 'export' ? 'Download image' : 'Image actions'} className="absolute z-40 bottom-full mb-2 left-3 right-3 rounded-2xl border border-void-700 bg-void-950 shadow-2xl p-3">
+          <div className="flex items-center justify-between mb-2"><h2 className="text-sm font-medium">{menu === 'export' ? 'Download image' : 'Image actions'}</h2><button aria-label="Close actions panel" onClick={() => setMenu(null)} className={icon}><X size={16} /></button></div>
+          {menu === 'export' ? <div className="grid grid-cols-3 gap-2">{(['png', 'jpg', 'webp'] as const).map(f => <button key={f} disabled={a.exporting} onClick={() => { a.download(f); setMenu(null) }} className="h-12 rounded-lg bg-white text-void-950 text-sm font-medium">{f === 'webp' ? 'WebP' : f.toUpperCase()}</button>)}</div> : <div className="grid gap-1">
+            <button onClick={() => { a.reset(); setMenu(null) }} className="flex items-center gap-3 h-11 px-3 text-sm rounded-lg hover:bg-void-800"><RotateCcw size={16} />Reset effect settings</button>
+            {a.openDesign && <button onClick={a.addToDesign} data-fx-to-design className="flex items-center gap-3 h-11 px-3 text-sm rounded-lg hover:bg-void-800"><PlusSquare size={16} />Add to my design</button>}
+            <button onClick={() => { a.clear(); setMenu(null) }} className="flex items-center gap-3 h-11 px-3 text-sm rounded-lg text-rose-300 hover:bg-void-800"><Trash2 size={16} />Clear image</button>
+          </div>}
+        </section>
+      </>}
+      <button onClick={a.undo} disabled={!a.canUndo} aria-label="Undo" className={icon}><Undo2 size={18} /></button>
+      <button onClick={() => setMenu(menu === 'more' ? null : 'more')} aria-label="More image actions" aria-expanded={menu === 'more'} className={icon}><MoreHorizontal size={20} /></button>
+      <button onClick={() => a.openInEditor(false)} className="flex flex-1 min-w-0 justify-center items-center gap-2 h-11 px-2 border border-void-700 text-white rounded-lg text-xs font-medium whitespace-nowrap"><Layers size={15} />Open in Editor</button>
+      <button disabled={a.exporting} onClick={() => setMenu(menu === 'export' ? null : 'export')} aria-expanded={menu === 'export'} className="flex shrink-0 items-center justify-center gap-1.5 h-11 px-3 bg-white text-void-950 rounded-lg text-xs font-semibold whitespace-nowrap"><Download size={15} />{a.exporting ? 'Saving…' : 'Save'}</button>
     </div>
   )
 }

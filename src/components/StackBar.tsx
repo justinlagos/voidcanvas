@@ -21,12 +21,12 @@ export function StackBar({ onPick }: { onPick?: () => void }) {
         <span className="text-xs font-semibold text-void-300 uppercase tracking-wider">Your effects</span>
         {all.length > 1 && <span className="text-[11px] text-void-500">Run in this order</span>}
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex overflow-x-auto lg:flex-wrap gap-1.5">
         {all.map((e, i) => {
           const on = i === at, name = e.effect === 'none' ? 'Pick an effect' : nameOf(e.effect)
           return (
             <span key={i} data-fx-stack-item={e.effect} data-editing={on || undefined}
-              className={`inline-flex items-center rounded-md border text-[12px] ${on ? 'border-accent bg-accent/15 text-white' : 'border-void-700/60 bg-void-900 text-void-300 hover:text-white'}`}>
+              className={`inline-flex shrink-0 whitespace-nowrap items-center rounded-md border text-[12px] ${on ? 'border-accent bg-accent/15 text-white' : 'border-void-700/60 bg-void-900 text-void-300 hover:text-white'}`}>
               <button onClick={() => { s.editAt(i); onPick?.() }} className="pl-2 pr-1.5 py-1 min-h-[30px]" aria-pressed={on} title={on ? 'Adjusting this effect' : 'Change this one'}>
                 <span className="text-void-500 mr-1">{i + 1}</span>{name}
               </button>
@@ -37,7 +37,7 @@ export function StackBar({ onPick }: { onPick?: () => void }) {
           )
         })}
         {s.activeEffect !== 'none' && (
-          <button data-fx-add-another onClick={s.addAnother} className="inline-flex items-center gap-1 px-2 py-1 min-h-[30px] rounded-md border border-dashed border-void-600 text-[12px] text-void-300 hover:text-white hover:border-void-400">
+          <button data-fx-add-another onClick={s.addAnother} className="inline-flex shrink-0 whitespace-nowrap items-center gap-1 px-2 py-1 min-h-[30px] rounded-md border border-dashed border-void-600 text-[12px] text-void-300 hover:text-white hover:border-void-400">
             <Plus size={12} />Add another effect
           </button>
         )}
