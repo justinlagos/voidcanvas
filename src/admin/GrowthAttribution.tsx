@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
 import { activationRate, loadGrowthAttribution, type GrowthAttribution } from '@/growth/data'
+import { GrowthExperimentsPanel } from './GrowthExperiments'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 const periods = [7, 30, 90] as const
@@ -27,7 +28,7 @@ export function GrowthAttributionPanel({ password }: { password: string }) {
 
   const best = useMemo(() => data?.sources?.filter(x => x.sessions >= 2).sort((a, b) => activationRate(b.activated, b.sessions) - activationRate(a.activated, a.sessions))[0], [data])
 
-  return (
+  return <>
     <section className="mt-6 rounded-2xl border border-void-800 bg-[#111116] p-4">
       <div className="flex flex-wrap gap-3 items-center">
         <div>
@@ -70,7 +71,8 @@ export function GrowthAttributionPanel({ password }: { password: string }) {
         <p className="mt-3 text-[11.5px] text-void-500">Activation: {data.definition}</p>
       </>}
     </section>
-  )
+    <GrowthExperimentsPanel password={password} days={days} />
+  </>
 }
 
 function Metric({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
