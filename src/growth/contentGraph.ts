@@ -34,10 +34,14 @@ export function learnForTool(slug: string): ToolLearnLink[] {
     .sort((a, b) => Number(b.direct) - Number(a.direct) || a.title.localeCompare(b.title))
 }
 
+/**
+ * Only an explicit structured try/product block may replace the generic Editor,
+ * Effects or Studio CTA. A casual mention in prose/table is not enough.
+ */
 export function toolForArticle(article: Article): { slug: string; label: string; href: string } | null {
   const direct = article.body.find(block => (block.t === 'try' || block.t === 'product') && Object.keys(TOOLS).some(slug => block.href.startsWith(toolHref(slug))))
-  const href = direct && 'href' in direct ? direct.href : ''
-  const slug = Object.keys(TOOLS).find(id => href.startsWith(toolHref(id))) ?? toolsMentionedByArticle(article)[0]
+  if (!direct || !('href' in direct)) return null
+  const slug = Object.keys(TOOLS).find(id => direct.href.startsWith(toolHref(id)))
   if (!slug) return null
   const def = TOOLS[slug]
   const short = def.name.replace(/\s+(Image\s+)?Generator$/i, '')
