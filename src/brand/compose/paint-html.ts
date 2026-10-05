@@ -54,12 +54,14 @@ function paintNode(node: Node, resolver: HtmlResolver): string {
           ? node.text.charAt(0).toUpperCase() + node.text.slice(1).toLowerCase()
           : node.text
         : node.text
-      return `<div data-node="${esc(node.id)}" data-source="${node.source}" style="${rectStyle(node)}color:${css(resolver.colour(node.color))};font-family:${family};font-size:${node.style.size}px;font-weight:${weight};line-height:${node.style.lineHeight};text-align:${align};text-transform:${transform};${italic}${tracking}${overflow}">${esc(content)}</div>`
+      return `<div data-node="${esc(node.id)}" data-source="${node.source}" style="${rectStyle(node)}color:${css(resolver.colour(node.color))};font-family:${family};font-size:${node.style.size}px;font-weight:${weight};line-height:${node.style.lineHeight};text-align:${align};text-transform:${transform};white-space:pre-line;${italic}${tracking}${overflow}">${esc(content)}</div>`
     }
     case 'logo':
       return resolver.logo?.(node) ?? `<div data-node="${esc(node.id)}" data-kind="logo" style="${rectStyle(node)}"></div>`
-    case 'swatch':
-      return `<div data-node="${esc(node.id)}" data-role="${esc(node.role)}" data-specs="${node.specs.join(',')}" style="${rectStyle(node)}background:${css(resolver.colour(node.paint))};"></div>`
+    case 'swatch': {
+      const radius = node.radius ? `border-radius:${node.radius}px;` : ''
+      return `<div data-node="${esc(node.id)}" data-role="${esc(node.role)}" data-specs="${node.specs.join(',')}" style="${rectStyle(node)}background:${css(resolver.colour(node.paint))};${radius}"></div>`
+    }
     case 'image':
       return resolver.image?.(node) ?? `<div data-node="${esc(node.id)}" data-kind="image" style="${rectStyle(node)}"></div>`
     case 'device':
