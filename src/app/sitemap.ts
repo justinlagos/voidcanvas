@@ -7,10 +7,10 @@ const base = 'https://voidcanvas.app'
 export const revalidate = 3600
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const routes = ['', '/editor', '/studio', '/effects']
+  const routes = ['', '/editor', '/studio', '/effects', '/tools']
   const toolRoutes = Object.values(TOOLS).map(t => `/tools/${t.slug}`)
   return [
-    ...routes.map(r => ({ url: base + r, changeFrequency: 'weekly' as const, priority: 0.7 })),
+    ...routes.map(r => ({ url: base + r, changeFrequency: 'weekly' as const, priority: r === '/tools' ? 0.9 : 0.7 })),
     ...toolRoutes.map(r => ({ url: base + r, changeFrequency: 'weekly' as const, priority: 0.9 })),
     { url: `${base}/learn`, changeFrequency: 'weekly', priority: 0.9 },
     ...GOALS.map(g => ({ url: `${base}/learn/do/${g.id}`, changeFrequency: 'monthly' as const, priority: 0.7 })),
