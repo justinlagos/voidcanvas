@@ -41,6 +41,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Render Brand Guidelines V2 visual baseline
         run: npm run brand:visual-baseline
+      - name: Render Phase 2 IR visual proof
+        run: npm run brand:phase2-visual
       - name: Measure legacy to IR parity
         run: node e2e/brand-ir-parity.mjs
       - name: Build for Brand browser regression
