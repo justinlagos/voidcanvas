@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/growth-discovery.mjs",
     "build": "next build",
     "build:desktop": "node desktop/scripts/build-app.mjs",
     "e2e:desktop": "node e2e/desktop.mjs",
@@ -15,6 +16,8 @@
     "brand:phase2-corpus": "node e2e/brand-phase2-corpus.mjs",
     "brand:phase2-visual": "node e2e/brand-phase2-visual.mjs",
     "brand:visual-baseline": "node e2e/brand-visual-baseline.mjs",
+    "growth:discovery": "node scripts/growth-discovery.mjs",
+    "growth:discovery-test": "node scripts/growth-discovery.test.mjs",
     "postinstall": "node scripts/install-colour.mjs"
   },
   "dependencies": {
