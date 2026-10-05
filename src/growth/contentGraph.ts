@@ -59,7 +59,11 @@ export function invalidToolLinks(): string[] {
   const re = /\/tools\/([a-z0-9-]+)/g
   for (const article of ARTICLES) {
     const body = JSON.stringify(article.body)
-    for (const match of body.matchAll(re)) if (!known.has(match[1])) out.push(`${article.slug} -> /tools/${match[1]}`)
+    re.lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = re.exec(body)) !== null) {
+      if (!known.has(match[1])) out.push(`${article.slug} -> /tools/${match[1]}`)
+    }
   }
   return Array.from(new Set(out)).sort()
 }
