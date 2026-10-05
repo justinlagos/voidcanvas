@@ -144,6 +144,80 @@ function gridLines(ctx: CanvasRenderingContext2D, node: DeviceNode) {
   }
 }
 
+function fineGrid(ctx: CanvasRenderingContext2D, node: DeviceNode) {
+  const spacing = Number(node.params.spacing ?? 20)
+  ctx.strokeStyle = String(node.params.color ?? 'rgba(0,0,0,0.05)')
+  ctx.lineWidth = Number(node.params.lineWidth ?? 1)
+  for (let x = node.rect.x; x < node.rect.x + node.rect.w; x += spacing) {
+    ctx.beginPath()
+    ctx.moveTo(x + 0.5, node.rect.y)
+    ctx.lineTo(x + 0.5, node.rect.y + node.rect.h)
+    ctx.stroke()
+  }
+  for (let y = node.rect.y; y < node.rect.y + node.rect.h; y += spacing) {
+    ctx.beginPath()
+    ctx.moveTo(node.rect.x, y + 0.5)
+    ctx.lineTo(node.rect.x + node.rect.w, y + 0.5)
+    ctx.stroke()
+  }
+}
+
+function hatchZone(ctx: CanvasRenderingContext2D, node: DeviceNode, brand: Brand) {
+  const innerX = Number(node.params.innerX)
+  const innerY = Number(node.params.innerY)
+  const innerW = Number(node.params.innerW)
+  const innerH = Number(node.params.innerH)
+  const step = Number(node.params.step ?? 12)
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(node.rect.x, node.rect.y, node.rect.w, node.rect.h)
+  ctx.rect(innerX, innerY, innerW, innerH)
+  ctx.clip('evenodd')
+  ctx.strokeStyle = String(node.params.color ?? brand.roles[0].ramp[300])
+  ctx.globalAlpha *= Number(node.params.opacity ?? 0.55)
+  ctx.lineWidth = Number(node.params.lineWidth ?? 1.5)
+  for (let d = -node.rect.h; d < node.rect.w + node.rect.h; d += step) {
+    ctx.beginPath()
+    ctx.moveTo(node.rect.x + d, node.rect.y)
+    ctx.lineTo(node.rect.x + d - node.rect.h, node.rect.y + node.rect.h)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+function dashedBox(ctx: CanvasRenderingContext2D, node: DeviceNode) {
+  ctx.strokeStyle = String(node.params.color ?? 'rgba(0,0,0,0.35)')
+  ctx.lineWidth = Number(node.params.lineWidth ?? 1)
+  const dash = String(node.params.dash ?? '')
+    .split(',')
+    .map(Number)
+    .filter(Number.isFinite)
+  ctx.setLineDash(dash)
+  ctx.strokeRect(node.rect.x, node.rect.y, node.rect.w, node.rect.h)
+  ctx.setLineDash([])
+}
+
+function dimensionH(ctx: CanvasRenderingContext2D, node: DeviceNode, brand: Brand) {
+  const x = node.rect.x
+  const y = node.rect.y
+  const h = node.rect.h
+  ctx.strokeStyle = String(node.params.color ?? 'rgba(0,0,0,0.45)')
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(x, y)
+  ctx.lineTo(x, y + h)
+  ctx.moveTo(x - 6, y)
+  ctx.lineTo(x + 6, y)
+  ctx.moveTo(x - 6, y + h)
+  ctx.lineTo(x + 6, y + h)
+  ctx.stroke()
+  ctx.fillStyle = String(node.params.textColor ?? 'rgba(0,0,0,0.6)')
+  ctx.font = `500 14px "${brand.fonts.mono.family}"`
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillText(String(node.params.label ?? 'H'), x + 10, y + h / 2 + 5)
+}
+
 function ratioBar(ctx: CanvasRenderingContext2D, node: DeviceNode, brand: Brand) {
   const bar = node.rect
   const label = String(node.params.label ?? 'Usage ratio')
@@ -191,6 +265,10 @@ export function studioCanvasHooks(context: StudioCanvasContext): CanvasPaintHook
     logo: (ctx, node) => drawLogo(ctx, node, context.brand, context.logo, decisions),
     device: (ctx, node) => {
       if (node.kind === 'grid-lines') gridLines(ctx, node)
+      else if (node.kind === 'fine-grid') fineGrid(ctx, node)
+      else if (node.kind === 'hatch-zone') hatchZone(ctx, node, context.brand)
+      else if (node.kind === 'dashed-box') dashedBox(ctx, node)
+      else if (node.kind === 'dimension-h') dimensionH(ctx, node, context.brand)
       else if (node.kind === 'usage-ratio') ratioBar(ctx, node, context.brand)
     },
   }
