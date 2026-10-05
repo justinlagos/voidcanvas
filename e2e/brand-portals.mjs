@@ -110,19 +110,20 @@ try {
   await p
     .getByRole('button', { name: 'Build a guideline', exact: true })
     .click()
+  await p.getByRole('button', { name: 'Identity', exact: true }).click()
   await p.getByPlaceholder('e.g. Northbound').fill('Test Brand')
   check(
     'Existing guideline builder remains available',
     (await p.locator('body').innerText()).includes('Identity'),
   )
-  await p.getByRole('tab', { name: 'Export', exact: true }).click()
+  await p.getByRole('button', { name: 'Export guideline', exact: true }).click()
   await p.getByRole('button', { name: 'Save to Brand workspace' }).click()
   await p
-    .getByText('Saved. Test Brand is in Brand.', { exact: false })
+    .getByText('Saved. Test Brand is in your Brand workspace', { exact: false })
     .waitFor({ timeout: 60000 })
   await p.getByRole('button', { name: 'Save to Brand workspace' }).click()
   await p
-    .getByText('Saved. Test Brand is in Brand.', { exact: false })
+    .getByText('Saved. Test Brand is in your Brand workspace', { exact: false })
     .waitFor({ timeout: 60000 })
   await p.goto(BASE + '/brand')
   await p.getByRole('heading', { name: 'Test Brand', exact: true }).first().waitFor()
@@ -133,6 +134,7 @@ try {
       .count()) === 1,
   )
   await p.getByRole('button', { name: 'Open builder', exact: true }).click()
+  await p.getByRole('button', { name: 'Identity', exact: true }).click()
   await p.waitForFunction(() => document.querySelector('input[placeholder="e.g. Northbound"]')?.value === 'Test Brand')
   check(
     'Saved guideline restores its editable source',

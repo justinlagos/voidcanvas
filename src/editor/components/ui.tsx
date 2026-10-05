@@ -215,7 +215,7 @@ export function Button({ children, onClick, primary, disabled, className = '', t
 }) {
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      className={`h-9 px-3.5 inline-flex items-center justify-center gap-2 rounded-lg text-[13px] font-medium transition-colors ${focusRing} disabled:opacity-40 disabled:pointer-events-none ${
+      className={`h-9 px-3.5 inline-flex whitespace-nowrap shrink-0 items-center justify-center gap-2 rounded-lg text-[13px] font-medium transition-colors ${focusRing} disabled:opacity-40 disabled:pointer-events-none ${
         primary ? 'bg-white text-void-950 hover:bg-void-100' : 'bg-void-800/80 text-void-100 hover:bg-void-700'
       } ${className}`}>
       {children}

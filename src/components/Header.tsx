@@ -10,7 +10,7 @@ export function Header() {
 
   return (
     <header className="flex items-center justify-between gap-3 px-3 sm:px-5 py-2 min-h-12 border-b border-void-800/60 bg-void-950/95 backdrop-blur-sm">
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-center gap-2 xl:gap-4">
         <Logo />
         <AppNav />
 

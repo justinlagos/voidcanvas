@@ -136,7 +136,7 @@ export function Canvas() {
     const box = containerRef.current
     if (!box || !w || !h) return 100
     const z = Math.min((box.clientWidth - 32) / w, (box.clientHeight - 32) / h, 1) * 100
-    return Math.max(10, Math.floor(z / 5) * 5)
+    return Math.max(10, Math.floor(z))
   }, [])
 
   // Load image
@@ -213,7 +213,7 @@ export function Canvas() {
   return (
     <div className="relative flex-1 flex flex-col overflow-hidden">
       {/* Canvas toolbar */}
-      <div className="vc-tap flex items-center justify-between px-4 py-2 border-b border-void-800/40">
+      <div className="vc-tap flex shrink-0 items-center justify-between gap-2 px-2 sm:px-4 py-1.5 border-b border-void-800/40">
         <div className="flex items-center gap-1">
           <button
             onClick={() => setShowComparison(!showComparison)}
@@ -230,10 +230,10 @@ export function Canvas() {
 
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-void-500 font-mono tabular-nums whitespace-nowrap" title={sourceSize.width > canvasSize.width ? `Preview at ${canvasSize.width} × ${canvasSize.height}. Downloads are ${sourceSize.width} × ${sourceSize.height}.` : undefined}>
+          <span className="hidden sm:inline text-[11px] text-void-500 font-mono tabular-nums whitespace-nowrap" title={sourceSize.width > canvasSize.width ? `Preview at ${canvasSize.width} × ${canvasSize.height}. Downloads are ${sourceSize.width} × ${sourceSize.height}.` : undefined}>
             {sourceSize.width || canvasSize.width} × {sourceSize.height || canvasSize.height}
           </span>
-          <div className="w-px h-4 bg-void-800" />
+          <div className="hidden sm:block w-px h-4 bg-void-800" />
           <div className="flex items-center gap-1 bg-void-900 rounded-md p-0.5">
             <button
               aria-label="Zoom out"

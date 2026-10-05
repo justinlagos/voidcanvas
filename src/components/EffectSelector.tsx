@@ -65,14 +65,14 @@ export function EffectSelector({ onPick }: { onPick?: () => void }) {
       </div>
 
       {/* Category tabs */}
-      <div className="flex flex-wrap gap-1">
+      <div className="flex overflow-x-auto lg:flex-wrap gap-1 pb-1">
         {categories.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setEffectCategory(cat.id)}
             aria-pressed={effectCategory === cat.id}
             className={`
-              flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all duration-150
+              flex shrink-0 whitespace-nowrap items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all duration-150
               ${effectCategory === cat.id
                 ? 'bg-white text-void-900'
                 : 'bg-void-900 text-void-400 hover:bg-void-800 hover:text-void-300'

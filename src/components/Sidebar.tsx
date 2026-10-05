@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { EffectSelector } from './EffectSelector'
 import { ParamControls } from './ParamControls'
 import { useStore, fullStack } from '@/store/useStore'
@@ -10,20 +10,26 @@ import { effects } from './effect-list'
 export function Sidebar({ onPick }: { onPick?: () => void }) {
   const { activeEffect } = useStore()
   const count = useStore(s => fullStack(s, true).length)
-  const [tab, setTab] = useState<'browse' | 'adjust'>('browse')
+  const [tab, setTab] = useState<'browse' | 'adjust'>(activeEffect === 'none' ? 'browse' : 'adjust')
+  useEffect(() => { setTab(activeEffect === 'none' ? 'browse' : 'adjust') }, [activeEffect])
   const choose = () => { if (useStore.getState().activeEffect !== 'none') setTab('adjust'); onPick?.() }
   return (
-    <aside data-effects-sidebar className="vc-tap w-full h-[42%] min-h-[220px] border-t lg:w-80 lg:h-auto lg:min-h-0 lg:border-t-0 lg:border-l border-void-800/60 bg-void-950 flex flex-col shrink-0 overflow-hidden">
-      <div className="shrink-0 max-h-[32%] overflow-auto"><StackBar onPick={choose} /></div>
+    <aside data-effects-sidebar className="vc-tap w-full h-[52%] min-h-0 border-t lg:w-80 lg:h-auto lg:min-h-0 lg:border-t-0 lg:border-l border-void-800/60 bg-void-950 flex flex-col shrink-0 overflow-hidden">
+      <div className="hidden lg:block shrink-0 max-h-[32%] overflow-auto"><StackBar onPick={choose} /></div>
       <div className="lg:hidden flex shrink-0 border-b border-void-800" role="tablist" aria-label="Effects workspace">
         {(['browse', 'adjust'] as const).map(id => <button key={id} id={`fx-tab-${id}`} role="tab" aria-controls={`fx-${id}`} aria-selected={tab === id}
-          onClick={() => setTab(id)} className={`flex-1 px-3 py-3 text-sm ${tab === id ? 'text-white border-b-2 border-white' : 'text-void-400'}`}>{id === 'browse' ? 'Browse effects' : 'Adjust effect'}</button>)}
+          onClick={() => setTab(id)} className={`flex-1 px-3 py-3 text-sm ${tab === id ? 'text-white border-b-2 border-white' : 'text-void-400'}`}>{id === 'browse' ? 'Effects' : 'Adjust'}</button>)}
       </div>
       <div id="fx-browse" role="tabpanel" aria-labelledby="fx-tab-browse" className={`flex-1 min-h-0 overflow-y-auto overscroll-contain ${tab === 'browse' ? '' : 'hidden'} lg:block`}>
         <EffectSelector onPick={choose} />
       </div>
       <div id="fx-adjust" role="tabpanel" aria-labelledby="fx-tab-adjust" className={`flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 lg:hidden ${tab === 'adjust' ? '' : 'hidden'}`}>
-        <h2 className="text-sm font-medium text-white mb-3">{effects.find(e => e.id === activeEffect)?.name ?? 'Choose an effect'}</h2>
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h2 className="text-sm font-medium text-white truncate">{effects.find(e => e.id === activeEffect)?.name ?? 'Choose an effect'}</h2>
+          {activeEffect !== 'none' && <button onClick={() => { useStore.getState().addAnother(); setTab('browse') }} className="shrink-0 whitespace-nowrap h-9 px-3 rounded-lg border border-void-700 text-xs">+ Add effect</button>}
+        </div>
+        {count > 1 && <div className="mb-3"><StackBar onPick={choose} /></div>}
+        {activeEffect === 'none' && <button onClick={() => setTab('browse')} className="mb-3 text-sm underline">Choose an effect to adjust</button>}
         <ParamControls />
       </div>
       <div className="hidden lg:flex shrink-0 items-center justify-between p-3 border-t border-void-800 text-xs text-void-400">

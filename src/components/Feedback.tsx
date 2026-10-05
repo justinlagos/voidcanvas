@@ -34,12 +34,13 @@ function FeedbackWidget({ path }: { path: string }) {
   useEffect(() => {
     const on = (e: Event) => {
       const d = (e as CustomEvent).detail || {}
+      if (d.quick && /^\/(editor|effects|brand|studio)(\/|$)/.test(path)) return
       setOpen({ trigger: d.trigger || 'button', quick: !!d.quick }); setState('idle'); setMood(null); setMsg(''); setEmail('')
       track('feedback.open', { trigger: d.trigger || 'button' })
     }
     window.addEventListener('vc:feedback', on)
     return () => window.removeEventListener('vc:feedback', on)
-  }, [])
+  }, [path])
   useEffect(() => {
     if (!open) return
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(null) } }
@@ -48,16 +49,8 @@ function FeedbackWidget({ path }: { path: string }) {
   }, [open])
   useEffect(() => { if (state === 'done') { const t = setTimeout(() => setOpen(null), 2200); return () => clearTimeout(t) } }, [state])
 
-  if (path.startsWith('/admin')) return null
-  // Pages with their own bottom action bar (Effects and the quick tools on phones) carry a Feedback entry there instead.
-  const [hasBar, setHasBar] = useState(false)
-  useEffect(() => {
-    const check = () => setHasBar(!!document.querySelector('[data-mobile-actions]') && getComputedStyle(document.querySelector('[data-mobile-actions]')!).display !== 'none')
-    check(); const mo = new MutationObserver(check); mo.observe(document.body, { childList: true, subtree: true }); addEventListener('resize', check)
-    return () => { mo.disconnect(); removeEventListener('resize', check) }
-  }, [path])
-  const onSite = /^\/(learn|blog|about|report-a-bug|research|founding|founding-terms)(\/|$)/.test(path)
-  const showButton = path !== '/' && path !== '/s' && !onSite && !path.startsWith('/editor') && !open && !hasBar
+  // Keep every work surface clear. Feedback remains an intentional action in Help and the site footer.
+  const showButton = false
 
   const submit = async () => {
     if (!mood && !msg.trim()) return
