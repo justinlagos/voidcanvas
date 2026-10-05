@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildStageGraph, StageTileEngine } from '../stage-production'
+import { buildStageGraph, StageTileEngine, type LayerBoundsProvider } from '../stage-production'
 import type { Doc, Group, Layer } from '../types'
 
 const doc: Doc = {
@@ -13,6 +13,13 @@ const raster = (id: string, x: number, groupId: string | null = null): Layer => 
   rev: 1, frameId: 'board', canvas: Object.assign({ width: 400, height: 300 }, {}) as HTMLCanvasElement,
 })
 
+const headlessBounds: LayerBoundsProvider = layer => ({
+  x: layer.x,
+  y: layer.y,
+  w: layer.type === 'raster' ? layer.canvas.width * Math.abs(layer.scaleX) : 100,
+  h: layer.type === 'raster' ? layer.canvas.height * Math.abs(layer.scaleY) : 100,
+})
+
 describe('Stage production engine', () => {
   it('builds layer → nested group → board → document dependencies', () => {
     const groups: Group[] = [
@@ -20,7 +27,7 @@ describe('Stage production engine', () => {
       { id: 'inner', name: 'Inner', visible: true, opacity: 1, collapsed: false, parentId: 'outer' },
     ]
     const layers = [raster('photo', 100, 'inner')]
-    const { graph } = buildStageGraph(doc, layers, groups)
+    const { graph } = buildStageGraph(doc, layers, groups, 1, headlessBounds)
     expect(graph.affected('photo').map(x => x.id)).toEqual(['photo', 'inner', 'outer', 'board', 'doc'])
   })
 
@@ -30,7 +37,7 @@ describe('Stage production engine', () => {
       { id: 'board2', name: 'Board 2', x: 3000, y: 0, width: 1000, height: 1000, background: '#fff' },
     ] }
     const a = raster('a', 100); const b = { ...raster('b', 3100), frameId: 'board2' }
-    const { graph } = buildStageGraph(second, [a, b], [])
+    const { graph } = buildStageGraph(second, [a, b], [], 1, headlessBounds)
     expect(graph.affected('a').map(x => x.id)).toEqual(['a', 'board', 'doc'])
     expect(graph.affected('a').some(x => x.id === 'b' || x.id === 'board2')).toBe(false)
   })
