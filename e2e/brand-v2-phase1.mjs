@@ -13,9 +13,9 @@ const compiled = await build({
       export { buildBrand, initialTokens, resolve } from './src/studio/brand/tokens'
       export { renderPage, DEFAULT_PAGES } from './src/studio/brand-pages'
       export { analyseLogo, NO_DECISIONS } from './src/studio/brand/logo'
-      export { composeLegacyCover, composeLegacyColour } from './src/brand/compose/phase1-pages'
+      export { composeLegacyCover, composeLegacyColour, composeLegacyClearSpace } from './src/brand/compose/phase1-pages'
       export { paintCanvas } from './src/brand/compose/paint-canvas'
-      export { studioCanvasHooks } from './src/brand/compose/studio-canvas'
+      export { studioCanvasHooks, markAspect } from './src/brand/compose/studio-canvas'
     `,
     resolveDir: process.cwd(),
   },
@@ -31,7 +31,7 @@ const fixture = fixtures.find((item) => item.id === 'red-symbol')
 if (!fixture) throw new Error('Missing red-symbol fixture')
 
 const browser = await chromium.launch()
-const page = await browser.newPage({ viewport: { width: 1280, height: 1100 }, deviceScaleFactor: 1 })
+const page = await browser.newPage({ viewport: { width: 1280, height: 1500 }, deviceScaleFactor: 1 })
 await page.setContent('<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>')
 await page.addScriptTag({ content: compiled.outputFiles[0].text })
 
@@ -45,7 +45,7 @@ await page.evaluate(async ({ bytes, name, mime }) => {
 
 const metrics = []
 for (const direction of ['editorial', 'graphic', 'systematic']) {
-  for (const kind of ['cover', 'colour']) {
+  for (const kind of ['cover', 'colour', 'clearspace']) {
     const result = await page.evaluate(async ({ direction, kind }) => {
       const t = BrandV2Phase1.initialTokens()
       t.name = 'Kite Studio'
@@ -64,9 +64,12 @@ for (const direction of ['editorial', 'graphic', 'systematic']) {
       const pageCount = on.length
       const scale = 0.25
       const oldCanvas = await BrandV2Phase1.renderPage(legacySpec, pageNo, pageCount, brand, window.__phase1Logo, 'landscape', scale, BrandV2Phase1.NO_DECISIONS, [])
+      const env = { brand, orientation: 'landscape', pageNo, pageCount, year: new Date().getFullYear(), logoAspect: BrandV2Phase1.markAspect(window.__phase1Logo) }
       const ir = kind === 'cover'
-        ? BrandV2Phase1.composeLegacyCover({ brand, orientation: 'landscape', pageNo, pageCount, year: new Date().getFullYear() })
-        : BrandV2Phase1.composeLegacyColour({ brand, orientation: 'landscape', pageNo, pageCount, year: new Date().getFullYear() })
+        ? BrandV2Phase1.composeLegacyCover(env)
+        : kind === 'colour'
+          ? BrandV2Phase1.composeLegacyColour(env)
+          : BrandV2Phase1.composeLegacyClearSpace(env)
       const nextCanvas = document.createElement('canvas')
       nextCanvas.width = Math.round(ir.size.w * scale)
       nextCanvas.height = Math.round(ir.size.h * scale)
@@ -135,11 +138,11 @@ for (const metric of metrics) {
 }
 await page.screenshot({ path: path.join(OUT, 'parity.png'), fullPage: true })
 
-console.log(JSON.stringify(metrics.map(({ old, next, ...rest }) => rest), null, 2))
+console.log(JSON.stringify(metrics.map(({ old, next, ...rest }) => rest, null, 2))
 
-// Text rasterisation and semantic hook ordering can move antialiasing pixels. Anything larger than this is a layout drift.
+// Text rasterisation and semantic hook ordering can move antialiasing pixels. Larger deltas are layout drift.
 for (const metric of metrics) {
-  const limit = metric.kind === 'cover' ? 0.12 : 0.18
+  const limit = metric.kind === 'cover' ? 0.12 : metric.kind === 'colour' ? 0.18 : 0.22
   if (metric.changedShare > limit) {
     throw new Error(`${metric.direction} ${metric.kind} changed ${(metric.changedShare * 100).toFixed(2)}%, above ${(limit * 100).toFixed(0)}% parity budget`)
   }
