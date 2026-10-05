@@ -1,0 +1,31 @@
+name: Brand V2 output codemod
+
+on:
+  push:
+    branches: [brand-v2-phase2-output-switch]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, '[brand-output-codemod]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: brand-v2-phase2-output-switch
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply output switch
+        run: python scripts/brand-v2-output-switch.py
+      - name: Remove one-shot codemod files
+        run: rm scripts/brand-v2-output-switch.py .github/workflows/brand-v2-output-codemod.yml
+      - name: Commit output switch
+        run: |
+          git config user.name "voidcanvas-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/studio/BrandGuideline.tsx scripts/brand-v2-output-switch.py .github/workflows/brand-v2-output-codemod.yml
+          git commit -m "Switch Brand outputs to V2 renderer [brand-output-codemod]"
+          git push origin HEAD:brand-v2-phase2-output-switch
