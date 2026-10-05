@@ -22,11 +22,13 @@ jobs:
         run: npx vitest run
       - name: Brand Guidelines V2 baseline
         run: npm run brand:baseline
+      - name: Brand Guidelines V2 Phase 2 structural corpus
+        run: npm run brand:phase2-corpus
       - name: Build
         run: npm run build
 
   brand-v2-visual:
-    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'brand-guidelines-v2')
+    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'brand-guidelines-v2') || startsWith(github.head_ref, 'brand-v2'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
