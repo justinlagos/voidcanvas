@@ -6,7 +6,7 @@ const pdf = fs.readFileSync('src/studio/brand-pdf.ts', 'utf8')
 
 describe('Brand V2 output rendering', () => {
   it('uses the same runtime IR for handoff and saved guideline assets', () => {
-    expect(source).toContain('const outputRuntime = useMemo(() => composeRuntimePages')
+    expect(source).toContain('const outputRuntime = useMemo(() => (v2 ? composeRuntimePages')
     expect(source).toContain('await eachRuntimePage({ pages, irByIndex: outputRuntime.irByIndex')
     expect(source.match(/eachRuntimePage\(\{ pages, irByIndex: outputRuntime\.irByIndex/g)?.length).toBeGreaterThanOrEqual(2)
   })

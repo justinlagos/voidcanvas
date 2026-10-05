@@ -20,7 +20,11 @@ import { suggestLogoName } from '@/lib/intelligence/naming'
 import { brandHealth, healthSummary, type HealthGroup } from '@/lib/intelligence/brand'
 import type { Level } from '@/lib/intelligence/contrast'
 import { composeRuntimePages } from '@/brand/compose/runtime'
+import { brandV2Enabled } from '@/brand/compose/flag'
 import { eachRuntimePage, renderRuntimePage } from './brand-v2-render'
+
+/** Until V2 passes its release gates, pages render through the legacy renderer unless ?brandv2=1 is set. */
+const NO_RUNTIME = { irByIndex: new Map<number, import('@/brand/compose').Page>(), legacyIndexes: new Set<number>() }
 
 function Page({ spec, pageNo, pageCount, brand, logo, o, cssWidth }: { spec: PageSpec; pageNo: number; pageCount: number; brand: Brand; logo: LogoInfo | null; o: Orientation; cssWidth: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -29,7 +33,8 @@ function Page({ spec, pageNo, pageCount, brand, logo, o, cssWidth }: { spec: Pag
   const pages = useBrand(s => s.pages)
   const salt = useBrand(s => s.tokens.salt)
   const layoutSalt = useBrand(s => s.tokens.layoutSalt ?? 0)
-  const runtime = useMemo(() => composeRuntimePages({ brand, logo, pages, salt, layoutSalt }), [brand, logo, pages, salt, layoutSalt])
+  const v2 = useMemo(() => brandV2Enabled(), [])
+  const runtime = useMemo(() => (v2 ? composeRuntimePages({ brand, logo, pages, salt, layoutSalt }) : NO_RUNTIME), [v2, brand, logo, pages, salt, layoutSalt])
   const sourceIndex = pages.indexOf(spec)
   useEffect(() => {
     let live = true
@@ -552,7 +557,8 @@ export function BrandGuideline({ onBack, initialBrand, backLabel = 'Studio' }: {
   const [active, setActive] = useState(0)
   const [err, setErr] = useState<string | null>(null)
   const brand = useMemo(() => buildBrand(tokens), [tokens])
-  const outputRuntime = useMemo(() => composeRuntimePages({ brand, logo, pages, salt: tokens.salt, layoutSalt: tokens.layoutSalt ?? 0 }), [brand, logo, pages, tokens.salt, tokens.layoutSalt])
+  const v2 = useMemo(() => brandV2Enabled(), [])
+  const outputRuntime = useMemo(() => (v2 ? composeRuntimePages({ brand, logo, pages, salt: tokens.salt, layoutSalt: tokens.layoutSalt ?? 0 }) : NO_RUNTIME), [v2, brand, logo, pages, tokens.salt, tokens.layoutSalt])
   const checks = useMemo(() => [...brand.checks, ...logoChecks(brand, logo, decisions)], [brand, logo, decisions])
   const health = useMemo(() => brandHealth({
     colors: [{ hex: brand.roles[0].hex, role: 'primary' }, { hex: brand.roles[1].hex, role: 'secondary' }, { hex: brand.surfaces.light, role: 'background' }, { hex: brand.surfaces.inkOnLight, role: 'text' }],

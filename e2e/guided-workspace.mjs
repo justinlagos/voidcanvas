@@ -7,7 +7,7 @@ const inView=async locator=>locator.evaluate(el=>{const r=el.getBoundingClientRe
 const overlap=async(a,b)=>{const ar=await a.boundingBox(),br=await b.boundingBox();if(!ar||!br)return false;return ar.x<br.x+br.width&&ar.x+ar.width>br.x&&ar.y<br.y+br.height&&ar.y+ar.height>br.y};
 try{
  await p.goto(base+'/brand?view=guideline');await p.getByRole('navigation',{name:'Guideline tools'}).waitFor();
- const brandCanvas=p.locator('canvas[data-brand-renderer]');await brandCanvas.waitFor();assert.equal(await brandCanvas.getAttribute('data-brand-renderer'),'v2','Default landscape Brand preview must render through V2');
+ const brandCanvas=p.locator('canvas[data-brand-renderer]').first();await brandCanvas.waitFor();assert.equal(await brandCanvas.getAttribute('data-brand-renderer'),'legacy','Designers stay on the legacy renderer until V2 passes its gates');
  assert.equal(await p.locator('#brand-controls').count(),0,'Preview starts uncluttered');
  for(const width of [320,390,768,1440]){
   await p.setViewportSize({width,height:width<800?740:900});
@@ -33,7 +33,7 @@ try{
   await p.getByRole('button',{name:'Close brand controls'}).click();
  }
  await p.getByRole('button',{name:'Save brand',exact:true}).click();await p.getByRole('status').filter({hasText:'Saved.'}).waitFor({timeout:30000});
- console.log('PASS Brand V2 live preview, disclosure, editable identity, B28 phone overlap, page navigation, exports, save, narrow and desktop layouts');
+ console.log('PASS Brand default renderer, disclosure, editable identity, B28 phone overlap, page navigation, exports, save, narrow and desktop layouts');
  await p.goto(base+'/editor');await p.waitForFunction(()=>!!window.__voidEditor);
  await p.evaluate(()=>{let s=window.__voidEditor.getState();s.newDoc({name:'Live drag',width:1200,height:900,background:'#ffffff'});s=window.__voidEditor.getState();s.addShape('rect',300,300,200,150,{fill:'#e53636',name:'Move me'});s.setTool('move')});await p.waitForTimeout(500);
  const stage=p.locator('[data-stage]');const box=await stage.boundingBox();const pos=await p.evaluate(()=>{const s=window.__voidEditor.getState();return {view:s.view,l:s.active()}});
