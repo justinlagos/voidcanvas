@@ -1,6 +1,6 @@
 import { layerBounds } from './engine'
 import { TileResidency, renderTileKey, type TileRenderRequest } from './gpu-compositor'
-import { ScratchStore } from './opfs-scratch'
+import { ScratchStore, scratchEstimate } from './opfs-scratch'
 import { renderBudget, type RenderBudget } from './performance'
 import { RenderGraph, type RenderBounds } from './render-graph'
 import type { Doc, Group, Layer } from './types'
@@ -19,10 +19,6 @@ export interface StageGraph {
   groupBounds: Map<string, RenderBounds>
 }
 
-/**
- * Build renderer dependencies directly from the editable document model. Bounds are injectable so the graph
- * can be built in workers/headless tests without DOMMatrix; browser Stage keeps the exact editor geometry.
- */
 export function buildStageGraph(
   doc: Doc,
   layers: Layer[],
@@ -99,16 +95,49 @@ export interface TileCodec<T> {
   decode(data: ArrayBuffer): Promise<T> | T
 }
 
-/**
- * Shared Stage cache controller. GPU textures or CPU tiles can be resident values; evicted serialisable tiles
- * spill to OPFS using the exact same cache key. OPFS is opportunistic and never required for correctness.
- */
+export type PressureLevel = 'normal' | 'elevated' | 'critical'
+export interface PressureSignal {
+  heapUsed?: number
+  heapLimit?: number
+  storageUsage?: number
+  storageQuota?: number
+}
+export interface PressureDecision {
+  level: PressureLevel
+  ratio: number
+  residentFactor: number
+  clearScratch: boolean
+}
+
+export function pressureDecision(signal: PressureSignal): PressureDecision {
+  const heap = signal.heapLimit && signal.heapLimit > 0 ? (signal.heapUsed ?? 0) / signal.heapLimit : 0
+  const storage = signal.storageQuota && signal.storageQuota > 0 ? (signal.storageUsage ?? 0) / signal.storageQuota : 0
+  const ratio = Math.max(heap, storage)
+  if (ratio >= 0.9) return { level: 'critical', ratio, residentFactor: 0.3, clearScratch: storage >= 0.92 }
+  if (ratio >= 0.72) return { level: 'elevated', ratio, residentFactor: 0.6, clearScratch: false }
+  return { level: 'normal', ratio, residentFactor: 1, clearScratch: false }
+}
+
+export async function sampleBrowserPressure(): Promise<PressureSignal> {
+  const storage = await scratchEstimate()
+  const perf = typeof performance !== 'undefined' ? (performance as Performance & { memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number } }) : undefined
+  return {
+    heapUsed: perf?.memory?.usedJSHeapSize,
+    heapLimit: perf?.memory?.jsHeapSizeLimit,
+    storageUsage: storage.usage,
+    storageQuota: storage.quota,
+  }
+}
+
+/** Shared Stage cache controller. OPFS is disposable scratch only; canonical project persistence never depends on it. */
 export class StageTileEngine<T> {
   graph: RenderGraph
   budget: RenderBudget
   readonly scratch: ScratchStore
   readonly resident: TileResidency<T>
   private pending = new Set<Promise<unknown>>()
+  private baseTiles: number
+  private baseBytes: number
 
   constructor(
     public projectId: string,
@@ -121,8 +150,9 @@ export class StageTileEngine<T> {
     this.budget = renderBudget(width, height, dpr)
     this.graph = new RenderGraph()
     this.scratch = new ScratchStore(projectId)
-    const bytes = this.budget.maxResidentTiles * this.budget.tileSize * this.budget.tileSize * 4
-    this.resident = new TileResidency<T>(this.budget.maxResidentTiles, bytes, dispose, tile => {
+    this.baseTiles = this.budget.maxResidentTiles
+    this.baseBytes = this.baseTiles * this.budget.tileSize * this.budget.tileSize * 4
+    this.resident = new TileResidency<T>(this.baseTiles, this.baseBytes, dispose, tile => {
       if (!this.codec) return
       const task = Promise.resolve(this.codec.encode(tile.value))
         .then(data => this.scratch.write('tiles', tile.key, data))
@@ -134,8 +164,9 @@ export class StageTileEngine<T> {
   configure(doc: Doc, layers: Layer[], groups: Group[], dpr = 1, boundsOf: LayerBoundsProvider = layerBounds) {
     const built = buildStageGraph(doc, layers, groups, dpr, boundsOf)
     this.graph = built.graph; this.budget = built.budget
-    this.resident.maxTiles = built.budget.maxResidentTiles
-    this.resident.maxBytes = built.budget.maxResidentTiles * built.budget.tileSize * built.budget.tileSize * 4
+    this.baseTiles = built.budget.maxResidentTiles
+    this.baseBytes = this.baseTiles * built.budget.tileSize * built.budget.tileSize * 4
+    this.resident.rebudget(this.baseTiles, this.baseBytes)
     return built
   }
 
@@ -169,8 +200,19 @@ export class StageTileEngine<T> {
     await this.scratch.remove('tiles', key)
   }
 
-  async flushScratchWrites() { await Promise.all(Array.from(this.pending)) }
+  /** Pressure immediately reduces live residency, causing LRU tiles to spill into OPFS when serialisable. */
+  async applyPressure(signal: PressureSignal): Promise<PressureDecision> {
+    const decision = pressureDecision(signal)
+    if (decision.clearScratch) await this.scratch.clearProject().catch(() => false)
+    this.resident.rebudget(
+      Math.max(2, Math.floor(this.baseTiles * decision.residentFactor)),
+      Math.max(this.budget.tileSize * this.budget.tileSize * 4 * 2, Math.floor(this.baseBytes * decision.residentFactor)),
+    )
+    return decision
+  }
 
+  async maintainPressure() { return this.applyPressure(await sampleBrowserPressure()) }
+  async flushScratchWrites() { await Promise.all(Array.from(this.pending)) }
   clearMemory() { this.resident.clear() }
   clearScratch() { return this.scratch.clearProject() }
 }

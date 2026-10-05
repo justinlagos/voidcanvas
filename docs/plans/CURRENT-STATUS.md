@@ -19,7 +19,7 @@ The AI connector / MCP / design-API concept is explicitly outside the current im
 | 6 Export finish + coming back | Shipped | `4438995`, analytics `35aef30` |
 | 7 Reuse, Library and campaigns | Shipped | 7A `a9e3ba6`, 7B `1fb45b9`, 7C/7D `577909f` |
 | 8 Professional production depth | Shipped | PR #15 merge `93da991` |
-| 9 Production Engine | **In progress** | 9A/9B foundation PR #17 merge `c1d32b5` |
+| 9 Production Engine | **Shipped** | PR #17 `c1d32b5`, PR #18 `2b4dc96`, PR #19 `e3b51dd`, PR #20 `665685e`, completion PR #21 |
 
 ## Phase 7 summary
 
@@ -46,7 +46,7 @@ PR #8 (`c8ab5b5`) remains the main nondestructive production-workflow baseline:
 - Mask link/unlink, independent placement and fixed/scale geometry policies.
 - Pattern assets and embedded PSD pattern import.
 - Reversible Liquify.
-- Printer ICC soft proof and profile-based CMYK TIFF export; editing remains RGB.
+- Printer ICC soft proof and profile-based CMYK TIFF export.
 
 See `../DESIGNER-PRODUCTION-WORKFLOWS.md` for practical boundaries.
 
@@ -65,8 +65,7 @@ PR #15 merged as `93da991` after being reconciled with the Brand workspace/porta
 
 - One render-budget policy classifies normal, large and huge documents and caps interactive overview/sharp-preview work without changing production resolution.
 - Visible-region tile planning is a shared engine primitive.
-- Large layered-PSD rendering uses bounded tiles for expensive per-layer rendering instead of requiring document-sized scratch renders.
-- The Editor Stage continues to use its whole-design overview plus settled sharp visible-region renderer.
+- Large layered-PSD rendering uses bounded tiles for expensive per-layer rendering.
 
 ### PSD / export parity
 
@@ -77,61 +76,79 @@ PR #15 merged as `93da991` after being reconciled with the Brand workspace/porta
 
 ### Colour and print
 
-- The print dialog is a broader **Production export** surface.
-- Layered PSD handoff sits beside the existing printer-profile workflow.
-- Explicit 72/150/300 DPI document resolution choices are available.
-- ICC soft proof, perceptual/relative rendering intent, black-point compensation and embedded-profile CMYK TIFF remain the colour-managed print path.
-- Editing is still RGB; Phase 8 does not claim native CMYK document editing.
+- Production Export combines layered PSD and printer-profile workflows.
+- ICC soft proof, rendering intent, black-point compensation and embedded-profile CMYK TIFF are shipped.
+- Phase 9 extends this with explicit working-colour metadata and PDF/X-4 production output.
 
 ### Studio production automation
 
-- Studio derives production state for a job: missing formats, open feedback, design changes after approval and deliveries made stale by later design edits.
-- The status is actionable and routes the designer directly to Key visual, Review or Deliver as appropriate.
+- Studio derives missing formats, open feedback, post-approval edits and stale deliveries and routes the designer to the appropriate production surface.
 
 ### Professional hardening
 
-- Production/export invariants catch invalid document dimensions/transforms, duplicate layer/group IDs, empty raster sources and orphan group references before expensive handoff work.
-- Unit coverage was added for gradient midpoint/opacity behaviour, large-document budgets/tiling, Studio production readiness and export invariants.
+- Production/export invariants catch invalid dimensions/transforms, duplicate IDs, empty raster sources and orphan group references before expensive handoff work.
 
 Final PR #15 validation on `0c59dfc6`: strict TypeScript passed, unit tests passed, production build passed and Netlify deploy preview passed. The full Playwright browser suite was not run by normal CI and is not claimed as passed.
 
-## Phase 9 in progress — Production Engine
+## Phase 9 shipped — Production Engine
 
-Phase 9 is now an active engineering programme rather than a future boundary. The accepted sequence is:
+Phase 9 completed the requested non-AI production infrastructure sequence:
 
-**9A GPU render graph + tiled compositor → 9B OPFS scratch/memory → 9C native ICC/RGB/CMYK document colour → 9D PDF/X-4 + preflight/validation → 9E production torture suite and performance hardening.**
+**9A WebGL render graph + tiled compositor → 9B OPFS scratch/memory → 9C native working colour + printer profiles → 9D PDF/X-4 + preflight → 9E production torture suite and hardening.**
 
-The AI/design API is explicitly excluded.
+### 9A — WebGL2 tiled compositor
 
-### 9A/9B foundation shipped
+- Renderer-independent dependency graph covers layers, nested groups, adjustments, boards and document composites.
+- Visible-region tiles use stable identities across accelerated/resident/scratch tiers.
+- WebGL2 compositor implements explicit pixel math for Normal, Multiply, Screen, Overlay, Darken, Lighten, Color Dodge/Burn, Hard/Soft Light, Difference and Exclusion.
+- Hybrid tiled rendering uses GPU only where parity is explicit; unsupported blend modes, old devices, allocation failures and context loss fall back per tile to CPU Canvas.
+- GPU resources remain disposable acceleration data; editable document state is never owned by WebGL.
 
-PR #17 merged as `c1d32b5`, rebased on top of the guided-workspace UI work from PR #16.
+### 9B — pressure-driven OPFS scratch
 
-- Added a renderer-independent dependency graph for layers/groups/adjustments/boards/document composites.
-- Local changes can resolve to only the tiles touched by the changed node and its dependent composites.
-- Added stable tile identity shared by GPU, RAM and scratch tiers.
-- Added WebGL2 capability detection with mandatory CPU fallback.
-- Added bounded LRU tile residency by both tile count and byte budget with explicit disposal hooks for GPU texture ownership.
-- Added OPFS project scratch buckets for tiles, composites, previews and history.
-- Added quota/persistence inspection and a persisted-storage request path.
-- Scratch unavailability/denial is non-fatal by design; callers keep RAM/CPU fallbacks.
-- Added deterministic unit coverage for dependency invalidation, cache eviction and cross-tier cache keys.
-- The engineering contract and acceptance criteria for 9A through 9E live in `PHASE-9-PRODUCTION-ENGINE.md`.
+- GPU/RAM residency is bounded by tile count and bytes.
+- Normal/elevated/critical pressure decisions can rebudget residency and force LRU eviction into OPFS through the shared tile key.
+- Scratch supports restore, invalidation, quota inspection, persistence requests and per-project cleanup.
+- Critical origin-storage pressure may purge scratch.
+- OPFS is explicitly disposable. It is not and must not become the canonical project save; clearing site data may remove scratch without invalidating the design model.
 
-Final PR #17 validation on `5de32827`: strict TypeScript passed, unit tests passed, production build passed and Netlify deploy preview passed. The full Playwright browser suite was not run by normal CI and is not claimed as passed.
+### 9C — native working colour and printer profiles
 
-### What is not yet claimed
+- Documents have an explicit working colour model/profile; old documents default safely to sRGB.
+- Native RGB/CMYK/Gray/Lab values, CMYK TAC diagnostics and pure-K intent helpers are part of the colour model.
+- LittleCMS/WASM provides bidirectional sRGB ↔ CMYK transforms for embedded CMYK working profiles.
+- Working profile and output/proof printer profile are separate concepts.
+- Production Export can deliberately promote a validated loaded CMYK ICC profile to the document working space.
+- UK/Europe and Nigeria profile choices are starting guidance only. VoidCanvas never silently substitutes a regional guess for the printer's profile.
 
-- Stage is not yet driven by the new render graph; current CPU overview/sharp rendering remains the production path while integration is built.
-- WebGL2 shaders do not yet own normal layer/effect compositing.
-- OPFS scratch exists as a storage tier but pressure-driven GPU → RAM → OPFS spill/restore is not wired into Stage/history yet.
-- Documents still store/edit colour as RGB; native CMYK values/profile identity are not yet part of the document schema.
-- PDF/X-4 writer/conformance validation is not yet shipped.
-- The production torture suite/performance gates are not yet release gates.
+Browser display canvases remain RGB display surfaces. Native CMYK identity/channel intent belongs to the document colour engine rather than pretending the browser framebuffer itself is CMYK.
+
+### 9D — PDF/X-4 and production preflight
+
+- PDF/X export blocks when the output-intent profile is missing or a selected target/raster source is invalid.
+- VoidCanvas policy warns for no bleed and low document DPI; those are production policies, not invented PDF/X requirements.
+- Full-resolution artwork is converted through the selected ICC to CMYK.
+- The PDF/X writer emits PDF 1.6, an embedded CMYK ICCBased image colour space, `/GTS_PDFX` OutputIntent, XMP PDF/X-4 identification, TrimBox/BleedBox and trapped metadata.
+- The dedicated production writer does not emit DeviceRGB artwork.
+- PDF/X-4 is a flattened colour-managed print handoff. `.void` and layered PSD remain the editable/source handoff paths.
+
+### 9E — torture/performance hardening
+
+Deterministic CI fixtures cover:
+
+- 8K photo poster — 61 layers / 14 effects
+- 120-board campaign — 438 layers
+- 30,000 × 20,000 exhibition artwork
+- deep PSD workload — 320 layers / 48 effects
+- CMYK brochure workload
+
+CI gates bounded residency/overview policy, memory/storage pressure decisions, tile planning/readback orientation, PDF/X blocking preflight and PDF/X structural colour/output-intent requirements. Wall-clock timing/FPS/GPU memory remain real-browser measurements rather than flaky hosted-runner thresholds.
+
+See `PHASE-9-COMPLETION.md` for the shipped contract and fidelity boundaries.
 
 ## Brand workspace
 
-PR #14 (`8872a90`) promoted Brand into a dedicated workspace and added living published brand-guideline portals. PR #16 later simplified the guided Brand/mobile Effects UI before the Phase 9 foundation was rebased and merged.
+PR #14 (`8872a90`) promoted Brand into a dedicated workspace and added living published brand-guideline portals. PR #16 later simplified the guided Brand/mobile Effects UI before Phase 9.
 
 ## Separate future track: AI connector / design API
 
@@ -144,17 +161,14 @@ Do not include this in the active production sequence. If deliberately revived l
 - Brand workspace/portals merged through PR #14.
 - Professional production depth merged through PR #15.
 - Guided workspace/mobile Effects refinement merged through PR #16.
-- Phase 9A/9B foundation merged through PR #17.
+- Phase 9 foundation merged through PR #17 and Stage controller through PR #18.
+- WebGL2 composition core merged through PR #19; printer-profile colour foundation through PR #20.
+- Phase 9 completion is PR #21.
 - PR #8 designer-production workflows are on master.
 - `campaign/make-something` is historical and must not be merged wholesale.
 
 ## Next execution order
 
-1. Integrate Stage with the Phase 9 render graph and bounded tile residency while preserving CPU fallback.
-2. Move eligible layer/group/effect compositing to WebGL2 shaders and add context-loss recovery.
-3. Wire pressure-driven GPU → RAM → OPFS spill/restore and deep history storage.
-4. Introduce document-native working colour model/profile metadata and RGB/CMYK conversion/edit semantics.
-5. Implement PDF/X-4 output, print preflight and independent conformance validation.
-6. Build the production torture fixture suite and make measured performance/fidelity budgets release gates.
+Phase 9 is complete as an infrastructure/product run. New work should be driven by real production documents, browser/device measurements and regression reports rather than another broad architecture phase. Priority follow-up is measured parity/performance tuning on representative mobile and desktop hardware, plus any printer-specific PDF/X fixes found by receiving prepress workflows.
 
-Phase 9 is active. AI/design API remains excluded unless explicitly reactivated.
+AI/design API remains excluded unless explicitly reactivated.
