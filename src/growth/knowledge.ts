@@ -53,8 +53,8 @@ export const CAPABILITIES: CapabilityTruth[] = [
   {
     id: 'quick-tools',
     label: 'Single-purpose browser tools',
-    summary: 'Dedicated tool pages provide focused effects such as halftone, dither and glitch with a route into the full editor.',
-    routes: ['/tools/halftone', '/tools/dither', '/tools/glitch'],
+    summary: 'Dedicated tool pages provide focused image effects with immediate controls, local processing, download and a route into the full editor.',
+    routes: ['/tools', '/tools/halftone', '/tools/dither', '/tools/glitch', '/tools/grain', '/tools/pixel-sort'],
     advantages: ['search acquisition', 'low-friction first value', 'natural editor handoff'],
     risk: 'low',
   },
