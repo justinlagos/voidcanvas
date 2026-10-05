@@ -20,6 +20,7 @@ const compiled = await build({
       export { analyseLogo, NO_DECISIONS } from './src/studio/brand/logo'
       export { renderPage, recordPages } from './src/studio/brand-pages'
       export { composeCompatibilityPage } from './src/brand/compose/compat-pages'
+      export { applyLegacyParity } from './src/brand/compose/legacy-parity'
       export { renderIrPage, recordIrPage } from './src/studio/brand/ir-render'
     `,
     resolveDir: process.cwd(),
@@ -136,7 +137,7 @@ const rows = await page.evaluate(async (fixtures) => {
         api.NO_DECISIONS,
         [],
       )
-      const composed = api.composeCompatibilityPage(kind, {
+      const raw = api.composeCompatibilityPage(kind, {
         brand,
         orientation: 'landscape',
         pageNo: pageNo[kind],
@@ -144,6 +145,7 @@ const rows = await page.evaluate(async (fixtures) => {
         logoAspect: logo.width / logo.height,
         year: new Date().getFullYear(),
       })
+      const composed = api.applyLegacyParity(raw, { brand, orientation: 'landscape' })
       const ir = await api.renderIrPage(composed, brand, logo, 0.5, api.NO_DECISIONS)
 
       const legacyRecorded = (
@@ -157,7 +159,7 @@ const rows = await page.evaluate(async (fixtures) => {
           [],
         )
       )[0]
-      const recordComposed = api.composeCompatibilityPage(kind, {
+      const rawRecorded = api.composeCompatibilityPage(kind, {
         brand,
         orientation: 'landscape',
         pageNo: 1,
@@ -165,6 +167,7 @@ const rows = await page.evaluate(async (fixtures) => {
         logoAspect: logo.width / logo.height,
         year: new Date().getFullYear(),
       })
+      const recordComposed = api.applyLegacyParity(rawRecorded, { brand, orientation: 'landscape' })
       const irRecorded = await api.recordIrPage(recordComposed, brand, logo, api.NO_DECISIONS)
 
       out.push({
