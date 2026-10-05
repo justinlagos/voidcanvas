@@ -34,12 +34,14 @@ const roundPath = (ctx: CanvasRenderingContext2D, rect: Rect, radius = 0) => {
   else ctx.rect(rect.x, rect.y, rect.w, rect.h)
 }
 
+const sentenceCase = (value: string) => {
+  const lower = value.toLocaleLowerCase()
+  return lower ? lower.charAt(0).toLocaleUpperCase() + lower.slice(1) : lower
+}
+
 const caseText = (node: TextNode) => {
   if (node.case === 'upper') return node.text.toUpperCase()
-  if (node.case === 'sentence') {
-    const value = node.text.toLocaleLowerCase()
-    return value.replace(/^\p{L}/u, (letter) => letter.toLocaleUpperCase())
-  }
+  if (node.case === 'sentence') return sentenceCase(node.text)
   return node.text
 }
 
@@ -78,8 +80,7 @@ function paintText(
   brand: Brand,
 ) {
   const text = caseText(node)
-  const originalSize = node.style.size
-  let size = originalSize
+  let size = node.style.size
   ctx.font = canvasFont(node.style, brand)
   ctx.textAlign = node.align
   ctx.textBaseline = node.baseline ?? (node.valign === 'middle' ? 'middle' : 'top')
@@ -121,7 +122,6 @@ function paintText(
   lines.forEach((line, index) => ctx.fillText(line, anchorX, y + index * lineHeight))
   ctx.restore()
   ;(ctx as unknown as { letterSpacing?: string }).letterSpacing = '0px'
-  node.style.size = originalSize
 }
 
 function fallbackLogo(ctx: CanvasRenderingContext2D, node: LogoNode, brand: Brand) {
