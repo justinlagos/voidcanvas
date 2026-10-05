@@ -27,7 +27,7 @@ function paramDistance(a: Record<string, number | string | boolean>, b: Record<s
 
 export function pageGenomeDistance(a: PageGenome, b: PageGenome) {
   let d = 0
-  d += (a.compositionId === b.compositionId ? 0 : 1) * 0.3
+  d += (a.compositionId === b.compositionId ? 0 : 1) * 0.6
   d += (a.grid === b.grid ? 0 : 1) * 0.12
   d += (a.axis === b.axis ? 0 : 1) * 0.1
   d += Math.min(1, Math.abs(a.marginRatio - b.marginRatio) / 0.15) * 0.08
@@ -40,7 +40,7 @@ export function pageGenomeDistance(a: PageGenome, b: PageGenome) {
 }
 
 export function documentGenomeDistance(a: DocGenome, b: DocGenome) {
-  const family = a.family === b.family ? 0 : 0.16
+  const family = a.family === b.family ? 0 : 0.24
   const n = Math.max(a.pages.length, b.pages.length)
   if (!n) return family
   let pages = 0
