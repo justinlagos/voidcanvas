@@ -19,23 +19,36 @@ import { VARIANT_LABEL, VARIANT_USE, type VariantId } from '@/lib/intelligence/l
 import { suggestLogoName } from '@/lib/intelligence/naming'
 import { brandHealth, healthSummary, type HealthGroup } from '@/lib/intelligence/brand'
 import type { Level } from '@/lib/intelligence/contrast'
+import { composeRuntimePages } from '@/brand/compose/runtime'
+import { renderRuntimePage } from './brand-v2-render'
 
 function Page({ spec, pageNo, pageCount, brand, logo, o, cssWidth }: { spec: PageSpec; pageNo: number; pageCount: number; brand: Brand; logo: LogoInfo | null; o: Orientation; cssWidth: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const d = useBrand(s => s.decisions)
   const photos = useBrand(s => s.photos)
+  const pages = useBrand(s => s.pages)
+  const salt = useBrand(s => s.tokens.salt)
+  const layoutSalt = useBrand(s => s.tokens.layoutSalt ?? 0)
+  const runtime = useMemo(() => composeRuntimePages({ brand, logo, pages, salt, layoutSalt }), [brand, logo, pages, salt, layoutSalt])
+  const sourceIndex = pages.indexOf(spec)
   useEffect(() => {
     let live = true
     const big = cssWidth > 400
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
     const scale = Math.min(2, Math.max(0.25, (cssWidth * dpr) / SIZES[o].w))
     const t = setTimeout(() => {
-      renderPage(spec, pageNo, pageCount, brand, logo, o, scale, d, spec.kind === 'photo' ? photos : []).then(c => { if (!live || !ref.current) return; const x = ref.current.getContext('2d')!; ref.current.width = c.width; ref.current.height = c.height; x.drawImage(c, 0, 0) })
+      renderRuntimePage({ spec, irPage: runtime.irByIndex.get(sourceIndex), pageNo, pageCount, brand, logo, orientation: o, scale, decisions: d, photos }).then(c => {
+        if (!live || !ref.current) return
+        const x = ref.current.getContext('2d')!
+        ref.current.width = c.width
+        ref.current.height = c.height
+        x.drawImage(c, 0, 0)
+      })
     }, big ? 0 : 80)
     return () => { live = false; clearTimeout(t) }
-  }, [spec, pageNo, pageCount, brand, logo, o, cssWidth, d, spec.kind === 'photo' ? photos : null]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [spec, sourceIndex, pageNo, pageCount, brand, logo, o, cssWidth, d, photos, runtime])
   const ar = SIZES[o].h / SIZES[o].w
-  return <canvas ref={ref} className="block rounded-md shadow-lg bg-white" style={{ width: cssWidth, height: cssWidth * ar }} />
+  return <canvas ref={ref} data-brand-renderer={o === 'landscape' && spec.variant === 0 && runtime.irByIndex.has(sourceIndex) ? 'v2' : 'legacy'} className="block rounded-md shadow-lg bg-white" style={{ width: cssWidth, height: cssWidth * ar }} />
 }
 
 // ── small controls ──

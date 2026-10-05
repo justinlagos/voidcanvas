@@ -43,8 +43,8 @@ function runtimeHooks(brand: Brand, logo: LogoInfo | null, decisions: LogoDecisi
   return {
     drawLogo(node: Extract<Node, { t: 'logo' }>, ctx: CanvasRenderingContext2D) {
       const bg = brandPaint(brand, node.on)
+      const r = node.rect
       if (!logo) {
-        const r = node.rect
         const radius = Math.min(r.w, r.h) * 0.25
         ctx.fillStyle = brand.roles[0].hex
         ctx.beginPath(); ctx.arc(r.x + r.w / 2, r.y + r.h / 2, radius, 0, Math.PI * 2); ctx.fill()
@@ -60,13 +60,42 @@ function runtimeHooks(brand: Brand, logo: LogoInfo | null, decisions: LogoDecisi
             : node.version === 'mono-brand' ? 'brand'
               : node.version === 'grayscale' ? 'grayscale'
                 : autoLogoMode(brand, logo, decisions, bg)
-      fitImage(ctx, logoCanvas(logo, requested, brand), logo.width, logo.height, node.rect, true)
+      const image = logoCanvas(logo, requested, brand)
+
+      ctx.save()
+      if (node.demo === 'misuse') {
+        ctx.translate(r.x + r.w / 2, r.y + r.h / 2)
+        ctx.rotate(-0.12)
+        ctx.scale(1.18, 0.78)
+        fitImage(ctx, image, logo.width, logo.height, { x: -r.w / 2, y: -r.h / 2, w: r.w, h: r.h }, true)
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.strokeStyle = '#d92d20'; ctx.lineWidth = 5
+        ctx.beginPath(); ctx.moveTo(r.x + 18, r.y + 18); ctx.lineTo(r.x + r.w - 18, r.y + r.h - 18); ctx.stroke()
+        ctx.beginPath(); ctx.moveTo(r.x + r.w - 18, r.y + 18); ctx.lineTo(r.x + 18, r.y + r.h - 18); ctx.stroke()
+      } else if (node.demo === 'minsize') {
+        const box = { x: r.x + r.w * 0.28, y: r.y + r.h * 0.32, w: r.w * 0.44, h: r.h * 0.36 }
+        fitImage(ctx, image, logo.width, logo.height, box, true)
+        ctx.strokeStyle = brandPaint(brand, { role: 'ink', alpha: 0.3 }); ctx.lineWidth = 2
+        ctx.beginPath(); ctx.moveTo(box.x, box.y + box.h + 18); ctx.lineTo(box.x + box.w, box.y + box.h + 18); ctx.stroke()
+      } else {
+        fitImage(ctx, image, logo.width, logo.height, r, true)
+        if (node.demo === 'clearspace' || node.clearSpace) {
+          const pad = Math.min(r.w, r.h) * Math.min(0.22, Math.max(0.05, brand.logo.clearSpace * 0.18))
+          ctx.setLineDash([10, 8]); ctx.strokeStyle = brandPaint(brand, { role: 'ink', alpha: 0.28 }); ctx.lineWidth = 2
+          ctx.strokeRect(r.x + pad, r.y + pad, Math.max(1, r.w - pad * 2), Math.max(1, r.h - pad * 2))
+          ctx.setLineDash([])
+        }
+      }
+      ctx.restore()
     },
     drawImage(node: Extract<Node, { t: 'image' }>, ctx: CanvasRenderingContext2D) {
       const r = node.rect
       if (typeof node.src === 'object' && 'photo' in node.src && photos[node.src.photo]) {
         const image = photos[node.src.photo].img
+        ctx.save()
+        ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip()
         fitImage(ctx, image, image.width, image.height, r, node.crop === 'contain')
+        ctx.restore()
         return
       }
       ctx.fillStyle = brandPaint(brand, { role: 'neutral', step: 200 })
@@ -77,28 +106,32 @@ function runtimeHooks(brand: Brand, logo: LogoInfo | null, decisions: LogoDecisi
     drawDevice(node: Extract<Node, { t: 'device' }>, ctx: CanvasRenderingContext2D) {
       const r = node.rect
       ctx.save()
+      ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip()
       if (node.kind === 'angle-field') {
         const spacing = Number(node.params.spacing ?? 64)
         const angle = Number(node.params.angle ?? 24) * Math.PI / 180
         ctx.strokeStyle = brandPaint(brand, { role: 'ink', alpha: Number(node.params.opacity ?? 0.08) })
         ctx.lineWidth = 3
         ctx.translate(r.x + r.w / 2, r.y + r.h / 2); ctx.rotate(angle)
-        for (let x = -r.w; x <= r.w; x += spacing) { ctx.beginPath(); ctx.moveTo(x, -r.h); ctx.lineTo(x, r.h); ctx.stroke() }
+        for (let x = -r.w * 1.5; x <= r.w * 1.5; x += spacing) { ctx.beginPath(); ctx.moveTo(x, -r.h * 1.5); ctx.lineTo(x, r.h * 1.5); ctx.stroke() }
       } else {
+        const scale = Number(node.params.scale ?? 1)
+        const offsetY = Number(node.params.offsetY ?? 0)
         ctx.fillStyle = brandPaint(brand, { role: 'brand', alpha: Number(node.params.opacity ?? 0.12) })
-        ctx.beginPath(); ctx.arc(r.x + r.w * 0.68, r.y + r.h * 0.38, Math.min(r.w, r.h) * 0.52, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(r.x + r.w * 0.68, r.y + r.h * (0.38 + offsetY), Math.min(r.w, r.h) * 0.52 * scale, 0, Math.PI * 2); ctx.fill()
       }
       ctx.restore()
     },
     drawSpecimen(node: Extract<Node, { t: 'specimen' }>, ctx: CanvasRenderingContext2D) {
       const r = node.rect
+      ctx.save(); ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip()
       ctx.fillStyle = brand.surfaces.inkOnLight
       ctx.font = `700 ${Math.min(190, r.h * 0.42)}px ${JSON.stringify(brand.fonts[node.family].family)}`
       ctx.textBaseline = 'top'
       ctx.fillText(node.mode === 'waterfall' ? 'Aa 72' : brand.name, r.x, r.y, r.w)
       ctx.font = `500 ${Math.min(42, r.h * 0.11)}px ${JSON.stringify(brand.fonts.body.family)}`
       ctx.fillText('ABCDEFGHIJKLMNOPQRSTUVWXYZ', r.x, r.y + r.h * 0.55, r.w)
-      ctx.textBaseline = 'alphabetic'
+      ctx.restore()
     },
   }
 }
