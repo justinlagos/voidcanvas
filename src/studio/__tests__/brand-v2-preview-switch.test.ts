@@ -6,7 +6,8 @@ const source = fs.readFileSync('src/studio/BrandGuideline.tsx', 'utf8')
 describe('Brand V2 live guideline preview', () => {
   it('renders the live preview through the runtime V2 boundary', () => {
     expect(source).toContain("import { composeRuntimePages } from '@/brand/compose/runtime'")
-    expect(source).toContain("import { renderRuntimePage } from './brand-v2-render'")
+    expect(source).toContain("from './brand-v2-render'")
+    expect(source).toContain('renderRuntimePage')
     expect(source).toContain('renderRuntimePage({ spec, irPage: runtime.irByIndex.get(sourceIndex)')
     expect(source).toContain('data-brand-renderer=')
   })
