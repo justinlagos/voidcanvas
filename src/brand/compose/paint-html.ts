@@ -20,12 +20,14 @@ const pct = (value: number, total: number) => `${((value / total) * 100).toFixed
 const rectStyle = (rect: Rect, page: Page) =>
   `left:${pct(rect.x, page.size.w)};top:${pct(rect.y, page.size.h)};width:${pct(rect.w, page.size.w)};height:${pct(rect.h, page.size.h)}`
 
+const sentenceCase = (value: string) => {
+  const lower = value.toLocaleLowerCase()
+  return lower ? lower.charAt(0).toLocaleUpperCase() + lower.slice(1) : lower
+}
+
 const textValue = (node: TextNode) => {
   if (node.case === 'upper') return node.text.toUpperCase()
-  if (node.case === 'sentence') {
-    const value = node.text.toLocaleLowerCase()
-    return value.replace(/^\p{L}/u, (letter) => letter.toLocaleUpperCase())
-  }
+  if (node.case === 'sentence') return sentenceCase(node.text)
   return node.text
 }
 
