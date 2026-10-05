@@ -1,6 +1,6 @@
 export type SearchCompetition = 'L' | 'M' | 'H'
 export type SearchOpportunityLevel = 'L' | 'M' | 'H'
-export type SearchStatus = 'live' | 'existing' | 'planned'
+export type SearchStatus = 'live' | 'existing' | 'planned' | 'skip'
 
 export interface SearchOpportunityEvidence {
   query: string
@@ -67,6 +67,7 @@ export function scoreSearchEvidence(x: SearchOpportunityEvidence): number {
 }
 
 export function actionForSearchEvidence(x: SearchOpportunityEvidence): RankedSearchOpportunity['action'] {
+  if (x.status === 'skip') return 'hold'
   const score = scoreSearchEvidence(x)
   if (x.status === 'live') return score >= 65 ? 'protect' : 'improve'
   if (x.status === 'existing') return score >= 60 ? 'improve' : 'hold'
@@ -82,7 +83,7 @@ export function rankSearchOpportunities(rows: SearchOpportunityEvidence[]): Rank
 export function summarizeSearchOpportunities(rows: SearchOpportunityEvidence[]) {
   const ranked = rankSearchOpportunities(rows)
   const clusters = Array.from(new Set(rows.map(x => x.cluster))).sort()
-  const counts = { live: 0, existing: 0, planned: 0, protect: 0, improve: 0, build: 0, hold: 0 }
+  const counts = { live: 0, existing: 0, planned: 0, skip: 0, protect: 0, improve: 0, build: 0, hold: 0 }
   for (const x of ranked) {
     counts[x.status]++
     counts[x.action]++
