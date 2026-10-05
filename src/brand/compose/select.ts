@@ -25,9 +25,15 @@ export function selectComposition(input: {
   const viable = viableCandidates(input.candidates)
   if (!viable.length) return null
 
-  const scored = viable.map((candidate) => {
+  const window = input.recentWindow ?? 8
+  const recent = (input.recent ?? []).slice(-Math.max(0, window))
+  const recentIds = new Set(recent.map((g) => g.compositionId))
+  const fresh = viable.filter((candidate) => !recentIds.has(candidate.page.genome.compositionId))
+  const pool = fresh.length ? fresh : viable
+
+  const scored = pool.map((candidate) => {
     const lintPenalty = candidate.lint.filter((f) => f.level === 'check').length * 0.05
-    const recentPenalty = recentCompositionPenalty(candidate.page.genome, input.recent ?? [], input.recentWindow ?? 8)
+    const recentPenalty = recentCompositionPenalty(candidate.page.genome, recent, window)
     return {
       page: candidate.page,
       score: candidate.fit - lintPenalty - recentPenalty,
