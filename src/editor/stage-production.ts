@@ -12,16 +12,26 @@ const union = (boxes: RenderBounds[]): RenderBounds => {
   return { x, y, w: Math.max(0, r - x), h: Math.max(0, bot - y) }
 }
 
+export type LayerBoundsProvider = (layer: Layer, doc: Doc) => RenderBounds
 export interface StageGraph {
   graph: RenderGraph
   budget: RenderBudget
   groupBounds: Map<string, RenderBounds>
 }
 
-/** Build renderer dependencies directly from the editable document model. No duplicate render-only document state. */
-export function buildStageGraph(doc: Doc, layers: Layer[], groups: Group[], dpr = 1): StageGraph {
+/**
+ * Build renderer dependencies directly from the editable document model. Bounds are injectable so the graph
+ * can be built in workers/headless tests without DOMMatrix; browser Stage keeps the exact editor geometry.
+ */
+export function buildStageGraph(
+  doc: Doc,
+  layers: Layer[],
+  groups: Group[],
+  dpr = 1,
+  boundsOf: LayerBoundsProvider = layerBounds,
+): StageGraph {
   const graph = new RenderGraph(), budget = renderBudget(doc.width, doc.height, dpr)
-  const layerBox = new Map(layers.map(l => [l.id, layerBounds(l, doc)]))
+  const layerBox = new Map(layers.map(l => [l.id, boundsOf(l, doc)]))
   const groupBounds = new Map<string, RenderBounds>()
   const children = new Map<string, Group[]>()
   groups.forEach(g => {
@@ -121,8 +131,8 @@ export class StageTileEngine<T> {
     })
   }
 
-  configure(doc: Doc, layers: Layer[], groups: Group[], dpr = 1) {
-    const built = buildStageGraph(doc, layers, groups, dpr)
+  configure(doc: Doc, layers: Layer[], groups: Group[], dpr = 1, boundsOf: LayerBoundsProvider = layerBounds) {
+    const built = buildStageGraph(doc, layers, groups, dpr, boundsOf)
     this.graph = built.graph; this.budget = built.budget
     this.resident.maxTiles = built.budget.maxResidentTiles
     this.resident.maxBytes = built.budget.maxResidentTiles * built.budget.tileSize * built.budget.tileSize * 4
