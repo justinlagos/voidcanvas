@@ -39,6 +39,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Render Brand Guidelines V2 visual baseline
         run: npm run brand:visual-baseline
+      - name: Check Phase 1 renderer parity
+        run: npm run brand:phase1
       - name: Build for Brand browser regression
         run: npm run build
       - name: Run Brand phone regression
@@ -51,10 +53,12 @@ jobs:
             sleep 1
           done
           BASE=http://localhost:3123 node e2e/guided-workspace.mjs
-      - name: Upload visual baseline
+      - name: Upload Brand V2 visual evidence
         uses: actions/upload-artifact@v4
         with:
           name: brand-v2-baseline
-          path: e2e/.out/brand-diversity
+          path: |
+            e2e/.out/brand-diversity
+            e2e/.out/brand-v2-phase1
           if-no-files-found: error
           retention-days: 14
