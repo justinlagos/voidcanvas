@@ -23,8 +23,8 @@ export function validateGrowthState(): GrowthValidation {
 
   const capabilityIds = CAPABILITIES.map(c => c.id)
   const opportunityIds = OPPORTUNITIES.map(o => o.id)
-  for (const id of new Set(duplicates(capabilityIds))) blockers.push(`duplicate capability id: ${id}`)
-  for (const id of new Set(duplicates(opportunityIds))) blockers.push(`duplicate opportunity id: ${id}`)
+  for (const id of Array.from(new Set(duplicates(capabilityIds)))) blockers.push(`duplicate capability id: ${id}`)
+  for (const id of Array.from(new Set(duplicates(opportunityIds)))) blockers.push(`duplicate opportunity id: ${id}`)
 
   const known = new Set(capabilityIds)
   for (const o of OPPORTUNITIES) {
