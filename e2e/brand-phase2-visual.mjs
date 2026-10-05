@@ -202,3 +202,4 @@ if (results.length !== 12) throw new Error(`Expected 12 direction-family contact
 for (const result of results) {
   if (result.hashes.length !== 8 || result.signatures.length !== 8) throw new Error(`Expected eight cover takes for ${result.family}`)
 }
+if (!summary.pHashPass) throw new Error(`Brand V2 cover diversity regressed: minimum pHash distance ${summary.minCoverPHashDistance}, expected at least ${summary.targetMinCoverPHashDistance}`)

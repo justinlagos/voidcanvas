@@ -127,15 +127,16 @@ const croppedMark: CoverComposition = (ctx) => ({
 })
 
 const diagonalMotion: CoverComposition = (ctx) => ({
-  kind: 'cover', width: W, height: H, background: paper,
+  kind: 'cover', width: W, height: H, background: secondary,
   nodes: [
-    { t: 'device', id: 'angle-field', rect: rect(0, 0, W, H), kind: 'angle-field', params: { angle: ctx.deviceAngle ?? 23, spacing: 64, opacity: 0.1 } },
-    { t: 'frame', id: 'block', rect: rect(850, 0, 750, H), fill: secondary, children: [] },
-    eyebrow(rect(110, 120, 520, 40)),
-    title(ctx, rect(110, 360, 1180, 290), 156),
-    logo(rect(1180, 650, 240, 140), secondary),
+    { t: 'device', id: 'angle-field', rect: rect(0, 0, W, H), kind: 'angle-field', params: { angle: ctx.deviceAngle ?? 23, spacing: 54, opacity: 0.16 } },
+    { t: 'frame', id: 'top-signal', rect: rect(0, 0, W, 150), fill: brand, children: [] },
+    { t: 'frame', id: 'type-band', rect: rect(0, 285, W, 365), fill: paper, children: [] },
+    eyebrow(rect(1050, 72, 430, 40), light, 'right'),
+    title(ctx, rect(120, 350, 1360, 220), 150, ink, 'center'),
+    logo(rect(1240, 700, 240, 120), secondary),
   ],
-  genome: genome('cover-diagonal-motion', ctx, { axis: 'diagonal', devices: ['angle-field'], colourBlocking: 'flood' }),
+  genome: genome('cover-diagonal-motion', ctx, { axis: 'diagonal', devices: ['angle-field'], colourBlocking: 'banded-flood', density: 0.76 }),
 })
 
 const specimenPlate: CoverComposition = (ctx) => ({
