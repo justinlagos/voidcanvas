@@ -197,3 +197,8 @@ const summary = {
 }
 fs.writeFileSync(path.join(OUT, 'summary.json'), JSON.stringify(summary, null, 2))
 console.log(JSON.stringify(summary, null, 2))
+
+if (results.length !== 12) throw new Error(`Expected 12 direction-family contact sheets, got ${results.length}`)
+for (const result of results) {
+  if (result.hashes.length !== 8 || result.signatures.length !== 8) throw new Error(`Expected eight cover takes for ${result.family}`)
+}
