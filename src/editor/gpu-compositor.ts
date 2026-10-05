@@ -59,6 +59,15 @@ export class TileResidency<T> {
 
   delete(key: string) { return this.drop(key, false) }
 
+  /** Change the live budget immediately; excess least-recently-used tiles are spilled through onEvict. */
+  rebudget(maxTiles: number, maxBytes = this.maxBytes) {
+    this.maxTiles = Math.max(1, Math.floor(maxTiles))
+    this.maxBytes = Math.max(0, maxBytes)
+    this.trim()
+  }
+
+  trimNow() { this.trim() }
+
   clear() {
     Array.from(this.items.values()).forEach(x => this.dispose?.(x.value))
     this.items.clear()
