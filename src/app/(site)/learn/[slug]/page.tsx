@@ -11,6 +11,7 @@ import { Helpful, PathNav, Toc, type PathLite } from '@/components/site/ArticleE
 import { fmtDate } from '@/content/blog/index'
 import type { Article } from '@/content/types'
 import { pageTitle } from '@/content/learn/seo'
+import { toolForArticle } from '@/growth/contentGraph'
 
 export const dynamicParams = false
 export function generateStaticParams() { return ARTICLES.map(a => ({ slug: a.slug })) }
@@ -31,7 +32,8 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
 
 /** The product a guide leans on, for the sidebar and the closing banner. */
 function productFor(a: Article): { label: string; href: string } {
-  if (a.body.some(b => b.t === 'try' && b.href.startsWith('/tools/halftone'))) return { label: 'Open the Halftone tool', href: '/tools/halftone' }
+  const tool = toolForArticle(a)
+  if (tool) return { label: tool.label, href: tool.href }
   if (a.category === 'studio' || (a.feature ?? '').startsWith('Studio')) return { label: 'Open Studio', href: '/studio' }
   if (a.category === 'effects' || (a.feature ?? '').startsWith('Effects')) return { label: 'Open Effects', href: '/effects' }
   return { label: 'Open the Editor', href: '/editor' }
@@ -106,7 +108,6 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
           )}
           <div className="mt-8 sm:mt-10"><Prose body={a.body} /></div>
 
-          {/* Closing banner when the guide has no product paragraph of its own */}
           {!hasProduct && (
             <aside className="mt-12 rounded-[24px] border border-lp-line bg-[linear-gradient(135deg,var(--lp-panel),var(--lp-card))] px-5 sm:px-7 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -120,7 +121,6 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
           <Suspense><PathNav slug={a.slug} paths={paths} where="bottom" /></Suspense>
           <Helpful slug={a.slug} />
 
-          {/* Where to go from here */}
           {(before.length > 0 || next.length > 0 || also.length > 0) && (
             <nav aria-label="Where to go from here" className="mt-10 grid sm:grid-cols-2 gap-x-8 gap-y-6 text-[15px]">
               {before.length > 0 && (
