@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { lintPage, lintPasses } from './lint'
-import { paintHtml } from './paint-html'
+import { paintHtml, type HtmlResolver } from './paint-html'
 import type { Page } from './types'
 
 const page: Page = {
@@ -34,8 +34,8 @@ const page: Page = {
   ],
 }
 
-const htmlResolver = {
-  colour: (paint: { hex?: string }) => paint.hex ?? '#000000',
+const htmlResolver: HtmlResolver = {
+  colour: (paint) => ('hex' in paint ? paint.hex : '#000000'),
   font: () => 'Inter',
 }
 
