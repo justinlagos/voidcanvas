@@ -19,9 +19,9 @@ describe('tool factory', () => {
     expect(String(m.title)).toContain('Halftone Generator')
   })
 
-  it('derives related tools from the registry', () => {
-    const related = relatedTools(TOOLS, 'halftone')
+  it('derives related tools from the registry without the current tool', () => {
+    const related = relatedTools(TOOLS, 'halftone', 4)
     expect(related.map(x => x.slug)).not.toContain('halftone')
-    expect(related.length).toBe(2)
+    expect(related.length).toBe(Math.min(4, Object.keys(TOOLS).length - 1))
   })
 })
