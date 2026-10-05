@@ -5,6 +5,7 @@ import { Pwa } from '@/components/Pwa'
 import { Analytics } from '@/components/Feedback'
 import { StudyMode } from '@/components/research/StudyMode'
 import { ExperimentCapture } from '@/growth/ExperimentCapture'
+import { ShareAcquisitionCTA } from '@/growth/ShareAcquisitionCTA'
 import './globals.css'
 
 // Fonts ship with the app (self-hosted by next/font), so nothing is fetched from Google at runtime.
@@ -32,7 +33,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
-      <body className="font-sans antialiased">{children}<Pwa /><Analytics /><StudyMode /><Suspense fallback={null}><ExperimentCapture /></Suspense></body>
+      <body className="font-sans antialiased">{children}<Pwa /><Analytics /><StudyMode /><Suspense fallback={null}><ExperimentCapture /><ShareAcquisitionCTA /></Suspense></body>
     </html>
   )
 }
