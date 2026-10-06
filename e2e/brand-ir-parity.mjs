@@ -1,7 +1,7 @@
 // Phase 1 parity measurement for the first Brand Guidelines V2 IR pages.
 // Writes side-by-side contact sheets and machine-readable pixel/recorder drift metrics.
-// This is measurement only. Production routing stays on the legacy renderer until the
-// measured drift is accepted and the recorder boxes are brought within the Phase 1 gate.
+// e2e/brand-ir-parity-gate.mjs reads the metrics written here and fails CI when the
+// migrated pages drift from the legacy renderer, which remains the fallback path.
 
 import { build } from 'esbuild'
 import { chromium } from 'playwright'

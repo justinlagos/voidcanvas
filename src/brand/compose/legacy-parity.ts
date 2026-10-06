@@ -70,8 +70,6 @@ export function applyLegacyParity(source: Page, c: LegacyParityContext): Page {
   }
 
   if (page.kind === 'colour') {
-    const top = m + 96
-    const sh = 300
     const barH = o === 'landscape' ? 34 : 44
     const barY = h - m * 1.25 - barH
     const roleSize = o === 'landscape' ? 16 : 19
@@ -84,14 +82,12 @@ export function applyLegacyParity(source: Page, c: LegacyParityContext): Page {
       const name = text(page, `colour-${role.id}-name`)
       const usage = text(page, `colour-${role.id}-usage`)
       const specs = text(page, `colour-${role.id}-specs`)
-      if (sample) sample.baseline = sample.rect.y + (o === 'landscape' ? 26 : 26)
+      if (sample) sample.baseline = sample.rect.y + 26
       if (name) {
         const nameBaseline = name.rect.y + 28
         name.baseline = nameBaseline
         if (usage) usage.baseline = nameBaseline + 32
         if (specs) {
-          // Current role copy fits one line in the compatibility layout. Match the old
-          // para() return value exactly: first usage baseline + one line + 8 px.
           specs.baseline = nameBaseline + 32 + usageLine + 8
           specs.style.lineHeight = roleLine / roleSize
         }
@@ -112,9 +108,18 @@ export function applyLegacyParity(source: Page, c: LegacyParityContext): Page {
       const node = text(page, `usage-${index}-text`)
       if (node) {
         node.baseline = barY + barH / 2 + 5
-        if (seg > 70) node.rect.x = x + 10
-        else node.rect.x = x + 6
+        node.rect.x = seg > 70 ? x + 10 : x + 6
         node.rect.w = Math.max(node.rect.w, seg + 80)
+      }
+      if (ratio.hex.toLowerCase() === b.surfaces.light.toLowerCase()) {
+        page.nodes.push({
+          t: 'frame',
+          id: `usage-${index}-surface-outline`,
+          rect: { x: x + 0.5, y: barY + 0.5, w: Math.max(0, seg - 1), h: barH - 1 },
+          stroke: { hex: 'rgba(0,0,0,0.1)' },
+          strokeWidth: 1,
+          children: [],
+        })
       }
       x += seg
     })

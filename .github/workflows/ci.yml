@@ -47,6 +47,8 @@ jobs:
         run: npm run brand:phase2-visual
       - name: Measure legacy to IR parity
         run: node e2e/brand-ir-parity.mjs
+      - name: Gate legacy to IR parity
+        run: node e2e/brand-ir-parity-gate.mjs
       - name: Build for Brand browser regression
         run: npm run build
       - name: Run Brand phone regression
