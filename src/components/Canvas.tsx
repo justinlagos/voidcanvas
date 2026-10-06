@@ -82,10 +82,13 @@ export function Canvas() {
     const canvas = canvasRef.current, img = originalImageRef.current
     if (!canvas || !img || !fullStack({ activeEffect, params, below, above }, true).length) return
     const effect = activeEffect, p = params, b = below, a = above
+    // Taken when the preview is asked for, not when its job starts: a queued preview that only starts
+    // after the sharp render landed must not paint its low-res frame over it.
+    const revision = fullRevision.current
     previewChan.current.request(async () => {
       if (originalImageRef.current !== img || stale(effect, p, b, a)) return
+      if (revision !== fullRevision.current) return
       const ctx = canvas.getContext('2d', { willReadFrequently: true }); if (!ctx) return
-      const revision = fullRevision.current
       try {
         const small = workSize(canvas.width, canvas.height, PREVIEW_MAX)
         const k = Math.max(small.width, small.height) / Math.max(canvas.width, canvas.height)
@@ -299,6 +302,7 @@ export function Canvas() {
           <canvas
             ref={canvasRef}
             data-result-canvas
+            aria-busy={isProcessing}
             className="block w-full h-full"
             style={showComparison ? { clipPath: `inset(0 ${100 - comparisonPosition}% 0 0)` } : {}}
           />

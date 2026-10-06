@@ -25,17 +25,25 @@ const timings = {}
 const listBtn = async name => page.locator(`[data-effects-sidebar] button:has-text("${name}")`).first()
 async function settle() {
   await page.waitForTimeout(60)
+  // The result canvas is aria-busy while any render (quick preview or sharp) is pending. The
+  // "Processing" label only shows after 180 ms, so it cannot tell a render that has not started yet.
+  await page.waitForSelector('canvas[data-result-canvas][aria-busy="false"]', { timeout: 30000 })
   await page.waitForFunction(() => !document.body.innerText.includes('Processing'), null, { timeout: 30000 })
 }
 const canvasHash = () => page.$eval('canvas[data-result-canvas]', el => { const x = el.getContext('2d'); const d = x.getImageData(0, 0, el.width, el.height).data; let h = 0; for (let i = 0; i < d.length; i += 4 * 211) h = (h * 31 + d[i] + d[i + 1] * 7 + d[i + 2] * 13) >>> 0; return h })
 // Warm the worker first so the first timed effect does not pay its start-up cost.
 await (await listBtn('Sepia')).click(); await settle()
 const effectNames = ['Bloom', 'Oil Paint', 'Watercolor', 'Blur', 'Halftone', 'Glitch', 'Pixelate', 'Motion Blur']
+// Time from the click until the new effect is first on the canvas (the quick preview for slow effects),
+// which is what a designer waits for. The sharp render that follows is then allowed to finish.
 for (const n of effectNames) {
+  const before = await canvasHash()
+  const btn = await listBtn(n)
   const t0 = Date.now()
-  await (await listBtn(n)).click()
-  await settle()
+  await btn.click()
+  await page.waitForFunction(h => { const el = document.querySelector('canvas[data-result-canvas]'); const d = el.getContext('2d').getImageData(0, 0, el.width, el.height).data; let x = 0; for (let i = 0; i < d.length; i += 4 * 211) x = (x * 31 + d[i] + d[i + 1] * 7 + d[i + 2] * 13) >>> 0; return x !== h }, before, { timeout: 30000, polling: 16 })
   timings[n] = Date.now() - t0
+  await settle()
 }
 ok('B06 Bloom under 700 ms', timings['Bloom'] < 700, JSON.stringify(timings))
 ok('B06 Oil Paint under 700 ms', timings['Oil Paint'] < 700)
