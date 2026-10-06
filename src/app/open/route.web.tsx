@@ -1,3 +1,4 @@
+// Web only (*.web.tsx): a redirect route the desktop app's static export cannot include and has no use for offline.
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveOpenRequest } from '@/growth/open'
 
