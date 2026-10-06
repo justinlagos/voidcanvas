@@ -506,14 +506,14 @@ export const articles: Article[] = [
     summary: 'Your images and designs stay on your device unless you choose a feature that shares them, and then they are encrypted first. The complete list of what goes over the network, and how to turn the usage counts off.',
     category: 'help',
     level: 'Beginner',
-    updated: '2026-10-03',
+    updated: '2026-10-05',
     related: ['private-session', 'saving-and-your-files', 'ai-on-this-device', 'report-a-bug-well'],
     keywords: 'privacy data gdpr tracking analytics telemetry cookies upload cloud what is sent do not track usage counts opt out',
     body: [
       { t: 'p', text: "This page lists exactly what Voidcanvas sends over the network and what never leaves your device. It is useful if you work with client material under an NDA, or if you just want to know." },
 
       { t: 'h', text: 'What never leaves your device' },
-      { t: 'p', text: "Editing, effects, AI tools, Studio boards and exports all run inside your browser. These are never sent anywhere, unless you share them with a team or through a client link, and then only encrypted (see the next section):" },
+      { t: 'p', text: "Editing, effects, AI tools, Studio boards and exports all run inside your browser. These are never sent anywhere, unless you share them with a team or through a client link, and then only encrypted, or publish a brand as a web page (see the next two sections):" },
       { t: 'list', items: [
         "Your images, photos, PSDs and PDFs.",
         "Your designs, layers, text and anything you type into them.",
@@ -524,13 +524,16 @@ export const articles: Article[] = [
       { t: 'p', text: "Your work is saved in this browser, or in files you save to disk. There is no cloud copy of your designs. See [Saving and your files](/learn/saving-and-your-files)." },
 
       { t: 'h', text: 'Optional features that share, encrypted first' },
-      { t: 'p', text: "You never need an account. If you choose to use one of these, what it shares is encrypted on your device, with a key that only your devices, your team or the link holds. Apart from the little it needs to run these features, Voidcanvas stores only what it cannot read. The readable part: your email address (so the sign-in code can reach you), the list of devices you signed in on (browser, system and when each was last used), team members\' email addresses and roles, and each link\'s size and expiry date." },
+      { t: 'p', text: "You never need an account. If you choose to use one of these, what it shares is encrypted on your device, with a key that only your devices, your team or the link holds. Apart from the little it needs to run these features, and a brand you choose to publish as a web page (next section), Voidcanvas stores only what it cannot read. The readable part: your email address (so the sign-in code can reach you), the list of devices you signed in on (browser, system and when each was last used), team members\' email addresses and roles, and each link\'s size and expiry date." },
       { t: 'table', head: ['Feature', 'What it sends', 'Who can read it'], rows: [
         ['[Account and sync](/learn/account-and-sync)', 'Interface settings, workspaces, recent colours and your usage-count choice. Not designs.', 'Only your signed-in devices.'],
         ['[Teams](/learn/teams)', 'The client brands and Studio jobs you choose to share, with their logos, references and versions.', 'Only the team.'],
         ['[Review and delivery links](/learn/review-and-delivery-links)', 'The version images, notes and comments, or the delivered files, for that one link. The link stops working when you stop it or after 30 days.', 'Only people who have the link, because the key is in it.'],
         ['The Working Designer Study, only if you joined it through a study link', 'What you give when you apply (name, email, country, role), your interview answers (typed or recorded) and closing answers, and timing for study jobs with a few job events (started, formats, delivered). Never designs, images or file names.', 'The research team.'],
       ] },
+
+      { t: 'h', text: 'Published brand pages are readable by design' },
+      { t: 'p', text: "In **Brand**, **Publish guideline** puts a brand on a web page at voidcanvas.app/b/ and an address you choose. It needs an account, and it is not encrypted, because the point is that people can read it. Our host (Netlify) stores a copy of what you publish: the brand name, colours, fonts and type scale, voice, dos and don'ts, the logos as PNG images (SVG files stay on your device), your brand photos, and the guideline pages as images. **Anyone with link** keeps the page out of search engines; **Public** lets them list it. **Unpublish** takes the page down. The copy stays on the server, hidden from visitors, so the address stays yours. For a confidential brand, keep it local or share it with a [team](/learn/teams) instead." },
 
       { t: 'h', text: 'What else goes over the network' },
       { t: 'table', head: ['What', 'Why', 'What it contains'], rows: [
@@ -556,6 +559,9 @@ export const articles: Article[] = [
         "When a dialog such as Export is closed with nothing done, its name. When the same spot is clicked four times in quick succession, the kind of thing clicked (a button, the canvas), never its label.",
         "How long the Editor took to be ready, and how long a design took to open.",
         "In the Editor's command search, the words you typed when nothing matched, up to 32 characters, so we learn what designers look for and cannot find. Words with an @ or a run of three or more digits are never sent.",
+        "On the home page, Learn and Blog: which section came into view and which link or button was used, by a fixed name or the page it leads to, and the first change you make in a Learn demo.",
+        "When a link puts you in one version of a page we are testing (it carries vc_exp and vc_var tags), the test's name and the version you saw.",
+        "When you click Made with Voidcanvas on a review or delivery link page, that the visit came from a shared page. Never which link, its files or its comments.",
       ] },
       { t: 'p', text: "They never contain images, file names, layer names, the text in your designs, or anything else you type. Nothing is sent from a visit until you move the pointer, tap or press a key, and nothing is sent from automated browsers. At most 600 events are sent in one visit." },
 

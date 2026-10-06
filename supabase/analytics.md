@@ -17,6 +17,8 @@ Row level security is on. The browser key can only INSERT the listed columns. No
 - `vc_admin_week(p_password, p_days)` returns the /admin **This week** view: designers only (rows with `ver`, not `internal`), compared with the period before: the funnel, active minutes in visits that ended in an export or a save, friction, searches that found nothing, slow moments, panel controls, changes by kind, versions, regions and errors. SQL in `supabase/migrations/20261002_phase_a_analytics.sql`.
 - `vc_admin_feedback_status(p_password, p_id, p_status)` marks feedback read or done.
 - `vc_admin_set_password(p_password, p_new)` changes the dashboard password (also in the dashboard footer).
+- `vc_admin_growth(p_password, p_days)` returns the /admin/growth attribution view: designers only, grouped by source, landing page and campaign, with how many visits started a design, did 3 or more editing steps, and saved or exported. A `growth.touch` in the visit takes credit over the visit's opening campaign tags. SQL in `supabase/migrations/20261005_growth_os_attribution.sql`, replaced by `20261005_growth_os_assisted_attribution.sql`.
+- `vc_admin_experiments(p_password, p_days)` returns the same outcome per experiment and variant, from the first `experiment.view` in each visit. SQL in `supabase/migrations/20261005_growth_os_experiments.sql`.
 
 The password is stored as a bcrypt hash in `vc_admin.config` (a schema the API cannot reach). After 8 wrong tries in 15 minutes every call returns `locked` until the window passes.
 
@@ -59,6 +61,17 @@ To see a function's current SQL: `select pg_get_functiondef('public.vc_admin_das
 | `learn.search`, `learn.search.pick` | search on /learn (first 40 characters of the query) | `q, n` / `slug` |
 | `learn.helpful` | "Was this guide useful?" | `slug, yes` |
 | `landing.nav` | Blog link in the landing header | `to` |
+| `landing.cta` | a call to action on the home page, the site header or footer, or a Learn path, topic or Blog link on the home page | `where` (fixed id such as `hero`, `footer`, `learn.path`), `href` (a site path, a Learn or Blog slug, or `privacy`); the recent-work row sends `kind` (design or job), never an id or name |
+| `landing.section` | a home page section scrolled into view, once per page | `id` |
+| `landing.tab`, `landing.gallery`, `landing.faq` | home page demo tab picked / gallery arrow / question opened | `id` / `id, dir` / `q` (question number) |
+| `landing.theme` | light or dark site theme picked | `theme` |
+| `landing.footer` | a footer link | `to` (site path or the linked site's address) |
+| `learn.goal`, `learn.search.example` | a goal picked on /learn / a suggested search tapped | `id` / `q` (the fixed example wording) |
+| `learn.demo` | first change in a Learn demo, once per demo per page | `kind`, `effect` for effect demos |
+| `learn.try` | a Learn demo or goal button that opens the app | `where`, and `preset`, `custom` (width x height), `effect`, `href` or `goal` as the demo has them |
+| `experiment.view` | a page opened from a link that carries an experiment tag, once per experiment and variant per tab | `experiment, variant` (lower case, letters, digits, `.-_`, 40 characters) |
+| `growth.touch` | the "Made with Voidcanvas" link on a review or delivery page | `source` (`void-share`), `medium, campaign, content` (fixed values), `to` (`/editor`); never the link, its files or its comments |
+| `share.product_cta` | same click as `growth.touch` | `to, placement` |
 | `account.signin`, `account.setup`, `account.pair`, `account.rotate`, `account.delete` | signed in / recovery key made / device approved / keys replaced / account deleted | none |
 | `team.create`, `team.invite`, `team.join`, `team.remove` | team made / invite link made / invite accepted / member removed | `role` on invite and join |
 | `share.review`, `share.delivery` | review link made / delivery link made (Studio Share) | `files` |

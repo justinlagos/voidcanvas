@@ -547,16 +547,16 @@ export const articles: Article[] = [
     summary: "The brand guideline builder turns a brand colour, a logo and a personality into a full system: honest logo versions tested on every background, colour ramps, contrast pairings, a type scale, clear space, minimum size and misuse pages, and a paged guideline. Lock what you have decided; Vary layout explores the composition and New take explores everything else.",
     category: 'studio',
     level: 'Intermediate',
-    updated: '2026-09-28',
+    updated: '2026-10-05',
     related: ['brand-guideline-exports', 'brands-library', 'colour-that-works', 'workflow-client-brand-guideline'],
     keywords: 'brand guidelines brand book style guide identity guidelines design system colour ramps oklch wcag contrast type scale modular scale logo clear space minimum size generator',
     body: [
       { t: 'p', text: "A brand guideline tells everyone who touches a brand how to use it. The builder makes one from a few decisions and fills in the rest as a working system, then checks it: every text pairing against WCAG contrast, the logo against every background. Use it for a new identity, or to document one a client already has." },
-      { t: 'try', label: 'Open Studio', href: '/studio' },
-      { t: 'p', text: "Open it from the Studio home screen with **Brand guideline builder**. The controls are on the left in four tabs (Identity, Colour, Type, Export), the page list is in the middle and the page preview on the right." },
+      { t: 'try', label: 'Open Brand', href: '/brand?view=guideline' },
+      { t: 'p', text: "Open **Brand** in the top bar and press **Build a guideline**. (The **Brand guideline builder** link on the Studio home screen opens the same builder.) The guideline fills the screen. The tabs above it, **Identity**, **Colour**, **Type**, **Pages** and **Settings**, open their controls beside the preview; press the tab again or the × to close them and see the whole page. **Save brand** and the download button (**Export guideline**) are at the top right." },
 
       { t: 'h', text: 'Locks, Vary layout and New take' },
-      { t: 'p', text: "Every value in the system is either locked, because you set it, or free, generated for you. Two kinds of take explore the free values. **Vary layout** (the main button) is a variation: it keeps the logo, colours, type and scale and redraws the composition, so art direction, corners, spacing and grid change. **New take of everything** (under the arrow beside it) is a mutation: it regenerates every unlocked token, colours and fonts included. Lock the parts the client has agreed, then take until the rest clicks." },
+      { t: 'p', text: "Every value in the system is either locked, because you set it, or free, generated for you. Two kinds of take explore the free values, both in **Settings**. **Vary layout** is a variation: it keeps the logo, colours, type and scale and redraws the composition, so art direction, corners, spacing and grid change. **New take of everything** (under the arrow beside it) is a mutation: it regenerates every unlocked token, colours and fonts included. Lock the parts the client has agreed, then take until the rest clicks." },
       { t: 'list', items: [
         "**Choosing a value locks it.** Pick a harmony, a font or a radius and its padlock closes.",
         "**The padlock beside a field** toggles it. Locking a free value keeps what is showing now; unlocking lets a take change it.",
@@ -601,10 +601,10 @@ export const articles: Article[] = [
       { t: 'p', text: "The preview shows the full scale, Display, H1 to H4, Body, Small and Caption, with sizes. Line height and letter spacing are set per size: big headings get tighter leading and tracking, small text a little more room. Small and Caption never go below 13 and 12 px, so a steep scale cannot produce unreadable captions. See [Typography fundamentals](/learn/typography-fundamentals)." },
 
       { t: 'h', text: 'Brand health and checks' },
-      { t: 'p', text: "The button at the top right reads **Brand complete**, **N worth checking** or **N issues**. Open it for two things. **Brand health** is a quiet read in four groups (Logo, Colours, Typography, Rules): which logo versions exist, whether a reversed version can be made, whether colour roles are set, and whether each rule is suggested or set by you. **Checks** lists every contrast pairing, whether body text is at least 16 px, whether the accent reads as distinct from the brand colour, and the logo on each background. A background the guideline has an answer for (a version, or a scrim) is not an issue; one with no answer is." },
+      { t: 'p', text: "In **Settings**, a button reads **Brand complete**, **N worth checking** or **N issues**. Open it for two things. **Brand health** is a quiet read in four groups (Logo, Colours, Typography, Rules): which logo versions exist, whether a reversed version can be made, whether colour roles are set, and whether each rule is suggested or set by you. **Checks** lists every contrast pairing, whether body text is at least 16 px, whether the accent reads as distinct from the brand colour, and the logo on each background. A background the guideline has an answer for (a version, or a scrim) is not an issue; one with no answer is." },
 
       { t: 'h', text: 'Pages' },
-      { t: 'p', text: "The guideline has 15 pages: Cover, Principles, Logo, Clear space, Minimum size, Do not, Colour, Tints, Contrast, Typography, Type scale, In use, Voice, Tokens and Close, plus **On photography** after Do not while you have added photos. Choose **Deck** for landscape slides (1600 × 900) or **Document** for portrait pages (1240 × 1754)." },
+      { t: 'p', text: "The guideline has 15 pages: Cover, Principles, Logo, Clear space, Minimum size, Do not, Colour, Tints, Contrast, Typography, Type scale, In use, Voice, Tokens and Close, plus **On photography** after Do not while you have added photos. In **Settings**, choose **Deck** for landscape slides (1600 × 900) or **Document** for portrait pages (1240 × 1754)." },
       { t: 'list', items: [
         "**Logo** (Backgrounds layout) shows the mark on every background in the palette with the version to use, a Pass, Marginal or Fails badge, and the scrim drawn in where one is needed.",
         "**Clear space** shows the exclusion zone, then a Correct and an Incorrect example with a headline crowding the mark.",
@@ -612,6 +612,7 @@ export const articles: Article[] = [
         "**Do not** is made from the actual logo: stretched, rotated, recoloured, on a low-contrast colour, cropped, crowded, with effects, and over busy imagery.",
         "**On photography** shows each of your photos twice. **Suggested**: the logo in the calmest corner away from the subject, in the version that reads there (the reversed logo on a dark photo), with a light scrim only when it is needed, and a line saying why. **Avoid**: the logo as supplied over the subject or in the busiest corner, with the reason. The Editor uses the same reading when you add a brand logo to a design with a photo: it goes in the corner where it reads, unless your type is already there.",
       ] },
+      { t: 'p', text: "The page list is in the **Pages** tab." },
       { t: 'list', items: [
         "**Reorder** by dragging a thumbnail, or with the up and down arrows that show when you hover it.",
         "**Leave a page out** of every export with its eye button. It stays in the list, faded.",
@@ -624,11 +625,11 @@ export const articles: Article[] = [
       ] },
 
       { t: 'h', text: 'Your work is saved as you go' },
-      { t: 'p', text: "The builder saves your brand, locks, page list, logo and photos in this browser a moment after each change. Come back later and it says **Picked up where you left off**. **Start over**, then **Clear and start over**, clears it for a new brand; **Keep it** cancels. In a private session nothing is written to disk, so the browser warns you before you leave the page. See [Private session](/learn/private-session)." },
-      { t: 'note', text: "The builder holds one brand at a time. To keep a finished brand while you start another, press **Save as a client brand in Studio** on the Export tab first, and export the files you need." },
+      { t: 'p', text: "The builder saves your brand, locks, page list, logo and photos in this browser a moment after each change. Come back later and it says **Draft restored. Saved on this device.** **Start over**, then **Clear and start over**, clears it for a new brand; **Keep it** cancels. In a private session nothing is written to disk, so the browser warns you before you leave the page. See [Private session](/learn/private-session)." },
+      { t: 'note', text: "The builder holds one brand at a time. To keep a finished brand while you start another, press **Save brand** first. It goes to your Brand workspace, where you can edit it, publish it as a web page or start a design from it." },
 
       { t: 'h', text: 'On a phone' },
-      { t: 'p', text: "On a narrow screen the page is one scrolling column: the preview first, the page list scrolling sideways under it, then the controls. Everything works; it is just a longer scroll." },
+      { t: 'p', text: "On a narrow screen the preview takes the screen. A tab's controls open below it and take the lower half, and the preview shrinks to fit above them. Close them to see the page whole. Everything works the same way." },
     ],
   },
 
@@ -639,11 +640,11 @@ export const articles: Article[] = [
     summary: "Every export from the brand guideline builder: a screen PDF, a print PDF with bleed and crop marks, a single-file HTML handoff, editable Editor layers, CSS, Tailwind, design tokens JSON and Adobe .ase swatches.",
     category: 'studio',
     level: 'Intermediate',
-    updated: '2026-09-25',
+    updated: '2026-10-05',
     related: ['brand-guidelines', 'brands-library', 'export-for-print', 'workflow-client-brand-guideline'],
     keywords: 'export brand guidelines pdf print pdf html handoff design tokens json css variables tailwind config ase adobe swatch exchange illustrator swatches developer handoff',
     body: [
-      { t: 'p', text: "One brand, different readers. The client wants something to scroll through, the printer wants bleed and crop marks, the developer wants tokens, and the next designer wants swatches in Illustrator. All of these come from the **Export** tab of the brand guideline builder, and all are made on your device." },
+      { t: 'p', text: "One brand, different readers. The client wants something to scroll through, the printer wants bleed and crop marks, the developer wants tokens, and the next designer wants swatches in Illustrator. All of these come from the download button at the top right of the brand guideline builder (**Export guideline**), and all are made on your device." },
       { t: 'p', text: "Exports include only the pages switched on in the page list, in the order shown, in the orientation you chose (Deck or Document). See [Build a brand guideline](/learn/brand-guidelines)." },
 
       { t: 'h', text: 'Which export to send' },
@@ -682,8 +683,8 @@ export const articles: Article[] = [
       { t: 'p', text: "**Editor** sends every included page to the Editor as its own board, with real layers: text stays text, shapes stay shapes, and the logo stays an image. Drawing that has no Editor equivalent, such as hatching or dashed guides, comes across as an image layer in the right place in the stack. Use this to add a page the builder does not make, or to adjust one layout by hand. See [Artboards](/learn/artboards)." },
       { t: 'warn', text: "Changes made in the Editor do not flow back to the builder. Settle the system first, then open it in the Editor for final touches." },
 
-      { t: 'h', text: 'Save as a client brand in Studio' },
-      { t: 'p', text: "Saves the resolved system as a brand in **Client brands**: brand, secondary and accent colours, the light surface as background, the ink colour as text, a mid neutral, the heading and body fonts, the type scale, the logo system (the supplied file, every derived version, the measured artwork), the rules for clear space and minimum size with their source (suggested or set by you), the version to use on each background, and the voice with its do and don't lists. Pick it on a job and the Editor checks every design against it, and offers the right version when the logo loses contrast. See [Save client brands and reuse them](/learn/brands-library)." },
+      { t: 'h', text: 'Save to Brand workspace' },
+      { t: 'p', text: "**Save brand** at the top right (or **Save to Brand workspace** in the export panel) saves the resolved system as a brand in your **Brand** workspace, where you can also publish it as a web page: brand, secondary and accent colours, the light surface as background, the ink colour as text, a mid neutral, the heading and body fonts, the type scale, the logo system (the supplied file, every derived version, the measured artwork), the rules for clear space and minimum size with their source (suggested or set by you), the version to use on each background, and the voice with its do and don't lists. Pick it on a job and the Editor checks every design against it, and offers the right version when the logo loses contrast. See [Save client brands and reuse them](/learn/brands-library)." },
 
       { t: 'h', text: 'Tokens for developers' },
       { t: 'p', text: "Switch between **CSS**, **Tailwind** and **JSON** to see the code, then **Copy** it or **Save file**." },
