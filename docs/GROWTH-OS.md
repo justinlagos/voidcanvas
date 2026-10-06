@@ -1,6 +1,6 @@
 # VoidCanvas Growth OS
 
-Status: foundation
+Status: phases 1 to 7 on master; admin functions live in Supabase since 5 Oct 2026 (see `docs/plans/CURRENT-STATUS.md`)
 
 ## Goal
 

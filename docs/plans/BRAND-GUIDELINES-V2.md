@@ -1,6 +1,6 @@
 # Brand Guidelines V2
 
-Status: Phase 0 baseline measured
+Status: Phase 1 shipped with a CI parity gate. Phase 2 engine on master, off for designers (`?brandv2=1` to review) since `3a8d8a9`, until every current page keeps its real content and the Phase 2 gates and contact-sheet review pass.
 Date: 5 October 2026
 Owner: Voidcanvas
 

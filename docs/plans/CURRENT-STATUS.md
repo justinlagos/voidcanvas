@@ -1,6 +1,6 @@
 # VoidCanvas current build status
 
-Updated: 5 October 2026
+Updated: 6 October 2026
 
 This file is the authoritative status summary for active product work. Older plan files remain useful as historical specifications, but their build-status tables may be stale.
 
@@ -150,6 +150,24 @@ See `PHASE-9-COMPLETION.md` for the shipped contract and fidelity boundaries.
 
 PR #14 (`8872a90`) promoted Brand into a dedicated workspace and added living published brand-guideline portals. PR #16 later simplified the guided Brand/mobile Effects UI before Phase 9.
 
+## Brand Guidelines V2: in progress, not live
+
+Plan and gates: `BRAND-GUIDELINES-V2.md`.
+
+- Phase 0 baseline and Phase 1 layout IR are on master. Phase 1 parity (Cover, Colour, Clear space against the legacy renderer) is a CI gate: `e2e/brand-ir-parity.mjs` measures, `e2e/brand-ir-parity-gate.mjs` fails the build on drift.
+- Phase 2 engine (families, cover and interior compositions, document composer, 1,200-document corpus, cover pHash proof) is on master but **off for designers**. It went live in the preview and exports on 5 Oct (`2fd8880`, `047624b`) and was rolled back the same evening (`3a8d8a9`): interior pages had generic copy and lost content (Logo listed refused versions, Do not lost its examples, Applications was a placeholder, Contrast swatches did not match their labels).
+- V2 can be switched on in one browser with `?brandv2=1` (`?brandv2=0` turns it off). The switch is `src/brand/compose/flag.ts`. Preview, screen and print PDF, HTML handoff, saved pages, Open in Editor and published brand pages all follow the same switch, so one brand never shows different pages in different outputs.
+- Phase 2 is done only when every current page keeps its real content in V2, the Phase 2 gates pass, and contact sheets are reviewed with no professional send-back findings. Then the default flips.
+
+## Growth OS
+
+Docs: `docs/GROWTH-OS.md`, `docs/GROWTH-DECISIONS.md`, `docs/GROWTH-DISCOVERY.md`, `docs/OPEN-IN-VOIDCANVAS.md`.
+
+- Phases 1 to 6 shipped on 5 Oct: opportunity scoring and the /admin/growth control room, activation attribution, the registry-driven quick-tool factory and /tools hub, experiments with publication gates, `/open` (Open in Voidcanvas) and the Made with Voidcanvas link on shared pages, and the decision queue.
+- Phase 7, the search-evidence backlog from the Learn SEO research, landed after reconciliation. `public/growth-discovery.json` is generated at build time and not committed.
+- Live database: `vc_admin_growth` and `vc_admin_experiments` were applied to the `voidcanvas` Supabase project on 5 Oct 2026 (they had been committed but not applied, so the control room could not load data).
+- New usage events `experiment.view` and `growth.touch`, and the landing and Learn click events, are listed in `supabase/analytics.md` and the privacy article.
+
 ## Separate future track: AI connector / design API
 
 Do not include this in the active production sequence. If deliberately revived later, it should operate structured editable VoidCanvas projects with permissions, protected elements, transaction-level undo, explicit versions, ownership and privacy boundaries.
@@ -166,8 +184,11 @@ Do not include this in the active production sequence. If deliberately revived l
 - Phase 9 completion is PR #21.
 - PR #8 designer-production workflows are on master.
 - `campaign/make-something` is historical and must not be merged wholesale.
+- 5 Oct 2026 clean-up: PR #48 (Growth discovery) and the Brand IR parity gate from `brand-guidelines-v2-phase1-route` were landed on master; PR #25 was closed as superseded by the reconciled Phase 1 commits. Every other branch was already on master, as a merge or as a reconciled squash, and was deleted. Only `master` and `campaign/make-something` remain. Deleted branch tips, restorable with `git push origin <sha>:refs/heads/<name>` while GitHub still holds the commit: `analytics-feedback` 4b6ee27, `brand-guidelines-v2-baseline` a9d034a, `brand-guidelines-v2-phase0` 558944e, `brand-guidelines-v2-phase0-baseline` d1aa297, `brand-guidelines-v2-phase1` 7c2490b, `brand-guidelines-v2-phase1-ir` 054f226, `brand-guidelines-v2-phase1-pages` 758c2ca, `brand-guidelines-v2-phase1-parity` 2c17f34, `brand-v2-phase2-composition` 01fb8d0, `brand-v2-phase2-corpus` 2afa25c, `brand-v2-phase2-cover-compositions` bd80fbf, `brand-v2-phase2-cover-distance` 7179802, `brand-v2-phase2-document-composer` 6be00a1, `brand-v2-phase2-foundation` ea9e8d3, `brand-v2-phase2-interiors` 0e68418, `brand-v2-phase2-output-switch` 35a94dd, `brand-v2-phase2-preview-switch` 287359a, `brand-v2-phase2-production-adapter` 263c5fd, `brand-v2-phase2-production-adapter-v2` 6f1b79f, `brand-v2-phase2-render-bridge` e9a111d, `brand-v2-phase2-visual-proof` 1cc96fa, `design/graphite-marketing-heroes` 93a330f, `editor-ux-phase1-4` af34a3a, `effects-controls-depth` eea9471, `effects-ux-workspace` 6f647d4, `feat/brand-portals` d175c91, `feat/guided-workspace-ui` d616ada, `feature/editor-studio` b3bfc13, `growth-os-attribution` 4e234dd, `growth-os-content-graph` fdeb9b6, `growth-os-decisions` de915c2, `growth-os-decisions-reconciled` 2108ecb, `growth-os-experiments` 40699d1, `growth-os-foundation` 91d7203, `growth-os-product-loops` d677071, `hotfix-brand-v2-ci-gates` 6cd013b, `hotfix-brand-v2-netlify-build` a1cd694, `landing-page` 2c6269f, `pen-pro-studio-plan` aaca12e, `phase7-reuse-foundation` 54356a2, `phase7b-library` de47333, `phase7b-reconciled` c8ab5b5, `phase7c-7d-finish` 4132d49, `phase8-production-depth` 0c59dfc, `phase9-completion` 580f822, `phase9-production-engine` 5de3282, `phase9a-stage-engine` 603d33a, `phase9a-webgl-compositor` f660017, `phase9c-colour-pdfx` 45aee34, `studio-desk` e04e427, `studio-drafts-pen-handoff` 445b7ec, `ux/simplification` f5d25b8.
 
 ## Next execution order
+
+Active track (6 Oct 2026): finish Brand Guidelines V2 Phase 2 so V2 can be switched on for designers. See the Brand Guidelines V2 section above for the exit conditions.
 
 Phase 9 is complete as an infrastructure/product run. New work should be driven by real production documents, browser/device measurements and regression reports rather than another broad architecture phase. Priority follow-up is measured parity/performance tuning on representative mobile and desktop hardware, plus any printer-specific PDF/X fixes found by receiving prepress workflows.
 
