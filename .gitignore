@@ -41,6 +41,9 @@ e2e/.out
 *.patch
 research/**/.tmp/
 
+# Growth discovery artifact, generated from research/learn-seo/opportunities.csv at build time
+/public/growth-discovery.json
+
 # LittleCMS runtime copied from the pinned dependency at install time
 /public/colour/lcms.js
 /public/colour/lcms.wasm

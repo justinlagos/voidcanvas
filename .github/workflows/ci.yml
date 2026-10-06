@@ -1,4 +1,4 @@
-# Every push and pull request: types, unit tests, Brand V2 baseline and a production build.
+# Every push and pull request: types, unit tests, Growth discovery source, Brand V2 baseline and a production build.
 name: CI
 
 on:
@@ -16,6 +16,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Growth discovery source
+        run: npm run growth:discovery-test && npm run growth:discovery
       - name: Types
         run: npx tsc --noEmit -p .
       - name: Unit tests

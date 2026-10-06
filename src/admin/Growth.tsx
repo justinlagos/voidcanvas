@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Loader2, ShieldCheck } from 'lucide-react'
 import { loadDashboard } from './data'
 import { GrowthAttributionPanel } from './GrowthAttribution'
+import { GrowthDiscoveryPanel } from './GrowthDiscovery'
 import { OPPORTUNITIES } from '@/growth/opportunities'
 import { CAPABILITIES } from '@/growth/knowledge'
 
@@ -70,16 +71,18 @@ export function GrowthAdmin() {
       </header>
 
       <section className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-3xl">
-        <Stat label="Opportunities" value={OPPORTUNITIES.length} />
+        <Stat label="Strategic bets" value={OPPORTUNITIES.length} />
         <Stat label="A2/A3 eligible" value={a2} />
         <Stat label="Low risk" value={lowRisk} />
         <Stat label="Capabilities" value={CAPABILITIES.length} />
       </section>
 
       <GrowthAttributionPanel password={pw} />
+      <GrowthDiscoveryPanel />
 
       <section className="mt-6 rounded-2xl border border-void-800 bg-[#111116] p-4">
         <div className="flex flex-wrap gap-2 items-center">
+          <div className="mr-auto"><h2 className="font-semibold">Strategic product & distribution bets</h2><p className="mt-1 text-[12px] text-void-500">Hand-scored product advantage, conversion, risk and autonomy. Separate from search evidence.</p></div>
           <span className="text-[12px] text-void-500 mr-1">Surface</span>
           {surfaces.map(s => <button key={s} onClick={() => setSurface(s)} className={`h-8 px-3 rounded-lg border capitalize ${surface === s ? 'border-white text-white' : 'border-void-800 text-void-400 hover:text-white'} ${focus}`}>{s}</button>)}
         </div>
