@@ -19,6 +19,16 @@ async function loadEffects(page, file) {
   await page.waitForTimeout(600)
 }
 const inView = async (page, sel) => page.$eval(sel, el => { const r = el.getBoundingClientRect(); return r.right <= innerWidth + 1 && r.left >= -1 && r.bottom <= innerHeight + 1 && r.top >= -1 && r.width > 0 })
+// Since 5 Oct 2026 the phone and tablet bar keeps Open in Editor and Save in thumb reach; Save opens a sheet with the formats.
+const OPEN_EDITOR = '[data-mobile-actions] button:has-text("Open in Editor")'
+async function formatsReachable(page) {
+  await page.click('[data-mobile-actions] button:has-text("Save")')
+  await page.waitForSelector('[data-mobile-actions] section[aria-label="Download image"]')
+  const png = await inView(page, '[data-mobile-actions] section[aria-label="Download image"] button:has-text("PNG")')
+  const webp = await inView(page, '[data-mobile-actions] section[aria-label="Download image"] button:has-text("WebP")')
+  await page.click('[data-mobile-actions] button[aria-label="Close actions panel"]')
+  return { png, webp }
+}
 
 // B01 phone
 {
@@ -29,9 +39,10 @@ const inView = async (page, sel) => page.$eval(sel, el => { const r = el.getBoun
   ok('B01 phone canvas wide enough', canvasW >= 300, `canvas ${Math.round(canvasW)}px`)
   const hdrScroll = await page.$eval('header', el => el.scrollWidth <= el.clientWidth + 1)
   ok('B01 phone header does not scroll sideways', hdrScroll)
-  ok('B01 phone Open in Editor reachable', await inView(page, '[data-mobile-actions] button[aria-label="Open in Editor"]'))
-  ok('B01 phone PNG download reachable', await inView(page, '[data-mobile-actions] button:has-text("PNG")'))
-  ok('B01 phone WebP download reachable', await inView(page, '[data-mobile-actions] button:has-text("WebP")'))
+  ok('B01 phone Open in Editor reachable', await inView(page, OPEN_EDITOR))
+  const phoneFormats = await formatsReachable(page)
+  ok('B01 phone PNG download reachable', phoneFormats.png)
+  ok('B01 phone WebP download reachable', phoneFormats.webp)
   ok('B01 phone controls visible', await inView(page, '[data-effects-sidebar]'))
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
   ok('B01 phone no horizontal page overflow', overflow)
@@ -47,8 +58,8 @@ const inView = async (page, sel) => page.$eval(sel, el => { const r = el.getBoun
   const c = await ctx({ ...devices['iPad Mini'], viewport: { width: 768, height: 1024 } })
   const page = await c.newPage()
   await loadEffects(page, FIX.land)
-  ok('B01 tablet Open in Editor reachable', await inView(page, '[data-mobile-actions] button[aria-label="Open in Editor"]'))
-  ok('B01 tablet WebP reachable', await inView(page, '[data-mobile-actions] button:has-text("WebP")'))
+  ok('B01 tablet Open in Editor reachable', await inView(page, OPEN_EDITOR))
+  ok('B01 tablet WebP reachable', (await formatsReachable(page)).webp)
   const hdrScroll = await page.$eval('header', el => el.scrollWidth <= el.clientWidth + 1)
   ok('B01 tablet header does not scroll sideways', hdrScroll)
   await page.screenshot({ path: OUT('b01_tablet.png') })

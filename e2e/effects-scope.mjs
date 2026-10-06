@@ -416,7 +416,8 @@ try {
     await p.waitForSelector('canvas[data-result-canvas]', { timeout: 15000 }); await wait(600)
   }
   const resultSig = () => E(() => { const c = document.querySelector('canvas[data-result-canvas]'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let s = 0; for (let i = 0; i < d.length; i += 97) s = (s * 31 + d[i]) % 1e9; return s })
-  const items = () => p.$$eval('[data-fx-stack-item]', els => els.map(e => [e.getAttribute('data-fx-stack-item'), e.hasAttribute('data-editing')]))
+  // The stack shows in the desktop sidebar and, on a phone, in the Adjust tab; only the visible one counts.
+  const items = () => p.$$eval('[data-fx-stack-item]', els => els.filter(e => e.getClientRects().length > 0).map(e => [e.getAttribute('data-fx-stack-item'), e.hasAttribute('data-editing')]))
   const pick = async id => { await p.click(`[data-effect-pick="${id}"]`); await wait(900) }
   {
     await p.goto(`${BASE}/effects`); await upload()

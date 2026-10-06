@@ -91,12 +91,18 @@ try {
   }, dark)
   const light = Buffer.from(await photo(false), 'base64'), dark = Buffer.from(await photo(true), 'base64')
   await p.goto(`${BASE}/studio`); await wait(900)
-  await p.click('button:has-text("Brand guideline builder")'); await p.waitForSelector('input[placeholder="e.g. Northbound"]')
+  // Since 5 Oct 2026 each tab in "Guideline tools" opens its own controls; photos sit in a collapsed Identity section.
+  const tab = async name => { if (!(await p.$(`aside[aria-label="${name} controls"]`))) await p.click(`nav[aria-label="Guideline tools"] button:text-is("${name}")`); await p.waitForSelector(`aside[aria-label="${name} controls"]`); await wait(200) }
+  const openPhotos = () => p.$eval('aside details:has(summary:text-is("Photography"))', el => { el.open = true })
+  await p.click('button:has-text("Brand guideline builder")'); await tab('Identity'); await p.waitForSelector('input[placeholder="e.g. Northbound"]')
   await p.fill('input[placeholder="e.g. Northbound"]', 'Harbour')
   await p.setInputFiles('input[accept="image/*,.svg"]', FIX.logo); await wait(2500)
+  await tab('Pages')
   const pages0 = (await p.$$('nav[aria-label="Pages"] [data-page]')).length
+  await tab('Identity'); await openPhotos()
   await p.setInputFiles('input[data-brand-photos-input]', [{ name: 'light.jpg', mimeType: 'image/jpeg', buffer: light }, { name: 'dark.jpg', mimeType: 'image/jpeg', buffer: dark }])
   await wait(2500)
+  await tab('Pages')
   const titles = await p.$$eval('nav[aria-label="Pages"] [data-page] button[aria-label^="Page "]', els => els.map(e => e.getAttribute('aria-label')))
   ok('guideline: two photos add the photography page after the logo rules', titles.length === pages0 + 1 && titles.findIndex(t => /On photography/.test(t)) === titles.findIndex(t => /Do not/.test(t)) + 1, JSON.stringify(titles))
   await p.click('nav[aria-label="Pages"] button[aria-label*="On photography"]'); await wait(1500)
@@ -108,17 +114,20 @@ try {
   ok('guideline: the photography page draws the photos', px > 50, String(px))
   // The draft keeps the photos.
   await wait(900); await p.reload(); await p.click('button:has-text("Brand guideline builder")').catch(() => {}); await wait(2500)
+  await tab('Identity')
   ok('guideline: photos come back after a reload', (await p.$$('[data-brand-photos] img')).length === 2)
+  await tab('Pages')
   const titlesAfter = await p.$$eval('nav[aria-label="Pages"] [data-page] button[aria-label^="Page "]', els => els.map(e => e.getAttribute('aria-label')))
   ok('guideline: and so does the page', titlesAfter.some(t => /On photography/.test(t)), JSON.stringify(titlesAfter))
   // Saved with the client brand.
-  await p.click('button[role=tab]:has-text("Export")'); await wait(300)
-  await p.click('button:has-text("Save as a client brand in Studio")'); await wait(1500)
+  await p.click('button[aria-label="Export guideline"]'); await wait(300)
+  await p.click('button:has-text("Save to Brand workspace")'); await wait(1500)
   const brand = await E(() => new Promise(res => { const r = indexedDB.open('voidcanvas'); r.onsuccess = () => { const db = r.result; const g = db.transaction('brands').objectStore('brands').getAll(); g.onsuccess = () => { const b = g.result.filter(x => x.name === 'Harbour').sort((a, c) => c.updatedAt - a.updatedAt)[0]; res(b ? { id: b.id, imagery: (b.imagery ?? []).map(i => [i.name, i.w, i.h, i.blob instanceof Blob || i.blob?.__vcBlob instanceof ArrayBuffer]) } : null); db.close() } } }))
   ok('guideline: photos are saved with the client brand', brand && brand.imagery.length === 2 && brand.imagery.every(i => i[3]), JSON.stringify(brand))
   // Removing both takes the page away.
-  await p.click('button[role=tab]:has-text("Identity")'); await wait(300)
+  await tab('Identity'); await openPhotos()
   await p.click('button[aria-label="Remove light"]'); await p.click('button[aria-label="Remove dark"]'); await wait(500)
+  await tab('Pages')
   ok('guideline: no photos, no photography page', (await p.$$('nav[aria-label="Pages"] button[aria-label*="On photography"]')).length === 0)
 
   // ── Editor: a brand logo placed on a photo goes where it reads

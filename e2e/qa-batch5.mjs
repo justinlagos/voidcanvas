@@ -42,7 +42,8 @@ ok('B06 Oil Paint under 700 ms', timings['Oil Paint'] < 700)
 
 // Main thread stays free while Bloom slider moves: measure a rAF gap during slider input.
 await (await listBtn('Bloom')).click(); await settle()
-const slider = page.locator('[data-effects-sidebar] input[type=range]').first()
+// On desktop the effect's controls sit in the floating inspector over the canvas.
+const slider = page.locator('[data-effects-inspector] input[type=range]').first()
 const box = await slider.boundingBox()
 const gap = await page.evaluate(async () => {
   let worst = 0, last = performance.now()

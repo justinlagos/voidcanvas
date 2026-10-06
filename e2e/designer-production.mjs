@@ -467,7 +467,8 @@ ok(
     )
   }),
 )
-ok('.void preserves ICC proof settings', await E(() => !!window.__voidEditor.getState().doc.proof))
+if (existsSync(profile)) ok('.void preserves ICC proof settings', await E(() => !!window.__voidEditor.getState().doc.proof))
+else console.log('SKIP .void ICC proof round trip: no CMYK ICC fixture, so no proof was set')
 // PSD import retains original smart-source bytes and turns its embedded pattern into a live style.
 const pd = new Uint8ClampedArray(64 * 64 * 4)
 for (let i = 0; i < 64 * 64; i++) pd.set([20, 80, 180, 255], i * 4)
