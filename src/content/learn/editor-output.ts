@@ -437,6 +437,60 @@ export const articles: Article[] = [
     ],
   },
 
+  // ─── Reuse library ─────────────────────────────────────────────────
+  {
+    slug: 'reuse-library',
+    title: 'Carry Looks, text styles and assets between designs with Reuse',
+    summary: 'Save a layer\'s treatment, a text style, a logo, a colour, a font or a whole template once, then apply it in any design. The library shows where each item is used, so deleting or replacing one never breaks earlier work.',
+    category: 'editor',
+    level: 'Intermediate',
+    updated: '2026-10-06',
+    related: ['templates-and-versions', 'brand-kit', 'layer-styles', 'privacy-and-data'],
+    keywords: 'reuse library look looks text style styles saved styles copy style paste style asset library logo library texture colour font template reusable components used in replace source',
+    body: [
+      { t: 'p', text: "Reuse keeps the decisions you make once, such as a headline treatment, a gold text colour or the client's logo, so you can apply them in the next design instead of rebuilding them. Everything stays in this browser on this device." },
+
+      { t: 'h', text: 'Open the library' },
+      { t: 'list', items: [
+        "**Desktop:** the **Reuse** button in the top bar, or {{Alt+Shift+L}}.",
+        "**Tablet:** the **Reuse library** icon in the top bar.",
+        "**Phone:** **More**, then **Reuse library**. It opens as a sheet across the bottom of the screen.",
+      ] },
+
+      { t: 'h', text: 'Save something for reuse' },
+      { t: 'p', text: "Select what you want to keep, type a name under **Save for reuse** (or leave it, and the layer's name is used), then press what you are saving. A button is greyed out when the selection cannot be saved that way." },
+      { t: 'table', head: ['Button', 'Select first', 'What it keeps'], rows: [
+        ['Look', 'A layer, or a whole group', 'Opacity, blend mode, layer styles and the effects in their order. For a group, the treatment of the group as a whole. Never the content, position or effect masks.'],
+        ['Text style', 'One text layer', 'Font, size, weight, colour, alignment, line height, letter spacing, paragraph settings, outline and shadow. Never the words.'],
+        ['Brand text style', 'One text layer, in a design with a client brand', 'The same as Text style, kept with that brand.'],
+        ['Logo, Image, Texture', 'One image layer', 'The picture, as a PNG.'],
+        ['Colour', 'One text or shape layer', 'The text colour, or the shape fill.'],
+        ['Font', 'One text layer', 'The font family, and the font file when it is one you added from your computer.'],
+        ['Template', 'Any open design', 'A copy of the whole design that never changes. Your open design is not turned into a template.'],
+      ] },
+      { t: 'p', text: "When a layer has a treatment worth keeping, the library may say **This treatment may be worth reusing.** **Don't suggest again** turns that off for good." },
+
+      { t: 'h', text: 'Apply it' },
+      { t: 'p', text: "Select the layers to change, find the item under **Your library** and press **Apply**. One {{Ctrl+Z}} undoes it." },
+      { t: 'list', items: [
+        "A Look or text style changes how the selected layers look, never what they say or where they are.",
+        "A colour changes selected text and shapes. A font changes selected text and keeps the rest of its type settings.",
+        "A logo, image or texture replaces the picture in the selected image layers and keeps their size and place. With no image layer selected, it is added as a new layer.",
+        "A template opens a new design copied from it. The template stays as it was.",
+      ] },
+      { t: 'p', text: "Search by name with **Search library**, or show one kind with the menu beside it (**Looks**, **Text styles**, **Logos** and so on). Items you used recently come first." },
+
+      { t: 'h', text: 'Used in, Replace and Delete' },
+      { t: 'p', text: "Each item says **used in N designs** once you have applied it. That counts your saved designs and the design open now." },
+      { t: 'list', items: [
+        "**Replace source** (the circular arrows, on logos, images, textures, colours, fonts and templates) swaps the stored item for your current selection. Designs that already used it keep what they have until you apply it again, and the library says how many.",
+        "**Remove from library** (the bin) deletes an unused item straight away. If designs use it, you are asked first, with their names. Deleting it never changes those designs.",
+      ] },
+
+      { t: 'note', text: "The library lives in this browser, like your designs. It is not sent anywhere. In a [private session](/learn/private-session) it is kept only until you close the tab." },
+    ],
+  },
+
   // ─── Templates and versions ────────────────────────────────────────
   {
     slug: 'templates-and-versions',
@@ -445,7 +499,7 @@ export const articles: Article[] = [
     category: 'editor',
     level: 'Beginner',
     updated: '2026-10-02',
-    related: ['saving-and-your-files', 'history-and-undo', 'private-session', 'brand-kit'],
+    related: ['saving-and-your-files', 'history-and-undo', 'reuse-library', 'brand-kit'],
     keywords: 'template templates reuse layout version history versions named versions compare restore recover backup snapshot older copy autosave crash approved variation duplicate alternative',
     body: [
       { t: 'p', text: 'Templates and versions both protect work you have already done. A template is a starting point you reuse for new designs. A version is a restore point for one design, so you can go back to how it looked an hour or a day ago. Both are kept in your browser on this device.' },

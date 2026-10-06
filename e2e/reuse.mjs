@@ -8,6 +8,7 @@ p.on('pageerror', e => errors.push(e.message))
 const E = (fn, arg) => p.evaluate(fn, arg)
 const library = () => p.getByLabel('Reusable library')
 const nameInput = () => library().getByRole('textbox').first()
+const closeLibrary = async () => { await p.getByLabel('Close reuse library').click(); await library().waitFor({ state: 'detached', timeout: 5000 }) }
 const rowFor = name => p.getByText(name, { exact: true }).locator('..').locator('..')
 
 try {
@@ -41,14 +42,16 @@ try {
   await p.getByRole('button', { name: 'Font', exact: true }).click()
   await nameInput().fill('Launch Template')
   await p.getByRole('button', { name: 'Template', exact: true }).click()
-  await p.getByLabel('Close reuse library').click()
+  await closeLibrary()
 
+  // The target font is a Google font so it loads on every machine; a system font such as Georgia is missing
+  // on Linux and opens the Editor's missing-fonts dialog part-way through the test.
   const target = await E(() => {
     const s = window.__voidEditor.getState()
     s.addText(120, 360)
     const id = window.__voidEditor.getState().activeId
     s.updateLayer(id, {
-      text: 'KEEP THESE WORDS', fontFamily: 'Georgia', fontSize: 28, fontWeight: 400,
+      text: 'KEEP THESE WORDS', fontFamily: 'Poppins', fontSize: 28, fontWeight: 400,
       color: '#ffffff', align: 'left', letterSpacing: 0, opacity: 1, blend: 'source-over',
     }, 'Target style')
     return id
@@ -69,6 +72,8 @@ try {
   assert.equal(state.effects, 1)
   assert.equal(state.opacity, 0.82)
   assert.equal(state.blend, 'screen')
+  // Apply records the use after the undo step, then the library re-reads usage: wait for that, not a fixed delay.
+  await rowFor('Editorial Gold').getByText(/used in 1 design/).waitFor({ timeout: 5000 }).catch(() => {})
   assert(await rowFor('Editorial Gold').getByText(/used in 1 design/).isVisible(), 'Applying a reusable item should record a design dependency')
 
   await E(() => window.__voidEditor.getState().undo())
@@ -77,7 +82,7 @@ try {
     return { text: l.text, font: l.fontFamily, effects: l.effects?.length ?? 0 }
   })
   assert.equal(state.text, 'KEEP THESE WORDS')
-  assert.equal(state.font, 'Georgia')
+  assert.equal(state.font, 'Poppins')
   assert.equal(state.effects, 0)
 
   await rowFor('Campaign Headline').getByRole('button', { name: 'Apply', exact: true }).click()
@@ -98,21 +103,27 @@ try {
   assert.equal(await E(() => window.__voidEditor.getState().active().fontFamily), 'Arial')
 
   await p.getByLabel('Search reuse library').fill('Launch Template')
+  await p.getByText('Editorial Gold', { exact: true }).waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
   assert(await p.getByText('Launch Template', { exact: true }).isVisible())
   assert.equal(await p.getByText('Editorial Gold', { exact: true }).count(), 0)
   await p.getByLabel('Search reuse library').fill('')
   await p.getByLabel('Filter reuse library').selectOption('color')
+  await p.getByText('Campaign Headline', { exact: true }).waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
   assert(await p.getByText('Campaign Gold', { exact: true }).isVisible())
   assert.equal(await p.getByText('Campaign Headline', { exact: true }).count(), 0)
   await p.getByLabel('Filter reuse library').selectOption('all')
+  await p.getByText('Editorial Gold', { exact: true }).waitFor({ timeout: 5000 })
 
-  let warned = false
-  p.once('dialog', async d => { warned = /used in 1 design/.test(d.message()); await d.dismiss() })
+  // The warning comes after usage is read, so wait for the dialog itself.
+  const confirm = p.waitForEvent('dialog', { timeout: 5000 })
   await rowFor('Editorial Gold').getByLabel('Delete Editorial Gold').click()
+  const dialog = await confirm
+  const warned = /used in 1 design/.test(dialog.message())
+  await dialog.dismiss()
   assert(warned, 'Deleting a referenced reusable item should explain its dependency')
   assert(await p.getByText('Editorial Gold', { exact: true }).isVisible())
 
-  await p.getByLabel('Close reuse library').click()
+  await closeLibrary()
   await E(() => {
     const s = window.__voidEditor.getState(), c = document.createElement('canvas')
     c.width = 80; c.height = 50
@@ -122,17 +133,21 @@ try {
   await p.getByRole('button', { name: 'Reuse', exact: true }).click()
   await nameInput().fill('QA Logo')
   await p.getByRole('button', { name: 'Logo', exact: true }).click()
-  await p.getByLabel('Close reuse library').click()
+  await closeLibrary()
   await E(() => window.__voidEditor.getState().setActive(null))
   await p.getByRole('button', { name: 'Reuse', exact: true }).click()
   const before = await E(() => window.__voidEditor.getState().layers.length)
   await rowFor('QA Logo').getByRole('button', { name: 'Apply', exact: true }).click()
+  // Placing an image asset decodes it first, so the new layer arrives a moment after the click.
+  await p.waitForFunction(n => window.__voidEditor.getState().layers.length > n, before, { timeout: 5000 }).catch(() => {})
   const after = await E(() => window.__voidEditor.getState().layers.length)
   assert.equal(after, before + 1, 'Applying a raster library asset with no raster target should place a new layer')
 
-  await p.getByLabel('Close reuse library').click()
+  await closeLibrary()
   await p.setViewportSize({ width: 390, height: 844 })
-  await p.getByRole('button', { name: 'Reuse', exact: true }).click()
+  // On a phone the Reuse library opens from the More sheet.
+  await p.getByRole('button', { name: 'More', exact: true }).click()
+  await p.getByRole('button', { name: 'Reuse library', exact: true }).click()
   await library().waitFor()
   assert(await p.getByText('Editorial Gold', { exact: true }).isVisible())
   assert(await p.getByText('QA Logo', { exact: true }).isVisible())

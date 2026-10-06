@@ -18,6 +18,7 @@ import {
   saveTemplateAsset,
   saveTextStyle,
   selectedWholeGroup,
+  settleReuseWrites,
   usageCounts,
   type AssetKind,
   type ReusableItem,
@@ -126,6 +127,7 @@ export function EditorReuseShell() {
       useEditor.getState().notify(item.kind === 'textStyle' ? 'Select one or more text layers.' : item.kind === 'asset' && item.assetKind === 'color' ? 'Select text or shape layers.' : item.kind === 'asset' && item.assetKind === 'font' ? 'Select one or more text layers.' : 'Select a compatible target first.')
       return
     }
+    await settleReuseWrites()
     await refresh()
     useEditor.getState().notify(item.kind === 'asset' && item.assetKind === 'template' ? `Started a new design from “${item.name}”.` : `Applied “${item.name}”.`)
   }

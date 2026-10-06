@@ -81,7 +81,7 @@ Phase 7B adds separate local reference records for every explicit reuse applicat
 
 The reference records deliberately live outside the project/.void schema in Phase 7B. This keeps existing document compatibility intact while giving the Library dependency awareness.
 
-`Used in N designs` counts only references whose saved design still exists. Deleted designs therefore do not keep a reusable item artificially "in use".
+`Used in N designs` counts only references whose design still exists: saved designs, plus the design open now, even before its first save reaches the index. Deleted designs therefore do not keep a reusable item artificially "in use". Applying an item is one synchronous undo step; the reference is written straight after, and the Library waits for that write before it re-reads usage, so the count is never stale.
 
 These are conservative dependency records: they record where an asset was explicitly applied. If somebody later manually rebuilds or changes the target without going through Reuse, the historical reference can remain. That is intentionally safer than silently assuming the dependency disappeared.
 
@@ -113,7 +113,7 @@ The implementation continues to use namespaced records in the existing `account`
 
 ## Phone
 
-The same Library is reachable from the Editor without hover, right-click or keyboard. On narrow screens it opens as a full-width bottom sheet. Desktop also supports **Alt+Shift+L**.
+On a phone with a design open, the Library opens from **More**, **Reuse library** (6 Oct 2026: the phone editor hides the top bar, so before this there was no way in). It opens as a full-width bottom sheet. On a tablet the top bar shows a **Reuse library** icon; on desktop the **Reuse** button, or **Alt+Shift+L**.
 
 ## Verification
 

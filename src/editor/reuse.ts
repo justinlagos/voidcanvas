@@ -209,6 +209,25 @@ async function clearSlotReference(projectId: string, layerId: string | null | un
     .map(r => idb.del('account', r.id).catch(() => {})))
 }
 
+// Applying is synchronous so it stays one undo step; the usage record is written after it. The library
+// waits for these writes (settleReuseWrites) before it re-reads usage, so "used in" is never stale.
+const pendingUses = new Set<Promise<void>>()
+function trackUse(write: Promise<void>) {
+  const settled = write.catch(() => {})
+  pendingUses.add(settled)
+  settled.finally(() => pendingUses.delete(settled))
+}
+export async function settleReuseWrites() { await Promise.all(Array.from(pendingUses)) }
+
+/** Saved designs, plus the design that is open now even before its first save reaches the index. */
+async function liveProjects(): Promise<Map<string, { name: string }>> {
+  const projects = await idb.all<ProjectSummary>('index').catch(() => [] as ProjectSummary[])
+  const live = new Map<string, { name: string }>(projects.map(p => [p.id, { name: p.name }]))
+  const open = useEditor.getState().doc
+  if (open && !live.has(open.id)) live.set(open.id, { name: open.name })
+  return live
+}
+
 async function recordUse(item: ReusableItem, slot: ReuseSlot, layerId?: string | null) {
   if (!isLocal(item)) return
   const doc = useEditor.getState().doc
@@ -222,8 +241,7 @@ async function recordUse(item: ReusableItem, slot: ReuseSlot, layerId?: string |
 }
 
 export async function listAssetUsages(assetId: string): Promise<ReuseUsage[]> {
-  const [rows, projects] = await Promise.all([allAccount(), idb.all<ProjectSummary>('index').catch(() => [])])
-  const live = new Map(projects.map(p => [p.id, p]))
+  const [rows, live] = await Promise.all([allAccount(), liveProjects()])
   const refs = rows.filter(r => r?.kind === 'reuseRef' && r.assetId === assetId && live.has(r.projectId)) as ReuseReference[]
   const grouped = new Map<string, ReuseUsage>()
   for (const r of refs) {
@@ -238,8 +256,8 @@ export async function listAssetUsages(assetId: string): Promise<ReuseUsage[]> {
 }
 
 export async function usageCounts(items: ReusableItem[]): Promise<Record<string, number>> {
-  const [rows, projects] = await Promise.all([allAccount(), idb.all<ProjectSummary>('index').catch(() => [])])
-  const live = new Set(projects.map(p => p.id)), wanted = new Set(items.filter(isLocal).map(i => i.id))
+  const [rows, live] = await Promise.all([allAccount(), liveProjects()])
+  const wanted = new Set(items.filter(isLocal).map(i => i.id))
   const projectsByAsset = new Map<string, Set<string>>()
   for (const r of rows) if (r?.kind === 'reuseRef' && wanted.has(r.assetId) && live.has(r.projectId)) {
     if (!projectsByAsset.has(r.assetId)) projectsByAsset.set(r.assetId, new Set())
@@ -339,7 +357,7 @@ export function applyLook(item: SavedLook, ids?: string[]): boolean {
     const group = selectedWholeGroup()
     if (group && !group.locked) {
       s.updateGroup(group.id, patchForGroup(item.appearance), `Apply Look: ${item.name}`)
-      recordUse(item, 'look', `group:${group.id}`).catch(() => {})
+      trackUse(recordUse(item, 'look', `group:${group.id}`))
       return true
     }
   }
@@ -348,7 +366,7 @@ export function applyLook(item: SavedLook, ids?: string[]): boolean {
   s.updateLayers(targets.map(id => ({ id, patch: patchForLayer(s.layers.find(x => x.id === id)!, item.appearance) })))
   s.commit(`Apply Look: ${item.name}`)
   const fonts = new Set<string>()
-  for (const id of targets) { const layer = useEditor.getState().layers.find(x => x.id === id); if (layer?.type === 'text') fonts.add(layer.fontFamily); recordUse(item, 'look', id).catch(() => {}) }
+  for (const id of targets) { const layer = useEditor.getState().layers.find(x => x.id === id); if (layer?.type === 'text') fonts.add(layer.fontFamily); trackUse(recordUse(item, 'look', id)) }
   Promise.all(Array.from(fonts).map(f => ensureFont(f).catch(() => {}))).then(() => useEditor.setState(x => ({ docRev: x.docRev + 1 })))
   return true
 }
@@ -358,7 +376,7 @@ export function applyTextStyle(item: SavedTextStyle, ids?: string[]): boolean {
   const targets = (ids ?? s.selectedIds).filter(id => { const l = s.layers.find(x => x.id === id); return l?.type === 'text' && !l.locked })
   if (!targets.length) return false
   s.updateLayers(targets.map(id => ({ id, patch: deep(item.style) as any }))); s.commit(`Apply text style: ${item.name}`)
-  for (const id of targets) recordUse(item, 'textStyle', id).catch(() => {})
+  for (const id of targets) trackUse(recordUse(item, 'textStyle', id))
   ensureFont(item.style.fontFamily, item.style.fontWeight, item.style.italic).then(() => useEditor.setState(x => ({ docRev: x.docRev + 1 }))).catch(() => {})
   return true
 }
@@ -385,7 +403,7 @@ export async function applyAsset(item: SavedAsset): Promise<boolean> {
     const ids = s.selectedIds.filter(id => { const l = s.layers.find(x => x.id === id); return !!l && !l.locked && (l.type === 'text' || l.type === 'shape') })
     if (!ids.length) return false
     s.updateLayers(ids.map(id => { const l = s.layers.find(x => x.id === id)!; return { id, patch: l.type === 'text' ? { color: item.color } : { fill: item.color } } as any })); s.commit(`Apply colour: ${item.name}`)
-    ids.forEach(id => recordUse(item, 'color', id).catch(() => {})); return true
+    ids.forEach(id => trackUse(recordUse(item, 'color', id))); return true
   }
   if (item.assetKind === 'font') {
     if (!item.font?.family) return false
@@ -394,7 +412,7 @@ export async function applyAsset(item: SavedAsset): Promise<boolean> {
     const ids = s.selectedIds.filter(id => { const l = s.layers.find(x => x.id === id); return l?.type === 'text' && !l.locked })
     if (!ids.length) return false
     s.updateLayers(ids.map(id => ({ id, patch: { fontFamily: item.font!.family } as any }))); s.commit(`Apply font: ${item.name}`)
-    ids.forEach(id => recordUse(item, 'font', id).catch(() => {})); return true
+    ids.forEach(id => trackUse(recordUse(item, 'font', id))); return true
   }
   if (!item.blob) return false
   const targets = s.selectedIds.filter(id => { const l = s.layers.find(x => x.id === id); return l?.type === 'raster' && !l.locked })

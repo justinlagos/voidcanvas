@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ArrowLeft, BookOpen, Bug, Camera, Check, ChevronRight, Clock, Copy, Crop, Download, Eclipse, Eye, FlipHorizontal, FolderPlus, History, ImageIcon, ImageOff, LayoutGrid, Layers as LayersIcon, Lock, MessageSquare, MoreHorizontal, PenLine, Pilcrow, Redo2, Scaling, Search, Settings, Share2, Shield, SlidersHorizontal, Sparkles, SquareStack, Trash2, Type, Undo2, Unlock, User, Wand2, X } from 'lucide-react'
+import { ArrowLeft, BookOpen, Bug, Camera, Check, ChevronRight, Clock, Copy, Crop, Download, Eclipse, Eye, FlipHorizontal, FolderPlus, History, ImageIcon, ImageOff, LayoutGrid, Library, Layers as LayersIcon, Lock, MessageSquare, MoreHorizontal, PenLine, Pilcrow, Redo2, Scaling, Search, Settings, Share2, Shield, SlidersHorizontal, Sparkles, SquareStack, Trash2, Type, Undo2, Unlock, User, Wand2, X } from 'lucide-react'
 import { useEditor } from '../store'
 import { layerBounds } from '../engine'
 import { downloadBlob, exportImage, importFiles, isPrivate, noteExport, trackExport } from '../io'
@@ -466,6 +466,7 @@ function MoreSheet({ onClose, openPanel }: { onClose: () => void; openPanel: (id
       <Item icon={Clock} label="Version history" onClick={() => run('file.versions')} />
       <Item icon={Check} label="Save a version" onClick={() => run('file.version')} />
       <Item icon={SquareStack} label="Save as template" onClick={() => run('file.template')} />
+      <Item icon={Library} label="Reuse library" onClick={() => { onClose(); window.dispatchEvent(new Event('vc:reuse')) }} />
       <Item icon={Download} label="Download the design file (.void)" onClick={() => run('file.void')} />
       <Item icon={Sparkles} label="Brand kit" onClick={() => run('edit.brand')} />
       <Label>Panels</Label>
