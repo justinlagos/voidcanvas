@@ -952,15 +952,20 @@ export async function eachPage(pages: PageSpec[], brand: Brand, logo: LogoInfo |
   }
 }
 
+/** Record one page with its fixed layout as editable items. Fonts must already be loaded. */
+export function recordLegacyPage(spec: PageSpec, pageNo: number, pageCount: number, brand: Brand, logo: LogoInfo | null, o: Orientation, d: LogoDecisions = NO_DECISIONS, photos: GuidePhoto[] = []): RecordedPage & { title: string } {
+  const size = SIZES[o], def = PAGE_DEFS[spec.kind], v = def.variants[Math.min(spec.variant, def.variants.length - 1)]
+  const rec = recordPage(size.w, size.h, x => { x.textBaseline = 'alphabetic'; x.textAlign = 'left'; v.draw({ x, w: size.w, h: size.h, b: brand, logo, o, pageNo, pageCount, d, photos }) })
+  return { ...rec, title: def.title }
+}
+
 /** Record visible pages as editable items (text, shapes, images) for the Editor. */
 export async function recordPages(pages: PageSpec[], brand: Brand, logo: LogoInfo | null, o: Orientation, onPage?: (i: number, n: number) => void, d: LogoDecisions = NO_DECISIONS, photos: GuidePhoto[] = []): Promise<(RecordedPage & { title: string })[]> {
   await Promise.all([loadFont(brand.fonts.heading, [400, 600, 700]), loadFont(brand.fonts.body, [400, 500, 600]), loadFont(brand.fonts.mono, [400, 500, 600])])
-  const size = SIZES[o], on = pages.filter(p => p.on), out: (RecordedPage & { title: string })[] = []
+  const on = pages.filter(p => p.on), out: (RecordedPage & { title: string })[] = []
   for (let i = 0; i < on.length; i++) {
     onPage?.(i, on.length)
-    const def = PAGE_DEFS[on[i].kind], v = def.variants[Math.min(on[i].variant, def.variants.length - 1)]
-    const rec = recordPage(size.w, size.h, x => { x.textBaseline = 'alphabetic'; x.textAlign = 'left'; v.draw({ x, w: size.w, h: size.h, b: brand, logo, o, pageNo: i + 1, pageCount: on.length, d, photos }) })
-    out.push({ ...rec, title: def.title })
+    out.push(recordLegacyPage(on[i], i + 1, on.length, brand, logo, o, d, photos))
     await new Promise(r => setTimeout(r, 0)) // let the progress label paint
   }
   return out

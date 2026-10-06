@@ -35,35 +35,58 @@ export async function snapshot(b: ClientBrand): Promise<Snapshot> {
     pages: Asset[] = []
   const source = b.guideline?.source
   if (source) {
-    const { eachPage } = await import('@/studio/brand-pages'),
-      { analyseLogo } = await import('@/studio/brand/logo')
+    const { PAGE_DEFS } = await import('@/studio/brand-pages'),
+      { analyseLogo } = await import('@/studio/brand/logo'),
+      { composeRuntimePages } = await import('./compose/runtime'),
+      { brandV2Enabled } = await import('./compose/flag'),
+      { eachRuntimePage } = await import('@/studio/brand-v2-render')
+    // The supplied logo file, as the builder reads it, so the published pages match the preview.
     const primary = b.logos.find((l) => l.variant === 'primary') ?? b.logos[0]
-    const logo = primary
+    const logo = source.logoFile
       ? await analyseLogo(
-          new File([primary.blob], primary.name, { type: primary.blob.type }),
+          new File([source.logoFile], 'brand-logo', {
+            type: source.logoFile.type,
+          }),
         )
-      : null
+      : primary
+        ? await analyseLogo(
+            new File([primary.blob], primary.name, { type: primary.blob.type }),
+          )
+        : null
     const photos = await Promise.all(
       (b.imagery ?? []).map(async (p) => ({
         ...p,
         img: await blobToCanvas(p.blob, 1600),
       })),
     )
-    await eachPage(
-      source.pages,
-      system,
+    // Published pages follow the same renderer switch as the builder preview, the PDFs and
+    // Open in Editor, so every output of one brand shows the same pages.
+    const runtime = brandV2Enabled()
+      ? composeRuntimePages({
+          brand: system,
+          logo,
+          pages: source.pages,
+          salt: source.tokens.salt,
+          layoutSalt: source.tokens.layoutSalt ?? 0,
+        })
+      : { irByIndex: new Map<number, import('./compose').Page>() }
+    await eachRuntimePage({
+      pages: source.pages,
+      irByIndex: runtime.irByIndex,
+      brand: system,
       logo,
-      source.orientation,
-      0.7,
-      async (c) => {
+      orientation: source.orientation,
+      scale: 0.7,
+      decisions: source.decisions,
+      photos,
+      titleFor: (spec) => PAGE_DEFS[spec.kind].title,
+      fn: async (c) => {
         pages.push({
           name: `Guideline page ${pages.length + 1}`,
           data: c.toDataURL('image/jpeg', 0.8),
         })
       },
-      source.decisions,
-      photos,
-    )
+    })
   } else if (b.guideline) {
     const old = b.guideline.system
     const same =

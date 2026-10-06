@@ -1,5 +1,6 @@
 import { paintCanvas, createBrandPaintResolver, brandPaint, type Node, type Page } from '@/brand/compose'
-import { renderPage as renderLegacyPage, type GuidePhoto, type Orientation, type PageSpec } from './brand-pages'
+import { recordLegacyPage, renderPage as renderLegacyPage, type GuidePhoto, type Orientation, type PageSpec } from './brand-pages'
+import { recordPage, type RecordedPage } from './brand/record'
 import { grayMark, logoPlacements, monoMark, type LogoDecisions, type LogoInfo, type MarkMode } from './brand/logo'
 import { loadFont } from './brand/fonts'
 import type { Brand } from './brand/tokens'
@@ -64,11 +65,14 @@ function runtimeHooks(brand: Brand, logo: LogoInfo | null, decisions: LogoDecisi
 
       ctx.save()
       if (node.demo === 'misuse') {
+        // The distortion applies to the mark only. Restoring (not resetting to identity) keeps the
+        // page scale, so the cross lands on the mark at every preview, PDF and Editor scale.
+        ctx.save()
         ctx.translate(r.x + r.w / 2, r.y + r.h / 2)
         ctx.rotate(-0.12)
         ctx.scale(1.18, 0.78)
         fitImage(ctx, image, logo.width, logo.height, { x: -r.w / 2, y: -r.h / 2, w: r.w, h: r.h }, true)
-        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.restore()
         ctx.strokeStyle = '#d92d20'; ctx.lineWidth = 5
         ctx.beginPath(); ctx.moveTo(r.x + 18, r.y + 18); ctx.lineTo(r.x + r.w - 18, r.y + r.h - 18); ctx.stroke()
         ctx.beginPath(); ctx.moveTo(r.x + r.w - 18, r.y + 18); ctx.lineTo(r.x + 18, r.y + r.h - 18); ctx.stroke()
@@ -136,6 +140,19 @@ function runtimeHooks(brand: Brand, logo: LogoInfo | null, decisions: LogoDecisi
   }
 }
 
+/** True when this page is drawn from the V2 composition rather than a fixed layout. */
+export function usesV2(input: Pick<RuntimeRenderInput, 'irPage' | 'orientation' | 'spec'>): input is Pick<RuntimeRenderInput, 'orientation' | 'spec'> & { irPage: Page } {
+  return !!input.irPage && input.orientation === 'landscape' && input.spec.variant === 0
+}
+
+function loadRuntimeFonts(brand: Brand) {
+  return Promise.all([
+    loadFont(brand.fonts.heading, [400, 600, 700]),
+    loadFont(brand.fonts.body, [400, 500, 600, 700]),
+    loadFont(brand.fonts.mono, [400, 500, 600, 700]),
+  ])
+}
+
 /**
  * Single production rendering boundary for Brand Guidelines V2.
  * Landscape default layouts use the V2 IR. Portrait and explicit legacy variants remain on
@@ -145,15 +162,11 @@ export async function renderRuntimePage(input: RuntimeRenderInput): Promise<HTML
   const scale = input.scale ?? 1
   const decisions = input.decisions ?? { off: [], backgrounds: {} }
   const photos = input.photos ?? []
-  if (!input.irPage || input.orientation !== 'landscape' || input.spec.variant > 0) {
+  if (!usesV2(input)) {
     return renderLegacyPage(input.spec, input.pageNo, input.pageCount, input.brand, input.logo, input.orientation, scale, decisions, photos)
   }
 
-  await Promise.all([
-    loadFont(input.brand.fonts.heading, [400, 600, 700]),
-    loadFont(input.brand.fonts.body, [400, 500, 600, 700]),
-    loadFont(input.brand.fonts.mono, [400, 500, 600, 700]),
-  ])
+  await loadRuntimeFonts(input.brand)
 
   const canvas = document.createElement('canvas')
   canvas.width = Math.max(1, Math.round(input.irPage.width * scale))
@@ -164,6 +177,42 @@ export async function renderRuntimePage(input: RuntimeRenderInput): Promise<HTML
   ctx.scale(scale, scale)
   paintCanvas(input.irPage, ctx, createBrandPaintResolver(input.brand, runtimeHooks(input.brand, input.logo, decisions, photos)))
   return canvas
+}
+
+/**
+ * Record the visible pages as editable Editor layers through the same boundary as the preview
+ * and the PDFs: V2 pages are recorded from their composition, the rest from their fixed layout.
+ */
+export async function recordRuntimePages(input: {
+  pages: readonly PageSpec[]
+  irByIndex: Map<number, Page>
+  brand: Brand
+  logo: LogoInfo | null
+  orientation: Orientation
+  decisions?: LogoDecisions
+  photos?: GuidePhoto[]
+  titleFor: (spec: PageSpec) => string
+  onPage?: (index: number, count: number) => void
+}): Promise<(RecordedPage & { title: string })[]> {
+  const decisions = input.decisions ?? { off: [], backgrounds: {} }
+  const photos = input.photos ?? []
+  await loadRuntimeFonts(input.brand)
+  const visible = input.pages.map((spec, sourceIndex) => ({ spec, sourceIndex })).filter(({ spec }) => spec.on)
+  const out: (RecordedPage & { title: string })[] = []
+  for (let i = 0; i < visible.length; i++) {
+    const { spec, sourceIndex } = visible[i]
+    input.onPage?.(i, visible.length)
+    const target = { spec, irPage: input.irByIndex.get(sourceIndex), orientation: input.orientation }
+    if (usesV2(target)) {
+      const hooks = createBrandPaintResolver(input.brand, runtimeHooks(input.brand, input.logo, decisions, photos))
+      const rec = recordPage(target.irPage.width, target.irPage.height, ctx => { ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; paintCanvas(target.irPage, ctx, hooks) })
+      out.push({ ...rec, title: input.titleFor(spec) })
+    } else {
+      out.push(recordLegacyPage(spec, i + 1, visible.length, input.brand, input.logo, input.orientation, decisions, photos))
+    }
+    await new Promise(r => setTimeout(r, 0)) // let the progress label paint
+  }
+  return out
 }
 
 export async function eachRuntimePage(input: {

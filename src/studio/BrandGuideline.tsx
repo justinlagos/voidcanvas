@@ -11,7 +11,7 @@ import { FONT_SUGGESTIONS, HARMONIES, PERSONALITIES, SCALES, buildBrand, resolve
 import { RAMP_STEPS, isHex } from './brand/color'
 import { loadFont, registerLocalFont } from './brand/fonts'
 import { fileSlug, toAse, toCss, toJson, toTailwind } from './brand/export'
-import { PAGE_DEFS, SIZES, lastPhotoPlan, recordPages, type Orientation, type PageSpec } from './brand-pages'
+import { PAGE_DEFS, SIZES, lastPhotoPlan, type Orientation, type PageSpec } from './brand-pages'
 import { MODE_LABEL, MODE_OF, VARIANT_OF, analyseLogo, grayMark, logoChecks, logoPlacements, logoVariants, monoMark, type LogoDecisions, type LogoInfo } from './brand/logo'
 import { PRINT_TRIM } from './brand-pdf'
 import { describeProfile } from '@/lib/intelligence/asset'
@@ -21,7 +21,7 @@ import { brandHealth, healthSummary, type HealthGroup } from '@/lib/intelligence
 import type { Level } from '@/lib/intelligence/contrast'
 import { composeRuntimePages } from '@/brand/compose/runtime'
 import { brandV2Enabled } from '@/brand/compose/flag'
-import { eachRuntimePage, renderRuntimePage } from './brand-v2-render'
+import { eachRuntimePage, recordRuntimePages, renderRuntimePage } from './brand-v2-render'
 
 /** Until V2 passes its release gates, pages render through the legacy renderer unless ?brandv2=1 is set. */
 const NO_RUNTIME = { irByIndex: new Map<number, import('@/brand/compose').Page>(), legacyIndexes: new Set<number>() }
@@ -641,7 +641,7 @@ export function BrandGuideline({ onBack, initialBrand, backLabel = 'Studio' }: {
     setBusy('Opening in Editor'); setErr(null)
     try {
       // Pages go over as real layers: text stays text, shapes stay shapes, the logo stays an image.
-      const recorded = await recordPages(pages, brand, logo, o, (i, n) => setBusy(`Building page ${i + 1} of ${n}`), decisions, photos)
+      const recorded = await recordRuntimePages({ pages, irByIndex: outputRuntime.irByIndex, brand, logo, orientation: o, decisions, photos, titleFor: spec => PAGE_DEFS[spec.kind].title, onPage: (i, n) => setBusy(`Building page ${i + 1} of ${n}`) })
       if (!recorded.length) throw new Error('Every page is hidden. Include at least one page in the page list.')
       setBusy('Opening in Editor')
       const layered: LayeredPage[] = []
