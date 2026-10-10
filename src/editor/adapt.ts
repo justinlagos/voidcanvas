@@ -187,14 +187,57 @@ const CONTENT_KEYS: Record<string, string[]> = {
 const COMMON = ['name', 'visible', 'opacity', 'blend', 'styles', 'fillOpacity', 'role']
 
 /**
+ * Attach new variant layers to the variant's own groups, never to the
+ * source board's group IDs. This is geometry-independent and testable without
+ * the rendering engine.
+ */
+export function mapVariantGroups(
+  master: Layer[], existingVariant: Layer[], newVariant: Layer[], groupList: Group[],
+): { layers: Layer[]; groups: Group[] } {
+  const byMasterId = new Map(master.map(l => [l.id, l]))
+  const sourceGroups = new Map(groupList.map(g => [g.id, g]))
+  const resultGroups = [...groupList]
+  const localGroupIds = new Map<string, string>()
+  for (const layer of existingVariant) {
+    if (!layer.srcId || !layer.groupId) continue
+    let source = sourceGroups.get(byMasterId.get(layer.srcId)?.groupId ?? '')
+    let target = resultGroups.find(g => g.id === layer.groupId)
+    let guard = 0
+    while (source && target && guard++ < 64) {
+      localGroupIds.set(source.id, target.id)
+      source = source.parentId ? sourceGroups.get(source.parentId) : undefined
+      target = target.parentId ? resultGroups.find(g => g.id === target!.parentId) : undefined
+    }
+  }
+  const localGroup = (sourceId?: string | null, seen = new Set<string>()): string | null => {
+    if (!sourceId) return null
+    const known = localGroupIds.get(sourceId)
+    if (known) return known
+    const source = sourceGroups.get(sourceId)
+    if (!source || seen.has(sourceId)) return null
+    seen.add(sourceId)
+    const parentId = localGroup(source.parentId, seen)
+    const id = uid()
+    resultGroups.push({ ...source, id, parentId })
+    localGroupIds.set(sourceId, id)
+    return id
+  }
+  return {
+    layers: newVariant.map(layer => ({
+      ...layer, groupId: localGroup(byMasterId.get(layer.srcId ?? '')?.groupId),
+    } as Layer)),
+    groups: resultGroups,
+  }
+}
+
+/**
  * Push the master's content into every linked format. Text, colours, pictures and styles follow
  * the master; each format keeps its own positions and sizes. New master layers are laid in by
  * role; layers removed from the master are removed from the formats.
  */
 export function syncFormats(doc: Doc, layers: Layer[], masterId: string, roles: Map<string, LayerRole>, groupList: Group[] = []): { layers: Layer[]; changed: number; groups: Group[] } {
   const m = doc.frames?.find(f => f.id === masterId); if (!m) return { layers, changed: 0, groups: groupList }
-  const groups = [...groupList]
-  const groupById = new Map(groupList.map(g => [g.id, g]))
+  let groups = [...groupList]
   const kids = (doc.frames ?? []).filter(f => f.linkedFrom === masterId)
   const master = layers.filter(l => l.frameId === masterId)
   const byId = new Map(master.map(l => [l.id, l]))
@@ -235,39 +278,10 @@ export function syncFormats(doc: Doc, layers: Layer[], masterId: string, roles: 
     const excluded = new Set(k.cascadeExcludedSrcIds ?? [])
     const missing = master.filter(l => !have.has(l.id) && !excluded.has(l.id))
     if (missing.length) {
-      // New source layers must join the *variant's* copy of their group.
-      // Reusing master group IDs would make one group span several boards.
-      // Keep existing variant groups intact; create isolated copies only
-      // when a source group has no corresponding variant group yet.
-      const localGroupIds = new Map<string, string>()
-      for (const variantLayer of out) {
-        if (variantLayer.frameId !== k.id || !variantLayer.srcId || !variantLayer.groupId) continue
-        let srcGroup = groupById.get(byId.get(variantLayer.srcId)?.groupId ?? '')
-        let dstGroup = groups.find(g => g.id === variantLayer.groupId)
-        let guard = 0
-        while (srcGroup && dstGroup && guard++ < 64) {
-          localGroupIds.set(srcGroup.id, dstGroup.id)
-          srcGroup = srcGroup.parentId ? groupById.get(srcGroup.parentId) : undefined
-          dstGroup = dstGroup.parentId ? groups.find(g => g.id === dstGroup!.parentId) : undefined
-        }
-      }
-      const findLocalGroup = (sourceId?: string | null, seen = new Set<string>()): string | null => {
-        if (!sourceId) return null
-        const already = localGroupIds.get(sourceId)
-        if (already) return already
-        const source = groupById.get(sourceId)
-        if (!source || seen.has(sourceId)) return null
-        seen.add(sourceId)
-        const parentId = findLocalGroup(source.parentId, seen)
-        const newId = uid()
-        groups.push({ ...source, id: newId, parentId })
-        localGroupIds.set(sourceId, newId)
-        return newId
-      }
-      const added = layoutByRole(missing, m, k, doc, roles).map(l => {
-        const source = l.srcId ? byId.get(l.srcId) : null
-        return { ...l, groupId: findLocalGroup(source?.groupId) } as Layer
-      })
+      const mapped = mapVariantGroups(master, out.filter(l => l.frameId === k.id),
+        layoutByRole(missing, m, k, doc, roles), groups)
+      const added = mapped.layers
+      groups = mapped.groups
       out = out.concat(added)
       changed += missing.length
     }
