@@ -535,6 +535,42 @@ export function cancelTransform() { useEditor.setState({ transform: null }) }
 export function applyTransform() {
   const s = st(); const t = s.transform; const doc = s.doc; if (!t || !doc) return
   const l0 = s.layers.find(x => x.id === t.layerId); if (!l0 || l0.type === 'adjustment') { cancelTransform(); return }
+  // Pressing Enter without moving anything must not rasterise an editable text,
+  // vector or smart-object layer. No change means no history step.
+  const pointNear = (a: P, b: P) => Math.hypot(a.x - b.x, a.y - b.y) < 0.001
+  const sameQuad = t.quad.every((q, i) => pointNear(q, t.origin[i]))
+  const sameGrid = !t.grid || (() => {
+    const original = layerMatrix(l0, doc)
+    const size = layerSize(l0, doc)
+    return t.grid!.every((p, i) => {
+      const q = original.transformPoint({ x: size.w * (i % 4) / 3, y: size.h * Math.floor(i / 4) / 3 })
+      return pointNear(p, q)
+    })
+  })()
+  if (sameQuad && sameGrid) { cancelTransform(); return }
+
+  // A rectangular Free Transform is just position, rotation and scale.
+  // Preserve the underlying editable object and its masks; rasterising it
+  // for a simple resize would destroy live typography and vectors.
+  if (t.mode === 'free' && !t.grid && l0.scaleX > 0 && l0.scaleY > 0) {
+    const [a, b, c, d] = t.quad
+    const vx = { x: b.x - a.x, y: b.y - a.y }
+    const vy = { x: d.x - a.x, y: d.y - a.y }
+    const ex = Math.hypot(vx.x, vx.y), ey = Math.hypot(vy.x, vy.y)
+    const shapeError = Math.hypot(c.x - b.x - d.x + a.x, c.y - b.y - d.y + a.y)
+    const perpendicularError = Math.abs(vx.x * vy.x + vx.y * vy.y) / Math.max(1, ex * ey)
+    const oriented = vx.x * vy.y - vx.y * vy.x > 0
+    if (ex > 0.001 && ey > 0.001 && oriented && shapeError < 0.02 && perpendicularError < 0.0001) {
+      const { w, h } = layerSize(l0, doc)
+      const scaleX = ex / Math.max(1, w), scaleY = ey / Math.max(1, h)
+      const center = { x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 }
+      const rotation = Math.atan2(vx.y, vx.x)
+      cancelTransform()
+      s.updateLayer(l0.id, { scaleX, scaleY, rotation, x: center.x - w * scaleX / 2, y: center.y - h * scaleY / 2 }, 'Free transform')
+      return
+    }
+  }
+  // Distort/perspective/warp may genuinely require raster output.
   const src = layerSource(l0, doc)
   const out = makeCanvas(doc.width, doc.height), ox = ctx2d(out)
   ox.imageSmoothingQuality = 'high'
