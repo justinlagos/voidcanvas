@@ -100,35 +100,48 @@ try {
   ok('layer clipping is one undoable step', clipping.clipped && clipping.undone && clipping.redone)
 
   // Use a real modifier click on the canvas, not a direct store call.
-  const cursor = await page.evaluate(() => {
+  const overlapping = await page.evaluate(() => {
     const s = window.__voidEditor.getState()
     s.newDoc({ name: 'Overlapping layers', width: 320, height: 240, background: '#fff' })
     const below = s.addShape('rect', 35, 35, 105, 95, { fill: '#ff9900' })
     const above = s.addShape('rect', 45, 45, 105, 95, { fill: '#1144dd' })
     s.setActive(above); s.setTool('move'); s.setOption('autoSelect', true)
-    s.setView({ zoom: 1, panX: 110, panY: 110 })
-    const box = document.querySelector('[aria-label="Design canvas"]').getBoundingClientRect()
-    return { below, above, x: box.left + 110 + 65, y: box.top + 110 + 65 }
+    return { below, above }
   })
+  // Stage restores the canvas view after opening a new document. Let that
+  // settle, then set and read the actual pan/zoom used by the pointer handlers.
+  await page.waitForTimeout(350)
+  const cursor = await page.evaluate(ids => {
+    const s = window.__voidEditor.getState()
+    s.setView({ zoom: 1, panX: 110, panY: 110 })
+    const view = window.__voidEditor.getState().view
+    const box = document.querySelector('[aria-label="Design canvas"]').getBoundingClientRect()
+    return { ...ids, x: box.left + view.panX + 65 * view.zoom, y: box.top + view.panY + 65 * view.zoom }
+  }, overlapping)
   await page.keyboard.down('Control')
   await page.mouse.click(cursor.x, cursor.y)
   await page.keyboard.up('Control')
-  ok('Ctrl-click selects underlying layer', await page.evaluate(id => window.__voidEditor.getState().activeId === id, cursor.below))
+  let chosen = await page.evaluate(() => window.__voidEditor.getState().activeId)
+  if (chosen !== cursor.below) console.log('Ctrl-click debug', { chosen, cursor, view: await page.evaluate(() => window.__voidEditor.getState().view) })
+  ok('Ctrl-click selects underlying layer', chosen === cursor.below)
   await page.keyboard.down('Control')
   await page.mouse.click(cursor.x, cursor.y)
   await page.keyboard.up('Control')
-  ok('second Ctrl-click cycles back to top layer', await page.evaluate(id => window.__voidEditor.getState().activeId === id, cursor.above))
+  chosen = await page.evaluate(() => window.__voidEditor.getState().activeId)
+  ok('second Ctrl-click cycles back to top layer', chosen === cursor.above)
 
   const colour = await page.evaluate(() => {
     const host = document.querySelector('[aria-label="Design canvas"]')
-    const p = host.getBoundingClientRect(), dt = new DataTransfer()
+    const p = host.getBoundingClientRect(), view = window.__voidEditor.getState().view
+    const dt = new DataTransfer()
     dt.setData('text/vc-color', '#22dd77')
-    const event = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: p.left + 175, clientY: p.top + 175 })
+    const event = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: p.left + view.panX + 65 * view.zoom, clientY: p.top + view.panY + 65 * view.zoom })
     host.dispatchEvent(event)
     const s = window.__voidEditor.getState(), l = s.layers.find(x => x.id === s.activeId)
-    return l?.type === 'shape' && l.fill === '#22dd77'
+    return { recoloured: l?.type === 'shape' && l.fill === '#22dd77', active: l?.id, fill: l?.type === 'shape' ? l.fill : null, view }
   })
-  ok('dropping swatch recolours exact shape layer', colour)
+  if (!colour.recoloured) console.log('Drop debug', colour)
+  ok('dropping swatch recolours exact shape layer', colour.recoloured)
 } finally {
   await browser.close()
 }
