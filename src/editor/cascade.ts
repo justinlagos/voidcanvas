@@ -41,8 +41,8 @@ export function cascadeToFrames(sourceFrameId: string | null, presets: SizePrese
   const master = doc.frames!.find(f => f.id === sourceFrameId) ?? doc.frames![0]
   const masterLayers = base.filter(l => l.frameId === master.id)
   const sourcePanels = analyse(masterLayers, master, doc, st.groups, { preserveGroups: true }).panels
-  const excludedSourceIds = [...new Set(sourcePanels.filter(p => skip.has(p.id))
-    .flatMap(p => p.blocks.flatMap(b => b.layers.map(l => l.id))))]
+  const excludedSourceIds = Array.from(new Set(sourcePanels.filter(p => skip.has(p.id))
+    .flatMap(p => p.blocks.flatMap(b => b.layers.map(l => l.id)))))
   const sizes = presets.filter(p => !(p.width === master.width && p.height === master.height))
     .slice().sort((a, b) => b.width / b.height - a.width / a.height)
   if (!sizes.length) { st.notify('The board is already that size.'); return false }
