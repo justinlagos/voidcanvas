@@ -8,7 +8,7 @@ if (!process.env.BASE) {
   for (let i = 0; i < 60; i++) { try { await fetch(BASE); break } catch { await new Promise(r => setTimeout(r, 1000)) } }
 }
 let failed = false
-for (const f of ['brand-portals', 'disk-and-format', 'qa-batch1', 'qa-batch2', 'qa-batch3', 'qa-batch5', 'ux-a-text', 'ux-b-mobile', 'ux-c-studio', 'ux-d-desktop', 'ux-e-hub', 'boards-cascade-export', 'bake-fullres', 'learn', 'intelligence', 'trust', 'phone', 'editing', 'paint-workflows', 'designer-production', 'versions', 'effects-scope', 'effects-controls', 'effects-ux', 'brief-photo', 'landing-hero', 'export-return', 'analytics', 'reuse']) {
+for (const f of ['brand-portals', 'disk-and-format', 'qa-batch1', 'qa-batch2', 'qa-batch3', 'qa-batch5', 'ux-a-text', 'ux-b-mobile', 'ux-c-studio', 'ux-d-desktop', 'ux-e-hub', 'boards-cascade-export', 'bake-fullres', 'learn', 'intelligence', 'trust', 'phone', 'editing', 'paint-workflows', 'designer-production', 'versions', 'effects-scope', 'targeted-adjustment-cut-bounds', 'effects-controls', 'effects-ux', 'brief-photo', 'landing-hero', 'export-return', 'analytics', 'reuse']) {
   console.log(`\n== ${f}`)
   const code = await new Promise(r => spawn(process.execPath, [`e2e/${f}.mjs`], { stdio: 'inherit', env: { ...process.env, BASE } }).on('exit', r))
   if (code) failed = true
