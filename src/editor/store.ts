@@ -3,7 +3,7 @@ import { defaultParams, type EffectType } from '@/store/useStore'
 import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, keepTextAnchor, layerBounds, layerMatrix, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
 import { boardGap, frameForLayer, occupied, placeBeside, type Side } from './frames'
 import type { AdjustmentKind, AdjustmentLayer, Doc, Effect, Frame, Group, Layer, LayerRole, MaskAt, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
-import { copyEffect, freshFx, fxId, linkedCopies, moveInList, patchEffect, resetEffect as resetFx, sameTarget, stackOf, withStacks, type FxTarget } from './effects'
+import { copyEffect, freshFx, fxId, newEffect, linkedCopies, moveInList, patchEffect, resetEffect as resetFx, sameTarget, stackOf, withStacks, type FxTarget } from './effects'
 import { useUi } from './ui-store'
 import { touchCanvas } from './touch'
 import { noteStep, noteUndo } from '@/lib/analytics'
@@ -1142,8 +1142,23 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   addAdjustment: (kind, effect) => {
+    const st = get()
+    // Target what the designer selected, not every layer underneath by accident.
+    // Multiple selections and existing clipped layers get native, editable effects on
+    // each exact layer. This also avoids extending a clipping run to its other members.
+    const targets = st.layers.filter(l => st.selectedIds.includes(l.id) && l.type !== 'adjustment')
+    if (targets.length > 1 || (targets.length === 1 && targets[0].clipId)) {
+      get().addEffect(targets.map(l => ({ type: 'layer' as const, id: l.id })), newEffect(kind, effect), 'Adjust selected layers')
+      useUi.getState().showPanel('properties')
+      return
+    }
+
+    // A new adjustment layer is clipped to the one selected layer by default.
+    // "Changes" in Properties still lets the user switch to Everything below.
+    const host = st.selectedIds.length === 1 ? targets[0] : null
     const l: AdjustmentLayer = {
       ...base(ADJUSTMENT_LABELS[kind]), type: 'adjustment', kind, values: { ...ADJUSTMENT_DEFAULTS[kind] },
+      ...(host ? { clipId: host.id, reach: 'clip' as const, groupId: host.groupId ?? null, frameId: host.frameId ?? null } : {}),
       ...(kind === 'curves' ? { points: [[0, 0], [255, 255]] as [number, number][] } : {}),
       ...(kind === 'voidEffect' && effect ? { effect, effectParams: { ...defaultParams, seed: Math.random() * 1000 } } : {}),
     }
@@ -1453,9 +1468,16 @@ export const useEditor = create<EditorState>((set, get) => ({
     const c = makeCanvas(s.doc.width, s.doc.height)
     renderDoc(c, s.doc, [{ ...l, opacity: 1, blend: 'source-over', visible: true } as Layer], { transparent: true, noCache: true })
     const x = ctx2d(c); x.globalCompositeOperation = 'destination-in'; x.drawImage(s.selection, 0, 0)
+    // A cut-out must own only the visible pixels, not an invisible full-page canvas.
+    // Cropping the backing pixels and offsetting the new layer preserves their exact
+    // position while giving Move/Transform an accurate, usable bounding box.
+    const b = maskBounds(c)
+    if (!b) { s.notify('No visible pixels inside this selection.'); return }
+    const trimmed = makeCanvas(b.w, b.h)
+    ctx2d(trimmed).drawImage(c, -b.x, -b.y)
     if (cut) get().clearSelectionPixels()
     set({ activeId: l.id })
-    get().addLayer({ ...base(l.name + (cut ? ' cut' : ' copy')), type: 'raster', canvas: c }, cut ? 'Cut to new layer' : 'Copy to new layer')
+    get().addLayer({ ...base(l.name + (cut ? ' cut' : ' copy')), type: 'raster', canvas: trimmed, x: b.x, y: b.y }, cut ? 'Cut to new layer' : 'Copy to new layer')
     set({ selection: null, selRev: get().selRev + 1 })
   },
 
