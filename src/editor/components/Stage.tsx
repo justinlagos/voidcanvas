@@ -2334,8 +2334,24 @@ export function Stage() {
       onPointerUp={onUp}
       onPointerCancel={onUp}
       onPointerLeave={() => { cursor.current = null; useEditor.setState({ pointer: null }); invalidate() }}
-      onDragOver={e => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}
-      onDrop={e => { if (!e.dataTransfer.files.length) return; e.preventDefault(); importFiles(Array.from(e.dataTransfer.files)) }}
+      onDragOver={e => { if (e.dataTransfer.types.includes('Files') || e.dataTransfer.types.includes('text/vc-color')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' } }}
+      onDrop={e => {
+        const color = e.dataTransfer.getData('text/vc-color')
+        if (/^#[0-9a-f]{3,8}$/i.test(color)) {
+          e.preventDefault()
+          const st = useEditor.getState()
+          if (!st.doc) return
+          const p = local(e), at = toDoc(p.x, p.y)
+          const target = hitLayer(pickable(), at.x, at.y, st.doc, st.groups)
+          if (target?.type === 'shape') st.updateLayer(target.id, { fill: color }, 'Apply swatch to shape')
+          else if (target?.type === 'text') st.updateLayer(target.id, { color }, 'Apply swatch to text')
+          else st.notify('Drop the swatch onto a shape or text layer.')
+          return
+        }
+        if (!e.dataTransfer.files.length) return
+        e.preventDefault()
+        importFiles(Array.from(e.dataTransfer.files))
+      }}
       onContextMenu={e => {
         e.preventDefault()
         // Right click (mouse): pick the layer under the pointer if it is not already selected, then show the menu.
