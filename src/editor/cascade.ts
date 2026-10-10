@@ -87,9 +87,9 @@ export function resyncVariants(masterId: string) {
   // positioning decisions. Sync content instead; deliberate re-layout remains
   // a separate editor command.
   const roles = inferRoles(s.layers, master, doc)
-  const result = syncFormats(doc, s.layers, masterId, roles)
+  const result = syncFormats(doc, s.layers, masterId, roles, s.groups)
   if (!result.changed) { s.notify('Linked variants already match the master.'); return }
   const layers = orderLikeMaster(result.layers, masterId)
-  s.applyBoards({ ...doc }, layers, prune(s.groups, layers), 'Update linked variants', masterId)
+  s.applyBoards({ ...doc }, layers, prune(result.groups, layers), 'Update linked variants', masterId)
   s.notify(`Updated shared content on ${children.length} linked variant${children.length === 1 ? '' : 's'}. Manual layout positions were preserved.`)
 }
