@@ -455,11 +455,15 @@ export interface SettingsApi {
   commit: (label: string) => void
   /** Inside an effect row: no section header or notes about layers below. */
   embedded?: boolean
+  /** Only actual adjustment layers have a stack reach; effect settings do not. */
+  scopeLabel?: string
 }
 
 function AdjustmentProps({ layer }: { layer: AdjustmentLayer }) {
   const s = useEditor.getState()
-  return <SettingsControls api={{ value: layer, name: layer.name, up: (p, label) => s.updateLayer(layer.id, p as Partial<AdjustmentLayer>, label), commit: label => s.commit(label) }} />
+  const host = layer.clipId ? s.layers.find(l => l.id === layer.clipId)?.name : null
+  const scopeLabel = layer.clipId ? (host ? `Only “${host}” changes.` : 'Only the clipped target changes.') : layer.reach === 'group' && layer.groupId ? 'Only this group changes.' : 'Everything below changes.'
+  return <SettingsControls api={{ value: layer, name: layer.name, scopeLabel, up: (p, label) => s.updateLayer(layer.id, p as Partial<AdjustmentLayer>, label), commit: label => s.commit(label) }} />
 }
 
 function Wrap({ api, title, action, children }: { api: SettingsApi; title: string; action?: React.ReactNode; children: React.ReactNode }) {
@@ -536,7 +540,7 @@ export function SettingsControls({ api }: { api: SettingsApi }) {
           <Slider key={f.key} label={f.label} value={layer.values[f.key] ?? 0} min={f.min} max={f.max}
             onChange={v => api.up({ values: { ...layer.values, [f.key]: v } })} onCommit={() => api.commit(api.name)} />
         ))}
-        {!api.embedded && <p className="text-[12px] text-void-500 leading-relaxed">{layer.clipId ? 'Only its clipped target changes.' : layer.reach === 'group' && layer.groupId ? 'Only this group changes.' : 'Everything below changes.'} Your original pixels are never changed.</p>}
+        {!api.embedded && <p className="text-[12px] text-void-500 leading-relaxed">{api.scopeLabel ?? 'Adjustment effect on the selected target.'} Your original pixels are never changed.</p>}
       </div>
     </Wrap>
   )
