@@ -50,4 +50,34 @@ describe('Cascade strict layout policy', () => {
     expect(result.layers).toHaveLength(1)
     expect(result.layers.some(l => l.frameId === 'child')).toBe(false)
   })
+  it('adds new linked layers to the existing variant group, not the master group', () => {
+    const rect = (id: string, frameId: string, groupId: string, srcId?: string) => ({
+      id, name: id, type: 'shape', shape: 'rect', frameId, groupId,
+      srcId: srcId ?? null, x: 120, y: 130, w: 180, h: 140,
+      scaleX: 1, scaleY: 1, rotation: 0, visible: true, opacity: 1,
+      blend: 'source-over', fill: '#111111', stroke: null, strokeWidth: 0,
+      radius: 0, rev: 1,
+    }) as unknown as Layer
+    const masterA = rect('master-a', 'master', 'master-group')
+    const masterB = rect('master-b', 'master', 'master-group')
+    const variantA = rect('variant-a', 'child', 'variant-group', 'master-a')
+    const doc = { id: 'test', width: 1080, height: 1920, background: null,
+      frames: [
+        { id: 'master', name: 'Master', x: 0, y: 0, width: 1080, height: 1080, background: null },
+        { id: 'child', name: 'Story', x: 1200, y: 0, width: 1080, height: 1920,
+          background: null, linkedFrom: 'master' },
+      ] } as Doc
+    const groups = [
+      { id: 'master-group', name: 'Lockup', visible: true, opacity: 1, collapsed: false },
+      { id: 'variant-group', name: 'Lockup', visible: true, opacity: 1, collapsed: false },
+    ]
+    const result = syncFormats(doc, [masterA, masterB, variantA], 'master',
+      new Map([['master-b', 'decoration']]), groups)
+    const inserted = result.layers.find(l => l.frameId === 'child' && l.srcId === 'master-b')
+    expect(inserted).toBeDefined()
+    expect(inserted?.groupId).toBe('variant-group')
+    expect(result.groups).toHaveLength(2)
+    expect(result.layers.filter(l => l.frameId === 'child').every(l => l.groupId !== 'master-group')).toBe(true)
+  })
+
 })
