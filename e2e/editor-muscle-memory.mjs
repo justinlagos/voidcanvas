@@ -82,6 +82,23 @@ try {
   })
   ok('duplicate to next artboard preserves board-local coordinates', board.correct && board.selected)
 
+  const clipping = await page.evaluate(() => {
+    const s = window.__voidEditor.getState()
+    s.newDoc({ name: 'Clip by dropping', width: 320, height: 240, background: '#fff' })
+    const host = s.addShape('rect', 40, 40, 80, 90, { fill: '#a0a0a0' })
+    const cut = s.addShape('ellipse', 140, 50, 70, 70, { fill: '#24abf9' })
+    s.clipLayerOnto(cut, host)
+    const cs = window.__voidEditor.getState()
+    const index = cs.layers.findIndex(x => x.id === host)
+    const clipped = cs.layers[index + 1]?.id === cut && cs.layers[index + 1]?.clipId === host
+    cs.undo()
+    const undone = window.__voidEditor.getState().layers.find(x => x.id === cut)?.clipId == null
+    window.__voidEditor.getState().redo()
+    const redone = window.__voidEditor.getState().layers.find(x => x.id === cut)?.clipId === host
+    return { clipped, undone, redone }
+  })
+  ok('layer clipping is one undoable step', clipping.clipped && clipping.undone && clipping.redone)
+
   // Use a real modifier click on the canvas, not a direct store call.
   const cursor = await page.evaluate(() => {
     const s = window.__voidEditor.getState()
