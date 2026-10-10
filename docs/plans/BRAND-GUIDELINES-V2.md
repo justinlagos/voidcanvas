@@ -1,6 +1,6 @@
 # Brand Guidelines V2
 
-Status: Phase 1 shipped with a CI parity gate. Phase 2 content pages (decision 15) passed the separate contact-sheet review on 10 Oct 2026 with no blockers. V2 is still off for designers (`?brandv2=1` to review) until Justin confirms the switch; the fixes the review drove apply to the current renderer too.
+Status: Phase 1 shipped with a CI parity gate. Phase 2 content pages (decision 15) passed the separate contact-sheet review on 10 Oct 2026 with no blockers, and V2 was switched on for everyone the same day. `?brandv2=0` switches one browser back to the previous renderer while V2 settles.
 Date: 5 October 2026
 Owner: Voidcanvas
 

@@ -14,21 +14,25 @@ const go = (search: string) => { (globalThis as { window?: unknown }).window = f
 
 describe('Brand V2 renderer flag', () => {
   afterEach(() => { store.clear(); delete (globalThis as { window?: unknown }).window })
-  it('is off on the server and by default', () => {
-    expect(brandV2Enabled()).toBe(false)
-    go(''); expect(brandV2Enabled()).toBe(false)
-  })
-  it('turns on with ?brandv2=1 and is remembered', () => {
-    go('?brandv2=1'); expect(brandV2Enabled()).toBe(true)
+  it('is on on the server and by default', () => {
+    expect(brandV2Enabled()).toBe(true)
     go(''); expect(brandV2Enabled()).toBe(true)
   })
-  it('turns off again with ?brandv2=0', () => {
-    go('?brandv2=1'); brandV2Enabled()
+  it('turns off with ?brandv2=0 and is remembered', () => {
     go('?brandv2=0'); expect(brandV2Enabled()).toBe(false)
     go(''); expect(brandV2Enabled()).toBe(false)
   })
-  it('stays off when storage is blocked', () => {
+  it('turns on again with ?brandv2=1', () => {
+    go('?brandv2=0'); brandV2Enabled()
+    go('?brandv2=1'); expect(brandV2Enabled()).toBe(true)
+    go(''); expect(brandV2Enabled()).toBe(true)
+  })
+  it('keeps people who opted in early on V2', () => {
+    store.set('vc.brandV2', '1')
+    go(''); expect(brandV2Enabled()).toBe(true)
+  })
+  it('stays on when storage is blocked', () => {
     ;(globalThis as { window?: unknown }).window = { location: { search: '' }, get localStorage() { throw new Error('blocked') } }
-    expect(brandV2Enabled()).toBe(false)
+    expect(brandV2Enabled()).toBe(true)
   })
 })

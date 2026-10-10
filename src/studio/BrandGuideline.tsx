@@ -23,7 +23,7 @@ import { composeRuntimePages } from '@/brand/compose/runtime'
 import { brandV2Enabled } from '@/brand/compose/flag'
 import { eachRuntimePage, recordRuntimePages, renderRuntimePage } from './brand-v2-render'
 
-/** Until V2 passes its release gates, pages render through the legacy renderer unless ?brandv2=1 is set. */
+/** Pages render through the V2 renderer; ?brandv2=0 switches one browser back to the previous renderer. */
 const NO_RUNTIME = { irByIndex: new Map<number, import('@/brand/compose').Page>(), legacyIndexes: new Set<number>() }
 
 function Page({ spec, pageNo, pageCount, brand, logo, o, cssWidth }: { spec: PageSpec; pageNo: number; pageCount: number; brand: Brand; logo: LogoInfo | null; o: Orientation; cssWidth: number }) {

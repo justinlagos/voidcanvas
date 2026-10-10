@@ -18,7 +18,7 @@ describe('Brand V2 live guideline preview', () => {
     expect(source).toContain('composeRuntimePages({ brand, logo, pages, salt, layoutSalt, decisions: d })')
   })
 
-  it('keeps designers on the legacy renderer until V2 is switched on', () => {
+  it('chooses the renderer through the one V2 switch', () => {
     expect(source).toContain("import { brandV2Enabled } from '@/brand/compose/flag'")
     expect(source).toContain('v2 ? composeRuntimePages({ brand, logo, pages, salt, layoutSalt, decisions: d }) : NO_RUNTIME')
     expect(source).toContain('v2 ? composeRuntimePages({ brand, logo, pages, salt: tokens.salt')
