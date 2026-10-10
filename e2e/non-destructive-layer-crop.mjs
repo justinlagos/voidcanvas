@@ -89,6 +89,23 @@ try {
     }
   })
   check('rotated layer crop maps document rectangle to local path while preserving rotation', Object.values(rotated).every(Boolean))
+
+  const persisted = await page.evaluate(async () => {
+    const s = window.__voidEditor.getState(), l = s.active()
+    const parity = await window.__vcParity({ scale: 1 })
+    await window.__vcSave.flush()
+    return { docId: s.doc.id, layerId: l.id, points: l.vmask.subpaths[0].nodes.length, type: l.type, rotation: l.rotation, parity }
+  })
+  check('masked crop canvas and 1x export agree', !!persisted.parity && persisted.parity.mean < 2 && persisted.parity.worst < 12)
+  await page.reload()
+  await page.waitForFunction(id => window.__voidEditor?.getState().doc?.id === id, persisted.docId, { timeout: 20000 })
+  const reopened = await page.evaluate(id => {
+    const s = window.__voidEditor.getState(), l = s.layers.find(x => x.id === id)
+    return { editable: l?.type === 'shape' && l.w === 160 && l.h === 100,
+      retainedMask: !!l?.vmask?.enabled && l.vmask.subpaths[0]?.nodes.length === 4,
+      rotation: l?.rotation }
+  }, persisted.layerId)
+  check('.void reload preserves editable rotated crop and mask', reopened.editable && reopened.retainedMask && Math.abs(reopened.rotation - persisted.rotation) < 0.001)
 } finally {
   await browser.close()
 }
