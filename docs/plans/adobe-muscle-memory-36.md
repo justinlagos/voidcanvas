@@ -21,7 +21,7 @@ Tracking inventory. Existing code is not proof of browser-tested completion.
 | 15 | Space temporarily pans canvas | Present; keyboard regression needed |
 | 16 | Copy/paste appearance only | Present; regression needed |
 | 17 | Smart alignment, spacing guides | Present; visual regression needed |
-| 18 | Drag-create and release clipping masks | Open: clipping exists, drag gesture not validated |
+| 18 | Drag-create and release clipping masks | Alt/Option-drop clip-to-host added as one undo step; browser QA pending |
 | 19 | Constrain rotation to 15-degree increments | Present; 15-degree Shift rotation |
 | 20 | Nine-point pivot | Present; nine-point pivot |
 | 21 | Trim transparent bounds without discarding hidden pixels | Open: non-destructive mask-aware bounds |
@@ -31,7 +31,7 @@ Tracking inventory. Existing code is not proof of browser-tested completion.
 | 25 | Drag swatches onto objects | Drag-to-colour in PR #52; QA pending |
 | 26 | Temporary eyedropper in colour tools | Alt/Option temporary sampler in PR #52 |
 | 27 | Edit multi-selected text properties | Multi-text spacing/alignment expanded in PR #52 |
-| 28 | Repeat latest transform | Partial: repeat move, not full transform |
+| 28 | Repeat latest transform | Repeat rectangular scale/rotation/move command added; browser QA pending |
 | 29 | Convert type to editable outlines | Open: editable type outlines |
 | 30 | Expand vector appearance | Open: expand vector geometry |
 | 31 | Puppet Warp pins | Open: puppet warp pins |
