@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { chooseFit, type Analysis, type Panel } from '../layout'
-import { syncFormats } from '../adapt'
+import { mapVariantGroups, syncFormats } from '../adapt'
 import type { Doc, Layer } from '../types'
 
 const panel = (id: string, contentWidth = 800, headline = 100): Panel => ({
@@ -71,13 +71,11 @@ describe('Cascade strict layout policy', () => {
       { id: 'master-group', name: 'Lockup', visible: true, opacity: 1, collapsed: false },
       { id: 'variant-group', name: 'Lockup', visible: true, opacity: 1, collapsed: false },
     ]
-    const result = syncFormats(doc, [masterA, masterB, variantA], 'master',
-      new Map([['master-b', 'decoration']]), groups)
-    const inserted = result.layers.find(l => l.frameId === 'child' && l.srcId === 'master-b')
-    expect(inserted).toBeDefined()
-    expect(inserted?.groupId).toBe('variant-group')
+    const newVariant = rect('variant-b', 'child', 'master-group', 'master-b')
+    const result = mapVariantGroups([masterA, masterB], [variantA], [newVariant], groups)
+    expect(result.layers[0].groupId).toBe('variant-group')
     expect(result.groups).toHaveLength(2)
-    expect(result.layers.filter(l => l.frameId === 'child').every(l => l.groupId !== 'master-group')).toBe(true)
+    expect(result.layers.every(l => l.groupId !== 'master-group')).toBe(true)
   })
 
 })
