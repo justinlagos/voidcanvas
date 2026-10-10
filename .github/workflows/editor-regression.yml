@@ -43,3 +43,5 @@ jobs:
           done
           BASE=http://localhost:3123 node e2e/targeted-adjustment-cut-bounds.mjs
           BASE=http://localhost:3123 node e2e/editor-muscle-memory.mjs
+          BASE=http://localhost:3123 node e2e/editing.mjs
+          BASE=http://localhost:3123 node e2e/effects-scope.mjs
