@@ -300,6 +300,8 @@ export interface Frame {
   background: string | null
   /** When set, this board was cascaded from a master board and can be re-synced from it. */
   linkedFrom?: string | null
+  /** Master layer ids deliberately excluded from this cascaded format. Persist across updates. */
+  cascadeExcludedSrcIds?: string[]
   /** Studio deliverable this board answers. */
   deliverableId?: string | null
   /** Effects on the whole board, after everything on it. */

@@ -949,8 +949,8 @@ export async function syncFormats(masterId?: string | null) {
   await fontsReady(s.layers)
   const A = await import('./adapt')
   const roles = A.inferRoles(s.layers, m, doc)
-  const r = A.syncFormats(doc, s.layers, m.id, roles)
-  useEditor.setState({ layers: A.orderLikeMaster(r.layers, m.id), docRev: s.docRev + 1 })
+  const r = A.syncFormats(doc, s.layers, m.id, roles, s.groups)
+  useEditor.setState({ layers: A.orderLikeMaster(r.layers, m.id), groups: r.groups, docRev: s.docRev + 1 })
   st().commit('Update formats')
   st().notify(r.changed ? `Updated ${r.changed} layer${r.changed === 1 ? '' : 's'} across the formats. Layouts you adjusted were kept.` : 'The formats already match the master.')
 }

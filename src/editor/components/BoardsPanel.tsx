@@ -82,7 +82,7 @@ function FrameThumb({ id }: { id: string }) {
 function CascadeTab({ activeFrameId, picked, setPicked, onDone }: { activeFrameId: string | null; picked: Set<string>; setPicked: (f: (v: Set<string>) => Set<string>) => void; onDone: () => void }) {
   const src = useMemo(() => cascadeSource(activeFrameId), [activeFrameId])
   const [skip, setSkip] = useState<Set<string>>(new Set())
-  const [previews, setPreviews] = useState<Record<string, { url: string; dropped: string[] }>>({})
+  const [previews, setPreviews] = useState<Record<string, { url: string; dropped: string[]; droppedIds: string[]; review: string[]; error?: string }>>({})
   const chosen = SIZE_PRESETS.filter(p => picked.has(p.id))
   const key = Array.from(skip).sort().join('|')
 
@@ -94,7 +94,7 @@ function CascadeTab({ activeFrameId, picked, setPicked, onDone }: { activeFrameI
       for (const p of chosen) {
         await new Promise(r => setTimeout(r, 0))
         if (!live) return
-        try { const r = previewCascade(activeFrameId, p, skip); if (r && live) setPreviews(v => ({ ...v, [p.id]: r })) } catch { /* leave it blank */ }
+        try { const r = previewCascade(activeFrameId, p, skip); if (r && live) setPreviews(v => ({ ...v, [p.id]: r })) } catch { if (live) setPreviews(v => ({ ...v, [p.id]: { url: '', dropped: [], droppedIds: [], review: [], error: 'Preview failed. Do not assume this format is valid.' } })) }
       }
     }
     run()
@@ -116,8 +116,8 @@ function CascadeTab({ activeFrameId, picked, setPicked, onDone }: { activeFrameI
         <div className="mt-5">
           <p className="text-[12px] text-void-400 mb-2">Panels found on this board. Switch one off to leave it out of every size.</p>
           <div className="flex flex-wrap gap-2">
-            {panels.map(p => { const on = !skip.has(p.name); return (
-              <button key={p.id} aria-pressed={on} onClick={() => setSkip(v => { const n = new Set(v); n.has(p.name) ? n.delete(p.name) : n.add(p.name); return n })}
+            {panels.map(p => { const on = !skip.has(p.id); return (
+              <button key={p.id} aria-pressed={on} onClick={() => setSkip(v => { const n = new Set(v); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n })}
                 className={`h-8 px-3 rounded-full border text-[12px] ${focusRing} ${on ? 'border-accent/70 bg-accent/10 text-white' : 'border-void-700 text-void-500 line-through'}`}>{p.name}</button>) })}
           </div>
         </div>
@@ -131,14 +131,15 @@ function CascadeTab({ activeFrameId, picked, setPicked, onDone }: { activeFrameI
               <figure key={p.id} className="shrink-0">
                 <div className="rounded-md overflow-hidden bg-void-950 border border-void-800 flex items-center justify-center" style={{ width: Math.round(p.width * k), height: Math.round(p.height * k) }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {pv ? <img src={pv.url} alt={`${p.label} preview`} className="w-full h-full" /> : <span className="w-5 h-5 rounded-full border-2 border-void-700 border-t-void-400 animate-spin" />}
+                  {pv?.url ? <img src={pv.url} alt={`${p.label} draft preview`} className="w-full h-full" /> : pv?.error ? <span className="text-[10px] text-rose-400 p-2 text-center">Preview unavailable</span> : <span className="w-5 h-5 rounded-full border-2 border-void-700 border-t-void-400 animate-spin" />}
                 </div>
-                <figcaption className="mt-1 text-[11px] text-void-400 max-w-[150px]">{p.label}{pv?.dropped.filter(n => !skip.has(n)).length ? <span className="block text-void-500">Leaves out {pv.dropped.filter(n => !skip.has(n)).join(', ')}</span> : null}</figcaption>
+                <figcaption className="mt-1 text-[11px] text-void-400 max-w-[150px]">{p.label}{pv?.droppedIds.filter(id => !skip.has(id)).length ? <span className="block text-void-500">Unexpectedly missing {pv.droppedIds.filter(id => !skip.has(id)).map(id => panels.find(p => p.id === id)?.name ?? id).join(', ')}</span> : null}{pv?.review?.length ? <span className="block text-amber-400">Review: {pv.review.join('; ')}</span> : null}{pv?.error ? <span className="block text-rose-400">{pv.error}</span> : null}</figcaption>
               </figure>) })}
           </div>
         </div>
       )}
-      <Button primary className="mt-4" disabled={!chosen.length} onClick={() => { cascadeToFrames(activeFrameId, chosen, skip); onDone() }}><LayoutGrid size={15} />Create {chosen.length} board{chosen.length === 1 ? '' : 's'}</Button>
+      <p className="mt-4 text-[11px] text-void-400">Previews are drafts, not export certification. Cascade preserves source panels by default; review typography, crops and safe areas before delivery.</p>
+      <Button primary className="mt-3" disabled={!chosen.length || chosen.some(p => !previews[p.id]?.url || previews[p.id].droppedIds.some(id => !skip.has(id)))} onClick={() => { if (cascadeToFrames(activeFrameId, chosen, skip)) onDone() }}><LayoutGrid size={15} />Create {chosen.length} board{chosen.length === 1 ? '' : 's'}</Button>
     </div>
   )
 }

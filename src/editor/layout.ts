@@ -39,7 +39,7 @@ function chainOf(l: Layer, groups: Map<string, Group>): string[] {
 }
 
 /** Split the master's layers into pieces that move as one. */
-export function blocksOf(master: Layer[], m: Frame, doc: Doc, groupList: Group[]): Block[] {
+export function blocksOf(master: Layer[], m: Frame, doc: Doc, groupList: Group[], opts: { preserveGroups?: boolean } = {}): Block[] {
   const groups = new Map(groupList.map(g => [g.id, g]))
   const content = master.filter(l => l.type !== 'adjustment')
   const chains = new Map(content.map(l => [l.id, chainOf(l, groups)]))
@@ -60,7 +60,7 @@ export function blocksOf(master: Layer[], m: Frame, doc: Doc, groupList: Group[]
       const b = make(key, members, isGroup ? groups.get(key)!.name : members[0].name)
       // A group that is most of the design (a PSD artboard folder) is opened up, so its parts can move.
       const parts = new Set(members.map(l => chains.get(l.id)![depth + 1] ?? l.id))
-      if (isGroup && parts.size > 1 && (b.rect.w * b.rect.h) / area > 0.6) split(members, depth + 1)
+      if (isGroup && parts.size > 1 && (b.rect.w * b.rect.h) / area > 0.6 && !opts.preserveGroups) split(members, depth + 1)
       else out.push(b)
     })
   }
@@ -72,8 +72,8 @@ export function blocksOf(master: Layer[], m: Frame, doc: Doc, groupList: Group[]
 }
 
 /** Find backgrounds, panel fills and panels. */
-export function analyse(master: Layer[], m: Frame, doc: Doc, groups: Group[]): Analysis {
-  const blocks = blocksOf(master, m, doc, groups)
+export function analyse(master: Layer[], m: Frame, doc: Doc, groups: Group[], opts: { preserveGroups?: boolean } = {}): Analysis {
+  const blocks = blocksOf(master, m, doc, groups, opts)
   const W = m.width, H = m.height
   for (const b of blocks) if (b.rect.w >= W * 0.9 && b.rect.h >= H * 0.9 && !b.hasText) b.kind = 'bg'
   const backgrounds = blocks.filter(b => b.kind === 'bg')
@@ -210,7 +210,7 @@ function trees(ps: Panel[]): Node[] {
 }
 
 /** Choose which panels to keep and how to arrange them for a target size. */
-export function chooseFit(a: Analysis, T: { w: number; h: number }, keep?: (p: Panel) => boolean): Fit | null {
+export function chooseFit(a: Analysis, T: { w: number; h: number }, keep?: (p: Panel) => boolean, opts: { preserveAll?: boolean } = {}): Fit | null {
   const all = a.panels.filter(p => (keep ? keep(p) : true))
   if (!all.length) return null
   const m = Math.min(T.w, T.h) * 0.06
@@ -219,10 +219,10 @@ export function chooseFit(a: Analysis, T: { w: number; h: number }, keep?: (p: P
   // at a time (pictures go first). Take the first set where every panel's type stays readable.
   const ranked = all.slice().sort((p, q) => p.weight - q.weight || p.headline - q.headline)
   let fallback: Fit | null = null
-  for (let drop = 0; drop < all.length; drop++) {
+  for (let drop = 0; drop < (opts.preserveAll ? 1 : all.length); drop++) {
     const gone = new Set(ranked.slice(0, drop))
     const ps = all.filter(p => !gone.has(p))
-    if (!ps.some(p => !p.flexible)) continue
+    if (!ps.length) continue
     let best: Fit | null = null
     for (const tree of trees(ps)) {
       const k = bestK(tree, m, T)
@@ -319,15 +319,15 @@ function allocate(n: Node, box: Rect, k: number, m: number, T: { w: number; h: n
   })
 }
 
-export interface Relaid { layers: Layer[]; dropped: string[] }
+export interface Relaid { layers: Layer[]; dropped: string[]; droppedIds: string[]; review: string[] }
 
 /**
  * Lay the master board's layers into the target board. Layers keep their group ids and gain
  * `srcId`, so linked formats keep following the master's content. Call `regroup` afterwards to
  * give each board its own groups.
  */
-export function relayout(master: Layer[], m: Frame, t: Frame, doc: Doc, groups: Group[], keep?: (p: Panel) => boolean): Relaid {
-  const a = analyse(master, m, doc, groups)
+export function relayout(master: Layer[], m: Frame, t: Frame, doc: Doc, groups: Group[], keep?: (p: Panel) => boolean, opts: { preserveAll?: boolean } = {}): Relaid {
+  const a = analyse(master, m, doc, groups, { preserveGroups: opts.preserveAll })
   const T = { w: t.width, h: t.height }
   const fresh = (l: Layer) => ({ ...l, id: uid(), frameId: t.id, srcId: l.id, rev: nextRev() } as Layer)
   const placed = new Map<string, Layer>() // master layer id → new layer
@@ -341,8 +341,10 @@ export function relayout(master: Layer[], m: Frame, t: Frame, doc: Doc, groups: 
     placeBlock(b.layers.map(fresh), { x: m.x + from.x, y: m.y + from.y }, k, ox, oy, doc).forEach((l, i) => placed.set(b.layers[i].id, l))
   }
 
-  const fit = chooseFit(a, T, keep)
-  const dropped = a.panels.filter(p => !fit?.panels.includes(p)).map(p => p.name)
+  const fit = chooseFit(a, T, keep, opts)
+  const omitted = a.panels.filter(p => !fit?.panels.includes(p))
+  const dropped = omitted.map(p => p.name)
+  const droppedIds = omitted.map(p => p.id)
   if (fit) {
     const mg = Math.min(T.w, T.h) * 0.06
     const slots = new Map<Panel, Rect>()
@@ -377,7 +379,19 @@ export function relayout(master: Layer[], m: Frame, t: Frame, doc: Doc, groups: 
     const p = placed.get(l.id)
     if (p) out.push(p)
   }
-  return { layers: out, dropped }
+  const review: string[] = []
+  // These are warnings, not proof of legibility: actual font metrics and export
+  // pixels must also be checked by the later production preflight.
+  if (fit) {
+    const floor = Math.max(10, Math.min(T.w, T.h) * 0.018)
+    for (const panel of fit.panels) {
+      const small = panel.blocks.flatMap(b => b.layers)
+        .filter(l => l.visible && l.type === 'text')
+        .filter(l => l.type === 'text' && l.fontSize * Math.abs(l.scaleY) * fit.k < floor)
+      if (small.length) review.push(`${panel.name}: check text size (${small.slice(0, 2).map(l => l.name).join(', ')})`)
+    }
+  }
+  return { layers: out, dropped, droppedIds, review }
 }
 
 function clipRect(r: Rect, to: Rect): Rect {
