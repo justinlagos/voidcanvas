@@ -230,7 +230,8 @@ export function syncFormats(doc: Doc, layers: Layer[], masterId: string, roles: 
   // Master layers the formats have not seen yet.
   for (const k of kids) {
     const have = new Set(out.filter(l => l.frameId === k.id).map(l => l.srcId))
-    const missing = master.filter(l => !have.has(l.id))
+    const excluded = new Set(k.cascadeExcludedSrcIds ?? [])
+    const missing = master.filter(l => !have.has(l.id) && !excluded.has(l.id))
     if (missing.length) { out = out.concat(layoutByRole(missing, m, k, doc, roles)); changed += missing.length }
   }
   return { layers: out, changed }
