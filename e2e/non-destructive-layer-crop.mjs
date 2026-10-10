@@ -36,6 +36,7 @@ try {
     }
     return { inside: rgba(80, 80), outside: rgba(40, 40), other: rgba(160, 80) }
   })
+  if (!(!!pixels.inside && pixels.inside[3] > 245 && pixels.outside?.[3] === 0 && pixels.other?.[3] === 0)) console.log('CROP PIXEL DEBUG', JSON.stringify(pixels))
   check('crop renders selected region but hides outside pixels', !!pixels.inside && pixels.inside[3] > 245 && pixels.outside?.[3] === 0 && pixels.other?.[3] === 0)
 
   const toggleAndHistory = await page.evaluate(id => {
