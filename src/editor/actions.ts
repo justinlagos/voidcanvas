@@ -179,6 +179,40 @@ export function smartDuplicate() {
   noteDuplicate(copies, sources)
 }
 
+/** Duplicate the selected object(s) to the next artboard, at the same board-local coordinates. */
+export function duplicateToNextBoard() {
+  const st = s(), frames = st.doc?.frames
+  if (!frames || frames.length < 2) { st.notify('Add another board first.'); return }
+  const sources = st.layers.filter(l => st.selectedIds.includes(l.id))
+  if (!sources.length) { st.notify('Select a layer or group first.'); return }
+  const sourceId = sources[0].frameId ?? st.activeFrameId
+  if (!sourceId || sources.some(l => (l.frameId ?? sourceId) !== sourceId)) {
+    st.notify('Choose layers from one board to duplicate them together.')
+    return
+  }
+  const index = frames.findIndex(f => f.id === sourceId)
+  if (index < 0) { st.notify('Select artwork that belongs to a board.'); return }
+  const source = frames[index], target = frames[(index + 1) % frames.length]
+  const dx = target.x - source.x, dy = target.y - source.y
+  // DuplicateSelected already preserves group nesting, linked-layer relationships,
+  // masks and effects and moves duplicated group masks by the same offset.
+  const ids = st.duplicateSelected({ dx, dy, commit: false })
+  if (!ids.length) return
+  const current = s()
+  const copies = current.layers.filter(l => ids.includes(l.id))
+  const movedMasks = mapDocMasks(st.doc!, copies, [], shiftMask(dx, dy)).layers
+  current.updateLayers(copies.map((l, i) => ({
+    id: l.id,
+    patch: {
+      frameId: target.id,
+      ...(l.type === 'adjustment' && l.mask ? { maskAt: (movedMasks[i] as typeof l).maskAt } : {}),
+    },
+  })))
+  current.commit('Duplicate to next board')
+  current.setActiveFrame(target.id)
+  current.notify(`Copied ${ids.length} layer${ids.length === 1 ? '' : 's'} to “${target.name}”.`)
+}
+
 // ─── Arrange within the group ──────────────────────────────────────
 
 function arrange(where: 'front' | 'back' | 'up' | 'down') {
@@ -344,6 +378,7 @@ export function buildActions(): Record<string, Action> {
     // Layer
     { id: 'layer.new', label: 'New layer', hotkey: 'Ctrl+Shift+N', webHotkey: 'Alt+Shift+N', run: () => s().addBlank(), enabled: hasDoc },
     { id: 'layer.duplicate', label: 'Duplicate layer', shortcut: 'Ctrl+J', run: () => { const st = s(); const src = st.layers.filter(l => st.selectedIds.includes(l.id)).map(l => l.id); noteDuplicate(st.duplicateSelected({ dx: 16, dy: 16 }), src) }, enabled: hasLayer },
+    { id: 'layer.duplicateToBoard', label: 'Duplicate selection to next board', run: duplicateToNextBoard, enabled: () => (s().doc?.frames?.length ?? 0) > 1 && s().selectedIds.length > 0, keywords: 'copy paste artboard same position cascade formats' },
     { id: 'layer.lock', label: 'Lock', run: () => { const st = s(); const sel = st.layers.filter(l => st.selectedIds.includes(l.id)); if (!sel.length) return; const lock = !sel.every(l => l.locked); st.updateLayers(sel.map(l => ({ id: l.id, patch: { locked: lock } }))); st.commit(lock ? 'Lock' : 'Unlock') }, enabled: hasLayer, checked: () => { const st = s(); const sel = st.layers.filter(l => st.selectedIds.includes(l.id)); return sel.length > 0 && sel.every(l => l.locked) } },
     { id: 'layer.hide', label: 'Hide', run: () => { const st = s(); const sel = st.layers.filter(l => st.selectedIds.includes(l.id)); if (!sel.length) return; st.updateLayers(sel.map(l => ({ id: l.id, patch: { visible: false } }))); st.commit('Hide') }, enabled: hasLayer },
     { id: 'layer.isolate', label: 'Edit group on its own', run: () => { const st = s(); if (st.isolatedGroupId) { st.setIsolated(null); return } const a = st.active(); const g = a ? groupChain(a.groupId, st.groups).pop() : null; if (g) st.setIsolated(g); else st.notify('Select a layer in a group first.') }, enabled: hasLayer, checked: () => !!s().isolatedGroupId, keywords: 'isolation focus enter group' },
@@ -505,7 +540,7 @@ export const MENUS: { label: string; items: MenuItem[] }[] = [
   { label: 'File', items: ['file.new', 'file.open', 'file.place', '-', 'file.save', 'file.saveDisk', 'file.version', 'file.versions', 'file.template', 'file.variation', '-', 'file.export', 'view.proof', 'file.void', 'file.voidPng', 'file.resize', { label: 'Boards', items: ['file.boards', '-', 'board.duplicate', 'board.empty', 'board.organise'] }, '-', 'file.close'] },
   { label: 'Edit', items: ['edit.undo', 'edit.redo', '-', 'edit.cut', 'edit.copy', 'edit.copyMerged', 'edit.paste', 'edit.pasteInPlace', 'edit.duplicate', '-', 'style.copyAppearance', 'style.pasteAppearance', '-', 'edit.fill', 'edit.stroke', '-', 'edit.freeTransform', { label: 'Transform', items: ['edit.skew', 'edit.distort', 'edit.perspective', 'edit.warp', '-', 'edit.rotate90', 'edit.rotate180', '-', 'edit.flipH', 'edit.flipV'] }, '-', 'edit.brand', 'edit.prefs', 'edit.account'] },
   { label: 'Image', items: [{ label: 'Adjustments', items: [...ADJ_ORDER.map(k => 'adj.' + k), '-', 'adj.lut'] }, '-', 'image.size', 'image.canvas', 'image.expand', { label: 'Image rotation', items: ['image.rot90', 'image.rot-90', 'image.rot180', '-', 'image.flipH', 'image.flipV'] }, 'image.crop', 'image.trim', '-', 'image.flatten'] },
-  { label: 'Layer', items: ['layer.new', 'layer.duplicate', 'draw.inside', 'draw.exit', { label:'Smart objects', items:['smart.convert','smart.edit','smart.replace','smart.apply'] }, 'brush.presets', 'layer.replace', 'layer.delete', 'layer.lock', 'layer.hide', '-', { label: 'Layer style', items: ['layer.style', '-', ...STYLE_KINDS.map(k => 'style.' + k), '-', 'style.copy', 'style.paste', 'style.clear'] }, { label: 'Layer mask', items: ['mask.add', 'mask.hide', 'mask.fromPath', '-', 'mask.invert', 'mask.toggle', 'mask.settings', 'mask.delete'] }, { label: 'Vector mask', items: ['vmask.add', 'vmask.fromPath', 'vmask.edit', '-', 'vmask.rasterize', 'vmask.delete'] }, 'layer.clip', { label: 'Formats', items: ['formats.sync', 'formats.relay'] }, { label: 'Pathfinder', items: ['pf.unite', 'pf.minusFront', 'pf.minusBack', 'pf.intersect', 'pf.exclude', 'pf.divide', '-', 'path.expand'] }, { label: 'Path', items: ['path.outline', 'type.onPath', '-', 'path.toSel', 'path.shape', 'path.fromLayer', '-', 'path.fill', 'path.stroke', 'path.strokeTaper', '-', 'path.close', 'path.reverse', 'path.simplify', '-', 'path.opAdd', 'path.opSub', 'path.opInt', 'path.opXor', '-', 'path.copySvg', 'path.exportSvg'] }, '-', 'layer.group', 'layer.ungroup', 'layer.isolate', 'layer.link', { label: 'Effects', items: ['fx.copy', 'fx.pasteAdd', 'fx.pasteReplace', '-', 'view.fxOff'] }, { label: 'Arrange', items: ['layer.front', 'layer.up', 'layer.down', 'layer.back'] }, { label: 'Align', items: ['align.left', 'align.hcenter', 'align.right', '-', 'align.top', 'align.vcenter', 'align.bottom', '-', 'dist.h', 'dist.v'] }, '-', 'layer.removeBg', 'layer.rasterize', 'layer.mergeDown', 'layer.mergeVisible', 'layer.stamp', 'image.flatten'] },
+  { label: 'Layer', items: ['layer.new', 'layer.duplicate', 'layer.duplicateToBoard', 'draw.inside', 'draw.exit', { label:'Smart objects', items:['smart.convert','smart.edit','smart.replace','smart.apply'] }, 'brush.presets', 'layer.replace', 'layer.delete', 'layer.lock', 'layer.hide', '-', { label: 'Layer style', items: ['layer.style', '-', ...STYLE_KINDS.map(k => 'style.' + k), '-', 'style.copy', 'style.paste', 'style.clear'] }, { label: 'Layer mask', items: ['mask.add', 'mask.hide', 'mask.fromPath', '-', 'mask.invert', 'mask.toggle', 'mask.settings', 'mask.delete'] }, { label: 'Vector mask', items: ['vmask.add', 'vmask.fromPath', 'vmask.edit', '-', 'vmask.rasterize', 'vmask.delete'] }, 'layer.clip', { label: 'Formats', items: ['formats.sync', 'formats.relay'] }, { label: 'Pathfinder', items: ['pf.unite', 'pf.minusFront', 'pf.minusBack', 'pf.intersect', 'pf.exclude', 'pf.divide', '-', 'path.expand'] }, { label: 'Path', items: ['path.outline', 'type.onPath', '-', 'path.toSel', 'path.shape', 'path.fromLayer', '-', 'path.fill', 'path.stroke', 'path.strokeTaper', '-', 'path.close', 'path.reverse', 'path.simplify', '-', 'path.opAdd', 'path.opSub', 'path.opInt', 'path.opXor', '-', 'path.copySvg', 'path.exportSvg'] }, '-', 'layer.group', 'layer.ungroup', 'layer.isolate', 'layer.link', { label: 'Effects', items: ['fx.copy', 'fx.pasteAdd', 'fx.pasteReplace', '-', 'view.fxOff'] }, { label: 'Arrange', items: ['layer.front', 'layer.up', 'layer.down', 'layer.back'] }, { label: 'Align', items: ['align.left', 'align.hcenter', 'align.right', '-', 'align.top', 'align.vcenter', 'align.bottom', '-', 'dist.h', 'dist.v'] }, '-', 'layer.removeBg', 'layer.rasterize', 'layer.mergeDown', 'layer.mergeVisible', 'layer.stamp', 'image.flatten'] },
   { label: 'Select', items: ['sel.all', 'sel.allLayers', { label: 'Same', items: ['sel.sameFill', 'sel.sameStroke', 'sel.sameFont', 'sel.sameKind', 'sel.sameStyle'] }, 'sel.none', 'sel.reselect', 'sel.inverse', '-', 'sel.subject', 'sel.object', 'sel.colorRange', 'sel.layer', '-', 'sel.mask', { label: 'Modify', items: ['sel.expand', 'sel.contract', 'sel.feather', 'sel.smooth', 'sel.border'] }, '-', 'sel.save', 'sel.path', 'sel.quickMask'] },
   { label: 'Filter', items: ['filter.gallery', 'retouch.selection', 'filter.remove','filter.liquify', '-', ...(['artistic', 'stylize', 'color', 'distortion', 'enhance'] as const).map(cat => ({ label: { artistic: 'Artistic', stylize: 'Stylize', color: 'Colour', distortion: 'Distort', enhance: 'Enhance' }[cat], items: effects.filter(e => e.category === cat).map(e => 'fx.' + e.id) }))] },
   { label: 'View', items: ['view.zoomIn', 'view.zoomOut', 'view.fit', 'view.100', 'view.fitSel', 'view.fitBoard', '-', 'view.rulers', 'view.guides', 'view.lockGuides', 'view.snap', 'view.pixelGrid', { label: 'Guides', items: ['view.newGuide', 'view.guideLayout', 'view.clearGuides'] }, '-', 'view.before', 'view.fxOff', 'view.contextBar', 'view.status', 'view.touch'] },
