@@ -83,7 +83,7 @@ export function SwatchesPanel() {
   const row = (title: string, list: string[]) => list.length > 0 && (
     <div className="mt-3">
       <p className="text-[10.5px] uppercase tracking-wide text-void-500 mb-1.5">{title}</p>
-      <div className="flex flex-wrap gap-1">{list.map(c => <button key={title + c} aria-label={`Use ${c}`} title={c} onClick={() => use(c)} onContextMenu={e => { e.preventDefault(); useEditor.setState({ swatches: swatches.filter(x => x !== c) }) }} className={`w-6 h-6 rounded-[5px] border border-white/10 ${focusRing}`} style={{ background: c }} />)}</div>
+      <div className="flex flex-wrap gap-1">{list.map(c => <button key={title + c} aria-label={`Use ${c}`} title={`${c}: drag onto text or a shape to recolour it`} draggable onDragStart={e => { e.dataTransfer.setData('text/vc-color', c); e.dataTransfer.effectAllowed = 'copy' }} onClick={() => use(c)} onContextMenu={e => { e.preventDefault(); useEditor.setState({ swatches: swatches.filter(x => x !== c) }) }} className={`w-6 h-6 rounded-[5px] border border-white/10 ${focusRing}`} style={{ background: c }} />)}</div>
     </div>
   )
   return (
@@ -317,7 +317,7 @@ export function BrandPanel() {
       <EditorBrandSwitcher />
       <div>
         <p className="text-[10.5px] uppercase tracking-wide text-void-500 mb-1.5">Colours</p>
-        {kit.colors.length ? <div className="flex flex-wrap gap-1">{kit.colors.map(c => <button key={c} title={`${c}: click for main colour, Alt-click to apply to the selected layer`} onClick={e => { if (e.altKey) { const l = s.active(); if (l?.type === 'text') s.updateLayer(l.id, { color: c }, 'Brand colour'); else if (l?.type === 'shape') s.updateLayer(l.id, { fill: c }, 'Brand colour') } else s.setFg(c) }} className={`w-7 h-7 rounded-md border border-white/10 ${focusRing}`} style={{ background: c }} />)}</div> : <p className="text-[12px] text-void-500">No brand colours yet.</p>}
+        {kit.colors.length ? <div className="flex flex-wrap gap-1">{kit.colors.map(c => <button key={c} draggable onDragStart={e => { e.dataTransfer.setData('text/vc-color', c); e.dataTransfer.effectAllowed = 'copy' }} title={`${c}: click for main colour, drag onto text or shape to recolour, Alt-click to apply to the selected layer`} onClick={e => { if (e.altKey) { const l = s.active(); if (l?.type === 'text') s.updateLayer(l.id, { color: c }, 'Brand colour'); else if (l?.type === 'shape') s.updateLayer(l.id, { fill: c }, 'Brand colour') } else s.setFg(c) }} className={`w-7 h-7 rounded-md border border-white/10 ${focusRing}`} style={{ background: c }} />)}</div> : <p className="text-[12px] text-void-500">No brand colours yet.</p>}
       </div>
       <div>
         <p className="text-[10.5px] uppercase tracking-wide text-void-500 mb-1.5">Fonts</p>
