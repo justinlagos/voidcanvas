@@ -72,6 +72,21 @@ console.log('overlapping boards', JSON.stringify(ov))
 // groups never span boards
 const span = await p.evaluate(() => { const s = window.__voidEditor.getState(); const m = new Map(); for (const l of s.layers) if (l.groupId) { const k = m.get(l.groupId) ?? new Set(); k.add(l.frameId); m.set(l.groupId, k) } return [...m.values()].filter(v => v.size > 1).length })
 console.log('groups spanning boards', span)
+if (ov.length) throw new Error('Cascaded boards overlap: ' + JSON.stringify(ov))
+if (span) throw new Error('Group IDs cross multiple boards: ' + span)
+
+// Cascade must never quietly omit source layers on generated variants.
+const missing = await p.evaluate(() => {
+  const s = window.__voidEditor.getState()
+  const master = s.doc.frames[0]
+  const sources = s.layers.filter(l => l.frameId === master.id).map(l => l.id)
+  return s.doc.frames.filter(f => f.linkedFrom === master.id).flatMap(f => {
+    const used = new Set(s.layers.filter(l => l.frameId === f.id).map(l => l.srcId))
+    return sources.filter(id => !used.has(id)).map(id => f.name + ': ' + id)
+  })
+})
+console.log('missing source layers', missing)
+if (missing.length) throw new Error('Cascade silently omitted source layers: ' + missing.join(', '))
 await p.keyboard.press('Shift+1'); await p.waitForTimeout(800)
 await p.screenshot({ path: out + '03-canvas-after-cascade.png' })
 
