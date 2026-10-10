@@ -56,7 +56,7 @@ try {
     const original = s.addShape('rect', 160, 60, 40, 50, { fill: '#4bb6e5' })
     s.setActive(original)
     window.__vcRun('edit.repeatTransform')
-    const out = s.layers.find(l => l.id === original)
+    const out = window.__voidEditor.getState().layers.find(l => l.id === original)
     return out?.type === 'shape' && Math.abs(out.scaleX - 1.5) < 0.005 &&
       Math.abs(out.scaleY - 1.5) < 0.005
   })
@@ -66,7 +66,7 @@ try {
     const s = window.__voidEditor.getState()
     s.newDoc({ name: 'Artboard relative position', width: 320, height: 240, background: '#fff' })
     s.addFrame({ name: 'Story', width: 360, height: 640 })
-    const frames = s.doc.frames
+    const frames = window.__voidEditor.getState().doc.frames
     s.setActiveFrame(frames[0].id)
     const id = s.addShape('rect', frames[0].x + 31, frames[0].y + 42, 70, 56)
     s.setActive(id)
