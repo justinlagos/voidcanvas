@@ -115,7 +115,7 @@ export function AdjustmentsPanel() {
   const s = useEditor.getState()
   return (
     <div className="p-3">
-      <p className="text-[12px] text-void-400 mb-2.5">Add an adjustment layer. It changes everything below it and never touches your pixels.</p>
+      <p className="text-[12px] text-void-400 mb-2.5">Adjust selected layers without changing anything underneath. Deselect layers first to adjust the whole composition.</p>
       <div className="grid grid-cols-4 gap-1.5">
         {ADJ_ICONS.map(([k, Icon]) => (
           <button key={k} title={ADJUSTMENT_LABELS[k]} aria-label={ADJUSTMENT_LABELS[k]} onClick={() => s.addAdjustment(k)} className={`flex flex-col items-center justify-center gap-1 h-14 rounded-lg bg-surface-sunken border border-white/[0.05] text-void-300 hover:text-white hover:border-accent/60 ${focusRing}`}>
