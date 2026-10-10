@@ -51,6 +51,17 @@ try {
   }, before.id)
   ok('ordinary scaling preserves shape type and editable geometry', result.editable && result.transformed && Math.abs(result.scale - 1.5) < 0.005)
 
+  const repeat = await page.evaluate(() => {
+    const s = window.__voidEditor.getState()
+    const original = s.addShape('rect', 160, 60, 40, 50, { fill: '#4bb6e5' })
+    s.setActive(original)
+    window.__vcRun('edit.repeatTransform')
+    const out = s.layers.find(l => l.id === original)
+    return out?.type === 'shape' && Math.abs(out.scaleX - 1.5) < 0.005 &&
+      Math.abs(out.scaleY - 1.5) < 0.005
+  })
+  ok('repeat last transform scales another editable layer', repeat)
+
   const board = await page.evaluate(() => {
     const s = window.__voidEditor.getState()
     s.newDoc({ name: 'Artboard relative position', width: 320, height: 240, background: '#fff' })
