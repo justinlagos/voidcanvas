@@ -124,13 +124,19 @@ function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
   return (
     <li role="option" aria-selected={on} data-row-index={i} data-frame={l.frameId ?? ''} style={{ paddingLeft: depth * 14 + (l.clipId ? 14 : 0) }} draggable={renaming !== l.id}
       onPointerDown={press.onPointerDown} onPointerMove={press.onPointerMove} onPointerUp={press.onPointerUp} onPointerCancel={press.onPointerCancel}
-      onDragStart={e => { setDragId(l.id); e.dataTransfer.setData('text/vc-layer', l.id); e.dataTransfer.effectAllowed = 'move'; const n = selectedIds.includes(l.id) ? selectedIds.length : 1; if (n > 1) dragLabel(e, `${n} layers`) }} onDragEnd={() => { setDragId(null); setOver(null) }}
-      onDragOver={e => { if (!dragId) return; e.preventDefault(); setOver(i) }}
+      onDragStart={e => { setDragId(l.id); e.dataTransfer.setData('text/vc-layer', l.id); e.dataTransfer.effectAllowed = 'copyMove'; const n = selectedIds.includes(l.id) ? selectedIds.length : 1; if (n > 1) dragLabel(e, `${n} layers`) }} onDragEnd={() => { setDragId(null); setOver(null) }}
+      onDragOver={e => { if (!dragId) return; e.preventDefault(); e.dataTransfer.dropEffect = e.altKey ? 'link' : 'move'; setOver(i) }}
       onDrop={e => {
         e.preventDefault(); setOver(null)
         if (!dragId || dragId === l.id) return
-        // Dragging one of several selected rows moves all of them.
+        // Alt/Option-drop directly onto a host to clip the dragged layer to it.
+        // It preserves group/board ownership and is a single undoable operation.
         const sel = useEditor.getState().selectedIds
+        if (e.altKey) {
+          if (sel.length > 1 && sel.includes(dragId)) { s.notify('Select one layer to make a clipping mask.'); return }
+          s.clipLayerOnto(dragId, l.id); return
+        }
+        // Dragging one of several selected rows moves all of them.
         if (sel.length > 1 && sel.includes(dragId)) s.moveLayers(sel, i, l.frameId ?? null); else s.moveLayer(dragId, i, l.frameId ?? null)
       }}
       onClick={e => {
