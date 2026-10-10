@@ -1,7 +1,7 @@
 import { layerBounds, layerSize, uid } from './engine'
 import { nextRev } from './store'
 import { docToVmask } from './pen'
-import type { Doc, Frame, Layer, LayerRole, Rect, TextLayer } from './types'
+import type { Doc, Frame, Group, Layer, LayerRole, Rect, TextLayer } from './types'
 
 // Key visual to every format. Each layer has a role (headline, logo, image...). A format is
 // laid out from the master by role, not by scaling the whole board, and stays linked:
@@ -191,8 +191,10 @@ const COMMON = ['name', 'visible', 'opacity', 'blend', 'styles', 'fillOpacity', 
  * the master; each format keeps its own positions and sizes. New master layers are laid in by
  * role; layers removed from the master are removed from the formats.
  */
-export function syncFormats(doc: Doc, layers: Layer[], masterId: string, roles: Map<string, LayerRole>): { layers: Layer[]; changed: number } {
-  const m = doc.frames?.find(f => f.id === masterId); if (!m) return { layers, changed: 0 }
+export function syncFormats(doc: Doc, layers: Layer[], masterId: string, roles: Map<string, LayerRole>, groupList: Group[] = []): { layers: Layer[]; changed: number; groups: Group[] } {
+  const m = doc.frames?.find(f => f.id === masterId); if (!m) return { layers, changed: 0, groups: groupList }
+  const groups = [...groupList]
+  const groupById = new Map(groupList.map(g => [g.id, g]))
   const kids = (doc.frames ?? []).filter(f => f.linkedFrom === masterId)
   const master = layers.filter(l => l.frameId === masterId)
   const byId = new Map(master.map(l => [l.id, l]))
@@ -232,9 +234,45 @@ export function syncFormats(doc: Doc, layers: Layer[], masterId: string, roles: 
     const have = new Set(out.filter(l => l.frameId === k.id).map(l => l.srcId))
     const excluded = new Set(k.cascadeExcludedSrcIds ?? [])
     const missing = master.filter(l => !have.has(l.id) && !excluded.has(l.id))
-    if (missing.length) { out = out.concat(layoutByRole(missing, m, k, doc, roles)); changed += missing.length }
+    if (missing.length) {
+      // New source layers must join the *variant's* copy of their group.
+      // Reusing master group IDs would make one group span several boards.
+      // Keep existing variant groups intact; create isolated copies only
+      // when a source group has no corresponding variant group yet.
+      const localGroupIds = new Map<string, string>()
+      for (const variantLayer of out) {
+        if (variantLayer.frameId !== k.id || !variantLayer.srcId || !variantLayer.groupId) continue
+        let srcGroup = groupById.get(byId.get(variantLayer.srcId)?.groupId ?? '')
+        let dstGroup = groups.find(g => g.id === variantLayer.groupId)
+        let guard = 0
+        while (srcGroup && dstGroup && guard++ < 64) {
+          localGroupIds.set(srcGroup.id, dstGroup.id)
+          srcGroup = srcGroup.parentId ? groupById.get(srcGroup.parentId) : undefined
+          dstGroup = dstGroup.parentId ? groups.find(g => g.id === dstGroup!.parentId) : undefined
+        }
+      }
+      const findLocalGroup = (sourceId?: string | null, seen = new Set<string>()): string | null => {
+        if (!sourceId) return null
+        const already = localGroupIds.get(sourceId)
+        if (already) return already
+        const source = groupById.get(sourceId)
+        if (!source || seen.has(sourceId)) return null
+        seen.add(sourceId)
+        const parentId = findLocalGroup(source.parentId, seen)
+        const newId = uid()
+        groups.push({ ...source, id: newId, parentId })
+        localGroupIds.set(sourceId, newId)
+        return newId
+      }
+      const added = layoutByRole(missing, m, k, doc, roles).map(l => {
+        const source = l.srcId ? byId.get(l.srcId) : null
+        return { ...l, groupId: findLocalGroup(source?.groupId) } as Layer
+      })
+      out = out.concat(added)
+      changed += missing.length
+    }
   }
-  return { layers: out, changed }
+  return { layers: out, changed, groups }
 }
 
 /** Keep layer order sensible: each board's layers stay together, in master order. */
