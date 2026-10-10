@@ -66,6 +66,7 @@ jobs:
           done
           BASE=http://localhost:3123 node e2e/guided-workspace.mjs
       - name: Upload visual baseline
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: brand-v2-baseline
@@ -73,5 +74,5 @@ jobs:
             e2e/.out/brand-diversity
             e2e/.out/brand-ir-parity
             e2e/.out/brand-v2-pages
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14

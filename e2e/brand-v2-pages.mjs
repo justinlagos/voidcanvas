@@ -73,8 +73,17 @@ const runFixtures = (batch) => page.evaluate(async (fixtures) => {
     const rules = api.suggestRules(logo.profile)
     const tokens = api.resolve({ ...api.initialTokens(), name: f.name, tagline: f.tagline, brandColor: logo.profile.colors.find((c) => c.chroma > 0.12 && c.share >= 0.05)?.hex ?? '#3d5afe', personality: f.id.length % 6, salt: 3, layoutSalt: 1, logoClear: { value: rules.clearSpace.value, locked: false }, logoMin: { value: rules.minWidth.value, locked: false }, logoMinPrint: { value: rules.minPrint.value, locked: false } })
     const brand = api.buildBrand(tokens)
-    await Promise.all([api.loadFont(brand.fonts.heading, [400, 600, 700]), api.loadFont(brand.fonts.body, [400, 500, 600, 700]), api.loadFont(brand.fonts.mono, [400, 500, 600, 700])])
-    await document.fonts.ready
+    // Web fonts can arrive late on CI. A page wrapped with fallback metrics and measured with the real font
+    // reads as text leaving the page, so wait until every face the pages use is ready, retrying a few times.
+    const faces = [[brand.fonts.heading.family, [400, 600, 700]], [brand.fonts.body.family, [400, 500, 600, 700]], [brand.fonts.mono.family, [400, 500, 600, 700]]]
+    for (let attempt = 0; attempt < 6; attempt++) {
+      await Promise.all([api.loadFont(brand.fonts.heading, [400, 600, 700]), api.loadFont(brand.fonts.body, [400, 500, 600, 700]), api.loadFont(brand.fonts.mono, [400, 500, 600, 700])])
+      await document.fonts.ready
+      const missing = faces.flatMap(([fam, ws]) => ws.filter((w) => !document.fonts.check(`${w} 16px "${fam}"`)).map((w) => `${fam} ${w}`))
+      if (!missing.length) break
+      if (attempt === 5) throw new Error(`Fonts did not load for ${f.id}: ${missing.join(', ')}`)
+      await new Promise((r) => setTimeout(r, 2000))
+    }
     const runtime = api.composeRuntimePages({ brand, logo, pages, salt: tokens.salt, layoutSalt: tokens.layoutSalt ?? 0 })
     documents.push({ fixture: f.id, family: runtime.family.id, minWidth: brand.logo.minWidth, minPrint: brand.logo.minPrint, pages: pages.map((spec, i) => spec.on ? `${spec.kind}:${runtime.irByIndex.get(i)?.genome.typeTreatment ?? 'legacy'}` : null).filter(Boolean) })
 
