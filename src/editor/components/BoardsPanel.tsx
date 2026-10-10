@@ -139,7 +139,7 @@ function CascadeTab({ activeFrameId, picked, setPicked, onDone }: { activeFrameI
         </div>
       )}
       <p className="mt-4 text-[11px] text-void-400">Previews are drafts, not export certification. Cascade preserves source panels by default; review typography, crops and safe areas before delivery.</p>
-      <Button primary className="mt-3" disabled={!chosen.length || chosen.some(p => !previews[p.id]?.url || previews[p.id].droppedIds.some(id => !skip.has(id)))} onClick={() => { cascadeToFrames(activeFrameId, chosen, skip); onDone() }}><LayoutGrid size={15} />Create {chosen.length} board{chosen.length === 1 ? '' : 's'}</Button>
+      <Button primary className="mt-3" disabled={!chosen.length || chosen.some(p => !previews[p.id]?.url || previews[p.id].droppedIds.some(id => !skip.has(id)))} onClick={() => { if (cascadeToFrames(activeFrameId, chosen, skip)) onDone() }}><LayoutGrid size={15} />Create {chosen.length} board{chosen.length === 1 ? '' : 's'}</Button>
     </div>
   )
 }
