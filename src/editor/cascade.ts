@@ -34,9 +34,9 @@ export function previewCascade(frameId: string | null, p: { width: number; heigh
  * Build one linked board per size, laid out from the master, in a tidy row under everything that
  * is already there. One undo step.
  */
-export function cascadeToFrames(sourceFrameId: string | null, presets: SizePreset[], skip: Set<string> = new Set()) {
+export function cascadeToFrames(sourceFrameId: string | null, presets: SizePreset[], skip: Set<string> = new Set()): boolean {
   const st = useEditor.getState()
-  if (!st.doc) return
+  if (!st.doc) return false
   const { doc, layers: base } = ensureFramed(st.doc, st.layers)
   const master = doc.frames!.find(f => f.id === sourceFrameId) ?? doc.frames![0]
   const masterLayers = base.filter(l => l.frameId === master.id)
@@ -45,7 +45,7 @@ export function cascadeToFrames(sourceFrameId: string | null, presets: SizePrese
     .flatMap(p => p.blocks.flatMap(b => b.layers.map(l => l.id))))]
   const sizes = presets.filter(p => !(p.width === master.width && p.height === master.height))
     .slice().sort((a, b) => b.width / b.height - a.width / a.height)
-  if (!sizes.length) { st.notify('The board is already that size.'); return }
+  if (!sizes.length) { st.notify('The board is already that size.'); return false }
   const gap = boardGap([master, ...sizes])
   const spots = placeRowBelow(occupied(doc, base), master.x, sizes, gap)
   let layers = [...base], groups = [...st.groups]
@@ -66,10 +66,11 @@ export function cascadeToFrames(sourceFrameId: string | null, presets: SizePrese
   // content that the designer did not explicitly exclude.
   if (failures.length) {
     st.notify(`Cascade stopped: ${failures.join('; ')}. No boards were created.`)
-    return
+    return false
   }
   st.applyBoards({ ...doc, frames }, layers, groups, `Cascade to ${sizes.length} size${sizes.length === 1 ? '' : 's'}`, master.id)
   st.notify(`${sizes.length} board${sizes.length === 1 ? '' : 's'} created from “${master.name}”.${notes.length ? ' Review before exporting: ' + notes.slice(0, 3).join('; ') : ' Review all formats before exporting.'} Undo removes them.`)
+  return true
 }
 
 /** Safely refresh shared content without discarding each variant's adjusted layout. */
