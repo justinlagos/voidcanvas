@@ -230,6 +230,27 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
       )}
 
       <Section title="Mask">
+        {layer.type !== 'adjustment' && (
+          <div className="space-y-2 mb-3">
+            {layer.vmask ? (
+              <>
+                <p className="text-[12px] text-void-400 leading-relaxed">The vector mask hides artwork without deleting it. Edit its path or turn it off to see the original.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button onClick={() => ops.editVectorMask(layer.id)}>Edit mask path</Button>
+                  <Button onClick={() => s.updateLayer(layer.id, { vmask: { ...layer.vmask!, enabled: !layer.vmask!.enabled } }, layer.vmask!.enabled ? 'Show original layer' : 'Show vector mask')}>
+                    {layer.vmask.enabled ? 'Show original' : 'Enable mask'}
+                  </Button>
+                  <Button className="col-span-2" onClick={() => ops.deleteVectorMask()}>Remove vector mask</Button>
+                </div>
+              </>
+            ) : (s.selection && s.selectedIds.length === 1 && !layer.locked && !layer.lockPixels && !layer.lockPosition) ? (
+              <>
+                <Button className="w-full" onClick={ops.cropSelectedLayerToSelection}>Crop layer to selection</Button>
+                <p className="text-[12px] text-void-500">Uses the selection’s rectangular bounds. Original artwork stays editable.</p>
+              </>
+            ) : null}
+          </div>
+        )}
         {layer.mask ? (
           <div className="space-y-2">
             <p className="text-[12px] text-void-400 leading-relaxed">A mask hides parts of a layer without deleting them.</p>
