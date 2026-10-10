@@ -1263,6 +1263,22 @@ export function Stage() {
     }
 
     if (t === 'move') {
+      // Ctrl/Cmd-click walks down through genuinely overlapping, visible layers.
+      // Target the exact layer instead of an ancestor group and never start a
+      // drag or accidentally change its transform when selecting underneath.
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.pointerType !== 'touch') {
+        const under = pickable().slice().reverse().filter(l => !!hitLayer([l], p.x, p.y, s.doc!, s.groups))
+        if (under.length) {
+          const current = under.findIndex(l => l.id === s.activeId)
+          const chosen = under[(current + 1) % under.length]
+          e.preventDefault()
+          s.setActive(chosen.id)
+          window.dispatchEvent(new CustomEvent('vc:pick', { detail: { id: chosen.id } }))
+          lastDown.current = null
+          invalidate()
+          return
+        }
+      }
       const act = s.active()
       const auto = s.options.autoSelect !== false
       if (s.selectedIds.length > 1 && s.options.showTransform !== false) {
