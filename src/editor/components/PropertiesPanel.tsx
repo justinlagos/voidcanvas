@@ -304,6 +304,9 @@ function SeveralProps({ layers }: { layers: Layer[] }) {
   const color = texts ? same(l => (l as TextLayer).color) : null
   const font = texts ? same(l => (l as TextLayer).fontFamily) : null
   const size = texts ? same(l => (l as TextLayer).fontSize) : null
+  const lineSpacing = texts ? same(l => (l as TextLayer).lineHeight) : null
+  const letterSpacing = texts ? same(l => (l as TextLayer).letterSpacing) : null
+  const textAlign = texts ? same(l => (l as TextLayer).align) : null
   const setFont = async (fontFamily: string) => {
     await Promise.all(texts!.map(t => ensureFont(fontFamily, t.fontWeight, t.italic)))
     setAll(() => ({ fontFamily } as Partial<Layer>)); s.commit('Font')
@@ -324,6 +327,9 @@ function SeveralProps({ layers }: { layers: Layer[] }) {
             <Select label="Font" value={font!.mixed ? '' : font!.v} options={[...(font!.mixed ? [{ id: '', label: 'Mixed' }] : []), ...FONTS.map(f => ({ id: f, label: f }))]} onChange={f => f && setFont(f)} />
             <NumField label="Size" title="Text size in pixels" value={size!.v} mixed={size!.mixed} onCommit={v => { setAll(() => ({ fontSize: Math.max(1, v) } as Partial<Layer>)); s.commit('Text size', { merge: 1000 }) }} />
             <ColorField label={color!.mixed ? 'Colour (mixed)' : 'Colour'} value={color!.v} onChange={v => v && setAll(() => ({ color: v } as Partial<Layer>))} onCommit={() => s.commit('Text colour', { ifChanged: true })} />
+            <Slider label="Line spacing" value={lineSpacing!.v} mixed={lineSpacing!.mixed} min={0.7} max={2.5} step={0.05} onChange={v => setAll(() => ({ lineHeight: v } as Partial<Layer>))} onCommit={() => s.commit('Line spacing', { ifChanged: true })} />
+            <Slider label="Letter spacing" value={letterSpacing!.v} mixed={letterSpacing!.mixed} min={-10} max={60} step={0.5} unit="px" onChange={v => setAll(() => ({ letterSpacing: v } as Partial<Layer>))} onCommit={() => s.commit('Letter spacing', { ifChanged: true })} />
+            <Select label="Align" value={textAlign!.mixed ? '' : textAlign!.v} options={[...(textAlign!.mixed ? [{ id: '', label: 'Mixed' }] : []), { id: 'left', label: 'Left' }, { id: 'center', label: 'Centre' }, { id: 'right', label: 'Right' }]} onChange={v => { if (!v) return; setAll(() => ({ align: v } as Partial<Layer>)); s.commit('Text alignment') }} />
           </div>
         </Section>
       )}
