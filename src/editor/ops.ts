@@ -137,6 +137,48 @@ export function cropToSelection() {
   s.cropTo(b.x, b.y, b.w, b.h)
 }
 
+/**
+ * Non-destructive layer crop. The selection's document-space rectangle becomes
+ * a live editable vector mask; the original raster/text/vector content and its
+ * dimensions are untouched. Existing pixel masks remain in place and combine
+ * with the new vector mask in the renderer.
+ *
+ * Never overwrite a designer's existing vector mask. They can edit, disable or
+ * delete the new crop from the regular Vector Mask controls and Undo history.
+ */
+export function cropSelectedLayerToSelection() {
+  const s = st(), doc = s.doc, l = s.active()
+  if (!doc || !l || l.type === 'adjustment' || s.selectedIds.length !== 1) {
+    s.notify('Select one image, text or shape layer to crop.')
+    return
+  }
+  if (l.locked || l.lockPixels || l.lockPosition) {
+    s.notify('Unlock the layer before changing its crop.')
+    return
+  }
+  if (!s.selection) { s.notify('Make a selection first, then choose Crop selected layer (non-destructive).'); return }
+  if (l.vmask) {
+    s.notify('This layer already has a vector mask. Edit that mask or remove it before applying a new crop.')
+    return
+  }
+  const b = maskBounds(s.selection)
+  if (!b || b.w <= 0 || b.h <= 0) { s.notify('The selection has no visible area.'); return }
+  // Constrain only to the selected layer's artboard; never create crop geometry
+  // that changes the neighbouring Cascade formats.
+  const frame = doc.frames?.find(f => f.id === l.frameId)
+  const x0 = Math.max(b.x, frame?.x ?? 0), y0 = Math.max(b.y, frame?.y ?? 0)
+  const x1 = Math.min(b.x + b.w, frame ? frame.x + frame.width : doc.width)
+  const y1 = Math.min(b.y + b.h, frame ? frame.y + frame.height : doc.height)
+  if (x1 <= x0 || y1 <= y0) { s.notify('The selection is outside this layer’s artboard.'); return }
+  const point = (x: number, y: number) => emptyNode(x, y)
+  const subpaths: SubPath[] = [{
+    closed: true,
+    nodes: [point(x0, y0), point(x1, y0), point(x1, y1), point(x0, y1)],
+  }]
+  s.updateLayer(l.id, { vmask: { subpaths: docToVmask(l, subpaths, doc), enabled: true, feather: 0 } }, 'Crop layer non-destructively')
+  s.notify('Layer cropped with an editable vector mask. Original pixels remain. Edit or delete the mask to restore them.')
+}
+
 export function flatten() {
   const s = st(); const doc = s.doc; if (!doc) return
   const hidden = s.layers.filter(l => !isShown(l, s.groups)).length
