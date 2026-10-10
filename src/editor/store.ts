@@ -208,6 +208,8 @@ interface EditorState {
   addMask: (id: string, fromSelection?: boolean) => void
   removeMask: (id: string) => void
   createClippingMask: (id?: string) => void
+  /** Reorder one layer directly above a same-group, same-board host and clip it in one undo step. */
+  clipLayerOnto: (layerId: string, hostId: string) => void
   releaseClippingMask: (id?: string) => void
   canClip: (id?: string) => boolean
   invertMask: (id: string) => void
@@ -1431,6 +1433,29 @@ export const useEditor = create<EditorState>((set, get) => ({
     const baseId = below.clipId ?? below.id
     set({ layers: st.layers.map(l => l.id === lid ? ({ ...l, clipId: baseId, ...(l.type === 'adjustment' ? { reach: 'clip' } : {}), rev: nextRev() } as Layer) : l), docRev: st.docRev + 1 })
     get().commit('Create clipping mask')
+  },
+
+  clipLayerOnto: (layerId, hostId) => {
+    const st = get()
+    const source = st.layers.find(l => l.id === layerId), host = st.layers.find(l => l.id === hostId)
+    if (!source || !host || layerId === hostId) return
+    if (source.locked || source.lockPosition) { st.notify('Unlock the layer to clip it.'); return }
+    if (host.type === 'adjustment' && !host.clipId) { st.notify('Clip to an image, text or shape instead of a global adjustment.'); return }
+    if ((source.groupId ?? null) !== (host.groupId ?? null) || (source.frameId ?? null) !== (host.frameId ?? null)) {
+      st.notify('To create a clipping mask, both layers must be on the same board and inside the same group.')
+      return
+    }
+    const rest = st.layers.filter(l => l.id !== layerId)
+    const at = rest.findIndex(l => l.id === hostId)
+    if (at < 0) return
+    const next = [...rest]
+    next.splice(at + 1, 0, {
+      ...source, clipId: host.clipId ?? host.id,
+      ...(source.type === 'adjustment' ? { reach: 'clip' as const } : {}),
+      rev: nextRev(),
+    } as Layer)
+    set({ layers: next.map(l => ({ ...l, rev: nextRev() } as Layer)), activeId: layerId, selectedIds: [layerId], docRev: st.docRev + 1 })
+    get().commit('Clip layer onto target')
   },
 
   releaseClippingMask: (id) => {
