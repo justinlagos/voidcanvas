@@ -1241,6 +1241,14 @@ export function Stage() {
       if (px && px[3] > 0) { const c = hex(px); if (e.altKey) s.setBg(c); else { s.setFg(c); s.addSwatch(c) } }
       return
     }
+    // Temporary eyedropper: while painting/colouring, hold Alt/Option and
+    // click a colour. Release the key to keep the original tool selected.
+    // Clone Stamp and retouch tools retain their own Alt-source sampling.
+    if (e.altKey && (t === 'brush' || t === 'fill' || t === 'gradient')) {
+      const px = sample(p)
+      if (px && px[3] > 0) s.setFg(hex(px))
+      return
+    }
 
     if (t === 'pen' || t === 'curvature') {
       // Ctrl or Cmd held: Direct Selection for as long as it is held (Photoshop and Illustrator).
