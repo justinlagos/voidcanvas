@@ -114,6 +114,9 @@ export function Stage() {
   const chanView = useRef<{ key: string; canvas: HTMLCanvasElement | null }>({ key: '', canvas: null })
   const live = useRef<LiveStroke | null>(null)
   const drag = useRef<Drag | null>(null)
+  // Ctrl/Cmd click picks through overlaps on pointer-up. A modifier drag must
+  // still move normally with snapping disabled rather than being consumed.
+  const clickThrough = useRef<{ initialId: string | null; under: string[] } | null>(null)
   const pointers = useRef(new Map<number, Pt>())
   const pinch = useRef<{ d: number; zoom: number; mid: Pt; panX: number; panY: number; t: number; moved: boolean; count: number } | null>(null)
   const cursor = useRef<Pt | null>(null)
@@ -1271,21 +1274,13 @@ export function Stage() {
     }
 
     if (t === 'move') {
-      // Ctrl/Cmd-click walks down through genuinely overlapping, visible layers.
-      // Target the exact layer instead of an ancestor group and never start a
-      // drag or accidentally change its transform when selecting underneath.
+      // Record the original selection before normal pointerdown handling.
+      // Selection through overlaps happens only when the pointer is released
+      // without a move, leaving Ctrl/Cmd-drag free to bypass smart snapping.
+      clickThrough.current = null
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.pointerType !== 'touch') {
-        const under = pickable().slice().reverse().filter(l => !!hitLayer([l], p.x, p.y, s.doc!, s.groups))
-        if (under.length) {
-          const current = under.findIndex(l => l.id === s.activeId)
-          const chosen = under[(current + 1) % under.length]
-          e.preventDefault()
-          s.setActive(chosen.id)
-          window.dispatchEvent(new CustomEvent('vc:pick', { detail: { id: chosen.id } }))
-          lastDown.current = null
-          invalidate()
-          return
-        }
+        const under = pickable().slice().reverse().filter(l => !!hitLayer([l], p.x, p.y, s.doc!, s.groups)).map(l => l.id)
+        if (under.length) clickThrough.current = { initialId: s.activeId, under }
       }
       const act = s.active()
       const auto = s.options.autoSelect !== false
@@ -2198,6 +2193,19 @@ export function Stage() {
     const d = drag.current; drag.current = null
     if (d) invalidate(true)
     cancelLongPress()
+    const cycle = clickThrough.current
+    clickThrough.current = null
+    if (cycle && e.type !== 'pointercancel' && e.pointerType !== 'touch' && (e.ctrlKey || e.metaKey) && d?.kind === 'move' && !d.moved) {
+      const current = cycle.under.indexOf(cycle.initialId ?? '')
+      const chosen = cycle.under[(current + 1) % cycle.under.length]
+      if (chosen) {
+        s.setActive(chosen)
+        window.dispatchEvent(new CustomEvent('vc:pick', { detail: { id: chosen } }))
+        lastDown.current = null
+        invalidate()
+        return
+      }
+    }
     // Held without moving, then lifted: the actions for what is under the finger.
     const h = held.current; held.current = null
     if (h && (!d || (d.kind === 'move' && !d.moved))) {
