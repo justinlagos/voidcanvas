@@ -1060,8 +1060,9 @@ export const useEditor = create<EditorState>((set, get) => ({
     if (st.doc?.frames?.length && l.frameId === undefined) l = { ...l, frameId: boardFor(st.doc, l, st.activeFrameId) } as Layer
     let at = idx + 1
     if (host?.groupId && l.groupId === undefined) {
-      // Adjustments land above the whole group so they keep affecting everything beneath them.
-      if (l.type === 'adjustment') { while (at < layers.length && layers[at].groupId === host.groupId) at++ }
+      // Global adjustments belong above the group, but an explicitly clipped
+      // adjustment must sit directly over its host inside that same group.
+      if (l.type === 'adjustment' && !l.clipId) { while (at < layers.length && layers[at].groupId === host.groupId) at++ }
       else l = { ...l, groupId: host.groupId } as Layer
     }
     next.splice(at, 0, l)
