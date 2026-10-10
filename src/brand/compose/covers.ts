@@ -132,10 +132,11 @@ const monumentalType: CoverComposition = (ctx) => ({
 const croppedMark: CoverComposition = (ctx) => ({
   kind: 'cover', width: W, height: H, background: light,
   nodes: [
-    { t: 'device', id: 'supergraphic', rect: rect(800, 0, 800, 900), kind: 'supergraphic', params: { crop: true, opacity: 0.12, scale: 1.2, offsetY: -0.14 } },
+    { t: 'device', id: 'supergraphic', rect: rect(800, 0, 800, 900), kind: 'supergraphic', params: { crop: true, opacity: 0.24, scale: 1.2, offsetY: -0.14 } },
+    // The cropped mark fills the right half; the name sits low and the mark small above it, opposite the crop.
     eyebrow(rect(110, 130, 500, 40)),
-    title(ctx, rect(110, 500, 980, 250), 154),
-    logo(ctx, rect(110, 260, 220, 150), light),
+    title(ctx, rect(110, 540, 980, 250), 154),
+    logo(ctx, rect(110, 230, 220, 150), light),
   ],
   genome: genome('cover-cropped-mark', ctx, { devices: ['supergraphic'] }),
 })
@@ -157,10 +158,12 @@ const diagonalMotion: CoverComposition = (ctx) => ({
 const specimenPlate: CoverComposition = (ctx) => ({
   kind: 'cover', width: W, height: H, background: paper,
   nodes: [
+    // A type-specimen plate: the name set large at the head of the frame, the mark at its foot.
     { t: 'frame', id: 'outer', rect: rect(70, 70, 1460, 760), stroke: ink, strokeWidth: 2, children: [] },
     eyebrow(rect(110, 110, 500, 40)),
-    logo(ctx, rect(110, 230, 280, 190), paper),
-    title(ctx, rect(110, 500, 920, 210), 122),
+    title(ctx, rect(110, 170, 1100, 230), 140),
+    { t: 'frame', id: 'plate-rule', rect: rect(110, 470, 1380, 2), fill: ink, children: [] },
+    logo(ctx, rect(110, 560, 280, 190), paper),
     { t: 'text', id: 'folio', rect: rect(1240, 720, 220, 40), style: body(18, 600), text: '01 / IDENTITY', align: 'right', color: ink, fit: 'shrink', source: 'suggested' },
   ],
   genome: genome('cover-specimen-plate', ctx, { density: 0.58 }),
