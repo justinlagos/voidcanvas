@@ -2123,7 +2123,9 @@ export function Stage() {
       let nw = dirX ? Math.max(4, ux * dirX * (centred ? 2 : 1)) : w0, nh = dirY ? Math.max(4, uy * dirY * (centred ? 2 : 1)) : h0
       const corner = dirX !== 0 && dirY !== 0
       const boxText = l0.type === 'text' && !!l0.boxWidth && dirX !== 0 && dirY === 0
-      const proportional = boxText ? false : corner ? !e.shiftKey || l0.type === 'text' : l0.type === 'text'
+      // Shift always preserves aspect ratio, as designers expect; the Properties
+      // chain icon may keep it locked without holding Shift. Text is never stretched.
+      const proportional = boxText ? false : corner ? (e.shiftKey || useUi.getState().keepRatio || l0.type === 'text') : l0.type === 'text'
       if (proportional) {
         const k = corner ? Math.max(nw / w0, nh / h0) : dirX ? nw / w0 : nh / h0
         nw = w0 * k; nh = h0 * k
