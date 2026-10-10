@@ -10,6 +10,27 @@ import { docSubsToLayerPatch, docSubsToTextPathPatch, docToVmask, layerSubsToDoc
 
 const st = () => useEditor.getState()
 
+// Only repeat rectangular, non-destructive transforms. Distort and warp cannot
+// be represented by ordinary layer position/scale/rotation and are excluded.
+let lastRectTransform: { docId: string; dx: number; dy: number; sx: number; sy: number; rotation: number } | null = null
+export function canRepeatTransform() {
+  const s = st()
+  return !!lastRectTransform && s.doc?.id === lastRectTransform.docId && s.selectedIds.some(id => s.layers.some(l => l.id === id && l.type !== 'adjustment' && !l.locked && !l.lockPosition))
+}
+export function repeatTransform() {
+  const s = st(), t = lastRectTransform
+  if (!t || !s.doc || s.doc.id !== t.docId) { s.notify('Make a Free Transform in this design first.'); return }
+  const targets = s.layers.filter(l => s.selectedIds.includes(l.id) && l.type !== 'adjustment' && !l.locked && !l.lockPosition)
+  if (!targets.length) { s.notify('Select an unlocked layer to repeat the transform.'); return }
+  s.updateLayers(targets.map(l => {
+    const { w, h } = layerSize(l, s.doc!)
+    const cx = l.x + w * l.scaleX / 2 + t.dx, cy = l.y + h * l.scaleY / 2 + t.dy
+    const scaleX = l.scaleX * t.sx, scaleY = l.scaleY * t.sy
+    return { id: l.id, patch: { x: cx - w * scaleX / 2, y: cy - h * scaleY / 2, scaleX, scaleY, rotation: l.rotation + t.rotation } }
+  }))
+  s.commit('Repeat transform')
+}
+
 /**
  * The whole document at its own size. `full` runs filter layers at document size, as an export at 1x does;
  * use it whenever the result becomes pixels in the design (flatten, stamp). Selections read the preview.
@@ -565,6 +586,11 @@ export function applyTransform() {
       const scaleX = ex / Math.max(1, w), scaleY = ey / Math.max(1, h)
       const center = { x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 }
       const rotation = Math.atan2(vx.y, vx.x)
+      const beforeCenter = { x: l0.x + w * l0.scaleX / 2, y: l0.y + h * l0.scaleY / 2 }
+      lastRectTransform = {
+        docId: doc.id, dx: center.x - beforeCenter.x, dy: center.y - beforeCenter.y,
+        sx: scaleX / l0.scaleX, sy: scaleY / l0.scaleY, rotation: rotation - l0.rotation,
+      }
       cancelTransform()
       s.updateLayer(l0.id, { scaleX, scaleY, rotation, x: center.x - w * scaleX / 2, y: center.y - h * scaleY / 2 }, 'Free transform')
       return
