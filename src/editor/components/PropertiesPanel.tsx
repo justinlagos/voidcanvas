@@ -255,9 +255,10 @@ function ReachSelect({ layer }: { layer: AdjustmentLayer }) {
   const s = useEditor.getState()
   const reach = layer.clipId ? 'clip' : layer.reach === 'group' && layer.groupId ? 'group' : 'below'
   const canClip = !!layer.clipId || s.canClip(layer.id)
-  const opts = [{ id: 'below', label: 'Everything below' }, ...(layer.groupId ? [{ id: 'group', label: 'Only this group' }] : []), ...(canClip ? [{ id: 'clip', label: 'Just the layer below' }] : [])]
+  const targetName = layer.clipId ? s.layers.find(l => l.id === layer.clipId)?.name : null
+  const opts = [{ id: 'below', label: 'Everything below' }, ...(layer.groupId ? [{ id: 'group', label: 'Only this group' }] : []), ...(canClip ? [{ id: 'clip', label: targetName ? `Only “${targetName}”` : 'Only the layer below' }] : [])]
   return (
-    <Select label="Changes" value={reach} options={opts} onChange={v => {
+    <Select label="Affects" value={reach} options={opts} onChange={v => {
       const cur = useEditor.getState()
       if (v === 'clip') { cur.createClippingMask(layer.id); return }
       if (layer.clipId) cur.releaseClippingMask(layer.id)
@@ -529,7 +530,7 @@ export function SettingsControls({ api }: { api: SettingsApi }) {
           <Slider key={f.key} label={f.label} value={layer.values[f.key] ?? 0} min={f.min} max={f.max}
             onChange={v => api.up({ values: { ...layer.values, [f.key]: v } })} onCommit={() => api.commit(api.name)} />
         ))}
-        {!api.embedded && <p className="text-[12px] text-void-500 leading-relaxed">Affects every layer beneath it. Your original pixels are never changed.</p>}
+        {!api.embedded && <p className="text-[12px] text-void-500 leading-relaxed">{layer.clipId ? 'Only its clipped target changes.' : layer.reach === 'group' && layer.groupId ? 'Only this group changes.' : 'Everything below changes.'} Your original pixels are never changed.</p>}
       </div>
     </Wrap>
   )
