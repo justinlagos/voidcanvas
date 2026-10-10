@@ -48,6 +48,19 @@ try {
       !!la.effects[0].link && la.effects[0].link === lb.effects[0].link &&
       !lc?.effects?.length && s().layers.length === 3
 
+    // Clipped adjustments inside groups must not jump outside the group.
+    reset('Adjustment inside group')
+    const nested = s().addShape('rect', 30, 30, 80, 80)
+    s().setActive(nested)
+    s().groupSelected()
+    const nestedHost = s().layers.find(l => l.id === nested)
+    s().setActive(nested)
+    s().addAdjustment('blur')
+    const nestedAdj = s().active()
+    const inGroup = nestedAdj?.groupId === nestedHost?.groupId &&
+      nestedAdj?.clipId === nested && nestedAdj?.reach === 'clip' &&
+      s().layers.findIndex(l => l.id === nestedAdj.id) === s().layers.findIndex(l => l.id === nested) + 1
+
     reset('Tight cut bounds')
     const shape = s().addShape('rect', 40, 50, 100, 100, { fill: '#f02020' })
     s().setActive(shape)
@@ -61,7 +74,7 @@ try {
     const bounds = out?.type === 'raster' && out.x === 55 && out.y === 65 &&
       out.canvas.width === 25 && out.canvas.height === 35 &&
       out.canvas.getContext('2d').getImageData(0, 0, 1, 1).data[3] > 0
-    return { selected, global, several, bounds }
+    return { selected, global, several, inGroup, bounds }
   })
   for (const [name, value] of Object.entries(result)) check(name, value)
 } finally {
