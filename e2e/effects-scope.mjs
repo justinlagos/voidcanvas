@@ -260,6 +260,9 @@ try {
       S.setState({ selectedIds: [ids.texture], activeId: ids.texture })
       s().addAdjustment('invert')
       const a = s().layers.find(l => l.type === 'adjustment')
+      // New adjustments target their selection by default. Explicitly choose
+      // whole-stack scope for this mask regression.
+      s().releaseClippingMask(a.id)
       s().setSelection(sel(0, 320)); s().addMask(a.id, true)
       // Logo in a group masked to the right 300 px of the board, so it shows.
       S.setState({ selectedIds: [ids.logo], activeId: ids.logo }); s().groupSelected()
@@ -353,7 +356,12 @@ try {
           s().addAdjustment(kind, effect ?? undefined)
           const a = s().layers.find(l => l.type === 'adjustment')
           s().updateLayer(a.id, { ...(effect ? { effectParams: { ...a.effectParams, ...vals, seed: 11 } } : { values: { ...a.values, ...vals } }) })
-          if (reach === 'clip') { s().createClippingMask(a.id) } else if (reach) s().updateLayer(a.id, { reach })
+          // Creation clips to the selected layer. Non-clipped test cases must
+          // explicitly switch to their requested reach, as the UI does.
+          if (reach !== 'clip') {
+            s().releaseClippingMask(a.id)
+            if (reach) s().updateLayer(a.id, { reach })
+          }
         }
         if (scope === 'layer') s().addEffect([{ type: 'layer', id: ids.portrait }], fx)
         else if (scope === 'linked') s().addEffect([{ type: 'layer', id: ids.portrait }, { type: 'layer', id: ids.texture }], fx)
