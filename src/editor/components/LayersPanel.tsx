@@ -124,7 +124,7 @@ function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
   return (
     <li role="option" aria-selected={on} data-row-index={i} data-frame={l.frameId ?? ''} style={{ paddingLeft: depth * 14 + (l.clipId ? 14 : 0) }} draggable={renaming !== l.id}
       onPointerDown={press.onPointerDown} onPointerMove={press.onPointerMove} onPointerUp={press.onPointerUp} onPointerCancel={press.onPointerCancel}
-      onDragStart={e => { setDragId(l.id); e.dataTransfer.setData('text/vc-layer', l.id); e.dataTransfer.effectAllowed = 'copyMove'; const n = selectedIds.includes(l.id) ? selectedIds.length : 1; if (n > 1) dragLabel(e, `${n} layers`) }} onDragEnd={() => { setDragId(null); setOver(null) }}
+      onDragStart={e => { setDragId(l.id); e.dataTransfer.setData('text/vc-layer', l.id); e.dataTransfer.effectAllowed = 'all'; const n = selectedIds.includes(l.id) ? selectedIds.length : 1; if (n > 1) dragLabel(e, `${n} layers`) }} onDragEnd={() => { setDragId(null); setOver(null) }}
       onDragOver={e => { if (!dragId) return; e.preventDefault(); e.dataTransfer.dropEffect = e.altKey ? 'link' : 'move'; setOver(i) }}
       onDrop={e => {
         e.preventDefault(); setOver(null)
