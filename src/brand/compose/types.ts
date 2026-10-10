@@ -20,6 +20,7 @@ export type Paint =
         | 'ink'
         | 'paper'
         | 'neutral'
+        | 'on-brand'
       step?: RampStep
       alpha?: number
     }

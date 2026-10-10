@@ -34,7 +34,7 @@ function Page({ spec, pageNo, pageCount, brand, logo, o, cssWidth }: { spec: Pag
   const salt = useBrand(s => s.tokens.salt)
   const layoutSalt = useBrand(s => s.tokens.layoutSalt ?? 0)
   const v2 = useMemo(() => brandV2Enabled(), [])
-  const runtime = useMemo(() => (v2 ? composeRuntimePages({ brand, logo, pages, salt, layoutSalt }) : NO_RUNTIME), [v2, brand, logo, pages, salt, layoutSalt])
+  const runtime = useMemo(() => (v2 ? composeRuntimePages({ brand, logo, pages, salt, layoutSalt, decisions: d }) : NO_RUNTIME), [v2, brand, logo, pages, salt, layoutSalt, d])
   const sourceIndex = pages.indexOf(spec)
   useEffect(() => {
     let live = true
@@ -558,7 +558,7 @@ export function BrandGuideline({ onBack, initialBrand, backLabel = 'Studio' }: {
   const [err, setErr] = useState<string | null>(null)
   const brand = useMemo(() => buildBrand(tokens), [tokens])
   const v2 = useMemo(() => brandV2Enabled(), [])
-  const outputRuntime = useMemo(() => (v2 ? composeRuntimePages({ brand, logo, pages, salt: tokens.salt, layoutSalt: tokens.layoutSalt ?? 0 }) : NO_RUNTIME), [v2, brand, logo, pages, tokens.salt, tokens.layoutSalt])
+  const outputRuntime = useMemo(() => (v2 ? composeRuntimePages({ brand, logo, pages, salt: tokens.salt, layoutSalt: tokens.layoutSalt ?? 0, decisions }) : NO_RUNTIME), [v2, brand, logo, pages, tokens.salt, tokens.layoutSalt, decisions])
   const checks = useMemo(() => [...brand.checks, ...logoChecks(brand, logo, decisions)], [brand, logo, decisions])
   const health = useMemo(() => brandHealth({
     colors: [{ hex: brand.roles[0].hex, role: 'primary' }, { hex: brand.roles[1].hex, role: 'secondary' }, { hex: brand.surfaces.light, role: 'background' }, { hex: brand.surfaces.inkOnLight, role: 'text' }],

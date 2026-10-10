@@ -24,7 +24,9 @@ describe('sealing', () => {
     await expect(open(k, s, 'b')).rejects.toBeInstanceOf(VaultError) // wrong purpose
     await expect(open(randomBytes(32), s, 'a')).rejects.toBeInstanceOf(VaultError) // wrong key
     const [v, iv, ct] = s.split('.')
-    const flipped = `${v}.${iv}.${ct.slice(0, -2)}${ct.slice(-2) === 'AA' ? 'AB' : 'AA'}`
+    // Change a character in the middle: the last characters can be padding bits that decode to the same bytes.
+    const mid = Math.floor(ct.length / 2)
+    const flipped = `${v}.${iv}.${ct.slice(0, mid)}${ct[mid] === 'A' ? 'B' : 'A'}${ct.slice(mid + 1)}`
     await expect(open(k, flipped, 'a')).rejects.toBeInstanceOf(VaultError) // tampered
   })
   it('seals JSON', async () => {

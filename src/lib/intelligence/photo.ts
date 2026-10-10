@@ -3,13 +3,17 @@
 // the busiest region (which is usually the subject). When nothing works, the least destructive
 // fix is suggested first: a different treatment, a different corner, then the lightest scrim.
 
-import { contrastLum, scrimFor, type Level } from './contrast'
+import { contrastLum, markColours, markTarget, scrimFor, scrimLum, type Level } from './contrast'
 import { lumOf, shrink, type AssetProfile } from './asset'
 import type { VariantSet } from './backgrounds'
 import type { VariantId } from './logo'
 
 export interface Region { id: string; x: number; y: number; w: number; h: number; luminance: number; busy: number; hex: string }
-export interface PhotoRead { width: number; height: number; luminance: number; busy: number; regions: Region[]; subject: string | null }
+export interface PhotoRead {
+  width: number; height: number; luminance: number; busy: number; regions: Region[]; subject: string | null
+  /** The subject's extent, as fractions of the frame, measured on a finer grid than the regions. */
+  subjectBox: { x: number; y: number; w: number; h: number } | null
+}
 
 export type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'centre'
 export const CORNERS: Corner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'centre']
@@ -40,7 +44,22 @@ export function readPhoto(src: Uint8ClampedArray, srcW: number, srcH: number): P
   const inner = regions.filter(r => !['0,0', '2,0', '0,2', '2,2'].includes(r.id))
   const busiest = inner.slice().sort((a, b) => b.busy - a.busy)[0]
   const subject = busiest && busiest.busy > mean * 1.4 ? busiest.id : null
-  return { width: srcW, height: srcH, luminance: totalLum / regions.length, busy: mean, regions, subject }
+  // A 12 x 8 grid of busyness; the subject's box is every fine cell nearly as busy as the busiest one.
+  let subjectBox: PhotoRead['subjectBox'] = null
+  if (subject) {
+    const FX = 12, FY = 8, fine: number[] = []
+    for (let gy = 0; gy < FY; gy++) for (let gx = 0; gx < FX; gx++) {
+      const x0 = Math.floor((gx * w) / FX), x1 = Math.floor(((gx + 1) * w) / FX), y0 = Math.floor((gy * h) / FY), y1 = Math.floor(((gy + 1) * h) / FY)
+      let busy = 0, n = 0
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1 - 1; x++) { const o = (y * w + x) * 4, q = o + 4; busy += (Math.abs(data[o] - data[q]) + Math.abs(data[o + 1] - data[q + 1]) + Math.abs(data[o + 2] - data[q + 2])) / 765; n++ }
+      fine.push(n ? busy / n : 0)
+    }
+    const top = Math.max(...fine)
+    let minX = FX, minY = FY, maxX = -1, maxY = -1
+    fine.forEach((v, i) => { if (v >= top * 0.55) { const gx = i % FX, gy = Math.floor(i / FX); minX = Math.min(minX, gx); minY = Math.min(minY, gy); maxX = Math.max(maxX, gx); maxY = Math.max(maxY, gy) } })
+    if (maxX >= 0) subjectBox = { x: minX / FX, y: minY / FY, w: (maxX - minX + 1) / FX, h: (maxY - minY + 1) / FY }
+  }
+  return { width: srcW, height: srcH, luminance: totalLum / regions.length, busy: mean, regions, subject, subjectBox }
 }
 
 /** The 2 × 2 regions a logo in a corner would sit over (about a fifth of the frame), or the centre region. */
@@ -58,7 +77,10 @@ export interface PhotoPlacement {
   /** Overall score, higher is better. */
   score: number
   why: string
-  fix?: { kind: 'scrim'; color: string; opacity: number } | { kind: 'blur' } | null
+  /** The target this version is held to: 4.5:1 for a wordmark or lockup, 3:1 for a symbol. */
+  need: number
+  /** A scrim carries the ratio the mark reaches on it. */
+  fix?: { kind: 'scrim'; color: string; opacity: number; ratio: number } | { kind: 'blur' } | null
 }
 
 /** Score every corner and treatment; return them best first. `avoid` marks corners the caller has ruled out. */
@@ -73,23 +95,28 @@ export function placeOnPhoto(read: PhotoRead, variants: VariantSet[], opts: { co
     const onSubject = read.subject ? regs.some(r => r.id === read.subject) : false
     let best: PhotoPlacement | null = null
     for (const v of valid) {
-      const main = v.profile.colors.filter(c => c.share >= 0.08)
-      const list = main.length ? main : v.profile.colors.slice(0, 1)
-      const ratio = Math.min(...list.map(c => contrastLum(c.luminance, lum)))
-      const need = v.profile.kind === 'wordmark' || v.profile.kind === 'lockup' ? 4.5 : 3
+      // Measured on the colours that meet the photo, the same way the backgrounds page measures.
+      const list = markColours(v.profile)
+      const worst = list.reduce((a, c) => (contrastLum(c.luminance, lum) < contrastLum(a.luminance, lum) ? c : a), list[0])
+      const ratio = contrastLum(worst.luminance, lum)
+      const need = markTarget(v.profile).need
       const level: Level = ratio >= need ? 'good' : ratio >= need * 0.66 ? 'check' : 'attention'
       // Busy backgrounds eat contrast: treat anything over 0.06 as one level worse.
       const lvl: Level = level === 'good' && busy > 0.06 ? 'check' : level
       const score = (lvl === 'good' ? 3 : lvl === 'check' ? 1.5 : 0) - busy * 12 - (onSubject ? 2.5 : 0) - (corner === 'centre' ? 0.6 : 0) + (v.id === 'primary' ? 0.4 : 0) + Math.min(1, ratio / 10)
-      const fix = lvl === 'attention' || busy > 0.09 ? (() => { const s = scrimFor(list.reduce((a, c) => a + c.luminance, 0) / list.length, lum, need); return s ? { kind: 'scrim' as const, ...s } : { kind: 'blur' as const } })() : null
-      const cand: PhotoPlacement = { corner, use: v.id, ratio, level: lvl, busy, score, fix, why: '' }
+      // Anything under its target, or on a busy patch, gets the lightest fix that brings it there.
+      const fix = ratio < need || busy > 0.09 ? (() => { const s = scrimFor(worst.luminance, lum, need); return s ? { kind: 'scrim' as const, ...s, ratio: contrastLum(worst.luminance, scrimLum(lum, s.color, s.opacity)) } : { kind: 'blur' as const } })() : null
+      const cand: PhotoPlacement = { corner, use: v.id, ratio, level: lvl, busy, score, fix, need, why: '' }
       if (!best || cand.score > best.score) best = cand
     }
     if (!best) continue
     const where = corner === 'centre' ? 'the centre' : `the ${corner.replace('-', ' ')}`
     const treat = best.use === 'primary' ? 'Full colour' : best.use === 'reversed' ? 'The reversed logo' : best.use === 'mono-dark' ? 'The mono dark logo' : best.use === 'grayscale' ? 'The greyscale logo' : 'The one-colour logo'
     const tone = lum >= 0.6 ? 'light' : lum <= 0.2 ? 'dark' : 'mid-tone'
-    best.why = onSubject ? `${cap(where)} is over the subject.` : `${treat} reads at ${best.ratio.toFixed(1)}:1 on ${where}, a ${tone}${busy > 0.06 ? ', busy' : ', calm'} area.` + (best.fix ? (best.fix.kind === 'scrim' ? ` A ${Math.round(best.fix.opacity * 100)}% ${best.fix.color === '#000000' ? 'dark' : 'light'} scrim would settle it.` : ' A soft blur behind it would settle it.') : '')
+    const area = `${where}, a ${tone}${busy > 0.06 ? ', busy' : ', calm'} area`
+    best.why = onSubject ? `${cap(where)} is over the subject.`
+      : best.fix?.kind === 'scrim' ? `${treat} on a ${Math.round(best.fix.opacity * 100)}% ${best.fix.color === '#000000' ? 'dark' : 'light'} scrim reads at ${best.fix.ratio.toFixed(1)}:1 on ${area}. Without it, ${best.ratio.toFixed(1)}:1.`
+        : `${treat} reads at ${best.ratio.toFixed(1)}:1 on ${area}.` + (best.fix ? ' A soft blur behind it would settle it.' : '')
     out.push(best)
   }
   return out.sort((a, b) => b.score - a.score)
@@ -99,9 +126,8 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 /** Convenience: contrast of a mark against one flat tone, for Editor checks that sampled the pixels under a layer. */
 export function markOnTone(p: AssetProfile, lum: number): { ratio: number; level: Level; need: number } {
-  const main = p.colors.filter(c => c.share >= 0.08)
-  const list = main.length ? main : p.colors.slice(0, 1)
+  const list = markColours(p)
   const ratio = Math.min(...list.map(c => contrastLum(c.luminance, lum)))
-  const need = p.kind === 'wordmark' || p.kind === 'lockup' ? 4.5 : 3
+  const need = markTarget(p).need
   return { ratio, need, level: ratio >= need ? 'good' : ratio >= need * 0.66 ? 'check' : 'attention' }
 }

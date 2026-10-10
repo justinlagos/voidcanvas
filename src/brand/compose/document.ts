@@ -5,7 +5,7 @@ import { composeInteriorCandidates, INTERIOR_KINDS, type InteriorKind } from './
 import { lintPage } from './lint'
 import { createRhythmState } from './rhythm'
 import { selectComposition, type CompositionCandidate } from './select'
-import type { DocGenome, Page, PageGenome } from './types'
+import type { DocGenome, Page, PageGenome, Paint } from './types'
 
 export interface BrandDocumentInput {
   brand: Brand
@@ -15,6 +15,8 @@ export interface BrandDocumentInput {
   deviceAngle?: number
   recentDocuments?: readonly DocGenome[]
   enabledKinds?: readonly InteriorKind[]
+  /** True when no version of the mark reads on this surface without a scrim or plate behind it. */
+  markNeedsBacking?: (on: Paint) => boolean
 }
 
 export interface ComposedBrandDocument {
@@ -57,12 +59,20 @@ function familyFit(page: Page, family: DirectionFamily) {
   return Math.min(1, score)
 }
 
-function candidates(pages: readonly Page[], family: DirectionFamily, seed: number, position: number): CompositionCandidate[] {
-  return pages.map((page, index) => ({
-    page,
-    lint: lintPage(page),
-    fit: Math.min(1, familyFit(page, family) + jitter(seed, position, index) * 0.06),
-  }))
+function candidates(pages: readonly Page[], family: DirectionFamily, seed: number, position: number, markNeedsBacking?: (on: Paint) => boolean): CompositionCandidate[] {
+  // The cover and the closing page spread wider across their compositions, so two brands in one family
+  // rarely open or close the same way. Content pages also answer to rhythm, which spreads them already.
+  const spread = position === 0 || pages[0]?.kind === 'closing' ? 0.22 : 0.06
+  return pages.map((page, index) => {
+    // A composition that puts the mark on a colour where no version of it reads loses to one that does not.
+    const unreadable = markNeedsBacking ? page.nodes.filter((n) => n.t === 'logo' && markNeedsBacking(n.on)).length : 0
+    return {
+      page,
+      lint: lintPage(page),
+      // Not capped at 1: a cap turned near-equal candidates into ties that the first composition always won.
+      fit: Math.max(0, familyFit(page, family) + jitter(seed, position, index) * spread - unreadable * 0.3),
+    }
+  })
 }
 
 function recentAtPosition(documents: readonly DocGenome[], position: number): PageGenome[] {
@@ -84,7 +94,7 @@ export function composeBrandDocument(input: BrandDocumentInput): ComposedBrandDo
     logoAspect: input.logoAspect,
     deviceAngle: input.deviceAngle,
   })
-  const coverCandidates = candidates(coverPages, input.family, effectiveSeed, 0)
+  const coverCandidates = candidates(coverPages, input.family, effectiveSeed, 0, input.markNeedsBacking)
   for (const candidate of coverCandidates) {
     if (candidate.lint.some((finding) => finding.level === 'attention')) {
       rejected.push({ kind: 'cover', compositionId: candidate.page.genome.compositionId, reasons: candidate.lint.filter((f) => f.level === 'attention').map((f) => f.message) })
@@ -113,8 +123,9 @@ export function composeBrandDocument(input: BrandDocumentInput): ComposedBrandDo
       pageNo: position + 1,
       pageCount,
       deviceAngle: input.deviceAngle,
+      logoAspect: input.logoAspect,
     })
-    const interiorCandidates = candidates(options, input.family, pageSeed, position)
+    const interiorCandidates = candidates(options, input.family, pageSeed, position, input.markNeedsBacking)
     for (const candidate of interiorCandidates) {
       if (candidate.lint.some((finding) => finding.level === 'attention')) {
         rejected.push({ kind, compositionId: candidate.page.genome.compositionId, reasons: candidate.lint.filter((f) => f.level === 'attention').map((f) => f.message) })

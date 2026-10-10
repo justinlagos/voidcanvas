@@ -1,4 +1,5 @@
 # Every push and pull request: types, unit tests, Growth discovery source, Brand V2 baseline and a production build.
+# Pushes to master and brand-v2 pull requests also render the Brand V2 pages and run their visual gates.
 name: CI
 
 on:
@@ -29,8 +30,9 @@ jobs:
       - name: Build
         run: npm run build
 
+  # Brand V2 pages: on every push to master and on brand-v2 pull requests.
   brand-v2-visual:
-    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'brand-guidelines-v2') || startsWith(github.head_ref, 'brand-v2'))
+    if: github.event_name == 'push' || startsWith(github.head_ref, 'brand-guidelines-v2') || startsWith(github.head_ref, 'brand-v2')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +51,8 @@ jobs:
         run: node e2e/brand-ir-parity.mjs
       - name: Gate legacy to IR parity
         run: node e2e/brand-ir-parity-gate.mjs
+      - name: Check Brand V2 content pages
+        run: node e2e/brand-v2-pages.mjs
       - name: Build for Brand browser regression
         run: npm run build
       - name: Run Brand phone regression
@@ -68,5 +72,6 @@ jobs:
           path: |
             e2e/.out/brand-diversity
             e2e/.out/brand-ir-parity
+            e2e/.out/brand-v2-pages
           if-no-files-found: error
           retention-days: 14

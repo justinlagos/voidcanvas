@@ -106,9 +106,13 @@ export function applyLegacyParity(source: Page, c: LegacyParityContext): Page {
     b.ratios.forEach((ratio, index) => {
       const seg = (ratio.pct / 100) * barW
       const node = text(page, `usage-${index}-text`)
-      if (node) {
+      if (node && node.align === 'right') {
+        // Too narrow to hold its label: under the bar, ending where the segment ends.
+        node.baseline = barY + barH + 17
+        node.rect.x = x + seg - node.rect.w
+      } else if (node) {
         node.baseline = barY + barH / 2 + 5
-        node.rect.x = seg > 70 ? x + 10 : x + 6
+        node.rect.x = x + 10
         node.rect.w = Math.max(node.rect.w, seg + 80)
       }
       if (ratio.hex.toLowerCase() === b.surfaces.light.toLowerCase()) {

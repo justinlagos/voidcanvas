@@ -224,7 +224,8 @@ function drawClearSpaceExamples(
     ctx.beginPath()
     ctx.roundRect(x, node.rect.y, exW, exH, 10)
     ctx.fill()
-    const markH = exH * 0.34
+    // The mark at a share of the example's height, but never wider than the example allows.
+    const markH = Math.min(exH * 0.34, (exW * (bad ? 0.48 : 0.62)) / ar)
     const markW = markH * ar
     const markX = x + (bad ? 16 : exW * 0.5 - markW / 2)
     const markY = node.rect.y + exH * 0.5 - markH / 2
@@ -244,12 +245,16 @@ function drawClearSpaceExamples(
       bg,
     )
     if (bad) {
+      // The name shrinks to fit before anything is cut, as on the fixed layout.
       ctx.fillStyle = brand.surfaces.inkOnLight
-      ctx.font = `700 ${Math.round(markH * 0.55)}px ${JSON.stringify(brand.fonts.heading.family)}`
-      const available = Math.max(0, exW - markW - 24)
-      let label = brand.name || 'Headline'
-      while (label.length > 1 && ctx.measureText(label).width > available)
-        label = label.slice(0, -1)
+      const available = Math.max(0, exW - markW - 28), family = JSON.stringify(brand.fonts.heading.family)
+      const name = brand.name || 'Headline'
+      let px = Math.round(markH * 0.55)
+      ctx.font = `700 ${px}px ${family}`
+      while (ctx.measureText(name).width > available && px > 9) { px -= 0.5; ctx.font = `700 ${px}px ${family}` }
+      let label = name
+      while (label.length > 1 && ctx.measureText(label).width > available) label = label.slice(0, -1)
+      if (label !== name) label = label.slice(0, -1) + '…'
       ctx.fillText(label, markX + markW + 6, markY + markH * 0.72)
     } else {
       ctx.strokeStyle = brand.semantic[0].ramp[400]

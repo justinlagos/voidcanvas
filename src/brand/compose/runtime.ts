@@ -1,6 +1,7 @@
 import type { Brand } from '@/studio/brand/tokens'
-import type { LogoInfo } from '@/studio/brand/logo'
-import type { PageSpec } from '@/studio/brand-pages'
+import { NO_DECISIONS, type LogoDecisions, type LogoInfo } from '@/studio/brand/logo'
+import { markTreatment, type PageSpec } from '@/studio/brand-pages'
+import { brandPaint } from './brand-resolver'
 import { composeBrandDocument } from './document'
 import { DIRECTION_FAMILIES, familyCompatibility, type DirectionFamily } from './families'
 import type { Page } from './types'
@@ -12,6 +13,7 @@ export interface RuntimeComposeInput {
   pages: readonly PageSpec[]
   salt: number
   layoutSalt: number
+  decisions?: LogoDecisions
 }
 
 function logoShape(logo: LogoInfo | null) {
@@ -61,6 +63,8 @@ export function composeRuntimePages(input: RuntimeComposeInput): {
     family,
     seed: input.salt * 97 + input.layoutSalt * 193,
     logoAspect: input.logo?.profile.aspect,
+    // Compositions that would need a scrim or plate behind the mark lose to ones where it reads as it is.
+    markNeedsBacking: input.logo ? (on) => !!markTreatment(input.brand, input.logo, input.decisions ?? NO_DECISIONS, brandPaint(input.brand, on)).backing : undefined,
     enabledKinds: enabledKinds as Parameters<typeof composeBrandDocument>[0]['enabledKinds'],
   })
 

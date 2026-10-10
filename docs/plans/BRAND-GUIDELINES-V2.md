@@ -1,6 +1,6 @@
 # Brand Guidelines V2
 
-Status: Phase 1 shipped with a CI parity gate. Phase 2 engine on master, off for designers (`?brandv2=1` to review) since `3a8d8a9`, until every current page keeps its real content and the Phase 2 gates and contact-sheet review pass.
+Status: Phase 1 shipped with a CI parity gate. Phase 2 content pages (decision 15) passed the separate contact-sheet review on 10 Oct 2026 with no blockers. V2 is still off for designers (`?brandv2=1` to review) until Justin confirms the switch; the fixes the review drove apply to the current renderer too.
 Date: 5 October 2026
 Owner: Voidcanvas
 
@@ -386,6 +386,40 @@ Previous published snapshots remain restorable.
 Free, Team and Pro capability rules live in one data file.
 
 Team is the first intended paid plan. Until billing exists, all programme capabilities stay on behind a feature flag. This programme does not add billing UI.
+
+### 15. Content pages are composed around shared content blocks (6 Oct 2026)
+
+The first Phase 2 interiors (5 Oct) replaced every content page with one generic template: a title, an intro, one visual and up to six cards. That lost the content only a brand can supply (the logo tested on every surface, refused versions, the eight misuse examples, contrast pairs with ratios, ramps, the type scale table, mockups), and it was rolled back in `3a8d8a9`.
+
+Decision: the content stays where it already works, and V2 composes around it.
+
+- Each legacy content page is split into its chrome (page background, section label, footer, margins) and its content. In block mode (`Env.block`) the content lays out inside any box another layout gives it. Drawn as a full page nothing changes: a 460-page snapshot (16 kinds, every variant, both orientations, 5 fixtures, 2 personalities) is pixel-identical and recorder-identical before and after the split.
+- `drawPageBody(kind, ctx, box)` draws that content into a box. Each kind declares the smallest box it lays out in (`BODY_KIND_MIN`); a smaller box draws the content scaled down to fit, never squashed.
+- A V2 content page is a `page-body` device node plus everything around it: kicker, title, a factual one-line intro written from the brand's values, folio, rules, rails and colour blocking. Six structures per kind (`header-band`, `side-title`, `rail-index`, `brand-band`, `centred`, `split-lead`). Margins, title size and rules come from the direction family's ranges and the seed.
+- Lint rejects a structure that would draw the content below 85% of its size, and flags 85 to 95% as worth checking.
+- Rhythm forbids the same structure on consecutive pages and penalises a structure each time it is used, so a document spreads across them (no structure more than three times in 15 pages, tested for every family). The cover and closing candidates get a wider seeded spread, and candidate fit is no longer capped at 1, which had turned near-equal candidates into ties the first composition always won.
+- The closing page has six full-page compositions of its own (mark, full name, the brand's line).
+- Text on brand-colour fields uses the brand colour's own ink (`on-brand`), never a fixed light tone.
+- Because preview, PDFs, handoff, saved pages, Open in Editor and publishing all draw through one boundary, every output shows the same pages.
+
+- `split-lead` is a tinted lead column from the page edge with the title first in reading order. Kicker, rail and folio all show the page number.
+- Kinds whose content is a column of type (principles, voice, minimum size) are measured on a scratch canvas: typographic ones grow to fill their box (up to 1.3), and all are placed in the space left rather than floating at the top.
+- A composition that would put the mark on a colour where no version reads loses 0.3 of fit per such mark, so covers and closings prefer surfaces the mark reads on.
+
+Review (10 Oct 2026). A separate agent reviewed the contact sheets and full-size pages of 12 fixtures over six passes. What it drove, all of which applies to the current renderer as well as V2, since both draw the same content:
+
+- Scrim maths blended in linear light; browsers blend encoded sRGB, so a "25% scrim" claimed 5.1:1 where the page showed 1.7:1. `scrimLum` blends in sRGB.
+- Contrast is measured on the colours that meet the background everywhere (`markColours`), including photos. The target is shared (`markTarget`): 4.5:1 for wordmarks, lockups and fine line work (a ratio on a hairline overstates how it reads), 3:1 for solid symbols.
+- On flat colours where no version reads, the mark goes on an opaque plate of the light surface with the brand's clear space around it, in the version that reads on the plate. Translucent scrims are kept for photos only.
+- Photo placements are called Suggested only when the mark reaches its target as it is, on a scrim (the ratio on the scrim is given) or on a plate. They shrink until they clear the subject, measured on a 12 by 8 grid, and are labelled "Best available, still weak" with the reason when that puts them under the minimum.
+- The thinnest stroke ignores tapering tips, pinch points and curved-edge stair-steps: a thin width only counts when it runs for a length (`asset.ts`). A solid two-leaf mark went from a 240 px minimum to 24 px; hairline marks keep theirs.
+- The mark is shown at or above its own minimum wherever the space allows (tiles, photos, poster, app bar, covers, closing); the backgrounds page says so when its tiles cannot.
+- Labels shrink before they are cut, specimens cut at a whole word, the minimum size page enlarges the minimum pixel for pixel instead of cropping the mark, mockups use only pairings the contrast page passes, and the app bar grows to hold the mark.
+- Principles follow the same personality as the voice, voice lines are about writing, and each brand draws its lines from larger banks (nine principles, eight dos and don'ts, five tone lines per personality) with a well-mixed seed from its name.
+
+Left for later, recorded by the review: diacritics stacked on Yoruba vowels can land on the next letter in some body fonts (Phase 3, font shaping); clipped source artwork is shown without a warning (Phase 3, an edge-touch check); 7 of 12 fixtures choose the editorial family (Phase 2 family choice); same-personality brands still share a line or two of copy; rail pages fall irregularly in some documents.
+
+`e2e/brand-v2-pages.mjs` composes a full document for each of the 12 fixtures, writes contact sheets to `e2e/.out/brand-v2-pages/`, and fails if any content paints outside its box at any structure's size, if recorded text leaves the page or collides, or if a page shrinks its content below 85%.
 
 ## Quality gates
 

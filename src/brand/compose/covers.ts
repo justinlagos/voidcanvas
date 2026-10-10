@@ -70,12 +70,26 @@ const eyebrow = (box: Rect, color: Paint = ink, align: 'left' | 'center' | 'righ
   maxLines: 1,
   source: 'suggested' as const,
 })
-const logo = (box: Rect, on: Paint) => ({ t: 'logo' as const, id: 'logo', rect: box, version: 'auto' as const, on, clearSpace: true })
+/**
+ * The cover's mark, sized by area so a wide wordmark or a tall stacked mark carries the same weight as a
+ * square symbol. The box given is the slot's nominal size; `anchor` says which edge of it the mark keeps.
+ */
+function logo(ctx: CoverContext, box: Rect, on: Paint, anchor: 'left' | 'center' | 'right' = 'left', maxW = box.w * 2.2) {
+  const ar = Math.max(0.2, Math.min(8, ctx.logoAspect ?? 1)), area = box.w * box.h * 0.6
+  let w = Math.sqrt(area * ar), h = w / ar
+  if (w > maxW) { w = maxW; h = w / ar }
+  if (h > box.h * 1.3) { h = box.h * 1.3; w = h * ar }
+  // Never below the brand's own minimum width, as far as the slot allows.
+  const minW = ctx.brand.logo.minWidth
+  if (w < minW) { w = Math.min(minW, maxW * 1.2); h = w / ar; if (h > box.h * 1.8) { h = box.h * 1.8; w = h * ar } }
+  const x = anchor === 'left' ? box.x : anchor === 'right' ? box.x + box.w - w : box.x + (box.w - w) / 2
+  return { t: 'logo' as const, id: 'logo', rect: rect(x, box.y + (box.h - h) / 2, w, h), version: 'auto' as const, on, clearSpace: false }
+}
 
 const flushLeft: CoverComposition = (ctx) => ({
   kind: 'cover', width: W, height: H, background: paper,
   nodes: [
-    logo(rect(110, 90, 150, 120), paper),
+    logo(ctx, rect(110, 90, 150, 120), paper),
     eyebrow(rect(110, 390, 500, 40)),
     title(ctx, rect(110, 455, 1220, 220), 150),
     { t: 'frame', id: 'rule', rect: rect(110, 760, 1380, 2), fill: brand, children: [] },
@@ -86,7 +100,7 @@ const flushLeft: CoverComposition = (ctx) => ({
 const centreAxis: CoverComposition = (ctx) => ({
   kind: 'cover', width: W, height: H, background: light,
   nodes: [
-    logo(rect(650, 120, 300, 170), light),
+    logo(ctx, rect(650, 120, 300, 170), light, 'center'),
     eyebrow(rect(500, 370, 600, 40), ink, 'center'),
     title(ctx, rect(250, 430, 1100, 210), 136, ink, 'center'),
     { t: 'frame', id: 'signal', rect: rect(760, 720, 80, 8), fill: accent, children: [] },
@@ -98,7 +112,7 @@ const splitField: CoverComposition = (ctx) => ({
   kind: 'cover', width: W, height: H, background: paper,
   nodes: [
     { t: 'frame', id: 'field', rect: rect(920, 0, 680, H), fill: brand, children: [] },
-    logo(rect(1050, 110, 320, 210), brand),
+    logo(ctx, rect(1050, 345, 320, 210), brand, 'center', 520),
     eyebrow(rect(110, 320, 600, 40)),
     title(ctx, rect(110, 390, 700, 300), 128),
   ],
@@ -110,7 +124,7 @@ const monumentalType: CoverComposition = (ctx) => ({
   nodes: [
     eyebrow(rect(100, 92, 500, 40), light),
     title(ctx, rect(90, 210, 1420, 430), 220, light),
-    logo(rect(1260, 690, 220, 110), dark),
+    logo(ctx, rect(1260, 690, 220, 110), dark, 'right'),
   ],
   genome: genome('cover-monumental-type', ctx, { density: 0.7, colourBlocking: 'flood' }),
 })
@@ -121,7 +135,7 @@ const croppedMark: CoverComposition = (ctx) => ({
     { t: 'device', id: 'supergraphic', rect: rect(800, 0, 800, 900), kind: 'supergraphic', params: { crop: true, opacity: 0.12, scale: 1.2, offsetY: -0.14 } },
     eyebrow(rect(110, 130, 500, 40)),
     title(ctx, rect(110, 500, 980, 250), 154),
-    logo(rect(110, 260, 220, 150), light),
+    logo(ctx, rect(110, 260, 220, 150), light),
   ],
   genome: genome('cover-cropped-mark', ctx, { devices: ['supergraphic'] }),
 })
@@ -132,9 +146,10 @@ const diagonalMotion: CoverComposition = (ctx) => ({
     { t: 'device', id: 'angle-field', rect: rect(0, 0, W, H), kind: 'angle-field', params: { angle: ctx.deviceAngle ?? 23, spacing: 54, opacity: 0.16 } },
     { t: 'frame', id: 'top-signal', rect: rect(0, 0, W, 150), fill: brand, children: [] },
     { t: 'frame', id: 'type-band', rect: rect(0, 285, W, 365), fill: paper, children: [] },
-    eyebrow(rect(1050, 72, 430, 40), light, 'right'),
+    // Sits on the brand-colour band: the brand colour's own ink, so a light brand gets dark text.
+    eyebrow(rect(1050, 72, 430, 40), { role: 'on-brand' }, 'right'),
     title(ctx, rect(120, 350, 1360, 220), 150, ink, 'center'),
-    logo(rect(1240, 700, 240, 120), secondary),
+    logo(ctx, rect(1240, 700, 240, 120), secondary, 'right'),
   ],
   genome: genome('cover-diagonal-motion', ctx, { axis: 'diagonal', devices: ['angle-field'], colourBlocking: 'banded-flood', density: 0.76 }),
 })
@@ -144,7 +159,7 @@ const specimenPlate: CoverComposition = (ctx) => ({
   nodes: [
     { t: 'frame', id: 'outer', rect: rect(70, 70, 1460, 760), stroke: ink, strokeWidth: 2, children: [] },
     eyebrow(rect(110, 110, 500, 40)),
-    logo(rect(110, 230, 280, 190), paper),
+    logo(ctx, rect(110, 230, 280, 190), paper),
     title(ctx, rect(110, 500, 920, 210), 122),
     { t: 'text', id: 'folio', rect: rect(1240, 720, 220, 40), style: body(18, 600), text: '01 / IDENTITY', align: 'right', color: ink, fit: 'shrink', source: 'suggested' },
   ],
@@ -158,7 +173,7 @@ const offsetCards: CoverComposition = (ctx) => ({
     { t: 'frame', id: 'card-b', rect: rect(1110, 230, 360, 430), fill: brand, radius: 18, children: [] },
     eyebrow(rect(150, 190, 500, 40)),
     title(ctx, rect(150, 390, 820, 240), 132),
-    logo(rect(1160, 340, 260, 190), brand),
+    logo(ctx, rect(1160, 340, 260, 190), brand, 'center', 300),
   ],
   genome: genome('cover-offset-cards', ctx, { axis: 'asymmetric', devices: ['cards'] }),
 })

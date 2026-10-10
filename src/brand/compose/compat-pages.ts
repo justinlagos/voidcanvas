@@ -374,19 +374,31 @@ export function composeColour(c: CompatibilityPageContext): Page {
         fill: direct(ratio.hex),
         children: [],
       },
-      ...(width > 34
+      // The label sits inside its segment when it fits there, otherwise under the bar, ending where the
+      // segment ends (the same rule the fixed layout follows). Width is estimated from the label's length.
+      ...(width > `${ratio.name} ${ratio.pct}%`.length * 15 * 0.56 + 20
         ? ([{
             t: 'text' as const,
             id: `usage-${index}-text`,
-            rect: { x: x + 6, y: barY + 5, w: Math.max(0, width - 12), h: barH - 8 },
+            rect: { x: x + 10, y: barY + 5, w: Math.max(0, width - 14), h: barH - 8 },
             style: { family: 'body' as const, size: 15, weight: 600, lineHeight: 1.2 },
-            text: width > 70 ? `${ratio.name} ${ratio.pct}%` : `${ratio.pct}%`,
+            text: `${ratio.name} ${ratio.pct}%`,
             align: 'left' as const,
             color: direct(inkFor(ratio.hex)),
             fit: 'shrink' as const,
             source: 'suggested' as const,
           }] satisfies Node[])
-        : []),
+        : ([{
+            t: 'text' as const,
+            id: `usage-${index}-text`,
+            rect: { x: x + width - 160, y: barY + barH + 4, w: 160, h: 18 },
+            style: { family: 'body' as const, size: 13, weight: 500, lineHeight: 1.2 },
+            text: `${ratio.name} ${ratio.pct}%`,
+            align: 'right' as const,
+            color: direct('#000000', 0.6),
+            fit: 'shrink' as const,
+            source: 'suggested' as const,
+          }] satisfies Node[])),
     )
     x += width
   })

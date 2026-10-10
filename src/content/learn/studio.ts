@@ -580,7 +580,7 @@ export const articles: Article[] = [
       ] },
       { t: 'h3', text: 'Honest versions' },
       { t: 'p', text: "A reversed or mono logo is every pixel of the mark in one colour. That is only honest when the mark reads as a silhouette. When its meaning sits in a boundary between two colours (a dot inside a disc, a two-tone wordmark), a flat version melts it into a blob, so the builder refuses it and says which two colours would be lost: ask the client for their reversed artwork, or keep full colour on a holding shape. Greyscale keeps every boundary as a tone, so it is offered unless two colours would land on the same grey." },
-      { t: 'p', text: "The contrast check judges every colour that meets the background, and takes the weakest. A wordmark or lockup is held to 4.5:1, a symbol to 3:1. Colours enclosed inside the mark do not count. Where no version clears the target, the page shows the lightest scrim (a light or dark holding shape behind the logo) that would, and what the ratio becomes on it." },
+      { t: 'p', text: "The contrast check judges every colour that meets the background, and takes the weakest. A wordmark, a lockup or fine line work is held to 4.5:1, a solid symbol to 3:1. Colours enclosed inside the mark do not count. Where no version clears the target, the page puts the mark on a plate of the light surface (an opaque holding shape with the brand's clear space around the mark), in the version that reads there, and gives the ratio on it." },
 
       { t: 'h', text: 'Colour' },
       { t: 'list', items: [
@@ -606,11 +606,11 @@ export const articles: Article[] = [
       { t: 'h', text: 'Pages' },
       { t: 'p', text: "The guideline has 15 pages: Cover, Principles, Logo, Clear space, Minimum size, Do not, Colour, Tints, Contrast, Typography, Type scale, In use, Voice, Tokens and Close, plus **On photography** after Do not while you have added photos. In **Settings**, choose **Deck** for landscape slides (1600 × 900) or **Document** for portrait pages (1240 × 1754)." },
       { t: 'list', items: [
-        "**Logo** (Backgrounds layout) shows the mark on every background in the palette with the version to use, a Pass, Marginal or Fails badge, and the scrim drawn in where one is needed.",
+        "**Logo** (Backgrounds layout) shows the mark on every background in the palette with the version to use, a Pass, Marginal or Fails badge, and a plate behind the mark where no version reads. When the tiles are too small to show the mark at its minimum width, the note under them says so.",
         "**Clear space** shows the exclusion zone, then a Correct and an Incorrect example with a headline crowding the mark.",
         "**Minimum size** shows the mark at twice the minimum, at the minimum, at half and at a quarter, at actual size on the deck, with the minimum magnified so you can see the thinnest stroke, and the on-screen and print rules with their source.",
         "**Do not** is made from the actual logo: stretched, rotated, recoloured, on a low-contrast colour, cropped, crowded, with effects, and over busy imagery.",
-        "**On photography** shows each of your photos twice. **Suggested**: the logo in the calmest corner away from the subject, in the version that reads there (the reversed logo on a dark photo), with a light scrim only when it is needed, and a line saying why. **Avoid**: the logo as supplied over the subject or in the busiest corner, with the reason. The Editor uses the same reading when you add a brand logo to a design with a photo: it goes in the corner where it reads, unless your type is already there.",
+        "**On photography** shows each of your photos twice. **Suggested**: the logo in the calmest corner away from the subject, in the version that reads there (the reversed logo on a dark photo), with a scrim only when it is needed (the line under it gives the ratio with and without), and a plate behind it when nothing else reads. It is kept clear of the subject, and at its minimum size where the calm area allows; when it does not, it is labelled **Best available, still weak** with the reason. **Avoid**: the logo as supplied over the subject or in the busiest corner, with the reason. The Editor uses the same reading when you add a brand logo to a design with a photo: it goes in the corner where it reads, unless your type is already there.",
       ] },
       { t: 'p', text: "The page list is in the **Pages** tab." },
       { t: 'list', items: [

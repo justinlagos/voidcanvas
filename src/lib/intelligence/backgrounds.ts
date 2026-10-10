@@ -3,7 +3,7 @@
 // full colour drops to 1.3:1" instead of "good contrast".
 
 import { hexLum, type AssetProfile } from './asset'
-import { contrastLum, markContrast, scrimFor, type Level, type MarkContrast } from './contrast'
+import { contrastLum, markContrast, scrimFor, scrimLum, type Level, type MarkContrast } from './contrast'
 import { type VariantId } from './logo'
 
 export interface BackgroundSpec { id: string; name: string; hex: string; group: 'neutral' | 'brand' | 'tint' }
@@ -66,7 +66,7 @@ export function placeOn(bg: BackgroundSpec, variants: VariantSet[]): Placement {
   const use = best && best.r.ratio > p.ratio ? best.id : 'primary'
   const r = best && best.r.ratio > p.ratio ? best.r : p
   const s = scrimFor(r.worst.luminance, hexLum(bg.hex), r.need)
-  const fix = s ? { ...s, ratio: contrastLum(r.worst.luminance, hexLum(bg.hex) * (1 - s.opacity) + (s.color === '#ffffff' ? 1 : 0) * s.opacity) } : null
+  const fix = s ? { ...s, ratio: contrastLum(r.worst.luminance, scrimLum(hexLum(bg.hex), s.color, s.opacity)) } : null
   const why = `No version clears ${r.need}:1 on this colour (${label(use)} reaches ${r.ratio.toFixed(1)}:1).${fix ? ` A ${Math.round(fix.opacity * 100)}% ${fix.color === '#000000' ? 'dark' : 'light'} scrim behind the logo lifts it to ${fix.ratio.toFixed(1)}:1.` : ' Avoid it for the logo.'}`
   return { bg, use, result: r, level: 'attention', primary: p, why, fix }
 }

@@ -7,10 +7,12 @@ export interface RhythmState {
   pages: PageGenome[]
   floods: number
   denseLast: boolean | null
+  /** How often each structure has been used so far, so a document spreads across its structures. */
+  uses: Record<string, number>
 }
 
 export function createRhythmState(): RhythmState {
-  return { pages: [], floods: 0, denseLast: null }
+  return { pages: [], floods: 0, denseLast: null, uses: {} }
 }
 
 function isFlood(page: Page) {
@@ -25,6 +27,13 @@ export function rhythmScore(page: Page, family: DirectionFamily, state: RhythmSt
   let score = 1
   const prev = state.pages[state.pages.length - 1]
   if (prev?.compositionId === page.genome.compositionId) score -= 0.8
+  // The same structure twice in a row reads as a template, whatever the content.
+  if (prev && prev.typeTreatment === page.genome.typeTreatment) score -= 0.5
+  // A structure that keeps coming back reads as a template too, even when it never repeats back to back.
+  const uses = state.uses[page.genome.typeTreatment] ?? 0
+  score -= uses * 0.3
+  // A fourth use of one structure only happens when nothing else is viable.
+  if (uses >= 3) score -= 2
 
   const dense = isDense(page)
   if (state.denseLast !== null && state.denseLast === dense) score -= 0.18
@@ -60,6 +69,7 @@ export function acceptIntoRhythm(page: Page, state: RhythmState): RhythmState {
     pages: [...state.pages, page.genome],
     floods: state.floods + (isFlood(page) ? 1 : 0),
     denseLast: isDense(page),
+    uses: { ...state.uses, [page.genome.typeTreatment]: (state.uses[page.genome.typeTreatment] ?? 0) + 1 },
   }
 }
 

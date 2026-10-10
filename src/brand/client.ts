@@ -68,6 +68,7 @@ export async function snapshot(b: ClientBrand): Promise<Snapshot> {
           pages: source.pages,
           salt: source.tokens.salt,
           layoutSalt: source.tokens.layoutSalt ?? 0,
+          decisions: source.decisions,
         })
       : { irByIndex: new Map<number, import('./compose').Page>() }
     await eachRuntimePage({

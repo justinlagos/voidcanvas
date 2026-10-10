@@ -42,6 +42,16 @@ export function lintPage(page: Page, raster?: RasterSampler): LintFinding[] {
       })
     }
 
+    if (node.t === 'device' && node.kind === 'page-body') {
+      const minW = Number(node.params.minW), minH = Number(node.params.minH)
+      const scale = Math.min(1, node.rect.w / minW, node.rect.h / minH)
+      if (scale < 0.85) {
+        findings.push({ id: 'body-scale', level: 'attention', nodeId: node.id, message: `The page content would be drawn at ${Math.round(scale * 100)}% of its size; it needs a larger area.` })
+      } else if (scale < 0.95) {
+        findings.push({ id: 'body-scale', level: 'check', nodeId: node.id, message: `The page content is drawn at ${Math.round(scale * 100)}% of its size.` })
+      }
+    }
+
     if (node.t === 'text') {
       if (node.style.size < 7) {
         findings.push({

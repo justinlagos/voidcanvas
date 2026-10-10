@@ -75,6 +75,16 @@ describe('asset profile', () => {
     expect(a.minStroke).toBeLessThan(b.minStroke)
     expect(a.minStroke).toBeLessThan(0.06)
   })
+  it('does not take the pinch where two solid shapes touch, or a curved edge, for a thin stroke', () => {
+    // Two solid discs touching at one point: no line work anywhere, so the suggested minimum stays small.
+    const pair = img(240, 120); disc(pair, 60, 60, 52, BLUE); disc(pair, 164, 60, 52, BLUE)
+    const p = profilePixels(pair.data, pair.w, pair.h)
+    expect(p.minStroke).toBeGreaterThan(0.2)
+    expect(suggestRules(p).minWidth.value).toBe(24)
+    // Hairlines on the same canvas still read as fine detail.
+    const lines = img(240, 120); for (let k = 0; k < 6; k++) rect(lines, 20 + k * 36, 10, 2, 100, INK)
+    expect(suggestRules(profilePixels(lines.data, lines.w, lines.h)).minWidth.value).toBeGreaterThan(60)
+  })
 })
 
 describe('mark contrast', () => {

@@ -50,7 +50,7 @@ PR #8 (`c8ab5b5`) remains the main nondestructive production-workflow baseline:
 
 See `../DESIGNER-PRODUCTION-WORKFLOWS.md` for practical boundaries.
 
-## Phase 8 shipped — professional production depth
+## Phase 8 shipped: professional production depth
 
 PR #15 merged as `93da991` after being reconciled with the Brand workspace/portal work from PR #14.
 
@@ -90,13 +90,13 @@ PR #15 merged as `93da991` after being reconciled with the Brand workspace/porta
 
 Final PR #15 validation on `0c59dfc6`: strict TypeScript passed, unit tests passed, production build passed and Netlify deploy preview passed. The full Playwright browser suite was not run by normal CI and is not claimed as passed.
 
-## Phase 9 shipped — Production Engine
+## Phase 9 shipped: Production Engine
 
 Phase 9 completed the requested non-AI production infrastructure sequence:
 
 **9A WebGL render graph + tiled compositor → 9B OPFS scratch/memory → 9C native working colour + printer profiles → 9D PDF/X-4 + preflight → 9E production torture suite and hardening.**
 
-### 9A — WebGL2 tiled compositor
+### 9A: WebGL2 tiled compositor
 
 - Renderer-independent dependency graph covers layers, nested groups, adjustments, boards and document composites.
 - Visible-region tiles use stable identities across accelerated/resident/scratch tiers.
@@ -104,7 +104,7 @@ Phase 9 completed the requested non-AI production infrastructure sequence:
 - Hybrid tiled rendering uses GPU only where parity is explicit; unsupported blend modes, old devices, allocation failures and context loss fall back per tile to CPU Canvas.
 - GPU resources remain disposable acceleration data; editable document state is never owned by WebGL.
 
-### 9B — pressure-driven OPFS scratch
+### 9B: pressure-driven OPFS scratch
 
 - GPU/RAM residency is bounded by tile count and bytes.
 - Normal/elevated/critical pressure decisions can rebudget residency and force LRU eviction into OPFS through the shared tile key.
@@ -112,7 +112,7 @@ Phase 9 completed the requested non-AI production infrastructure sequence:
 - Critical origin-storage pressure may purge scratch.
 - OPFS is explicitly disposable. It is not and must not become the canonical project save; clearing site data may remove scratch without invalidating the design model.
 
-### 9C — native working colour and printer profiles
+### 9C: native working colour and printer profiles
 
 - Documents have an explicit working colour model/profile; old documents default safely to sRGB.
 - Native RGB/CMYK/Gray/Lab values, CMYK TAC diagnostics and pure-K intent helpers are part of the colour model.
@@ -123,7 +123,7 @@ Phase 9 completed the requested non-AI production infrastructure sequence:
 
 Browser display canvases remain RGB display surfaces. Native CMYK identity/channel intent belongs to the document colour engine rather than pretending the browser framebuffer itself is CMYK.
 
-### 9D — PDF/X-4 and production preflight
+### 9D: PDF/X-4 and production preflight
 
 - PDF/X export blocks when the output-intent profile is missing or a selected target/raster source is invalid.
 - VoidCanvas policy warns for no bleed and low document DPI; those are production policies, not invented PDF/X requirements.
@@ -132,14 +132,14 @@ Browser display canvases remain RGB display surfaces. Native CMYK identity/chann
 - The dedicated production writer does not emit DeviceRGB artwork.
 - PDF/X-4 is a flattened colour-managed print handoff. `.void` and layered PSD remain the editable/source handoff paths.
 
-### 9E — torture/performance hardening
+### 9E: torture/performance hardening
 
 Deterministic CI fixtures cover:
 
-- 8K photo poster — 61 layers / 14 effects
-- 120-board campaign — 438 layers
+- 8K photo poster: 61 layers / 14 effects
+- 120-board campaign: 438 layers
 - 30,000 × 20,000 exhibition artwork
-- deep PSD workload — 320 layers / 48 effects
+- deep PSD workload: 320 layers / 48 effects
 - CMYK brochure workload
 
 CI gates bounded residency/overview policy, memory/storage pressure decisions, tile planning/readback orientation, PDF/X blocking preflight and PDF/X structural colour/output-intent requirements. Wall-clock timing/FPS/GPU memory remain real-browser measurements rather than flaky hosted-runner thresholds.
@@ -150,14 +150,14 @@ See `PHASE-9-COMPLETION.md` for the shipped contract and fidelity boundaries.
 
 PR #14 (`8872a90`) promoted Brand into a dedicated workspace and added living published brand-guideline portals. PR #16 later simplified the guided Brand/mobile Effects UI before Phase 9.
 
-## Brand Guidelines V2: in progress, not live
+## Brand Guidelines V2: ready, not yet switched on
 
 Plan and gates: `BRAND-GUIDELINES-V2.md`.
 
 - Phase 0 baseline and Phase 1 layout IR are on master. Phase 1 parity (Cover, Colour, Clear space against the legacy renderer) is a CI gate: `e2e/brand-ir-parity.mjs` measures, `e2e/brand-ir-parity-gate.mjs` fails the build on drift.
 - Phase 2 engine (families, cover and interior compositions, document composer, 1,200-document corpus, cover pHash proof) is on master but **off for designers**. It went live in the preview and exports on 5 Oct (`2fd8880`, `047624b`) and was rolled back the same evening (`3a8d8a9`): interior pages had generic copy and lost content (Logo listed refused versions, Do not lost its examples, Applications was a placeholder, Contrast swatches did not match their labels).
 - V2 can be switched on in one browser with `?brandv2=1` (`?brandv2=0` turns it off). The switch is `src/brand/compose/flag.ts`. Preview, screen and print PDF, HTML handoff, saved pages, Open in Editor and published brand pages all follow the same switch, so one brand never shows different pages in different outputs.
-- Phase 2 is done only when every current page keeps its real content in V2, the Phase 2 gates pass, and contact sheets are reviewed with no professional send-back findings. Then the default flips.
+- 10 Oct 2026: every content page now keeps its real content in V2 (decision 15 in the plan), `e2e/brand-v2-pages.mjs` checks all 12 fixtures in CI on every master push, and the separate contact-sheet review passed with no blockers after six rounds. The fixes it drove (contrast maths, plates, photo placements, minimum sizes, copy) are live in the current renderer too. Switching the default on is waiting for Justin's confirmation.
 
 ## Growth OS
 
@@ -188,7 +188,7 @@ Do not include this in the active production sequence. If deliberately revived l
 
 ## Next execution order
 
-Active track (6 Oct 2026): finish Brand Guidelines V2 Phase 2 so V2 can be switched on for designers. See the Brand Guidelines V2 section above for the exit conditions.
+Active track: Brand Guidelines V2. Phase 2 content pages are done and reviewed; next is switching V2 on (on Justin's go-ahead), then the logo-derived graphic language and the new page kinds.
 
 Phase 9 is complete as an infrastructure/product run. New work should be driven by real production documents, browser/device measurements and regression reports rather than another broad architecture phase. Priority follow-up is measured parity/performance tuning on representative mobile and desktop hardware, plus any printer-specific PDF/X fixes found by receiving prepress workflows.
 

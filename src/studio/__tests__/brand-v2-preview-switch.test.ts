@@ -15,12 +15,12 @@ describe('Brand V2 live guideline preview', () => {
   it('keeps V2 selection driven by both take salts', () => {
     expect(source).toContain('const salt = useBrand(s => s.tokens.salt)')
     expect(source).toContain('const layoutSalt = useBrand(s => s.tokens.layoutSalt ?? 0)')
-    expect(source).toContain('composeRuntimePages({ brand, logo, pages, salt, layoutSalt })')
+    expect(source).toContain('composeRuntimePages({ brand, logo, pages, salt, layoutSalt, decisions: d })')
   })
 
   it('keeps designers on the legacy renderer until V2 is switched on', () => {
     expect(source).toContain("import { brandV2Enabled } from '@/brand/compose/flag'")
-    expect(source).toContain('v2 ? composeRuntimePages({ brand, logo, pages, salt, layoutSalt }) : NO_RUNTIME')
+    expect(source).toContain('v2 ? composeRuntimePages({ brand, logo, pages, salt, layoutSalt, decisions: d }) : NO_RUNTIME')
     expect(source).toContain('v2 ? composeRuntimePages({ brand, logo, pages, salt: tokens.salt')
   })
 })

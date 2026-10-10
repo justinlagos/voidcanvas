@@ -1,7 +1,7 @@
 import { paintCanvas, createBrandPaintResolver, brandPaint, type Node, type Page } from '@/brand/compose'
-import { recordLegacyPage, renderPage as renderLegacyPage, type GuidePhoto, type Orientation, type PageSpec } from './brand-pages'
+import { drawPageBody, isBodyKind, markTreatment, recordLegacyPage, renderPage as renderLegacyPage, type GuidePhoto, type Orientation, type PageSpec } from './brand-pages'
 import { recordPage, type RecordedPage } from './brand/record'
-import { grayMark, logoPlacements, monoMark, type LogoDecisions, type LogoInfo, type MarkMode } from './brand/logo'
+import { grayMark, monoMark, type LogoDecisions, type LogoInfo, type MarkMode } from './brand/logo'
 import { loadFont } from './brand/fonts'
 import type { Brand } from './brand/tokens'
 
@@ -24,15 +24,6 @@ function logoCanvas(logo: LogoInfo, mode: MarkMode, brand: Brand) {
   return monoMark(logo, mode === 'white' ? '#ffffff' : mode === 'brand' ? brand.roles[0].hex : brand.surfaces.inkOnLight)
 }
 
-function autoLogoMode(brand: Brand, logo: LogoInfo, decisions: LogoDecisions, background: string): MarkMode {
-  const placement = logoPlacements(brand, logo, decisions).find((p) => p.bg.toLowerCase() === background.toLowerCase())
-  if (placement) return placement.mode
-  const light = brand.surfaces.light.toLowerCase() === background.toLowerCase()
-  const dark = brand.surfaces.dark.toLowerCase() === background.toLowerCase()
-  if (dark) return 'white'
-  if (light) return 'original'
-  return 'original'
-}
 
 function fitImage(ctx: CanvasRenderingContext2D, image: CanvasImageSource, srcW: number, srcH: number, r: { x: number; y: number; w: number; h: number }, contain = true) {
   const k = contain ? Math.min(r.w / srcW, r.h / srcH) : Math.max(r.w / srcW, r.h / srcH)
@@ -55,15 +46,25 @@ function runtimeHooks(brand: Brand, logo: LogoInfo | null, decisions: LogoDecisi
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
         return
       }
+      // 'auto' takes the version that reads on the surface, the same choice the backgrounds page makes,
+      // with the scrim or plate that page suggests when no version reads on its own.
+      const auto = node.version === 'auto' ? markTreatment(brand, logo, decisions, bg) : null
       const requested: MarkMode = node.version === 'primary' ? 'original'
         : node.version === 'reversed' ? 'white'
           : node.version === 'mono-dark' ? 'dark'
             : node.version === 'mono-brand' ? 'brand'
               : node.version === 'grayscale' ? 'grayscale'
-                : autoLogoMode(brand, logo, decisions, bg)
+                : auto!.mode
       const image = logoCanvas(logo, requested, brand)
 
       ctx.save()
+      if (auto?.backing && !node.demo) {
+        const k = Math.min(r.w / logo.width, r.h / logo.height), w = logo.width * k, h = logo.height * k
+        const x0 = r.x + (r.w - w) / 2, y0 = r.y + (r.h - h) / 2, pad = Math.max(10, h * brand.logo.clearSpace)
+        ctx.globalAlpha = auto.backing.opacity; ctx.fillStyle = auto.backing.color
+        ctx.beginPath(); ctx.roundRect(x0 - pad, y0 - pad, w + pad * 2, h + pad * 2, Math.min(brand.radius, 14)); ctx.fill()
+        ctx.globalAlpha = 1
+      }
       if (node.demo === 'misuse') {
         // The distortion applies to the mark only. Restoring (not resetting to identity) keeps the
         // page scale, so the cross lands on the mark at every preview, PDF and Editor scale.
@@ -109,6 +110,12 @@ function runtimeHooks(brand: Brand, logo: LogoInfo | null, decisions: LogoDecisi
     },
     drawDevice(node: Extract<Node, { t: 'device' }>, ctx: CanvasRenderingContext2D) {
       const r = node.rect
+      // The page's real content, drawn by the same code as the fixed layouts, into the box V2 gave it.
+      if (node.kind === 'page-body') {
+        const kind = String(node.params.kind)
+        if (isBodyKind(kind)) drawPageBody(kind, ctx, r, { brand, logo, pageNo: 0, pageCount: 0, decisions, photos })
+        return
+      }
       ctx.save()
       ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip()
       if (node.kind === 'angle-field') {
@@ -118,6 +125,15 @@ function runtimeHooks(brand: Brand, logo: LogoInfo | null, decisions: LogoDecisi
         ctx.lineWidth = 3
         ctx.translate(r.x + r.w / 2, r.y + r.h / 2); ctx.rotate(angle)
         for (let x = -r.w * 1.5; x <= r.w * 1.5; x += spacing) { ctx.beginPath(); ctx.moveTo(x, -r.h * 1.5); ctx.lineTo(x, r.h * 1.5); ctx.stroke() }
+      } else if (node.kind === 'supergraphic' && logo) {
+        // The brand's own mark, cropped large and faint, in the brand colour.
+        const scale = Number(node.params.scale ?? 1)
+        const offsetY = Number(node.params.offsetY ?? 0)
+        // Fitted to the field, then enlarged, so the crop keeps enough of the mark to be recognised whatever its shape.
+        const k = Math.min(r.w / logo.width, r.h / logo.height) * 1.5 * scale, w = logo.width * k, h = logo.height * k
+        ctx.globalAlpha = Number(node.params.opacity ?? 0.12) * 1.4
+        ctx.drawImage(monoMark(logo, brand.roles[0].hex), r.x + r.w * 0.58 - w / 2, r.y + r.h * (0.5 + offsetY) - h / 2, w, h)
+        ctx.globalAlpha = 1
       } else {
         const scale = Number(node.params.scale ?? 1)
         const offsetY = Number(node.params.offsetY ?? 0)

@@ -45,6 +45,10 @@ export function brandPaint(brand: Brand, paint: Paint): string {
     case 'neutral':
       hex = brand.neutral[paint.step ?? 500]
       break
+    case 'on-brand':
+      // Text and marks on the brand colour: its own legible ink.
+      hex = brand.roles[0].ink
+      break
   }
   return withAlpha(hex, paint.alpha)
 }

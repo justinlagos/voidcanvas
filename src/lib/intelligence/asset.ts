@@ -176,9 +176,30 @@ export function profilePixels(src: Uint8ClampedArray, srcW: number, srcH: number
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; if (!solid[i]) continue; let d = dist[i]; if (x > 0) d = Math.min(d, dist[i - 1] + 1); if (y > 0) d = Math.min(d, dist[i - w] + 1); if (x > 0 && y > 0) d = Math.min(d, dist[i - w - 1] + 1.4); if (x < w - 1 && y > 0) d = Math.min(d, dist[i - w + 1] + 1.4); dist[i] = d }
   for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) { const i = y * w + x; if (!solid[i]) continue; let d = dist[i]; if (x < w - 1) d = Math.min(d, dist[i + 1] + 1); if (y < h - 1) d = Math.min(d, dist[i + w] + 1); if (x < w - 1 && y < h - 1) d = Math.min(d, dist[i + w + 1] + 1.4); if (x > 0 && y < h - 1) d = Math.min(d, dist[i + w - 1] + 1.4); dist[i] = d }
   const ridge: number[] = []
-  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x; const d = dist[i]; if (!solid[i] || d >= INF) continue; if (d >= dist[i - 1] && d >= dist[i + 1] && d >= dist[i - w] && d >= dist[i + w]) ridge.push(d) }
+  // A thin ridge point only counts when the artwork really is thin there: background on both sides within
+  // a few pixels, along some direction. The stair-steps of a curved edge on a large solid shape are not.
+  const thinAt = (x: number, y: number, r: number) => {
+    for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
+      let a = false, c = false
+      for (let k = 1; k <= r && !(a && c); k++) {
+        const ax = x + dx * k, ay = y + dy * k, cx = x - dx * k, cy = y - dy * k
+        if (!a && (ax < 0 || ay < 0 || ax >= w || ay >= h || !solid[ay * w + ax])) a = true
+        if (!c && (cx < 0 || cy < 0 || cx >= w || cy >= h || !solid[cy * w + cx])) c = true
+      }
+      if (a && c) return true
+    }
+    return false
+  }
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x; const d = dist[i]; if (!solid[i] || d >= INF) continue; if (d >= dist[i - 1] && d >= dist[i + 1] && d >= dist[i - w] && d >= dist[i + w] && (d > 2.5 || thinAt(x, y, Math.ceil(d * 2) + 1))) ridge.push(d) }
   ridge.sort((a, c) => a - c)
-  const thin = ridge.length ? ridge[Math.floor(ridge.length * 0.1)] : 1
+  // The thinnest width the artwork holds along a run, not the point of a taper. A stroke gives many ridge
+  // points at one width; a tapering tip, or the pinch where two shapes touch, gives only a few, so a solid
+  // leaf or diamond is not mistaken for fine line work.
+  const bins = new Map<number, number>()
+  for (const d of ridge) { const k = Math.round(d * 2) / 2; bins.set(k, (bins.get(k) ?? 0) + 1) }
+  const enough = Math.max(12, ridge.length * 0.06)
+  let thin = ridge.length ? ridge[Math.floor(ridge.length * 0.5)] : 1
+  for (const k of Array.from(bins.keys()).sort((a, c) => a - c)) if ((bins.get(k) ?? 0) + (bins.get(k + 0.5) ?? 0) >= enough) { thin = k; break }
   const minStroke = clamp(((thin * 2 - 1) + 0.5) / Math.max(1, b.h), 0.002, 1)
 
   // Connected pieces, ignoring specks under 0.2% of the artwork box.
