@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import { defaultParams, type EffectType } from '@/store/useStore'
-import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, keepTextAnchor, layerBounds, layerMatrix, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
+import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, keepTextAnchor, layerBounds, layerMatrix, maskBounds, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
 import { boardGap, frameForLayer, occupied, placeBeside, type Side } from './frames'
 import type { AdjustmentKind, AdjustmentLayer, Doc, Effect, Frame, Group, Layer, LayerRole, MaskAt, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
-import { copyEffect, freshFx, fxId, linkedCopies, moveInList, patchEffect, resetEffect as resetFx, sameTarget, stackOf, withStacks, type FxTarget } from './effects'
+import { copyEffect, freshFx, fxId, newEffect, linkedCopies, moveInList, patchEffect, resetEffect as resetFx, sameTarget, stackOf, withStacks, type FxTarget } from './effects'
 import { useUi } from './ui-store'
 import { touchCanvas } from './touch'
 import { noteStep, noteUndo } from '@/lib/analytics'
@@ -208,6 +208,8 @@ interface EditorState {
   addMask: (id: string, fromSelection?: boolean) => void
   removeMask: (id: string) => void
   createClippingMask: (id?: string) => void
+  /** Reorder one layer directly above a same-group, same-board host and clip it in one undo step. */
+  clipLayerOnto: (layerId: string, hostId: string) => void
   releaseClippingMask: (id?: string) => void
   canClip: (id?: string) => boolean
   invertMask: (id: string) => void
@@ -1060,8 +1062,9 @@ export const useEditor = create<EditorState>((set, get) => ({
     if (st.doc?.frames?.length && l.frameId === undefined) l = { ...l, frameId: boardFor(st.doc, l, st.activeFrameId) } as Layer
     let at = idx + 1
     if (host?.groupId && l.groupId === undefined) {
-      // Adjustments land above the whole group so they keep affecting everything beneath them.
-      if (l.type === 'adjustment') { while (at < layers.length && layers[at].groupId === host.groupId) at++ }
+      // Global adjustments belong above the group, but an explicitly clipped
+      // adjustment must sit directly over its host inside that same group.
+      if (l.type === 'adjustment' && !l.clipId) { while (at < layers.length && layers[at].groupId === host.groupId) at++ }
       else l = { ...l, groupId: host.groupId } as Layer
     }
     next.splice(at, 0, l)
@@ -1142,8 +1145,23 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   addAdjustment: (kind, effect) => {
+    const st = get()
+    // Target what the designer selected, not every layer underneath by accident.
+    // Multiple selections and existing clipped layers get native, editable effects on
+    // each exact layer. This also avoids extending a clipping run to its other members.
+    const targets = st.layers.filter(l => st.selectedIds.includes(l.id) && l.type !== 'adjustment')
+    if (targets.length > 1 || (targets.length === 1 && targets[0].clipId)) {
+      get().addEffect(targets.map(l => ({ type: 'layer' as const, id: l.id })), newEffect(kind, effect), 'Adjust selected layers')
+      useUi.getState().showPanel('properties')
+      return
+    }
+
+    // A new adjustment layer is clipped to the one selected layer by default.
+    // "Changes" in Properties still lets the user switch to Everything below.
+    const host = st.selectedIds.length === 1 ? targets[0] : null
     const l: AdjustmentLayer = {
       ...base(ADJUSTMENT_LABELS[kind]), type: 'adjustment', kind, values: { ...ADJUSTMENT_DEFAULTS[kind] },
+      ...(host ? { clipId: host.id, reach: 'clip' as const, groupId: host.groupId ?? null, frameId: host.frameId ?? null } : {}),
       ...(kind === 'curves' ? { points: [[0, 0], [255, 255]] as [number, number][] } : {}),
       ...(kind === 'voidEffect' && effect ? { effect, effectParams: { ...defaultParams, seed: Math.random() * 1000 } } : {}),
     }
@@ -1417,6 +1435,29 @@ export const useEditor = create<EditorState>((set, get) => ({
     get().commit('Create clipping mask')
   },
 
+  clipLayerOnto: (layerId, hostId) => {
+    const st = get()
+    const source = st.layers.find(l => l.id === layerId), host = st.layers.find(l => l.id === hostId)
+    if (!source || !host || layerId === hostId) return
+    if (source.locked || source.lockPosition) { st.notify('Unlock the layer to clip it.'); return }
+    if (host.type === 'adjustment' && !host.clipId) { st.notify('Clip to an image, text or shape instead of a global adjustment.'); return }
+    if ((source.groupId ?? null) !== (host.groupId ?? null) || (source.frameId ?? null) !== (host.frameId ?? null)) {
+      st.notify('To create a clipping mask, both layers must be on the same board and inside the same group.')
+      return
+    }
+    const rest = st.layers.filter(l => l.id !== layerId)
+    const at = rest.findIndex(l => l.id === hostId)
+    if (at < 0) return
+    const next = [...rest]
+    next.splice(at + 1, 0, {
+      ...source, clipId: host.clipId ?? host.id,
+      ...(source.type === 'adjustment' ? { reach: 'clip' as const } : {}),
+      rev: nextRev(),
+    } as Layer)
+    set({ layers: next.map(l => ({ ...l, rev: nextRev() } as Layer)), activeId: layerId, selectedIds: [layerId], docRev: st.docRev + 1 })
+    get().commit('Clip layer onto target')
+  },
+
   releaseClippingMask: (id) => {
     const st = get(); const lid = id ?? st.activeId; if (!lid) return
     const l = st.layers.find(x => x.id === lid); if (!l?.clipId) return
@@ -1453,9 +1494,16 @@ export const useEditor = create<EditorState>((set, get) => ({
     const c = makeCanvas(s.doc.width, s.doc.height)
     renderDoc(c, s.doc, [{ ...l, opacity: 1, blend: 'source-over', visible: true } as Layer], { transparent: true, noCache: true })
     const x = ctx2d(c); x.globalCompositeOperation = 'destination-in'; x.drawImage(s.selection, 0, 0)
+    // A cut-out must own only the visible pixels, not an invisible full-page canvas.
+    // Cropping the backing pixels and offsetting the new layer preserves their exact
+    // position while giving Move/Transform an accurate, usable bounding box.
+    const b = maskBounds(c)
+    if (!b) { s.notify('No visible pixels inside this selection.'); return }
+    const trimmed = makeCanvas(b.w, b.h)
+    ctx2d(trimmed).drawImage(c, -b.x, -b.y)
     if (cut) get().clearSelectionPixels()
     set({ activeId: l.id })
-    get().addLayer({ ...base(l.name + (cut ? ' cut' : ' copy')), type: 'raster', canvas: c }, cut ? 'Cut to new layer' : 'Copy to new layer')
+    get().addLayer({ ...base(l.name + (cut ? ' cut' : ' copy')), type: 'raster', canvas: trimmed, x: b.x, y: b.y }, cut ? 'Cut to new layer' : 'Copy to new layer')
     set({ selection: null, selRev: get().selRev + 1 })
   },
 

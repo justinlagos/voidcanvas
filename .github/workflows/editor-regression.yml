@@ -1,0 +1,47 @@
+name: VoidCanvas editor regression
+
+on:
+  pull_request:
+    paths:
+      - 'src/editor/**'
+      - 'e2e/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/editor-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  editor-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Types
+        run: npx tsc --noEmit
+      - name: Unit tests
+        run: npm test
+      - name: Browser runtime
+        run: npx playwright install --with-deps chromium
+      - name: Build
+        run: npm run build
+      - name: Targeted editor browser checks
+        shell: bash
+        run: |
+          npm run start -- -p 3123 > /tmp/voidcanvas-editor.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://localhost:3123/editor >/dev/null; then break; fi
+            sleep 2
+          done
+          BASE=http://localhost:3123 node e2e/targeted-adjustment-cut-bounds.mjs
+          BASE=http://localhost:3123 node e2e/editor-muscle-memory.mjs
+          BASE=http://localhost:3123 node e2e/editing.mjs
+          BASE=http://localhost:3123 node e2e/effects-scope.mjs

@@ -189,8 +189,8 @@ try {
     await p.click('[data-fx-menu] label:has-text("As an adjustment layer above them") input')
     await p.fill('input[aria-label="Find an effect"]', 'Invert')
     await p.click('[data-fx-menu] button[role="menuitem"]:has-text("Invert")'); await wait(300)
-    const st = await E(ids => { const s = window.__voidEditor.getState(); const adj = s.layers.find(l => l.type === 'adjustment'); const g = s.layers.find(l => l.id === ids.portrait).groupId; return { adj: adj && { kind: adj.kind, reach: adj.reach, group: adj.groupId }, g, sameGroup: s.layers.find(l => l.id === ids.texture).groupId === g, hi: s.historyIndex } }, ids)
-    ok('6 layer above: an adjustment in a group with them, reaching only the group', st.adj && st.adj.kind === 'invert' && st.adj.reach === 'group' && st.adj.group === st.g && st.sameGroup, JSON.stringify(st))
+    const st = await E(ids => { const s = window.__voidEditor.getState(); const adj = s.layers.find(l => l.type === 'adjustment'); const g = s.layers.find(l => l.id === ids.portrait).groupId; return { adj: adj && { kind: adj.kind, reach: adj.reach, group: adj.groupId, clipId: adj.clipId ?? null }, g, sameGroup: s.layers.find(l => l.id === ids.texture).groupId === g, hi: s.historyIndex } }, ids)
+    ok('6 layer above: an adjustment in a group with them, reaching only the group', st.adj && st.adj.kind === 'invert' && st.adj.reach === 'group' && st.adj.clipId === null && st.adj.group === st.g && st.sameGroup, JSON.stringify(st))
     ok('6 layer above: one undo step', st.hi === n0 + 1, JSON.stringify({ n0, hi: st.hi }))
     const after = await signature(regions)
     ok('6 layer above: Portrait and Texture inverted', near(after[0].rgb, RED.map(v => 255 - v), 1) && near(after[1].rgb, BLUE.map(v => 255 - v), 1), JSON.stringify(after.slice(0, 2)))
@@ -260,6 +260,9 @@ try {
       S.setState({ selectedIds: [ids.texture], activeId: ids.texture })
       s().addAdjustment('invert')
       const a = s().layers.find(l => l.type === 'adjustment')
+      // New adjustments target their selection by default. Explicitly choose
+      // whole-stack scope for this mask regression.
+      s().releaseClippingMask(a.id)
       s().setSelection(sel(0, 320)); s().addMask(a.id, true)
       // Logo in a group masked to the right 300 px of the board, so it shows.
       S.setState({ selectedIds: [ids.logo], activeId: ids.logo }); s().groupSelected()
@@ -353,7 +356,12 @@ try {
           s().addAdjustment(kind, effect ?? undefined)
           const a = s().layers.find(l => l.type === 'adjustment')
           s().updateLayer(a.id, { ...(effect ? { effectParams: { ...a.effectParams, ...vals, seed: 11 } } : { values: { ...a.values, ...vals } }) })
-          if (reach === 'clip') { s().createClippingMask(a.id) } else if (reach) s().updateLayer(a.id, { reach })
+          // Creation clips to the selected layer. Non-clipped test cases must
+          // explicitly switch to their requested reach, as the UI does.
+          if (reach !== 'clip') {
+            s().releaseClippingMask(a.id)
+            if (reach) s().updateLayer(a.id, { reach })
+          }
         }
         if (scope === 'layer') s().addEffect([{ type: 'layer', id: ids.portrait }], fx)
         else if (scope === 'linked') s().addEffect([{ type: 'layer', id: ids.portrait }, { type: 'layer', id: ids.texture }], fx)

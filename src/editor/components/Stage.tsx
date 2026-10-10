@@ -114,6 +114,9 @@ export function Stage() {
   const chanView = useRef<{ key: string; canvas: HTMLCanvasElement | null }>({ key: '', canvas: null })
   const live = useRef<LiveStroke | null>(null)
   const drag = useRef<Drag | null>(null)
+  // Ctrl/Cmd click picks through overlaps on pointer-up. A modifier drag must
+  // still move normally with snapping disabled rather than being consumed.
+  const clickThrough = useRef<{ initialId: string | null; under: string[] } | null>(null)
   const pointers = useRef(new Map<number, Pt>())
   const pinch = useRef<{ d: number; zoom: number; mid: Pt; panX: number; panY: number; t: number; moved: boolean; count: number } | null>(null)
   const cursor = useRef<Pt | null>(null)
@@ -1241,6 +1244,14 @@ export function Stage() {
       if (px && px[3] > 0) { const c = hex(px); if (e.altKey) s.setBg(c); else { s.setFg(c); s.addSwatch(c) } }
       return
     }
+    // Temporary eyedropper: while painting/colouring, hold Alt/Option and
+    // click a colour. Release the key to keep the original tool selected.
+    // Clone Stamp and retouch tools retain their own Alt-source sampling.
+    if (e.altKey && (t === 'brush' || t === 'fill' || t === 'gradient')) {
+      const px = sample(p)
+      if (px && px[3] > 0) s.setFg(hex(px))
+      return
+    }
 
     if (t === 'pen' || t === 'curvature') {
       // Ctrl or Cmd held: Direct Selection for as long as it is held (Photoshop and Illustrator).
@@ -1263,6 +1274,14 @@ export function Stage() {
     }
 
     if (t === 'move') {
+      // Record the original selection before normal pointerdown handling.
+      // Selection through overlaps happens only when the pointer is released
+      // without a move, leaving Ctrl/Cmd-drag free to bypass smart snapping.
+      clickThrough.current = null
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.pointerType !== 'touch') {
+        const under = pickable().slice().reverse().filter(l => !!hitLayer([l], p.x, p.y, s.doc!, s.groups)).map(l => l.id)
+        if (under.length) clickThrough.current = { initialId: s.activeId, under }
+      }
       const act = s.active()
       const auto = s.options.autoSelect !== false
       if (s.selectedIds.length > 1 && s.options.showTransform !== false) {
@@ -2107,7 +2126,9 @@ export function Stage() {
       let nw = dirX ? Math.max(4, ux * dirX * (centred ? 2 : 1)) : w0, nh = dirY ? Math.max(4, uy * dirY * (centred ? 2 : 1)) : h0
       const corner = dirX !== 0 && dirY !== 0
       const boxText = l0.type === 'text' && !!l0.boxWidth && dirX !== 0 && dirY === 0
-      const proportional = boxText ? false : corner ? !e.shiftKey || l0.type === 'text' : l0.type === 'text'
+      // Shift always preserves aspect ratio, as designers expect; the Properties
+      // chain icon may keep it locked without holding Shift. Text is never stretched.
+      const proportional = boxText ? false : corner ? (e.shiftKey || useUi.getState().keepRatio || l0.type === 'text') : l0.type === 'text'
       if (proportional) {
         const k = corner ? Math.max(nw / w0, nh / h0) : dirX ? nw / w0 : nh / h0
         nw = w0 * k; nh = h0 * k
@@ -2172,6 +2193,19 @@ export function Stage() {
     const d = drag.current; drag.current = null
     if (d) invalidate(true)
     cancelLongPress()
+    const cycle = clickThrough.current
+    clickThrough.current = null
+    if (cycle && e.type !== 'pointercancel' && e.pointerType !== 'touch' && (e.ctrlKey || e.metaKey) && d?.kind === 'move' && !d.moved) {
+      const current = cycle.under.indexOf(cycle.initialId ?? '')
+      const chosen = cycle.under[(current + 1) % cycle.under.length]
+      if (chosen) {
+        s.setActive(chosen)
+        window.dispatchEvent(new CustomEvent('vc:pick', { detail: { id: chosen } }))
+        lastDown.current = null
+        invalidate()
+        return
+      }
+    }
     // Held without moving, then lifted: the actions for what is under the finger.
     const h = held.current; held.current = null
     if (h && (!d || (d.kind === 'move' && !d.moved))) {
@@ -2318,8 +2352,24 @@ export function Stage() {
       onPointerUp={onUp}
       onPointerCancel={onUp}
       onPointerLeave={() => { cursor.current = null; useEditor.setState({ pointer: null }); invalidate() }}
-      onDragOver={e => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}
-      onDrop={e => { if (!e.dataTransfer.files.length) return; e.preventDefault(); importFiles(Array.from(e.dataTransfer.files)) }}
+      onDragOver={e => { if (e.dataTransfer.types.includes('Files') || e.dataTransfer.types.includes('text/vc-color')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' } }}
+      onDrop={e => {
+        const color = e.dataTransfer.getData('text/vc-color')
+        if (/^#[0-9a-f]{3,8}$/i.test(color)) {
+          e.preventDefault()
+          const st = useEditor.getState()
+          if (!st.doc) return
+          const p = local(e), at = toDoc(p.x, p.y)
+          const target = hitLayer(pickable(), at.x, at.y, st.doc, st.groups)
+          if (target?.type === 'shape') st.updateLayer(target.id, { fill: color }, 'Apply swatch to shape')
+          else if (target?.type === 'text') st.updateLayer(target.id, { color }, 'Apply swatch to text')
+          else st.notify('Drop the swatch onto a shape or text layer.')
+          return
+        }
+        if (!e.dataTransfer.files.length) return
+        e.preventDefault()
+        importFiles(Array.from(e.dataTransfer.files))
+      }}
       onContextMenu={e => {
         e.preventDefault()
         // Right click (mouse): pick the layer under the pointer if it is not already selected, then show the menu.

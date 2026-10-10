@@ -78,7 +78,7 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
         <Section title="Colours">
           <div className="flex flex-wrap gap-1.5">
             {swatches.map(c => (
-              <button key={c} aria-label={`Use ${c}`} title={c} onClick={() => s.setFg(c)} className={`w-7 h-7 rounded-md border border-white/10 ${focusRing}`} style={{ background: c }} />
+              <button key={c} aria-label={`Use ${c}`} title={`${c}: drag to apply to text or shapes`} draggable onDragStart={e => { e.dataTransfer.setData('text/vc-color', c); e.dataTransfer.effectAllowed = 'copy' }} onClick={() => s.setFg(c)} className={`w-7 h-7 rounded-md border border-white/10 ${focusRing}`} style={{ background: c }} />
             ))}
           </div>
           <p className="mt-2.5 text-[12px] text-void-500">Select a layer to edit it, or use Add to bring something in.</p>
@@ -255,9 +255,10 @@ function ReachSelect({ layer }: { layer: AdjustmentLayer }) {
   const s = useEditor.getState()
   const reach = layer.clipId ? 'clip' : layer.reach === 'group' && layer.groupId ? 'group' : 'below'
   const canClip = !!layer.clipId || s.canClip(layer.id)
-  const opts = [{ id: 'below', label: 'Everything below' }, ...(layer.groupId ? [{ id: 'group', label: 'Only this group' }] : []), ...(canClip ? [{ id: 'clip', label: 'Just the layer below' }] : [])]
+  const targetName = layer.clipId ? s.layers.find(l => l.id === layer.clipId)?.name : null
+  const opts = [{ id: 'below', label: 'Everything below' }, ...(layer.groupId ? [{ id: 'group', label: 'Only this group' }] : []), ...(canClip ? [{ id: 'clip', label: targetName ? `Only “${targetName}”` : 'Only the layer below' }] : [])]
   return (
-    <Select label="Changes" value={reach} options={opts} onChange={v => {
+    <Select label="Affects" value={reach} options={opts} onChange={v => {
       const cur = useEditor.getState()
       if (v === 'clip') { cur.createClippingMask(layer.id); return }
       if (layer.clipId) cur.releaseClippingMask(layer.id)
@@ -303,6 +304,9 @@ function SeveralProps({ layers }: { layers: Layer[] }) {
   const color = texts ? same(l => (l as TextLayer).color) : null
   const font = texts ? same(l => (l as TextLayer).fontFamily) : null
   const size = texts ? same(l => (l as TextLayer).fontSize) : null
+  const lineSpacing = texts ? same(l => (l as TextLayer).lineHeight) : null
+  const letterSpacing = texts ? same(l => (l as TextLayer).letterSpacing) : null
+  const textAlign = texts ? same(l => (l as TextLayer).align) : null
   const setFont = async (fontFamily: string) => {
     await Promise.all(texts!.map(t => ensureFont(fontFamily, t.fontWeight, t.italic)))
     setAll(() => ({ fontFamily } as Partial<Layer>)); s.commit('Font')
@@ -323,6 +327,9 @@ function SeveralProps({ layers }: { layers: Layer[] }) {
             <Select label="Font" value={font!.mixed ? '' : font!.v} options={[...(font!.mixed ? [{ id: '', label: 'Mixed' }] : []), ...FONTS.map(f => ({ id: f, label: f }))]} onChange={f => f && setFont(f)} />
             <NumField label="Size" title="Text size in pixels" value={size!.v} mixed={size!.mixed} onCommit={v => { setAll(() => ({ fontSize: Math.max(1, v) } as Partial<Layer>)); s.commit('Text size', { merge: 1000 }) }} />
             <ColorField label={color!.mixed ? 'Colour (mixed)' : 'Colour'} value={color!.v} onChange={v => v && setAll(() => ({ color: v } as Partial<Layer>))} onCommit={() => s.commit('Text colour', { ifChanged: true })} />
+            <Slider label="Line spacing" value={lineSpacing!.v} mixed={lineSpacing!.mixed} min={0.7} max={2.5} step={0.05} onChange={v => setAll(() => ({ lineHeight: v } as Partial<Layer>))} onCommit={() => s.commit('Line spacing', { ifChanged: true })} />
+            <Slider label="Letter spacing" value={letterSpacing!.v} mixed={letterSpacing!.mixed} min={-10} max={60} step={0.5} unit="px" onChange={v => setAll(() => ({ letterSpacing: v } as Partial<Layer>))} onCommit={() => s.commit('Letter spacing', { ifChanged: true })} />
+            <Select label="Align" value={textAlign!.mixed ? '' : textAlign!.v} options={[...(textAlign!.mixed ? [{ id: '', label: 'Mixed' }] : []), { id: 'left', label: 'Left' }, { id: 'center', label: 'Centre' }, { id: 'right', label: 'Right' }, { id: 'justify', label: 'Justify' }]} onChange={v => { if (!v) return; setAll(() => ({ align: v } as Partial<Layer>)); s.commit('Text alignment') }} />
           </div>
         </Section>
       )}
@@ -448,11 +455,15 @@ export interface SettingsApi {
   commit: (label: string) => void
   /** Inside an effect row: no section header or notes about layers below. */
   embedded?: boolean
+  /** Only actual adjustment layers have a stack reach; effect settings do not. */
+  scopeLabel?: string
 }
 
 function AdjustmentProps({ layer }: { layer: AdjustmentLayer }) {
   const s = useEditor.getState()
-  return <SettingsControls api={{ value: layer, name: layer.name, up: (p, label) => s.updateLayer(layer.id, p as Partial<AdjustmentLayer>, label), commit: label => s.commit(label) }} />
+  const host = layer.clipId ? s.layers.find(l => l.id === layer.clipId)?.name : null
+  const scopeLabel = layer.clipId ? (host ? `Only “${host}” changes.` : 'Only the clipped target changes.') : layer.reach === 'group' && layer.groupId ? 'Only this group changes.' : 'Everything below changes.'
+  return <SettingsControls api={{ value: layer, name: layer.name, scopeLabel, up: (p, label) => s.updateLayer(layer.id, p as Partial<AdjustmentLayer>, label), commit: label => s.commit(label) }} />
 }
 
 function Wrap({ api, title, action, children }: { api: SettingsApi; title: string; action?: React.ReactNode; children: React.ReactNode }) {
@@ -529,7 +540,7 @@ export function SettingsControls({ api }: { api: SettingsApi }) {
           <Slider key={f.key} label={f.label} value={layer.values[f.key] ?? 0} min={f.min} max={f.max}
             onChange={v => api.up({ values: { ...layer.values, [f.key]: v } })} onCommit={() => api.commit(api.name)} />
         ))}
-        {!api.embedded && <p className="text-[12px] text-void-500 leading-relaxed">Affects every layer beneath it. Your original pixels are never changed.</p>}
+        {!api.embedded && <p className="text-[12px] text-void-500 leading-relaxed">{api.scopeLabel ?? 'Adjustment effect on the selected target.'} Your original pixels are never changed.</p>}
       </div>
     </Wrap>
   )

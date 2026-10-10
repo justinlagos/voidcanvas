@@ -124,13 +124,19 @@ function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
   return (
     <li role="option" aria-selected={on} data-row-index={i} data-frame={l.frameId ?? ''} style={{ paddingLeft: depth * 14 + (l.clipId ? 14 : 0) }} draggable={renaming !== l.id}
       onPointerDown={press.onPointerDown} onPointerMove={press.onPointerMove} onPointerUp={press.onPointerUp} onPointerCancel={press.onPointerCancel}
-      onDragStart={e => { setDragId(l.id); e.dataTransfer.setData('text/vc-layer', l.id); e.dataTransfer.effectAllowed = 'move'; const n = selectedIds.includes(l.id) ? selectedIds.length : 1; if (n > 1) dragLabel(e, `${n} layers`) }} onDragEnd={() => { setDragId(null); setOver(null) }}
-      onDragOver={e => { if (!dragId) return; e.preventDefault(); setOver(i) }}
+      onDragStart={e => { setDragId(l.id); e.dataTransfer.setData('text/vc-layer', l.id); e.dataTransfer.effectAllowed = 'all'; const n = selectedIds.includes(l.id) ? selectedIds.length : 1; if (n > 1) dragLabel(e, `${n} layers`) }} onDragEnd={() => { setDragId(null); setOver(null) }}
+      onDragOver={e => { if (!dragId) return; e.preventDefault(); e.dataTransfer.dropEffect = e.altKey ? 'link' : 'move'; setOver(i) }}
       onDrop={e => {
         e.preventDefault(); setOver(null)
         if (!dragId || dragId === l.id) return
-        // Dragging one of several selected rows moves all of them.
+        // Alt/Option-drop directly onto a host to clip the dragged layer to it.
+        // It preserves group/board ownership and is a single undoable operation.
         const sel = useEditor.getState().selectedIds
+        if (e.altKey) {
+          if (sel.length > 1 && sel.includes(dragId)) { s.notify('Select one layer to make a clipping mask.'); return }
+          s.clipLayerOnto(dragId, l.id); return
+        }
+        // Dragging one of several selected rows moves all of them.
         if (sel.length > 1 && sel.includes(dragId)) s.moveLayers(sel, i, l.frameId ?? null); else s.moveLayer(dragId, i, l.frameId ?? null)
       }}
       onClick={e => {
@@ -155,7 +161,13 @@ function LayerRow({ l, ctx, depth }: { l: Layer; ctx: Ctx; depth: number }) {
         {l.visible ? <Eye size={14} /> : <EyeOff size={14} />}
       </button>
       {l.clipId && <CornerDownRight size={12} className="shrink-0 -ml-1 text-void-500" aria-label="Clipped to layer below" />}
-      <span data-thumb onDoubleClick={e => { if (l.type === 'adjustment') { e.stopPropagation(); s.setActive(l.id); useUi.getState().showPanel('properties') } }} title="Ctrl-click to select this layer's pixels" className={`shrink-0 rounded-[5px] p-[2px] ${l.id === activeId && !editingMask ? 'ring-1.5 ring-2 ring-accent' : ''}`}>
+      <span data-thumb onDoubleClick={e => {
+        e.stopPropagation()
+        s.setActive(l.id)
+        if (l.type === 'text') { useEditor.setState({ editingTextId: l.id }); return }
+        if (l.type === 'raster' && l.smart) { import('../smart').then(m => m.editSmart()).catch(err => s.notify(String(err))); return }
+        useUi.getState().showPanel('properties')
+      }} title="Double-click to edit this layer; Ctrl-click to select its pixels" className={`shrink-0 rounded-[5px] p-[2px] ${l.id === activeId && !editingMask ? 'ring-1.5 ring-2 ring-accent' : ''}`}>
         {l.type === 'adjustment'
           ? <span className="w-8 h-8 rounded-[4px] bg-void-700 flex items-center justify-center text-void-200"><SlidersHorizontal size={14} /></span>
           : l.type === 'text' ? <span className="w-8 h-8 rounded-[4px] bg-void-700 flex items-center justify-center text-void-100"><Type size={14} /></span>

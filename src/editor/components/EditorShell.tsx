@@ -361,7 +361,11 @@ export function EditorShell() {
         const adj = useEditor.getState().active()
         if (adj?.type !== 'adjustment') return
         const { id: _i, on: _o, link: _l, unknown: _u, opacity, blend, ...settings } = fx
-        useEditor.getState().updateLayer(adj.id, { ...settings, groupId: gid, reach: 'group', name: adj.name } as any)
+        // Creating an adjustment on one selected layer now clips by default.
+        // Explicit "above them" must first clear that clip; otherwise the
+        // renderer still targets just the top child despite reach='group'.
+        if (adj.clipId) useEditor.getState().releaseClippingMask(adj.id)
+        useEditor.getState().updateLayer(adj.id, { ...settings, groupId: gid, clipId: null, reach: 'group', name: adj.name } as any)
         useEditor.getState().commit(`Add ${adj.name.toLowerCase()} above`)
       })
     }

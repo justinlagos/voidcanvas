@@ -251,7 +251,11 @@ const cb2 = await shape(p, 300, 100)
 await select(p, [cb1, cb2]); await p.keyboard.press('Control+g'); await p.waitForTimeout(60)
 await E(p, () => window.__voidEditor.getState().addAdjustment('blur')); await p.waitForTimeout(100)
 await select(p, [cb1]); await p.keyboard.press('Control+Shift+g'); await p.waitForTimeout(80)
-ok('group, effect, ungroup: layers and the effect are all kept', (await count(p)) === 3 && !(await L(p, cb1)).groupId)
+const preservedGroupEffects = await E(p, ids => {
+  const s = window.__voidEditor.getState()
+  return ids.every(id => s.layers.find(l => l.id === id)?.effects?.some(e => e.kind === 'blur'))
+}, [cb1, cb2])
+ok('group, effect, ungroup: both layers retain their targeted blur', (await count(p)) === 2 && !(await L(p, cb1)).groupId && preservedGroupEffects)
 await rulesHold(p, 'group, effect, ungroup')
 // Duplicate, transform, duplicate again
 await select(p, [cb2])
