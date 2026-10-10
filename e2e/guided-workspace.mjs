@@ -7,7 +7,9 @@ const inView=async locator=>locator.evaluate(el=>{const r=el.getBoundingClientRe
 const overlap=async(a,b)=>{const ar=await a.boundingBox(),br=await b.boundingBox();if(!ar||!br)return false;return ar.x<br.x+br.width&&ar.x+ar.width>br.x&&ar.y<br.y+br.height&&ar.y+ar.height>br.y};
 try{
  await p.goto(base+'/brand?view=guideline');await p.getByRole('navigation',{name:'Guideline tools'}).waitFor();
- const brandCanvas=p.locator('canvas[data-brand-renderer]').first();await brandCanvas.waitFor();assert.equal(await brandCanvas.getAttribute('data-brand-renderer'),'legacy','Designers stay on the legacy renderer until V2 passes its gates');
+ const brandCanvas=p.locator('canvas[data-brand-renderer]').first();await brandCanvas.waitFor();assert.equal(await brandCanvas.getAttribute('data-brand-renderer'),'v2','Designers get the V2 renderer by default');
+ // ?brandv2=0 still takes one browser back to the previous renderer (its own context, so this page stays on V2).
+ {const oc=await b.newContext({viewport:{width:1440,height:900}});const op=await oc.newPage();await op.goto(base+'/brand?view=guideline&brandv2=0');const oc1=op.locator('canvas[data-brand-renderer]').first();await oc1.waitFor();assert.equal(await oc1.getAttribute('data-brand-renderer'),'legacy','?brandv2=0 switches back to the previous renderer');await oc.close()}
  assert.equal(await p.locator('#brand-controls').count(),0,'Preview starts uncluttered');
  for(const width of [320,390,768,1440]){
   await p.setViewportSize({width,height:width<800?740:900});
