@@ -78,7 +78,7 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
         <Section title="Colours">
           <div className="flex flex-wrap gap-1.5">
             {swatches.map(c => (
-              <button key={c} aria-label={`Use ${c}`} title={c} onClick={() => s.setFg(c)} className={`w-7 h-7 rounded-md border border-white/10 ${focusRing}`} style={{ background: c }} />
+              <button key={c} aria-label={`Use ${c}`} title={`${c}: drag to apply to text or shapes`} draggable onDragStart={e => { e.dataTransfer.setData('text/vc-color', c); e.dataTransfer.effectAllowed = 'copy' }} onClick={() => s.setFg(c)} className={`w-7 h-7 rounded-md border border-white/10 ${focusRing}`} style={{ background: c }} />
             ))}
           </div>
           <p className="mt-2.5 text-[12px] text-void-500">Select a layer to edit it, or use Add to bring something in.</p>
