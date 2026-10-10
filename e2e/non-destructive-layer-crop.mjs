@@ -105,7 +105,7 @@ try {
       retainedMask: !!l?.vmask?.enabled && l.vmask.subpaths[0]?.nodes.length === 4,
       rotation: l?.rotation }
   }, persisted.layerId)
-  check('.void reload preserves editable rotated crop and mask', reopened.editable && reopened.retainedMask && Math.abs(reopened.rotation - persisted.rotation) < 0.001)
+  check('saved editor document reload preserves editable rotated crop and mask', reopened.editable && reopened.retainedMask && Math.abs(reopened.rotation - persisted.rotation) < 0.001)
 } finally {
   await browser.close()
 }
