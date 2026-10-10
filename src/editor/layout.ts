@@ -319,7 +319,7 @@ function allocate(n: Node, box: Rect, k: number, m: number, T: { w: number; h: n
   })
 }
 
-export interface Relaid { layers: Layer[]; dropped: string[]; review: string[] }
+export interface Relaid { layers: Layer[]; dropped: string[]; droppedIds: string[]; review: string[] }
 
 /**
  * Lay the master board's layers into the target board. Layers keep their group ids and gain
@@ -342,7 +342,9 @@ export function relayout(master: Layer[], m: Frame, t: Frame, doc: Doc, groups: 
   }
 
   const fit = chooseFit(a, T, keep, opts)
-  const dropped = a.panels.filter(p => !fit?.panels.includes(p)).map(p => p.name)
+  const omitted = a.panels.filter(p => !fit?.panels.includes(p))
+  const dropped = omitted.map(p => p.name)
+  const droppedIds = omitted.map(p => p.id)
   if (fit) {
     const mg = Math.min(T.w, T.h) * 0.06
     const slots = new Map<Panel, Rect>()
@@ -389,7 +391,7 @@ export function relayout(master: Layer[], m: Frame, t: Frame, doc: Doc, groups: 
       if (small.length) review.push(`${panel.name}: check text size (${small.slice(0, 2).map(l => l.name).join(', ')})`)
     }
   }
-  return { layers: out, dropped, review }
+  return { layers: out, dropped, droppedIds, review }
 }
 
 function clipRect(r: Rect, to: Rect): Rect {
