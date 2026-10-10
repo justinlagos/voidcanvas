@@ -4,6 +4,12 @@ Status: **Stage 1 implementation on feature branch; not certified for production
 Owner: VoidCanvas Editor / Formats  
 Principle: **A design that cannot be adapted safely must never be reported as ready.**
 
+## Scope guard: preserve the existing Cascade UI/UX
+
+Keep **Boards → Cascade to touchpoints**, the current format choices, panel inclusion chips, inline previews, one-click creation, linked boards and established Editor behaviour. Do not replace the flow with a new review workspace, dashboard, or multistep wizard.
+
+Work on the adaptation engine and correctness first. Only permit small, in-place messages when they clarify a genuine failure or prevent data loss. Any future visual-quality diagnostics should appear in the existing preview/board context, not introduce a competing interface.
+
 ## What we are promising
 
 Cascade is an editable, linked **campaign adaptation system**, not image resizing. A master board should generate new boards at different aspect ratios while retaining design intent, brand hierarchy, essential content, editable layers and deliberate local adjustments.
