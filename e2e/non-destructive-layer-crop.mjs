@@ -29,12 +29,12 @@ try {
     return { id, before, after: { x: l.x, w: l.w, h: l.h, type: l.type, vm: !!l.vmask, nodes: l.vmask?.subpaths[0]?.nodes.length, docW: s().doc.width, history: s().historyIndex }, passes: s().doc.width === 320 && l.w === before.w && l.h === before.h && l.x === before.x && l.type === 'shape' && l.vmask?.enabled && l.vmask.subpaths[0].nodes.length === 4 }
   })
   check('crop adds an editable mask without replacing source geometry or resizing document', first.passes)
-  const pixels = await page.evaluate(() => {
-    const rgba = (x, y) => {
-      const p = window.__vcPixels({ x, y, w: 1, h: 1 })
+  const pixels = await page.evaluate(async () => {
+    const rgba = async (x, y) => {
+      const p = await window.__vcPixels({ x, y, w: 1, h: 1 })
       return p ? Array.from(p).slice(0, 4) : null
     }
-    return { inside: rgba(80, 80), outside: rgba(40, 40), other: rgba(160, 80) }
+    return { inside: await rgba(80, 80), outside: await rgba(40, 40), other: await rgba(160, 80) }
   })
   if (!(!!pixels.inside && pixels.inside[3] > 245 && pixels.outside?.[3] === 0 && pixels.other?.[3] === 0)) console.log('CROP PIXEL DEBUG', JSON.stringify(pixels))
   check('crop renders selected region but hides outside pixels', !!pixels.inside && pixels.inside[3] > 245 && pixels.outside?.[3] === 0 && pixels.other?.[3] === 0)
