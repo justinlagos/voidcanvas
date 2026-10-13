@@ -155,9 +155,11 @@ async function desktopInteractions(p) {
   const n = await ranges.count()
   check('properties expose sliders', n > 0, `${n} visible`)
   if (n > 0) await guard('slider drag and number sync', async () => {
-    const r = ranges.first(), label = await r.getAttribute('aria-label')
+    const r = ranges.first(), label = (await r.getAttribute('aria-label')) || 'unlabelled slider'
     const min = Number(await r.getAttribute('min')), max = Number(await r.getAttribute('max')), step = Number(await r.getAttribute('step')) || 1
-    const num = p.locator(`input[aria-label="${label} value"]`).first()
+    // Labelled sliders pair with an aria-labelled field; unlabelled ones pair with the number input in their own row.
+    const named = await r.getAttribute('aria-label')
+    const num = named ? p.locator(`input[aria-label="${named} value"]`).first() : r.locator('xpath=..').locator('input[type="number"]').first()
     await r.scrollIntoViewIfNeeded(); await p.waitForTimeout(100)
     const box = await r.boundingBox()
     const before = Number(await r.inputValue()), y = box.y + box.height / 2
