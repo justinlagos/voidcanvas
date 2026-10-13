@@ -137,14 +137,14 @@ try {
   if (undone.layer && Math.abs(undone.layer.opacity - 1) < 1e-9) pass('Ctrl+Z restores original value', `opacity=${undone.layer.opacity}`)
   else fail('Ctrl+Z restores original value', JSON.stringify(undone.layer))
   if (undone.historyIndex === changed.historyIndex - 1) pass('undo steps history back', `idx=${undone.historyIndex}`)
-  else fail('undo steps history back', `idx=${undone.historyIndex}`)
+  else fail('undo steps history back', `idx=${undone.historyIndex} labels=${JSON.stringify(undone.historyLabels)}`)
   await page.keyboard.press('Control+Shift+z')
   await page.waitForTimeout(300)
   const redone = await stateOf(page, sid)
   if (redone.layer && Math.abs(redone.layer.opacity - 0.4) < 0.01) pass('Ctrl+Shift+Z restores edited value', `opacity=${redone.layer.opacity}`)
   else fail('Ctrl+Shift+Z restores edited value', JSON.stringify(redone.layer))
   if (redone.historyIndex === changed.historyIndex) pass('redo steps history forward', `idx=${redone.historyIndex}`)
-  else fail('redo steps history forward', `idx=${redone.historyIndex}`)
+  else fail('redo steps history forward', `idx=${redone.historyIndex} labels=${JSON.stringify(redone.historyLabels)}`)
 
   // Invariants (array semantics, as the existing suite asserts).
   const inv = await VE(page, () => (typeof window.__vcCheck === 'function' ? window.__vcCheck() : 'MISSING'))
