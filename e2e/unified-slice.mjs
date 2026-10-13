@@ -29,7 +29,8 @@ const stateOf = (page, id) => VE(page, (lid) => {
     others: Object.fromEntries(Object.entries(layers).filter(([k]) => k !== lid)),
     historyIndex: st.historyIndex, historyLength: st.history.length,
     historyLabels: st.history.map(h => h.label),
-    zoom: st.view.zoom,
+    zoom: st.view.zoom, focus: document.activeElement ? (document.activeElement.getAttribute('aria-label') || document.activeElement.tagName) : 'none',
+    editingText: !!st.editingTextId,
   }
 }, id)
 
@@ -131,6 +132,10 @@ try {
   else fail('UI edit preserves selection', JSON.stringify({ a: changed.activeId, s: changed.selectedIds }))
   if (JSON.stringify(changed.others) === JSON.stringify(before.others)) pass('UI edit touches no other layers')
   else fail('UI edit touches no other layers', `before=${JSON.stringify(before.others)} after=${JSON.stringify(changed.others)}`)
+  // Designers hit shortcuts with canvas focus; blur the panel first (the
+  // focus state is recorded) so the probe matches the real primary flow.
+  await VE(page, () => { if (document.activeElement) document.activeElement.blur() })
+  await page.waitForTimeout(200)
   await page.keyboard.press('Control+z')
   await page.waitForTimeout(300)
   const undone = await stateOf(page, sid)
@@ -145,6 +150,17 @@ try {
   else fail('Ctrl+Shift+Z restores edited value', JSON.stringify(redone.layer))
   if (redone.historyIndex === changed.historyIndex) pass('redo steps history forward', `idx=${redone.historyIndex}`)
   else fail('redo steps history forward', `idx=${redone.historyIndex} labels=${JSON.stringify(redone.historyLabels)}`)
+  // Quirk probe: with the slider itself focused, shortcuts must not mint history.
+  const focusBefore = await stateOf(page, sid)
+  await VE(page, () => { const el = document.querySelector('[aria-label="Opacity (unified)"]'); if (el) el.focus() })
+  await page.waitForTimeout(200)
+  await page.keyboard.press('Control+z')
+  await page.waitForTimeout(300)
+  const focusAfter = await stateOf(page, sid)
+  if (focusAfter.historyLength === focusBefore.historyLength + 0 && focusAfter.historyIndex === focusBefore.historyIndex - 1) pass('slider-focused undo steps back cleanly', `idx=${focusAfter.historyIndex}`)
+  else fail('slider-focused undo steps back cleanly', `before=${focusBefore.historyIndex}/${focusBefore.historyLength} after=${focusAfter.historyIndex}/${focusAfter.historyLength} labels=${JSON.stringify(focusAfter.historyLabels)}`)
+  await page.keyboard.press('Control+Shift+z')
+  await page.waitForTimeout(300)
 
   // Invariants (array semantics, as the existing suite asserts).
   const inv = await VE(page, () => (typeof window.__vcCheck === 'function' ? window.__vcCheck() : 'MISSING'))
