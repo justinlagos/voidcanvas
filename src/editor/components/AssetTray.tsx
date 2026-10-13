@@ -133,7 +133,7 @@ export function AssetTray() {
         <button disabled title="Image search arrives in a later milestone. Uploads stay on this device." aria-label="Search images (coming soon)" className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12.5px] text-void-500 cursor-not-allowed">
           <Search size={14} />Search
         </button>
-        <button disabled title="In-editor generation arrives in Sprint C2. Uploads stay on this device." aria-label="Generate image (coming soon)" className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12.5px] text-void-500 cursor-not-allowed">
+        <button onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: { name: 'generate' } }))} title="Generate sample images on this device (free demo, Sprint C2)." aria-label="Generate image" className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12.5px] text-void-100 hover:bg-white/[0.06] ${focusRing}`}>
           <Sparkles size={14} />Generate
         </button>
       </div>

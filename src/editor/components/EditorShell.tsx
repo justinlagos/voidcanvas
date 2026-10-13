@@ -10,6 +10,7 @@ import { blobToCanvas, flushSave, getBrand, hasUnsaved, importFiles, openProject
 import { checkInvariants } from '../invariants'
 import { useEditor, ADJUSTMENT_LABELS } from '../store'
 import { AddMenu } from './AddMenu'
+import { GeneratePanel } from '../generation/GeneratePanel'
 import { CommandPalette } from './CommandPalette'
 import { BrandKitDialog, ResizeDialog, ShortcutSheet, applyBrand } from './Dialogs'
 import { BoardsPanel } from './BoardsPanel'
@@ -135,6 +136,31 @@ export function EditorShell() {
       return { mean: d / ((a.length / 4) * 3), worst }
     }
     w.__vcFx = { newEffect }
+    // C2 generation flow (e2e/generation-flow.mjs): mock provider runs,
+    // C1 registration, place/fill/replace. Prod-safe like __vcAssets.
+    w.__vcGeneration = {
+      generate: async (opts: { prompt: string; aspect?: 'square' | 'portrait' | 'landscape'; count?: number; referenceAssetId?: string }) => {
+        const [{ createMockGenerationProvider }] = await Promise.all([import('../generation/mock-provider')])
+        const { startGeneration } = await import('../generation/tasks')
+        const { registerGeneratedBatch } = await import('../generation/ingest-generated')
+        const st = useEditor.getState()
+        const run = await startGeneration({
+          provider: createMockGenerationProvider(),
+          prompt: opts.prompt,
+          aspect: opts.aspect ?? 'square',
+          count: opts.count ?? 2,
+          capability: opts.referenceAssetId ? 'variation' : 'text-to-image',
+          referenceAssetId: opts.referenceAssetId,
+          docRevision: st.docRev,
+        })
+        if (run.task.state !== 'ready') return { ok: false, error: run.task.error, state: run.task.state }
+        const assets = await registerGeneratedBatch(run.candidates, { prompt: opts.prompt, aspect: opts.aspect ?? 'square', parentId: opts.referenceAssetId ?? null })
+        return { ok: true, assetIds: assets.map(a => a.resourceId), task: run.task.state }
+      },
+      place: async (assetId: string) => (await import('../generation/ingest-generated')).placeGeneratedAsset(assetId),
+      fill: async (layerId: string, assetId: string) => (await import('../generation/ingest-generated')).fillFrameWithGenerated(layerId, assetId),
+      replace: async (layerId: string, assetId: string) => (await import('../generation/ingest-generated')).replaceWithGenerated(layerId, assetId),
+    }
     // C1 native asset flow (e2e/native-asset-flow.mjs): validated ingest,
     // frame, place/fill/replace and registry reads. Same prod-safe hooks
     // pattern as __voidEditor/__vcParity (available in production builds).
@@ -633,6 +659,7 @@ export function EditorShell() {
       {fxAsk && hasDoc && <FxScopeDialog targets={fxAsk.targets} fx={fxAsk.fx} onClose={() => setFxAsk(null)} />}
       {ctxMenu && hasDoc && !phone && <CanvasMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onDone={closeCtx} />}
       {m === 'add' && hasDoc && <AddMenu onClose={close} />}
+      {m === 'generate' && hasDoc && <GeneratePanel onClose={close} />}
       {m === 'filters' && hasDoc && <AddMenu filtersOnly onClose={close} />}
       {m === 'palette' && hasDoc && <CommandPalette onClose={close} open={x => setModal(x)} />}
       {m === 'resize' && hasDoc && <ResizeDialog onClose={close} />}
