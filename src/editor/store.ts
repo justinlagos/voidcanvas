@@ -96,6 +96,8 @@ interface EditorState {
   snapshots: Snapshot[]
   /** Quick mask: paint the selection with Brush and Eraser. */
   quickMask: boolean
+  /** C3 refine mode target: the raster layer being regionally edited, or null. */
+  refineLayerId: string | null
   transform: TransformSession | null
   /** Show one channel of the image, or a saved alpha channel, instead of the composite. */
   viewChannel: 'rgb' | 'r' | 'g' | 'b' | string
@@ -226,6 +228,7 @@ interface EditorState {
 
   // tools / view
   setTool: (t: ToolId) => void
+  setRefine: (id: string | null) => void
   setOption: <K extends keyof ToolOptions>(k: K, v: ToolOptions[K]) => void
   setFg: (c: string) => void
   setBg: (c: string) => void
@@ -503,6 +506,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   historyIndex: -1,
   snapshots: [],
   quickMask: false,
+  refineLayerId: null,
   transform: null,
   viewChannel: 'rgb',
   pickRequest: null,
@@ -516,7 +520,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   newDoc: ({ name, width, height, background }) => {
     clearAssetStore()
     const doc: Doc = { id: uid(), name: name || 'Untitled design', width, height, background }
-    set({ doc, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, drawInsideId: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move' })
+    set({ doc, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, drawInsideId: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, refineLayerId: null, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move' })
     get().commit('New design')
     set({ dirty: false })
   },
@@ -524,7 +528,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   loadProject: (doc, layers, swatches, groups) => {
     scopeRegistryToDoc(doc, layers)
     const top = layers[layers.length - 1]?.id ?? null
-    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, selection: null, drawInsideId: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
+    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, selection: null, drawInsideId: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, refineLayerId: null, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
     get().commit('Open')
     set({ dirty: false })
   },
@@ -532,11 +536,11 @@ export const useEditor = create<EditorState>((set, get) => ({
   loadFramed: (doc, layers, swatches, groups) => {
     scopeRegistryToDoc(doc, layers)
     const top = layers[layers.length - 1]?.id ?? null
-    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, activeFrameId: doc.frames?.[0]?.id ?? null, selection: null, drawInsideId: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
+    set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, activeFrameId: doc.frames?.[0]?.id ?? null, selection: null, drawInsideId: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, refineLayerId: null, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
     get().commit('Open'); set({ dirty: false })
   },
 
-  closeDoc: () => { clearAssetStore(); set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, drawInsideId: null, cloneSource: null, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null }) },
+  closeDoc: () => { clearAssetStore(); set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, drawInsideId: null, cloneSource: null, history: [], historyIndex: -1, snapshots: [], quickMask: false, refineLayerId: null, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null }) },
 
   setDoc: (patch, commit) => {
     const { doc } = get(); if (!doc) return
@@ -1533,6 +1537,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   setTool: (t) => set({ tool: t, crop: null }),
+  setRefine: (id) => set({ refineLayerId: id }),
   setOption: (k, v) => set({ options: { ...get().options, [k]: v } }),
   setFg: (c) => set({ fg: c }),
   setBg: (c) => set({ bg: c }),

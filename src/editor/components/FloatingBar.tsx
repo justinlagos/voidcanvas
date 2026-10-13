@@ -9,6 +9,7 @@ import type { Layer } from '../types'
 import { isEmptyFrame } from '../assets/place'
 import { useIsPhone } from './MobileEditor'
 import { removeBackground } from './PropertiesPanel'
+import { refineActiveLayer } from '../refine/RefineBar'
 
 /** The few most likely next actions, right above the selected layer. Saves a trip to the side panel. */
 export function FloatingBar() {
@@ -50,6 +51,7 @@ export function FloatingBar() {
         i.onchange = async () => { const f = i.files?.[0]; i.remove(); if (f) { const { replaceLayerContent } = await import('../assets/ops'); await replaceLayerContent(layer.id, f) } }
         document.body.appendChild(i); i.click()
       }}><ImagePlus size={14} />Replace</button>}
+      {layer.type === 'raster' && !isEmptyFrame(layer) && <button className={btn} aria-label="Refine area" title="Select part of this image and repair or remove only that region" onClick={() => refineActiveLayer()}><Scissors size={14} />Refine area</button>}
       {layer.type === 'raster' && !isEmptyFrame(layer) && <button className={btn} onClick={() => removeBackground(layer.id)}><ImageOff size={14} />Remove background</button>}
       {layer.type === 'raster' && !isEmptyFrame(layer) && <button className={btn} onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'filters' }))}><Eclipse size={14} />Filters</button>}
       {layer.type === 'text' && <button className={btn} onClick={() => useEditor.setState({ editingTextId: layer.id })}><PenLine size={14} />Edit text</button>}

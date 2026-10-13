@@ -5,6 +5,7 @@ function healComponent(
   excluded: Uint8ClampedArray,
   w: number,
   h: number,
+  adaptLighting = true,
 ): Uint8ClampedArray | null {
   let x0 = w,
     y0 = h,
@@ -165,6 +166,31 @@ function healComponent(
         j = ((y + best.dy) * w + x + best.dx) * 4
       if (hole[i + 3] && (excluded[j + 3] || src[j + 3] < 200)) return null
     }
+  // Lighting adaptation: a donor from elsewhere on a gradient or vignette sits at a
+  // different mean level than the target surroundings, which reads as a visible seam
+  // (faint selection outline). Shift donor RGB by the ring-mean offset, tightly clamped
+  // so genuinely different regions are refused by the score gate instead of forced.
+  const shift = [0, 0, 0]
+  if (adaptLighting) {
+    const tMean = [0, 0, 0]
+    const dMean = [0, 0, 0]
+    let n = 0
+    for (const i of ring) {
+      const xx = (i % w) + best.dx,
+        yy = Math.floor(i / w) + best.dy
+      if (xx < 0 || xx >= w || yy < 0 || yy >= h) continue
+      const j = yy * w + xx
+      if (excluded[j * 4 + 3] || src[j * 4 + 3] < 200) continue
+      for (let c = 0; c < 3; c++) {
+        tMean[c] += src[i * 4 + c]
+        dMean[c] += src[j * 4 + c]
+      }
+      n++
+    }
+    if (n > 0) {
+      for (let c = 0; c < 3; c++) shift[c] = Math.max(-24, Math.min(24, tMean[c] / n - dMean[c] / n))
+    }
+  }
   const out = new Uint8ClampedArray(src)
   for (let y = y0; y <= y1; y++)
     for (let x = x0; x <= x1; x++) {
@@ -172,7 +198,8 @@ function healComponent(
         a = hole[i + 3] / 255
       if (!a) continue
       const j = ((y + best.dy) * w + x + best.dx) * 4
-      for (let c = 0; c < 4; c++) out[i + c] = src[i + c] * (1 - a) + src[j + c] * a
+      for (let c = 0; c < 3; c++) out[i + c] = src[i + c] * (1 - a) + (src[j + c] + shift[c]) * a
+      out[i + 3] = src[i + 3] * (1 - a) + src[j + 3] * a
     }
   return out
 }
@@ -184,6 +211,7 @@ export function healPixels(
   excluded: Uint8ClampedArray,
   w: number,
   h: number,
+  opts: { adaptLighting?: boolean } = {},
 ): Uint8ClampedArray | null {
   if (
     w * h > 32e6 ||
@@ -210,7 +238,7 @@ export function healPixels(
         }
       }
     }
-    const result = healComponent(src, component, excluded, w, h)
+    const result = healComponent(src, component, excluded, w, h, opts.adaptLighting ?? true)
     if (!result) return null
     for (const i of queue) for (let c = 0; c < 4; c++) out[i * 4 + c] = result[i * 4 + c]
     count++
