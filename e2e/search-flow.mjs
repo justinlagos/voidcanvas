@@ -99,6 +99,10 @@ try {
   else fail('6 disabled provider', `disabled=${searchDisabled} note=${unsplashNote.slice(0, 200)}`)
   await page.getByLabel('Source').selectOption('sample-library')
   await page.waitForTimeout(300)
+  // Switching providers clears results: search again for the place/fill/replace steps.
+  await page.getByLabel('Keywords').fill('rocket launch')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForSelector('[data-testid="search-panel"] [data-result]', { timeout: 10000 })
 
   // 7. Place: import drops a new layer with its on-device sample rights record.
   const layersBefore = (await stateOf(page)).layers.length
