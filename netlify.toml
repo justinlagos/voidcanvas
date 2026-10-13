@@ -9,3 +9,12 @@
 # Brand publishing uses Netlify Blobs, whose current SDK requires Node 22.12+.
 [build.environment]
   NODE_VERSION = "22"
+
+# C1.1: protect the free build allowance. Production (master -> voidcanvas.app)
+# builds exactly as before; Deploy Previews and branch deploys are skipped so
+# feature-branch pushes never spend build minutes. CI builds and serves the
+# exact commit locally instead (.github/workflows/native-asset-flow.yml).
+[context.deploy-preview]
+  ignore = "exit 0"
+[context.branch-deploy]
+  ignore = "exit 0"

@@ -60,9 +60,12 @@ Branch: `feat/native-asset-flow-c1`. Status: implemented, unit-gated, browser-ev
 **C1.5 Persistence (no format bump)** — additive on `.void` v5, see `docs/void-format.md`
 - `RasterLayer.asset` (plain JSON ref) + `Doc.assets` registry (resourceId -> record);
   original bytes ride as `asset:<sha256>` blobs through the existing content-addressed
-  manifest, so identical bytes are stored once across uploads and replacements. Old
-  readers render the pixels and ignore the extras; resaving in an old build drops
-  lineage originals but keeps pixels (documented rollback boundary).
+  manifest, so identical bytes are stored once across uploads and replacements.
+- C1.1 safeguard: files with lineage are stamped `version: 6, minReader: 6`, so v5 and
+  older clients refuse them outright instead of silently discarding originals on
+  resave. Lineage-free files stay v5/5 and open everywhere. Same ZIP container, no
+  migration; `manifestCompatibility` + `projectHasLineage` are unit-covered
+  (`src/editor/assets/__tests__/compat.test.ts`), as are v6 round-trips.
 - Every upload joins `doc.assets` immediately (`syncRegistryState` in `ingestFile`), so
   unplaced tray assets persist through save/reopen. Uploads create no history entry.
 - The module registry is scoped per document (`scopeRegistryToDoc` on new/open/close):

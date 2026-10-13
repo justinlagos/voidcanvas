@@ -42,7 +42,8 @@ describe('.void version 3', () => {
     const file = await writeVoid(project(), { preview: png(9) })
     expect(file.type).toBe(VOID_MIME)
     const r = await readVoid(await bytes(file))
-    expect(r.version).toBe(VOID_VERSION)
+    // No asset lineage: stays at v5 so older clients keep opening these files.
+    expect(r.version).toBe(VOID_VERSION - 1)
     expect(r.notes).toEqual([])
     expect(r.project.doc.name).toBe('Poster')
     expect(r.project.layers.map(l => l.id)).toEqual(['L1', 'L2', 'L3'])
@@ -108,7 +109,8 @@ describe('older and newer files', () => {
     // Still ends with IEND, so image viewers show it.
     expect(new TextDecoder().decode(file.subarray(file.length - 8, file.length - 4))).toBe('IEND')
     const r = await readVoid(file)
-    expect(r.version).toBe(VOID_VERSION)
+    // Lineage-free fixture: stays at v5.
+    expect(r.version).toBe(VOID_VERSION - 1)
     expect(r.project.layers).toHaveLength(3)
   })
 

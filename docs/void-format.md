@@ -1,6 +1,6 @@
 # The .void file format
 
-Version 5. Written by `src/editor/voidfile.ts`. Keep this document and that module in step.
+Version 6. Written by `src/editor/voidfile.ts`. Keep this document and that module in step.
 
 A `.void` file holds one complete, editable Voidcanvas design. It is the unit used everywhere: saving to disk, backups, the desktop app, and later sync and share links. The format is open so people own their work: anyone can read a `.void` file without Voidcanvas.
 
@@ -60,10 +60,12 @@ History:
 | 1, 2 | One JSON object | Bitmaps base64 inline under `blobs`. Fonts were not saved. Still readable |
 | 3 | ZIP | Content-addressed blobs, fonts included, preview, `minReader` |
 | 4 | ZIP | Effect stacks on layers, groups, boards and the design, with effect masks; group masks and styles; adjustment `reach`. `minReader` stays 3: a version 3 reader opens the file and misses only the effects. A reader keeps effects of kinds it does not know and says so |
+| 5 | ZIP | Editable production assets (smart sources, liquify, pattern styles, printer proof). Requires a version-5 reader. |
+| 6 | ZIP, same container | Native asset lineage (Sprint C1.1). Stamped **only** on files that carry lineage; lineage-free files stay at version 5 so older clients keep opening them. A v5 client refuses a v6 file outright instead of opening it and discarding the originals on resave. |
 
-## Version 5 additive: native asset lineage (Sprint C1, no version bump)
+## Version 6 (conditional): native asset lineage (Sprint C1.1 safeguard)
 
-Sprint C1 stores image lineage without changing `version`/`minReader` (still 5):
+Sprint C1.1 stamps files that carry image lineage as `version: 6, minReader: 6`:
 
 - A raster layer may carry `asset: { id, parentId, title, mime, sha256, width, height, source }`
   (plain JSON; `parentId` links a replacement to the asset it supersedes).
@@ -75,12 +77,14 @@ Sprint C1 stores image lineage without changing `version`/`minReader` (still 5):
   (`<layerId>`) remains the current placed appearance.
 - Empty image frames (`emptyFrame: true`, 1x1 canvas) save like any transparent layer.
 
-Compatibility: readers that do not know these fields render the pixels and ignore the
-extras (verified by round-trip fixtures in `src/editor/assets/__tests__/persistence.test.ts`).
-Rollback boundary: resaving a C1 file in a build without C1 keeps all pixels, masks,
-transforms and effects but drops the lineage originals (the file stays openable
-everywhere). A future version that changes how existing layers position or blend must
-raise `minReader` per the rules above; additive lineage alone does not.
+Compatibility: a file is stamped v6 when `doc.assets` is non-empty, any layer carries
+an `asset` ref, or any `asset:*` original blob is present (`projectHasLineage` in
+`voidfile.ts`, unit-covered). A v5-or-older client refuses such a file with the standard
+"saved by a newer Voidcanvas" message (`manifestCompatibility` returns `refuse-newer`,
+unit-covered in `src/editor/assets/__tests__/compat.test.ts`), so it can never silently
+discard originals or lineage by resaving. Lineage-free files keep `version: 5,
+minReader: 5` and open everywhere, including older clients. New clients read versions
+1–6; v6 round-trips are fixture-covered in `persistence.test.ts`.
 
 ## .void.png
 

@@ -41,7 +41,7 @@ describe('C1.5 portable persistence (additive, no version bump)', () => {
     const p = assetProject()
     const file = await writeVoid(p)
     const { project, version, notes } = await readVoid(new Uint8Array(await file.arrayBuffer()))
-    expect(version).toBeLessThanOrEqual(5)
+    expect(version).toBe(6) // lineage fixture stamps v6
     // Originals preserved byte-for-byte.
     expect(await blobBytes(project.blobs['asset:' + 'a'.repeat(64)])).toEqual(await blobBytes(p.blobs['asset:' + 'a'.repeat(64)]))
     expect(await blobBytes(project.blobs['asset:' + 'b'.repeat(64)])).toEqual(await blobBytes(p.blobs['asset:' + 'b'.repeat(64)]))
