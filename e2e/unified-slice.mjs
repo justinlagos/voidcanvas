@@ -84,10 +84,17 @@ try {
   // addText leaves the canvas text editor open (it autofocuses); close it
   // with Escape exactly as a designer would, so its 'Edit text' commit lands
   // in setup rather than in the probe window.
+  // The editor becomes closable ~60ms after mount (ready gate); wait past
+  // it, then Escape. Fail hard if the session does not end — an editor that
+  // cannot be closed would be a product defect, not test noise.
+  await page.waitForTimeout(1000)
   if (await page.getByLabel('Edit text').count() > 0) {
     await page.getByLabel('Edit text').press('Escape')
     await page.waitForTimeout(400)
   }
+  const editingClosed = await VE(page, () => window.__voidEditor.getState().editingTextId === null)
+  if (editingClosed) pass('setup closes text editor (Escape commits in setup)')
+  else fail('setup closes text editor (Escape commits in setup)', 'editingTextId still set')
   await settle(page)
   const settledZoom = await VE(page, () => window.__voidEditor.getState().view.zoom)
 
