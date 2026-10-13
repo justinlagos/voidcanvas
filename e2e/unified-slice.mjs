@@ -157,8 +157,11 @@ try {
   await page.keyboard.press('Control+z')
   await page.waitForTimeout(300)
   const focusAfter = await stateOf(page, sid)
-  if (focusAfter.historyLength === focusBefore.historyLength + 0 && focusAfter.historyIndex === focusBefore.historyIndex - 1) pass('slider-focused undo steps back cleanly', `idx=${focusAfter.historyIndex}`)
-  else fail('slider-focused undo steps back cleanly', `before=${focusBefore.historyIndex}/${focusBefore.historyLength} after=${focusAfter.historyIndex}/${focusAfter.historyLength} labels=${JSON.stringify(focusAfter.historyLabels)}`)
+  // App convention (isTyping): shortcuts are inert while a panel control has
+  // focus, exactly like every existing slider/field. The contract is NO-OP:
+  // no phantom commit and no stolen undo.
+  if (focusAfter.historyLength === focusBefore.historyLength && focusAfter.historyIndex === focusBefore.historyIndex && JSON.stringify(focusAfter.historyLabels) === JSON.stringify(focusBefore.historyLabels)) pass('slider-focused shortcuts stay inert (no phantom history)', `idx=${focusAfter.historyIndex}`)
+  else fail('slider-focused shortcuts stay inert (no phantom history)', `before=${focusBefore.historyIndex}/${focusBefore.historyLength} after=${focusAfter.historyIndex}/${focusAfter.historyLength} labels=${JSON.stringify(focusAfter.historyLabels)}`)
   await page.keyboard.press('Control+Shift+z')
   await page.waitForTimeout(300)
 
