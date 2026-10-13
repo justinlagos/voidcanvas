@@ -86,9 +86,16 @@ function toolTiming() {
   const attr = btn.hasAttribute('aria-expanded') ? 'aria-expanded' : 'aria-pressed'
   const before = btn.getAttribute(attr)
   const t0 = performance.now()
+  // Remember which sibling was pressed (the active tool or mode), so it can be pressed back afterwards.
+  const prior = [...(btn.parentElement?.querySelectorAll('button[aria-pressed="true"]') || [])].filter(b => b !== btn)
   return new Promise(resolve => {
-    // Press once to time the change, then press again so the surface is left as it was.
-    const done = ms => { mo.disconnect(); btn.click(); resolve({ control: name(btn), attr, ms }) }
+    // Press once to time the change, then put the surface back as it was.
+    const done = ms => {
+      mo.disconnect()
+      if (attr === 'aria-pressed' && prior.length) prior[0].click()
+      else btn.click()
+      resolve({ control: name(btn), attr, ms })
+    }
     const mo = new MutationObserver(() => { if (btn.getAttribute(attr) !== before) done(+(performance.now() - t0).toFixed(1)) })
     mo.observe(btn, { attributes: true })
     btn.click()
