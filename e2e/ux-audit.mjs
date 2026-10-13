@@ -160,9 +160,16 @@ async function phoneInteractions(p) {
   const opt = p.locator('[data-mobile-sheet] [role="option"]').first()
   const hasOpt = (await opt.count()) > 0
   check('phone Layers sheet lists layers', hasOpt)
-  if (hasOpt) { await opt.tap(); await p.waitForTimeout(200); check('tapping a layer selects it', (await opt.getAttribute('aria-selected')) === 'true') }
-  await p.tap('[data-mobile-sheet] button[aria-label="Close"]'); await p.waitForTimeout(300)
-  check('Done closes the sheet', (await p.locator('[data-mobile-sheet]').count()) === 0)
+  if (hasOpt) {
+    // The sheet may close on the tap itself, which detaches the row, so read selection from the page as a whole.
+    await opt.tap({ timeout: 4000 }).catch(() => {}); await p.waitForTimeout(250)
+    const selected = (await p.locator('[role="option"][aria-selected="true"]').count()) + (await p.locator('[data-context-bar]').count())
+    check('tapping a layer selects it', selected > 0, (await sheet.count()) > 0 ? 'sheet stayed open' : 'sheet closed on tap')
+  }
+  const openBeforeDone = (await sheet.count()) > 0
+  if (openBeforeDone) await p.tap('[data-mobile-sheet] button[aria-label="Close"]', { timeout: 4000 })
+  await p.waitForTimeout(300)
+  check('sheet is gone after closing', (await sheet.count()) === 0)
   check('selection persists after the sheet closes', (await p.locator('[data-context-bar]').count()) > 0)
   // Mode bar: Back from a picked layer, then a mode press changes aria-pressed.
   if (await p.$('[data-context-bar] button[aria-label="Back"]')) { await p.tap('[data-context-bar] button[aria-label="Back"]'); await p.waitForTimeout(250) }
@@ -181,6 +188,7 @@ for (const s of SURFACES) for (const [view, opts] of VIEWS) {
   const where = `${s.name}/${view}`
   const ctx = await browser.newContext(opts)
   const p = await ctx.newPage()
+  p.setDefaultTimeout(6000)
   const errors = []
   p.on('pageerror', e => errors.push(`pageerror: ${e.message}`))
   p.on('console', m => { if (m.type() === 'error') errors.push(`console: ${m.text().slice(0, 160)}`) })
@@ -219,8 +227,11 @@ for (const s of SURFACES) for (const [view, opts] of VIEWS) {
 
   // Real interactions, on the surfaces where they apply.
   let inter = []
-  if (s.name === 'editor' && s.upload && view === 'desktop') inter = await desktopInteractions(p)
-  if (s.name === 'editor' && s.upload && view === 'phone') inter = await phoneInteractions(p)
+  const script = s.name === 'editor' && s.upload && view === 'desktop' ? desktopInteractions : s.name === 'editor' && s.upload && view === 'phone' ? phoneInteractions : null
+  if (script) {
+    // A step that cannot find its control is a failed check, not a crash that hides the rest of the report.
+    try { inter = await script(p) } catch (e) { inter = [{ name: 'interaction script ran to the end', pass: false, detail: e.message.split('\n')[0].slice(0, 160) }] }
+  }
   if (inter.length) {
     await p.screenshot({ path: path.join(auditDir, `${s.name}-${view}-after-interaction.png`) })
     interactions.push({ where, checks: inter })
