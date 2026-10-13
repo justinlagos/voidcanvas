@@ -31,3 +31,11 @@ tsc clean, 358/358 unit green. Browser execution still requires a provisioned
 runner (no OS libs/sudo and no build memory in the agent sandbox) — run
 `BASE=<exact-commit-preview> node e2e/unified-slice.mjs` in CI/authorised env.
 No pushes made from the sandbox (no credentials); no merges; no AI costs.
+
+## Addendum: CI findings (6d4a393)
+- `next/font` Google-Fetch flake: same commit built green in `check` while
+  failing in `slice` (and vice versa across pushes). External-network flake,
+  unrelated to this slice (no font/layout/network changes in diff). The slice
+  workflow retries the build step once; both attempts stay in the log.
+- `workflow_dispatch` and job re-runs return 403 with the current token
+  (no `actions:write`); CI re-runs only via new pushes.
