@@ -20,6 +20,20 @@ export function selectionKey(sel: StableSelection): string {
   return [...sel.ids].sort().join('|') + '#' + (sel.activeId ?? '') + '@' + (sel.frameId ?? '')
 }
 
+// Drops ids whose layers no longer exist (deleted, merged, or from another document) so a stale
+// selection can never point at nothing. Order of the surviving ids is kept. Active, key and frame
+// ids are cleared when their target is gone. Returns the same object when nothing changed.
+export function reconcileSelection(sel: StableSelection, layers: Layer[], frameIds: string[] = []): StableSelection {
+  const live = new Set(layers.map(l => l.id))
+  const ids = sel.ids.filter(id => live.has(id))
+  const frames = new Set(frameIds)
+  const activeId = sel.activeId && live.has(sel.activeId) ? sel.activeId : null
+  const keyObjectId = sel.keyObjectId && live.has(sel.keyObjectId) ? sel.keyObjectId : null
+  const frameId = sel.frameId && frames.has(sel.frameId) ? sel.frameId : null
+  const unchanged = ids.length === sel.ids.length && activeId === sel.activeId && keyObjectId === sel.keyObjectId && frameId === sel.frameId
+  return unchanged ? sel : { ids, activeId, keyObjectId, frameId }
+}
+
 export function layersForSelection(layers: Layer[], sel: StableSelection): Layer[] {
   const set = new Set(sel.ids)
   return layers.filter(l => set.has(l.id))
