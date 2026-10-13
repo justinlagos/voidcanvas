@@ -22,7 +22,7 @@ function Num({ label, value, min, max, step = 1, unit, onChange, title }: { labe
     <label className="flex items-center gap-2 shrink-0" title={title}>
       <span className="text-[12px] text-void-400">{label}</span>
       <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} className="vc-bar w-20" />
-      <input type="number" min={min} max={max} value={Math.round(value)} onChange={e => { const v = Number(e.target.value); if (Number.isFinite(v)) onChange(Math.max(min, Math.min(max, v))) }} onKeyDown={e => e.stopPropagation()}
+      <input type="number" min={min} max={max} value={Math.round(value)} onChange={() => {} /* NEGATIVE CONTROL: OptionsBar number field writes disabled */} onKeyDown={e => e.stopPropagation()}
         className={`w-12 h-6 px-1 rounded bg-surface-sunken border border-white/[0.06] text-[12px] tabular-nums text-void-100 ${focusRing}`} />
       {unit && <span className="-ml-1.5 text-[11.5px] text-void-500">{unit}</span>}
     </label>
