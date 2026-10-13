@@ -61,6 +61,26 @@ History:
 | 3 | ZIP | Content-addressed blobs, fonts included, preview, `minReader` |
 | 4 | ZIP | Effect stacks on layers, groups, boards and the design, with effect masks; group masks and styles; adjustment `reach`. `minReader` stays 3: a version 3 reader opens the file and misses only the effects. A reader keeps effects of kinds it does not know and says so |
 
+## Version 5 additive: native asset lineage (Sprint C1, no version bump)
+
+Sprint C1 stores image lineage without changing `version`/`minReader` (still 5):
+
+- A raster layer may carry `asset: { id, parentId, title, mime, sha256, width, height, source }`
+  (plain JSON; `parentId` links a replacement to the asset it supersedes).
+- `doc.assets` maps resourceId to `{ resourceId, id, parentId, title, mime, sha256, width,
+  height, source, recipeId, createdAt }`.
+- Original upload bytes ride as extra manifest entries `asset:<resourceId>` (exact file
+  bytes, content-addressed like every other blob). The layer's own entry (`<layerId>`)
+  remains the current placed appearance.
+- Empty image frames (`emptyFrame: true`, 1x1 canvas) save like any transparent layer.
+
+Compatibility: readers that do not know these fields render the pixels and ignore the
+extras (verified by round-trip fixtures in `src/editor/assets/__tests__/persistence.test.ts`).
+Rollback boundary: resaving a C1 file in a build without C1 keeps all pixels, masks,
+transforms and effects but drops the lineage originals (the file stays openable
+everywhere). A future version that changes how existing layers position or blend must
+raise `minReader` per the rules above; additive lineage alone does not.
+
 ## .void.png
 
 A normal PNG of the design with the project inside, so it previews in any file browser.

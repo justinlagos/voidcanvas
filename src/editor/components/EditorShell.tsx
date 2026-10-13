@@ -135,6 +135,76 @@ export function EditorShell() {
       return { mean: d / ((a.length / 4) * 3), worst }
     }
     w.__vcFx = { newEffect }
+    // C1 native asset flow (e2e/native-asset-flow.mjs): validated ingest,
+    // frame, place/fill/replace and registry reads. Same prod-safe hooks
+    // pattern as __voidEditor/__vcParity (available in production builds).
+    w.__vcAssets = {
+      op: async (name: string, ...args: never[]) => (await import('../assets/ops') as unknown as Record<string, (...a: never[]) => unknown>)[name](...args),
+      // Base64 bridges for browser automation (Files cannot cross the evaluate boundary).
+      ingestBytes: async (b64: string, name: string, mime: string) => {
+        const bin = atob(b64); const arr = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+        const { ingestFile } = await import('../assets/ops')
+        const r = await ingestFile(new File([arr], name, { type: mime }), name)
+        return r ? r.asset.resourceId : null
+      },
+      replaceWithBytes: async (layerId: string, b64: string, name: string, mime: string) => {
+        const bin = atob(b64); const arr = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+        const { replaceLayerContent } = await import('../assets/ops')
+        return replaceLayerContent(layerId, new File([arr], name, { type: mime }), name)
+      },
+      placeBytes: async (b64: string, name: string, mime: string) => {
+        const bin = atob(b64); const arr = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+        const { ingestFile, placeAssetAsLayer } = await import('../assets/ops')
+        const r = await ingestFile(new File([arr], name, { type: mime }), name)
+        return r ? placeAssetAsLayer(r) : null
+      },
+      saveVoid: async () => {
+        const { buildVoidFile } = await import('../io')
+        const f = await buildVoidFile()
+        if (!f) return null
+        const buf = new Uint8Array(await f.blob.arrayBuffer())
+        let s = ''
+        for (let i = 0; i < buf.length; i++) s += String.fromCharCode(buf[i])
+        return { b64: btoa(s), len: buf.length, name: f.name }
+      },
+      openVoid: async (b64: string) => {
+        const bin = atob(b64); const arr = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+        const { openVoidBytes } = await import('../io')
+        return openVoidBytes(arr)
+      },
+      exportBoard: async (format: string) => {
+        const { exportBoards } = await import('../io')
+        const st = useEditor.getState()
+        const ids = st.doc?.frames?.length ? st.doc.frames.map(f => f.id) : ['__doc']
+        const { blob } = await exportBoards({ boardIds: [ids[0]], format: format as 'png' | 'pdf', scale: 1, quality: 0.92, transparent: false })
+        const buf = new Uint8Array(await blob.arrayBuffer())
+        let s = ''
+        for (let i = 0; i < buf.length; i++) s += String.fromCharCode(buf[i])
+        return { b64: btoa(s), len: buf.length }
+      },
+      state: () => {
+        const st = useEditor.getState()
+        return {
+          assets: Object.values((st.doc?.assets ?? {}) as Record<string, { resourceId: string; parentId: string | null; title: string }>),
+          layers: st.layers.map(l => ({
+            id: l.id, type: l.type, name: l.name, x: Math.round(l.x * 100) / 100, y: Math.round(l.y * 100) / 100,
+            scaleX: (l as { scaleX?: number }).scaleX, scaleY: (l as { scaleY?: number }).scaleY, rotation: (l as { rotation?: number }).rotation,
+            emptyFrame: !!(l as { emptyFrame?: boolean }).emptyFrame, frameFit: (l as { frameFit?: string }).frameFit ?? null,
+            assetId: (l as { asset?: { id?: string } }).asset?.id ?? null,
+            assetParent: (l as { asset?: { parentId?: string } }).asset?.parentId ?? null,
+            hasMask: !!l.mask, maskEnabled: l.maskEnabled,
+            effects: (l.effects ?? []).map(e => ({ id: e.id, kind: e.kind, on: e.on })),
+            clipId: (l as { clipId?: string }).clipId ?? null, frameId: (l as { frameId?: string }).frameId ?? null,
+            text: (l as { text?: string }).text ?? null,
+          })),
+          history: st.history.map(h => h.label), historyIndex: st.historyIndex,
+        }
+      },
+    }
     // A board as export draws it, as a data URL (export tests compare files with it).
     w.__vcFrame = async (id: string, scale = 1) => (await import('../io')).renderFrame(id, scale)?.toDataURL() ?? null
     // Pixels of the design as drawn (for effect checks), at scale 1, as RGBA arrays per rectangle.

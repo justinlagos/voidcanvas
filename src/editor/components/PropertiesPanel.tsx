@@ -17,6 +17,8 @@ import { FONTS, ensureFont } from '../io'
 import { selectionUnits, useEditor } from '../store'
 import { EffectsSection, selectionTargets } from './EffectsSection'
 import { UnifiedContextSection } from '../unified/UnifiedContextSection'
+import { isEmptyFrame } from '../assets/place'
+import { UploadButton } from './AssetTray'
 import { BLEND_MODES, type AdjustmentLayer, type AdjustmentSettings, type Layer, type ShapeLayer, type TextLayer } from '../types'
 import { CURVE_PRESETS, CurvesEditor } from './CurvesEditor'
 import { Button, ColorField, IconButton, NumField, Section, Select, Slider, focusRing } from './ui'
@@ -189,6 +191,46 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
   return (
     <div>
       <UnifiedContextSection />
+      {layer.type === 'raster' && isEmptyFrame(layer) && (
+        <Section title="Image frame">
+          <p className="text-[12px] text-void-400 mb-2">Empty frame. Upload stays on this device; search and generation arrive later.</p>
+          <div className="flex flex-wrap gap-1.5" data-testid="empty-frame-actions">
+            <UploadButton label="Upload" onDone={async ids => {
+              if (!ids.length) return
+              const { fillFrameFromTray } = await import('../assets/ops')
+              await fillFrameFromTray(layer.id, ids[0])
+            }} />
+            <button disabled title="Image search arrives in a later milestone." aria-label="Search images (coming soon)" className="h-8 px-3 rounded-lg text-[12.5px] text-void-500 cursor-not-allowed">Search</button>
+            <button disabled title="In-editor generation arrives in Sprint C2." aria-label="Generate image (coming soon)" className="h-8 px-3 rounded-lg text-[12.5px] text-void-500 cursor-not-allowed">Generate</button>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-[12px] text-void-400">Fit</span>
+            <Select label="Frame fit" value={layer.frameFit ?? 'cover'} options={[{ id: 'cover', label: 'Fill (crop)' }, { id: 'contain', label: 'Fit' }]} onChange={v => s.updateLayer(layer.id, { frameFit: v } as Partial<typeof layer>, 'Frame fit')} />
+          </div>
+        </Section>
+      )}
+
+      {layer.type === 'raster' && !isEmptyFrame(layer) && (
+        <Section title="Image source">
+          <ImageSourceInfo id={layer.id} />
+        </Section>
+      )}
+
+      {layer.type === 'shape' && (
+        <Section title="Image frame">
+          <p className="text-[12px] text-void-400 mb-2">Use this shape as a picture frame, or clip a photo to its edge.</p>
+          <div className="flex flex-wrap gap-1.5">
+            <Button onClick={async () => {
+              const { addEmptyFrame } = await import('../assets/ops')
+              const { layerBounds } = await import('../engine')
+              const doc = useEditor.getState().doc!
+              const b = layerBounds(layer, doc)
+              addEmptyFrame({ x: Math.round(b.x), y: Math.round(b.y), width: Math.round(b.w), height: Math.round(b.h) })
+            }}>Frame this shape</Button>
+            {useEditor.getState().canClip(layer.id) && <Button onClick={() => useEditor.getState().createClippingMask(layer.id)}>Clip to below</Button>}
+          </div>
+        </Section>
+      )}
 
       {layer.type === 'raster' && (
         <Section title="Quick actions">
@@ -767,5 +809,47 @@ function VectorMaskProps({ layer }: { layer: Layer }) {
         <button onClick={() => ops.deleteVectorMask()} className="text-[11.5px] text-void-400 hover:text-white">Delete vector mask</button>
       </div>
     </Section>
+  )
+}
+
+// C1: source information + non-destructive replacement for a filled image.
+function ImageSourceInfo({ id }: { id: string }) {
+  const layer = useEditor(s => s.layers.find(l => l.id === id)) as Extract<Layer, { type: 'raster' }> | undefined
+  const registry = useEditor(s => s.doc?.assets)
+  const file = useRef<HTMLInputElement>(null)
+  if (!layer) return null
+  const a = layer.asset
+  const chain: string[] = []
+  if (a && registry) {
+    let cur: string | null = a.id
+    const seen = new Set<string>()
+    while (cur && (registry as Record<string, { parentId: string | null }>)[cur] && !seen.has(cur)) {
+      seen.add(cur); chain.unshift(cur); cur = (registry as Record<string, { parentId: string | null }>)[cur].parentId
+    }
+  }
+  return (
+    <div data-testid="image-source-info">
+      <input ref={file} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden aria-label="Replace image file"
+        onChange={async e => {
+          const f = e.target.files?.[0]
+          if (!f) return
+          const { replaceLayerContent } = await import('../assets/ops')
+          await replaceLayerContent(id, f)
+          if (file.current) file.current.value = ''
+        }} />
+      {a ? (
+        <p className="text-[12px] text-void-300">
+          {a.title} · {a.mime.replace('image/', '').toUpperCase()} · {a.width} by {a.height} px
+          {chain.length > 1 && <span className="text-void-500"> · edit {chain.indexOf(a.id) + 1} of {chain.length} (original kept)</span>}
+        </p>
+      ) : (
+        <p className="text-[12px] text-void-400">Imported before asset lineage. Replacing it starts a preserved lineage.</p>
+      )}
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <Button onClick={() => file.current?.click()}>Replace image</Button>
+        <Button onClick={() => useUi.getState().showPanel('assets')}>Open asset tray</Button>
+      </div>
+      <p className="mt-1.5 text-[11.5px] text-void-500">Replacement keeps position, size, rotation, mask, crop, effects and clipping.</p>
+    </div>
   )
 }

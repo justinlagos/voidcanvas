@@ -124,6 +124,27 @@ export type PathOp = 'add' | 'sub' | 'intersect' | 'xor'
 export interface SubPath { closed: boolean; nodes: PathNode[]; op?: PathOp }
 export interface VectorPath { id: string; name: string; subpaths: SubPath[] }
 
+export interface NativeAssetRef {
+  /** Asset registry id (doc.assets[resourceId]). Survives save/reopen. */
+  id: string
+  /** Parent asset this content was derived from (replacement lineage). Null for originals. */
+  parentId: string | null
+  title: string
+  mime: string
+  sha256: string
+  /** Full-resolution decoded size of the source file. */
+  width: number
+  height: number
+  source: 'user_upload' | 'local_library' | 'brand_library' | 'external_search' | 'generated' | 'derived'
+}
+
+/** Registry entry stored on Doc.assets (plain JSON; old readers ignore it). */
+export interface NativeAssetRecord extends NativeAssetRef {
+  resourceId: string
+  recipeId: string | null
+  createdAt: number
+}
+
 export interface RasterLayer extends LayerBase {
   type: 'raster'
   liquify?: { source: HTMLCanvasElement; strokes: import('./liquify').LiquifyDab[] }
@@ -131,6 +152,12 @@ export interface RasterLayer extends LayerBase {
   canvas: HTMLCanvasElement
   /** Set on imported photos so brushes paint on a fresh layer above instead of on the photo. */
   source?: 'photo'
+  /** Native creative-asset lineage (C1). Points at doc.assets[id]; original bytes ride as asset:<id> blobs. */
+  asset?: NativeAssetRef | null
+  /** Empty image frame placeholder (no pixels yet). Geometry + mask/effects are real; canvas is 1x1. */
+  emptyFrame?: boolean | null
+  /** How placed content fits the frame: cover (fill + crop) or contain (fit). Default cover. */
+  frameFit?: 'cover' | 'contain' | null
 }
 
 export interface TextLayer extends LayerBase {
@@ -336,6 +363,8 @@ export interface Doc {
   brandId?: string | null
   /** Effects on the whole design, applied last (on each board when there are boards). */
   effects?: Effect[] | null
+  /** Native asset registry (C1, additive): resourceId -> record. Old readers ignore it. */
+  assets?: Record<string, NativeAssetRecord> | null
 }
 
 export interface ExportPrefs {

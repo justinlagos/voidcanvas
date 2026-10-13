@@ -5,7 +5,7 @@ import { applyEffect } from '@/lib/effects'
 import { defaultParams, type EffectType } from '@/store/useStore'
 import { ctx2d, makeCanvas, renderDoc } from '../engine'
 import { getBrand, type BrandKit } from '../io'
-import { ImagePlus, Layers, Search, Shapes, Type } from 'lucide-react'
+import { Frame, ImagePlus, Layers, Search, Shapes, Type } from 'lucide-react'
 import { effects } from '@/components/EffectSelector'
 import { importFiles } from '../io'
 import { ADJUSTMENT_LABELS, useEditor } from '../store'
@@ -101,11 +101,12 @@ export function AddMenu({ onClose, filtersOnly }: { onClose: () => void; filters
       <div className="p-5 space-y-6">
         {!filtersOnly && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <input ref={file} type="file" accept="image/*,.psd,.pdf" multiple hidden onChange={e => { importFiles(Array.from(e.target.files ?? [])); onClose() }} />
+            <input ref={file} type="file" accept="image/png,image/jpeg,image/webp,image/gif,.psd,.pdf" multiple hidden onChange={e => { importFiles(Array.from(e.target.files ?? [])); onClose() }} />
             <button className={tile} onClick={() => file.current?.click()}><ImagePlus size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Photo</span></button>
             <button className={tile} onClick={done(() => s.addText())}><Type size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Text</span></button>
             <button className={tile} onClick={done(() => { const d = useEditor.getState().doc!; const k = Math.round(Math.min(d.width, d.height) * 0.35); s.addShape('rect', (d.width - k) / 2, (d.height - k) / 2, k, k) })}><Shapes size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Shape</span></button>
             <button className={tile} onClick={done(() => { s.addBlank(); s.setTool('brush') })}><Layers size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Blank layer</span></button>
+            <button className={tile} onClick={done(async () => { const { addEmptyFrame } = await import('../assets/ops'); const d = useEditor.getState().doc!; const w = Math.round(Math.min(d.width, 640)); const h = Math.round(w * 0.75); addEmptyFrame({ x: Math.round((d.width - w) / 2), y: Math.round((d.height - h) / 2), width: w, height: h }) })}><Frame size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Image frame</span></button>
           </div>
         )}
 

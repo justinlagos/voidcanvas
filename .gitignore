@@ -48,3 +48,8 @@ research/**/.tmp/
 /public/colour/lcms.js
 /public/colour/lcms.wasm
 /public/colour/LICENSE.md
+
+# generated test evidence (CI uploads it as an artifact)
+/e2e/evidence/
+/e2e/.out/
+/harness/harness.js
