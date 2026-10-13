@@ -326,6 +326,8 @@ try {
   const mob = await browser.newPage({ viewport: { width: 390, height: 844 } })
   await mob.goto(BASE + '/editor', { waitUntil: 'domcontentloaded', timeout: 60000 })
   await mob.waitForFunction(() => window.__voidEditor, null, { timeout: 60000 })
+  await VE(mob, () => { window.__voidEditor.getState().newDoc({ name: 'C1 mobile probe', width: 1080, height: 1350, background: '#ffffff' }) })
+  await mob.waitForFunction(() => !!document.querySelector('canvas'), null, { timeout: 15000 }).catch(() => {})
   await mob.waitForTimeout(1000)
   await snap(mob, 'native-14-mobile.png')
   const mobOk = await mob.evaluate(() => !!document.querySelector('canvas'))
