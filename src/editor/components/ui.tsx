@@ -80,7 +80,7 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
           onPointerDown={e => { e.preventDefault(); scrub.current = { x: e.clientX, v: value }; begin(); (e.target as HTMLElement).setPointerCapture(e.pointerId) }}
           onPointerMove={e => { if (scrub.current) onChange(snap(scrub.current.v + ((e.clientX - scrub.current.x) * (max - min) * (e.shiftKey ? 4 : 1)) / 260)) }}
           onPointerUp={() => { if (scrub.current) { scrub.current = null; end() } }} onPointerCancel={() => { scrub.current = null; end() }}>{label}</span>
-        <span className="flex items-center gap-1 tabular-nums text-void-200">{mixed ? 'Mixed' : <><input aria-label={`${label} value`} type="number" min={min} max={max} step={step} value={safeValue} onKeyDown={e => e.stopPropagation()} onFocus={begin} onChange={e => { if (e.target.value !== '') { begin(); onChange(snap(Number(e.target.value))) } }} onBlur={end} className="w-14 text-right bg-transparent rounded border border-transparent focus:border-void-600 outline-none" />{unit}</>}</span>
+        <span className="flex items-center gap-1 tabular-nums text-void-200">{mixed ? 'Mixed' : <><input aria-label={`${label} value`} type="number" min={min} max={max} step={step} value={safeValue} onKeyDown={e => e.stopPropagation()} onFocus={begin} onChange={() => {}} /* NEGATIVE CONTROL: number field write path disabled */ onBlur={end} className="w-14 text-right bg-transparent rounded border border-transparent focus:border-void-600 outline-none" />{unit}</>}</span>
       </span>
       <span className="vc-slider-track relative block h-4">
         <span className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded bg-void-800" />
