@@ -42,7 +42,7 @@ try {
 
   // 2. Open Search from the asset tray, exactly as a designer would.
   // (The tray lives in the dock; open it first — same pattern as generation-flow.)
-  await VE(page, () => { try { window.__vcUi?.getState()?.showPanel?.('assets') } catch {} })
+  await VE(page, () => { try { window.__voidUi?.getState()?.showPanel?.('assets') } catch {} })
   await page.waitForTimeout(400)
   await page.getByRole('button', { name: 'Search images' }).click()
   await page.waitForTimeout(500)
@@ -187,7 +187,7 @@ try {
   await mob.waitForFunction(() => window.__voidEditor && window.__vcAssets, null, { timeout: 60000 })
   await mob.waitForTimeout(1200)
   const mobCanvas = await mob.evaluate(() => !!document.querySelector('canvas'))
-  await VE(mob, () => { try { window.__vcUi?.getState()?.showPanel?.('assets') } catch {} })
+  await VE(mob, () => { try { window.__voidUi?.getState()?.showPanel?.('assets') } catch {} })
   await mob.waitForTimeout(400)
   await mob.getByRole('button', { name: 'Search images' }).click()
   await mob.waitForTimeout(500)
