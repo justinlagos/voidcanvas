@@ -100,13 +100,18 @@ function toolTiming() {
 async function desktopInteractions(p) {
   const out = []
   const check = (n, pass, detail = '') => out.push({ name: n, pass: !!pass, detail: String(detail) })
-  const row = p.locator('[role="listbox"][aria-label="Layers"] [role="option"]').first()
-  await row.click(); await p.waitForTimeout(150)
+  // Rows do not say what kind of layer they hold, so press rows until one shows image actions (the photo layer).
+  const rows = p.locator('[role="listbox"][aria-label="Layers"] [role="option"]')
+  const floating = p.locator('[data-floating]')
+  let row = rows.first(), isRaster = false
+  for (let i = 0, count = await rows.count(); i < Math.min(count, 8) && !isRaster; i++) {
+    row = rows.nth(i); await row.click(); await p.waitForTimeout(150)
+    isRaster = (await floating.locator('button[aria-label="Replace image"]').count()) === 1
+  }
   check('layer row selects on click', (await row.getAttribute('aria-selected')) === 'true')
 
   // Context: a raster layer shows image actions and no text actions.
-  const floating = p.locator('[data-floating]')
-  check('raster selection shows image actions', (await floating.locator('button[aria-label="Replace image"]').count()) === 1)
+  check('a layer shows image actions when selected', isRaster)
   check('raster selection hides text actions', (await floating.locator('button:has-text("Edit text")').count()) === 0)
 
   // Dialog dismissal and selection persistence: Ctrl+K opens the action search; Escape closes it; selection stays.
