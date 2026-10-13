@@ -67,8 +67,9 @@ try {
     ve.newDoc({ name: 'Unified B.1 evidence', width: 1080, height: 1350, background: '#ffffff' })
     const shapeId = ve.addShape('rect', 80, 90, 320, 200, { fill: '#111111' })
     ve.addText(80, 1080, 400)
-    const textId = ve.layers.find(l => l.type === 'text')?.id
-    if (textId) ve.updateLayer(textId, { text: 'Launch night' }, 'Set headline')
+    const textId = window.__voidEditor.getState().layers.find(l => l.type === 'text')?.id
+    if (!textId) throw new Error('setup: text layer missing after addText')
+    ve.updateLayer(textId, { text: 'Launch night' }, 'Set headline')
     const c = document.createElement('canvas'); c.width = 120; c.height = 90
     const g = c.getContext('2d'); g.fillStyle = '#b02020'; g.fillRect(0, 0, 120, 90)
     ve.addImage(c, 120, 90, 'Red swatch')
