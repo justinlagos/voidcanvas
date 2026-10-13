@@ -12,8 +12,8 @@ function assetProject(): VoidProject {
     doc: {
       id: 'd-c1', name: 'Poster', width: 1080, height: 1350, background: '#ffffff',
       assets: {
-        'asset-a': { resourceId: 'asset-a', id: 'asset-a', parentId: null, title: 'Rocket', mime: 'image/png', sha256: 'aa', width: 800, height: 600, source: 'user_upload', recipeId: null, createdAt: 1 },
-        'asset-b': { resourceId: 'asset-b', id: 'asset-b', parentId: 'asset-a', title: 'Rocket v2', mime: 'image/jpeg', sha256: 'bb', width: 900, height: 700, source: 'user_upload', recipeId: null, createdAt: 2 },
+        'asset-a': { resourceId: 'asset-a', id: 'asset-a', parentId: null, title: 'Rocket', mime: 'image/png', sha256: 'a'.repeat(64), width: 800, height: 600, source: 'user_upload', recipeId: null, createdAt: 1 },
+        'asset-b': { resourceId: 'asset-b', id: 'asset-b', parentId: 'asset-a', title: 'Rocket v2', mime: 'image/jpeg', sha256: 'b'.repeat(64), width: 900, height: 700, source: 'user_upload', recipeId: null, createdAt: 2 },
       },
     },
     layers: [
@@ -21,7 +21,7 @@ function assetProject(): VoidProject {
         id: 'L1', type: 'raster', name: 'Photo', x: 44, y: 55, scaleX: 1.2, scaleY: 1.2, rotation: 0.1,
         maskEnabled: true, hasMask: true, clipId: null, frameFit: 'cover',
         effects: [{ id: 'e1', kind: 'brightnessContrast', values: { brightness: 10, contrast: 5 }, on: true, opacity: 1, blend: 'source-over' }],
-        asset: { id: 'asset-b', parentId: 'asset-a', title: 'Rocket v2', mime: 'image/jpeg', sha256: 'bb', width: 900, height: 700, source: 'user_upload' },
+        asset: { id: 'asset-b', parentId: 'asset-a', title: 'Rocket v2', mime: 'image/jpeg', sha256: 'b'.repeat(64), width: 900, height: 700, source: 'user_upload' },
       },
       { id: 'L2', type: 'text', name: 'Headline', text: 'Launch night', fontFamily: 'Inter' },
     ],
@@ -30,8 +30,8 @@ function assetProject(): VoidProject {
     blobs: {
       L1: new Blob(['placed-pixels'], { type: 'image/png' }),
       'L1:mask': new Blob(['mask-pixels'], { type: 'image/png' }),
-      'asset:asset-a': originalA,
-      'asset:asset-b': originalB,
+      ['asset:' + 'a'.repeat(64)]: originalA,
+      ['asset:' + 'b'.repeat(64)]: originalB,
     },
   }
 }
@@ -43,8 +43,8 @@ describe('C1.5 portable persistence (additive, no version bump)', () => {
     const { project, version, notes } = await readVoid(new Uint8Array(await file.arrayBuffer()))
     expect(version).toBeLessThanOrEqual(5)
     // Originals preserved byte-for-byte.
-    expect(await blobBytes(project.blobs['asset:asset-a'])).toEqual(await blobBytes(p.blobs['asset:asset-a']))
-    expect(await blobBytes(project.blobs['asset:asset-b'])).toEqual(await blobBytes(p.blobs['asset:asset-b']))
+    expect(await blobBytes(project.blobs['asset:' + 'a'.repeat(64)])).toEqual(await blobBytes(p.blobs['asset:' + 'a'.repeat(64)]))
+    expect(await blobBytes(project.blobs['asset:' + 'b'.repeat(64)])).toEqual(await blobBytes(p.blobs['asset:' + 'b'.repeat(64)]))
     // Lineage + layer pointer preserved.
     expect(project.doc.assets?.['asset-b']?.parentId).toBe('asset-a')
     const l1 = project.layers.find(l => l.id === 'L1')
@@ -64,17 +64,17 @@ describe('C1.5 portable persistence (additive, no version bump)', () => {
     const { project } = await readVoid(new Uint8Array(await file.arrayBuffer()))
     // Simulate a v3-era reader: pixels under layer id always load; asset keys are extra.
     expect(project.blobs['L1']).toBeTruthy()
-    expect(project.blobs['asset:asset-a']).toBeTruthy() // carried, ignored by old code paths
+    expect(project.blobs['asset:' + 'a'.repeat(64)]).toBeTruthy() // carried, ignored by old code paths
   })
 
   it('missing original blob is reported, not fatal', async () => {
     const p = assetProject()
-    delete p.blobs['asset:asset-a']
+    delete p.blobs['asset:' + 'a'.repeat(64)]
     const file = await writeVoid(p)
     // Drop the asset entry from the manifest by rewriting without it is covered
     // by readVoid notes for truly missing parts; here the blob simply round-trips absent.
     const { project } = await readVoid(new Uint8Array(await file.arrayBuffer()))
-    expect(project.blobs['asset:asset-a']).toBeUndefined()
+    expect(project.blobs['asset:' + 'a'.repeat(64)]).toBeUndefined()
     expect(project.blobs['L1']).toBeTruthy()
   })
 })

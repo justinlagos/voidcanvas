@@ -46,6 +46,10 @@ export async function ingestFile(file: File | Blob, nameHint?: string): Promise<
     recipeId: null,
     thumb: thumbnailOf(decoded.canvas),
   }, file as Blob)
+  // The upload joins the document registry immediately (persisted, lineage-tracked),
+  // even before it is placed: an unplaced tray asset must survive save/reopen.
+  // No history entry: uploading is not an undoable canvas edit.
+  syncRegistryState()
   return { asset, canvas: decoded.canvas, fullW: decoded.width, fullH: decoded.height }
 }
 

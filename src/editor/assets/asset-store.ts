@@ -32,8 +32,10 @@ export interface NativeAsset {
 
 export interface AssetRegistry extends Record<string, NativeAsset> {}
 
-// In-memory originals. Persisted into .void as `asset:<resourceId>` blobs
-// (see io.ts); rehydrated on open. Memory-only otherwise: nothing uploads.
+// In-memory originals, keyed by SHA-256 so identical bytes are stored once no
+// matter how many registry entries (uploads, replacements) reference them.
+// Persisted into .void as `asset:<sha256>` blobs (see io.ts); rehydrated on
+// open. Memory-only otherwise: nothing uploads.
 const originals = new Map<string, Blob>()
 const registry = new Map<string, NativeAsset>()
 
@@ -47,7 +49,7 @@ export function registerAsset(meta: Omit<NativeAsset, 'resourceId' | 'id' | 'cre
   const resourceId = meta.resourceId ?? newResourceId('asset')
   const asset: NativeAsset = { ...meta, resourceId, id: resourceId, createdAt: Date.now() }
   registry.set(resourceId, asset)
-  originals.set(resourceId, original)
+  originals.set(asset.sha256, original)
   return asset
 }
 
@@ -56,7 +58,8 @@ export function getAsset(id: string): NativeAsset | undefined {
 }
 
 export function getOriginal(id: string): Blob | undefined {
-  return originals.get(id)
+  const a = registry.get(id)
+  return a ? originals.get(a.sha256) : undefined
 }
 
 export function listAssets(): NativeAsset[] {
@@ -69,6 +72,10 @@ export function rememberRegistry(all: NativeAsset[], blobs: Record<string, Blob>
   for (const [k, b] of Object.entries(blobs ?? {}) as [string, Blob][]) {
     if (k.startsWith('asset:')) originals.set(k.slice(6), b)
   }
+  // Drop originals no registry entry references (e.g. replaced-away uploads
+  // from older saves) so reopened projects stay lean.
+  const live = new Set(all.map(a => a.sha256))
+  for (const sha of Array.from(originals.keys())) if (!live.has(sha)) originals.delete(sha)
 }
 
 export function snapshotRegistry(): NativeAsset[] {
@@ -77,13 +84,39 @@ export function snapshotRegistry(): NativeAsset[] {
 
 export function originalBlobs(): Record<string, Blob> {
   const out: Record<string, Blob> = {}
-  for (const [id, b] of Array.from(originals.entries())) out[`asset:${id}`] = b
+  for (const [sha, b] of Array.from(originals.entries())) out[`asset:${sha}`] = b
   return out
 }
 
 export function clearAssetStore(): void {
   registry.clear()
   originals.clear()
+}
+
+/**
+ * Scope the module registry to one document (tab switches, opens, new docs).
+ * Keeps entries the document references (registry + layer refs + their ancestor
+ * chains) and drops everything else, so one design's tray never leaks into
+ * another and saves never carry foreign originals.
+ */
+export function scopeRegistryToDoc(
+  doc: { assets?: Record<string, { resourceId: string }> | null } | null | undefined,
+  layers: readonly unknown[] | null | undefined,
+): void {
+  const keep = new Set<string>()
+  for (const id of Object.keys(doc?.assets ?? {})) keep.add(id)
+  for (const l of layers ?? []) {
+    const id = (l as { asset?: { id?: unknown } | null } | null)?.asset?.id
+    if (typeof id === 'string') keep.add(id)
+  }
+  const queue = Array.from(keep)
+  while (queue.length) {
+    const a = registry.get(queue.pop() as string)
+    if (a?.parentId && !keep.has(a.parentId)) { keep.add(a.parentId); queue.push(a.parentId) }
+  }
+  for (const id of Array.from(registry.keys())) if (!keep.has(id)) registry.delete(id)
+  const live = new Set(Array.from(registry.values()).map(a => a.sha256))
+  for (const sha of Array.from(originals.keys())) if (!live.has(sha)) originals.delete(sha)
 }
 
 /** B07-compatible view of a native asset (lineage semantics shared). */

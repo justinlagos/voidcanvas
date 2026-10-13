@@ -69,9 +69,10 @@ Sprint C1 stores image lineage without changing `version`/`minReader` (still 5):
   (plain JSON; `parentId` links a replacement to the asset it supersedes).
 - `doc.assets` maps resourceId to `{ resourceId, id, parentId, title, mime, sha256, width,
   height, source, recipeId, createdAt }`.
-- Original upload bytes ride as extra manifest entries `asset:<resourceId>` (exact file
-  bytes, content-addressed like every other blob). The layer's own entry (`<layerId>`)
-  remains the current placed appearance.
+- Original upload bytes ride as extra manifest entries `asset:<sha256>` (exact file
+  bytes, content-addressed like every other blob, so identical bytes are stored once
+  no matter how many uploads or replacements reference them). The layer's own entry
+  (`<layerId>`) remains the current placed appearance.
 - Empty image frames (`emptyFrame: true`, 1x1 canvas) save like any transparent layer.
 
 Compatibility: readers that do not know these fields render the pixels and ignore the

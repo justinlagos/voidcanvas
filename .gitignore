@@ -53,3 +53,5 @@ research/**/.tmp/
 /e2e/evidence/
 /e2e/.out/
 /harness/harness.js
+/harness/harness-ui.js
+/harness/tailwind.css

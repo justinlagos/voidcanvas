@@ -59,18 +59,32 @@ Branch: `feat/native-asset-flow-c1`. Status: implemented, unit-gated, browser-ev
 
 **C1.5 Persistence (no format bump)** — additive on `.void` v5, see `docs/void-format.md`
 - `RasterLayer.asset` (plain JSON ref) + `Doc.assets` registry (resourceId -> record);
-  original bytes ride as `asset:<resourceId>` blobs through the existing content-addressed
-  manifest. Old readers render the pixels and ignore the extras; resaving in an old build
-  drops lineage originals but keeps pixels (documented rollback boundary).
+  original bytes ride as `asset:<sha256>` blobs through the existing content-addressed
+  manifest, so identical bytes are stored once across uploads and replacements. Old
+  readers render the pixels and ignore the extras; resaving in an old build drops
+  lineage originals but keeps pixels (documented rollback boundary).
+- Every upload joins `doc.assets` immediately (`syncRegistryState` in `ingestFile`), so
+  unplaced tray assets persist through save/reopen. Uploads create no history entry.
+- The module registry is scoped per document (`scopeRegistryToDoc` on new/open/close):
+  one design's tray never leaks into another and saves never carry foreign originals.
+- Empty frames show only their contextual UI: Quick actions (bg-remove, filters, mirror,
+  flip) and FloatingBar equivalents stay hidden until the frame holds pixels.
 - Contract verified by `src/editor/assets/__tests__/persistence.test.ts` (round-trip,
   graceful degradation, missing-part tolerance) and the browser save/close/reopen leg.
 
 ## Evidence
 - Unit: `src/editor/assets/__tests__/` (ingest validation, cover/contain math, lineage,
   void round-trip) + full suite 371 green + `tsc` clean.
-- Browser (real Chromium, real canvas): `harness/` + `e2e/native-asset-harness.mjs`
-  (28/28: full 14-step acceptance incl. alpha/rotation/clip fixtures, parity tol 6/40,
-  6-replacement perf + heap check, save/reopen, 1080x1350 PNG + %PDF export).
+- Browser, module level (real Chromium, real canvas): `harness/` +
+  `e2e/native-asset-harness.mjs` (28/28: full 14-step acceptance incl. alpha/rotation
+  fixtures, parity tol 6/40, 6-replacement perf + heap check, save/reopen, 1080x1350
+  PNG + %PDF export).
+- Browser, real UI (real Chromium, real production components): `harness/harness-ui.tsx`
+  mounts the actual Stage (+FloatingBar), PropertiesPanel (C1 sections) and AssetTray
+  against the real store, driven by `e2e/native-asset-ui.mjs` with genuine interactions
+  (file inputs, Fill/Replace clicks, keyboard focus audit). 23/23, zero page errors,
+  screenshots in `e2e/evidence/ui-*.png`. Only the Next.js app shell is stubbed, because
+  this sandbox cannot compile it (see Limitations).
 - UI gate for CI: `e2e/native-asset-flow.mjs` + `.github/workflows/native-asset-flow.yml`
   (build, serve exact commit, run, upload `e2e/evidence/`). Not yet observed green: this
   sandbox cannot compile `/editor` (OOM, 3.9 GB) nor push (no credentials).

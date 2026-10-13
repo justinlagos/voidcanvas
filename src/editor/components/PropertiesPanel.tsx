@@ -232,7 +232,7 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
         </Section>
       )}
 
-      {layer.type === 'raster' && (
+      {layer.type === 'raster' && !isEmptyFrame(layer) && (
         <Section title="Quick actions">
           <div className="grid grid-cols-2 gap-2">
             <Button onClick={() => removeBackground(layer.id)} className="col-span-2 !justify-start"><ImageOff size={15} />Remove background</Button>
