@@ -1,0 +1,36 @@
+# Sprint B.1 browser evidence gate: e2e/unified-slice.mjs (flag on + off).
+# - pull_request: builds + serves the exact PR commit locally, then tests it.
+# - workflow_dispatch with `base`: tests a given exact-commit preview URL.
+name: Unified slice browser gate
+on:
+  pull_request:
+    paths: ['src/editor/unified/**', 'src/editor/components/PropertiesPanel.tsx', 'e2e/unified-slice.mjs', '.github/workflows/unified-slice.yml']
+  workflow_dispatch:
+    inputs:
+      base:
+        description: 'Exact-commit preview URL to test (skips local build)'
+        required: false
+        default: ''
+jobs:
+  slice:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - if: inputs.base == ''
+        # Google-Fonts fetch inside next/font flakes intermittently in CI
+        # (same commit green in `check`, red here); one retry, both logged.
+        run: npm run build || npm run build
+      - if: inputs.base == ''
+        run: (npx next start -p 3000 > /tmp/next-start.log 2>&1 &) && for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3000 && break; sleep 5; done; curl -sf -o /dev/null http://localhost:3000 || (cat /tmp/next-start.log; exit 1)
+      - run: node e2e/unified-slice.mjs
+        env:
+          BASE: ${{ inputs.base != '' && inputs.base || 'http://localhost:3000' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: unified-slice-evidence, path: e2e/evidence/ }

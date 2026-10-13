@@ -88,7 +88,7 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
         <input
           aria-label={label} type="range" min={min} max={max} step={step} value={safeValue}
           onChange={e => { begin(); onChange(Number(e.target.value)) }}
-          onPointerDown={begin} onKeyDown={begin} onPointerUp={end} onPointerCancel={end} onKeyUp={end} onBlur={end}
+          onPointerDown={begin} onKeyDown={e => { if (e.ctrlKey || e.metaKey || e.altKey) return; begin() }} onPointerUp={end} onPointerCancel={end} onKeyUp={end} onBlur={end}
           className="vc-range absolute inset-0 !m-0 !h-4"
         />
       </span>
