@@ -161,6 +161,70 @@ export function EditorShell() {
       fill: async (layerId: string, assetId: string) => (await import('../generation/ingest-generated')).fillFrameWithGenerated(layerId, assetId),
       replace: async (layerId: string, assetId: string) => (await import('../generation/ingest-generated')).replaceWithGenerated(layerId, assetId),
     }
+    // C3 refine flow (e2e/refine-flow.mjs): refine-mode entry, doc-space
+    // region selection, coordinate cross-checks and pixel sampling.
+    w.__vcRefine = {
+      enter: async () => (await import('../refine/RefineBar')).refineActiveLayer(),
+      exit: async () => {
+        useEditor.getState().setRefine(null)
+        return true
+      },
+      selectRect: (x: number, y: number, w: number, h: number, feather = 0) => {
+        const st = useEditor.getState()
+        if (!st.doc) return false
+        const c = document.createElement('canvas')
+        c.width = st.doc.width
+        c.height = st.doc.height
+        const ctx = c.getContext('2d')!
+        ctx.fillStyle = '#fff'
+        if (feather > 0) {
+          ctx.shadowColor = '#fff'
+          ctx.shadowBlur = feather
+          ctx.fillRect(x + feather, y + feather, Math.max(1, w - feather * 2), Math.max(1, h - feather * 2))
+        } else {
+          ctx.fillRect(x, y, w, h)
+        }
+        st.setSelection(c, 'Select region')
+        return true
+      },
+      clearSelection: () => {
+        useEditor.getState().setSelection(null, 'Clear region')
+        return true
+      },
+      coordsCheck: async (layerId: string, points: { x: number; y: number }[]) => {
+        const [{ docToLocal }, engine] = await Promise.all([import('../refine/coords'), import('../engine')])
+        const st = useEditor.getState()
+        const l = st.layers.find(v => v.id === layerId)
+        if (!l || l.type !== 'raster' || !st.doc) return { ok: false, error: 'no-layer' }
+        const t = { x: l.x, y: l.y, scaleX: l.scaleX, scaleY: l.scaleY, rotation: l.rotation, localW: l.canvas.width, localH: l.canvas.height }
+        let worst = 0
+        for (const p of points) {
+          const mine = docToLocal(t, p)
+          const ref = engine.docToLocal(l, p.x, p.y, st.doc)
+          if (!mine) return { ok: false, error: 'null-map' }
+          worst = Math.max(worst, Math.hypot(mine.x - ref.x, mine.y - ref.y))
+        }
+        return { ok: worst < 1e-6, worst }
+      },
+      sampleOutside: async (layerId: string, hole: { x: number; y: number; w: number; h: number }) => {
+        const st = useEditor.getState()
+        const l = st.layers.find(v => v.id === layerId)
+        if (!l || l.type !== 'raster') return null
+        const d = l.canvas.getContext('2d')!.getImageData(0, 0, l.canvas.width, l.canvas.height).data
+        // Mean abs channel value just outside the hole (change detector).
+        let sum = 0
+        let n = 0
+        const inside = (x: number, y: number) => x >= hole.x && x < hole.x + hole.w && y >= hole.y && y < hole.y + hole.h
+        for (let y = Math.max(0, hole.y - 3); y < Math.min(l.canvas.height, hole.y + hole.h + 3); y++)
+          for (let x = Math.max(0, hole.x - 3); x < Math.min(l.canvas.width, hole.x + hole.w + 3); x++) {
+            if (inside(x, y)) continue
+            const i = (y * l.canvas.width + x) * 4
+            sum += d[i] + d[i + 1] + d[i + 2]
+            n += 3
+          }
+        return n ? sum / n : null
+      },
+    }
     // C1 native asset flow (e2e/native-asset-flow.mjs): validated ingest,
     // frame, place/fill/replace and registry reads. Same prod-safe hooks
     // pattern as __voidEditor/__vcParity (available in production builds).

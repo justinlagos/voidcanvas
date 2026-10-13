@@ -10,8 +10,8 @@
  * ingest-generated.ts and commits through the ONE C1 history system.
  */
 import {
+  canCommit,
   cancel as cancelTask,
-  commitTask,
   complete as completeTask,
   consent as consentTask,
   createTask,
@@ -100,9 +100,10 @@ export interface CommitDecision {
 
 /** Re-check staleness against the live docRev before any canvas commit. */
 export function decideCommit(task: GenerationTask, liveDocRev: number): CommitDecision {
-  const next = commitTask(task, liveDocRev)
-  if (next.state === 'committed') return { ok: true, reason: null, task: next }
-  return { ok: false, reason: next.error, task }
+  const check = canCommit(task, liveDocRev)
+  if (!check.ok) return { ok: false, reason: check.reason, task: { ...task, error: check.reason } }
+  const next = { ...task, state: 'committed' as const, error: null }
+  return { ok: true, reason: null, task: next }
 }
 
 /** Mark a run stale when the live doc moved on; candidates remain usable from the tray. */
