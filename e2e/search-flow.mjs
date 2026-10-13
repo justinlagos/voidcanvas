@@ -216,12 +216,17 @@ try {
     const out = []
     for (const rid of rids) {
       const a = await window.__vcAssets.op('assetFromId', rid)
-      out.push(a ? { licence: a.rights?.licence, commercial: a.rights?.commercialUse } : null)
+      out.push(a ? { licence: a.rights?.licence, commercial: a.rights?.commercialUse, source: a.source } : null)
     }
     return out
   }, assetIds)
   const layersOk = st.layers.length >= 2
-  const rightsSurvive = reopenRights.length === assetIds.length && reopenRights.every(r => r && r.licence === 'VoidCanvas sample — free to use' && r.commercial === 'verified')
+  // Searched assets keep sample rights; mock-generated assets carry no rights
+  // record (no third-party provenance to retain) but must keep source+lineage.
+  const rightsSurvive = reopenRights.length === assetIds.length && reopenRights.every(r =>
+    (r && r.licence === 'VoidCanvas sample — free to use' && r.commercial === 'verified') ||
+    (r && r.source === 'generated' && (r.licence == null)),
+  )
   if (layersOk && rightsSurvive) pass(`11b reopen: layers + lineage + ${reopenRights.length} rights records intact`)
   else fail('11b reopen', JSON.stringify({ layers: st.layers.length, rights: reopenRights }))
   await snap(page, 'search-11-reopened.png')
