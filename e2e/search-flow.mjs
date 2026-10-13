@@ -123,7 +123,10 @@ try {
   const placedPos = { x: placed.x, y: placed.y }
   await snap(page, 'search-07-placed.png')
 
-  // 8. Undo/redo the placement.
+  // 8. Undo/redo the placement (close the panel first: focus sits in the
+  // Keywords field, where Ctrl+Z would undo typing instead of the canvas).
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(300)
   await page.keyboard.press('Control+z')
   await page.waitForTimeout(400)
   st = await stateOf(page)
@@ -134,6 +137,12 @@ try {
   st = await stateOf(page)
   if (st.layers.some(l => l.id === placedLayerId)) pass('8b redo restores placed image')
   else fail('8b redo', 'layer missing')
+  // Closing the panel unmounted it (results are panel state): reopen and search again.
+  await page.getByRole('button', { name: 'Search images' }).click()
+  await page.waitForTimeout(500)
+  await page.getByLabel('Keywords').fill('rocket launch')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForSelector('[data-testid="search-panel"] [data-result]', { timeout: 10000 })
 
   // 9. Replace: same layer id, transform kept, lineage links to the original import.
   await VE(page, id => { window.__voidEditor.getState().setActive(id) }, placedLayerId)

@@ -97,9 +97,20 @@ export function SearchPanel({ onClose }: { onClose: () => void }) {
         else if (action === 'fill' && activeId) await fillFrameFromTray(activeId, asset.resourceId)
         else if (action === 'replace' && activeId) {
           const { replaceLayerContent } = await import('../ops')
-          const { getOriginal } = await import('../asset-store')
+          const { getAsset, getOriginal } = await import('../asset-store')
           const blob = getOriginal(asset.resourceId)
-          if (blob) await replaceLayerContent(activeId, blob, asset.title)
+          if (blob && (await replaceLayerContent(activeId, blob, asset.title))) {
+            // replaceLayerContent registers the layer's new asset without
+            // provenance: carry the search rights onto it so the licence
+            // survives on the placed layer (same object lives in doc.assets).
+            const layer = useEditor.getState().layers.find(l => l.id === activeId)
+            const rec = layer?.type === 'raster' && layer.asset ? getAsset(layer.asset.id) : undefined
+            if (rec) {
+              rec.rights = asset.rights
+              rec.recipeId = asset.recipeId
+              rec.source = 'external_search'
+            }
+          }
         }
         useEditor.getState().notify(`“${asset.title}” imported with its licence record. Place details stay in the asset.`)
       } catch (e) {
