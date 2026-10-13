@@ -117,15 +117,20 @@ async function desktopInteractions(p) {
   check('Escape closes action search', !(await search.isVisible()))
   check('selection survives dismissing a dialog', (await row.getAttribute('aria-selected')) === 'true')
 
+  // Each step below is wrapped so a control that cannot be found is reported by name, not as a generic failure.
+  const guard = async (name, fn) => { try { await fn() } catch (e) { check(name, false, e.message.split('\n')[0].slice(0, 160)) } }
+
   // Modal dismissal: Filters opens the effects gallery and Escape closes it.
   const dialogs = p.locator('[role="dialog"]:visible')
-  await floating.locator('button:has-text("Filters")').click(); await p.waitForTimeout(400)
-  const openBefore = await dialogs.count()
-  check('Filters opens the effects gallery', openBefore > 0, `${openBefore} open`)
-  if (openBefore > 0) {
-    await p.keyboard.press('Escape'); await p.waitForTimeout(250)
-    check('Escape closes the effects gallery', (await dialogs.count()) < openBefore, `${openBefore} -> ${await dialogs.count()}`)
-  }
+  await guard('Filters button can be pressed', async () => {
+    await floating.locator('button:has-text("Filters")').first().click({ timeout: 4000 }); await p.waitForTimeout(400)
+    const openBefore = await dialogs.count()
+    check('Filters opens the effects gallery', openBefore > 0, `${openBefore} open`)
+    if (openBefore > 0) {
+      await p.keyboard.press('Escape'); await p.waitForTimeout(250)
+      check('Escape closes the effects gallery', (await dialogs.count()) < openBefore, `${openBefore} -> ${await dialogs.count()}`)
+    }
+  })
   // Sliders sit in the Properties sections. Open the collapsed sections a user would open until one has a slider.
   for (const b of await p.locator('[data-section] button[aria-expanded="false"]:visible').all()) {
     if ((await p.locator('input[type="range"]:visible').count()) > 0) break
@@ -135,7 +140,7 @@ async function desktopInteractions(p) {
   const ranges = p.locator('input[type="range"]:visible')
   const n = await ranges.count()
   check('properties expose sliders', n > 0, `${n} visible`)
-  if (n > 0) {
+  if (n > 0) await guard('slider drag and number sync', async () => {
     const r = ranges.first(), label = await r.getAttribute('aria-label')
     const min = Number(await r.getAttribute('min')), max = Number(await r.getAttribute('max')), step = Number(await r.getAttribute('step')) || 1
     const num = p.locator(`input[aria-label="${label} value"]`).first()
@@ -154,7 +159,7 @@ async function desktopInteractions(p) {
       const typed = Number(await r.inputValue())
       check(`typing in "${label} value" moves the slider`, Math.abs(typed - target) <= step, `typed ${target}, slider ${typed}`)
     }
-  }
+  })
   return out
 }
 
