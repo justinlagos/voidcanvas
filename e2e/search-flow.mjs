@@ -210,6 +210,14 @@ try {
   // Clear the selection so the phone shows its mode bar, not the context bar.
   await VE(mob, () => { window.__voidEditor.getState().setActive(null) })
   await mob.waitForTimeout(400)
+  const mobProbe = await mob.evaluate(() => ({
+    w: window.innerWidth,
+    nav: !!document.querySelector('nav[aria-label="Modes"]'),
+    canvas: !!document.querySelector('canvas'),
+    stage: !!document.querySelector('[data-stage]'),
+    buttons: Array.from(document.querySelectorAll('button')).map(b => (b.getAttribute('aria-label') || b.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 28)).filter(Boolean).slice(0, 25),
+  }))
+  console.log('MOBILE_PROBE ' + JSON.stringify(mobProbe))
   // Phones have no dock tray: search lives in the Image mode sheet (same panel).
   await mob.getByRole('button', { name: 'Image', exact: true }).click()
   await mob.waitForTimeout(500)
