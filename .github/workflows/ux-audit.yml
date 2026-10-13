@@ -58,14 +58,16 @@ jobs:
             node "e2e/$f.mjs" || { echo "FAILED: $f"; FAILED=1; }
           done
           test -z "$FAILED"
+      - name: List audit output
+        if: always()
+        run: ls -laR e2e/.out || true
       - name: Upload audit artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ux-audit-${{ github.sha }}
-          path: |
-            e2e/.out/ux-audit
-            e2e/.out/*.png
+          path: e2e/.out
+          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14
       - name: Upload server log

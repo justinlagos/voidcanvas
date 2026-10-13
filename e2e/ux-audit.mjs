@@ -32,6 +32,8 @@ function layoutFacts(isPhone) {
     if (el.children.length || !el.textContent.trim()) return false
     const cs = getComputedStyle(el)
     const hidden = cs.overflowX === 'hidden' || cs.overflowX === 'clip' || cs.overflowY === 'hidden' || cs.overflowY === 'clip'
+    // Single-line labels that end in an ellipsis are truncated on purpose; only unintended clipping counts.
+    if (cs.textOverflow === 'ellipsis') return false
     return hidden && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)
   }).map(name)
   const smallTargets = isPhone
@@ -149,6 +151,6 @@ const md = [
   '## Details', ...rows.flatMap(r => [`### ${r.surface} / ${r.view}`, '```json', JSON.stringify({ clipped: r.clipped, smallTargets: r.smallTargets, obstruction: r.obstruction, errors: r.errors }, null, 2), '```']),
 ]
 fs.writeFileSync(path.join(auditDir, 'report.md'), md.join('\n') + '\n')
-console.log(md.slice(0, 12).join('\n'))
+console.log(md.join('\n'))
 console.log(failures.length ? `\n${failures.length} failure(s)` : '\nno gating failures')
 if (failures.length) process.exitCode = 1

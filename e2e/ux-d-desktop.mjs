@@ -19,7 +19,8 @@ ok('D properties: Layer section folded on a plain layer', (await p.$eval('[data-
 ok('D properties: Position folded', (await p.$eval('[data-section="Position"] button', el => el.getAttribute('aria-expanded'))) === 'false')
 ok('D layers: header folded', (await p.$eval('button:has-text("Blend, opacity and locks")', el => el.getAttribute('aria-expanded'))) === 'false')
 const fb = await p.$$('[data-floating] > button, [data-floating] > div > button[aria-label="More"]')
-ok('D floating bar: three actions plus More for a photo', fb.length === 3, String(fb.length))
+const fbNames = await Promise.all(fb.map(b => b.evaluate(el => el.getAttribute('aria-label') || el.textContent.trim())))
+ok('D floating bar: Replace, Remove background, Filters and More for a photo', JSON.stringify(fbNames) === JSON.stringify(['Replace', 'Remove background', 'Filters', 'More']), fbNames.join(' | '))
 ok('D status bar: no memory readout on a small design', !(await p.$('text=MB in use')))
 // text layer: level 0 type controls, More type options folded
 await p.keyboard.press('t'); await p.mouse.click(600, 450); await p.waitForTimeout(300); await p.keyboard.type('Big Sale'); await p.keyboard.press('Escape'); await p.waitForTimeout(400)
