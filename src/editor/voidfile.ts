@@ -2,7 +2,7 @@
 // One format for every surface: the web app, the desktop app, backups, and later sync and share.
 // The full specification is in docs/void-format.md. Keep the two in step.
 //
-// Version 3 (current) is a ZIP container:
+// Version 6 (current) is a ZIP container (same layout since version 3):
 //   mimetype              "application/vnd.voidcanvas+zip", first entry, stored
 //   manifest.json         everything that is not pixels: doc, layers, groups, swatches, asset table
 //   preview.png           a picture of the design (optional), for file browsers and previews
@@ -17,10 +17,18 @@
 import { crc32, isZip, unzip, zipFiles } from './zip'
 
 export const VOID_MIME = 'application/vnd.voidcanvas+zip'
-/** The version this build writes. */
-export const VOID_VERSION = 5
-/** The oldest reader that can open what this build writes. Raise it only for a change older readers would get wrong. */
+/** The newest version this build understands and writes. */
+export const VOID_VERSION = 6
+/** The oldest reader that can open what this build writes (lineage-free files). Raise it only for a change older readers would get wrong. */
 export const VOID_MIN_READER = 5
+/**
+ * Files carrying native asset lineage (Sprint C1) are stamped version 6 with
+ * minReader 6, so a v5 client refuses them outright instead of opening them and
+ * silently discarding the originals on resave. Files without lineage stay at
+ * version 5 and open everywhere. Same ZIP container, no migration.
+ */
+export const VOID_LINEAGE_VERSION = 6
+export const VOID_LINEAGE_MIN_READER = 6
 /** Layer types this build knows how to draw. Newer types in a file are left out, with a note. */
 export const KNOWN_LAYER_TYPES = ['raster', 'text', 'shape', 'adjustment']
 
@@ -87,7 +95,18 @@ const blobOf = (bytes: Uint8Array, type: string) => new Blob([bytes as BlobPart]
 
 // ─── Write ─────────────────────────────────────────────────────────
 
-/** Build a version 3 .void file. */
+/** True when the project carries native asset lineage that a v5 reader would silently drop on resave. Pure. */
+export function projectHasLineage(p: Pick<VoidProject, 'doc' | 'layers' | 'blobs'>): boolean {
+  const assets = (p.doc as { assets?: Record<string, unknown> } | null | undefined)?.assets
+  if (assets && Object.keys(assets).length > 0) return true
+  for (const l of p.layers ?? []) {
+    if (l && typeof l === 'object' && (l as { asset?: { id?: unknown } }).asset?.id) return true
+  }
+  for (const k of Object.keys(p.blobs ?? {})) if (k.startsWith('asset:')) return true
+  return false
+}
+
+/** Build a .void file: version 6 when lineage is present, version 5 otherwise. */
 export async function writeVoid(p: VoidProject, opts: { preview?: Blob; app?: string } = {}): Promise<Blob> {
   const files = new Map<string, Uint8Array>()
   const addBlob = async (b: Blob): Promise<AssetRef> => {
@@ -103,8 +122,11 @@ export async function writeVoid(p: VoidProject, opts: { preview?: Blob; app?: st
   const fonts: Record<string, AssetRef> = {}
   for (const [k, b] of Object.entries(p.fonts ?? {})) if (b) fonts[k] = await addBlob(b)
 
+  const lineage = projectHasLineage(p)
   const manifest: VoidManifest = {
-    format: 'voidcanvas', version: VOID_VERSION, minReader: VOID_MIN_READER,
+    format: 'voidcanvas',
+    version: lineage ? VOID_LINEAGE_VERSION : VOID_VERSION - 1,
+    minReader: lineage ? VOID_LINEAGE_MIN_READER : VOID_MIN_READER,
     app: opts.app ?? 'voidcanvas-web', savedAt: new Date().toISOString(),
     doc: p.doc, layers: p.layers, groups: p.groups ?? [], swatches: p.swatches ?? [],
     assets, fonts,
@@ -138,6 +160,22 @@ function parseJson(text: string): any {
   try { return JSON.parse(text) } catch { throw new VoidFileError('That is not a Voidcanvas file.') }
 }
 
+export type ManifestCompatibility = 'ok' | 'open-partial' | 'refuse-newer'
+
+/**
+ * Pure compatibility verdict for a manifest against a reader version.
+ * 'refuse-newer' means the file must NOT be opened (the reader would get its
+ * contents wrong, e.g. a v5 build facing lineage it would discard on resave).
+ */
+export function manifestCompatibility(
+  m: { version?: number; minReader?: number },
+  readerVersion = VOID_VERSION,
+): ManifestCompatibility {
+  if ((m.minReader ?? m.version ?? 0) > readerVersion) return 'refuse-newer'
+  if ((m.version ?? 0) > readerVersion) return 'open-partial'
+  return 'ok'
+}
+
 async function readZip(bytes: Uint8Array): Promise<ReadResult> {
   let files: Map<string, Uint8Array>
   try { files = await unzip(bytes) } catch { throw new VoidFileError('That file is damaged or is not a Voidcanvas file.') }
@@ -146,8 +184,9 @@ async function readZip(bytes: Uint8Array): Promise<ReadResult> {
   const m = parseJson(dec.decode(raw)) as VoidManifest
   if (m?.format !== 'voidcanvas') throw new VoidFileError('That is not a Voidcanvas file.')
   const notes: string[] = []
-  if ((m.minReader ?? m.version) > VOID_VERSION) throw new VoidFileError('This file was saved by a newer Voidcanvas. Reload the page or update the app to open it.')
-  if (m.version > VOID_VERSION) notes.push('This file was saved by a newer Voidcanvas. Anything this version does not know about is left out.')
+  const compat = manifestCompatibility(m)
+  if (compat === 'refuse-newer') throw new VoidFileError('This file was saved by a newer Voidcanvas. Reload the page or update the app to open it.')
+  if (compat === 'open-partial') notes.push('This file was saved by a newer Voidcanvas. Anything this version does not know about is left out.')
 
   const load = (ref: AssetRef | undefined, what: string): Blob | undefined => {
     if (!ref) return undefined

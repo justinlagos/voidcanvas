@@ -4,7 +4,7 @@ import { create } from 'zustand'
 
 export type PanelId =
   | 'properties' | 'layers' | 'channels' | 'paths' | 'history' | 'swatches' | 'adjustments'
-  | 'character' | 'paragraph' | 'info' | 'brand' | 'navigator' | 'styles' | 'brief' | 'comments'
+  | 'character' | 'paragraph' | 'info' | 'brand' | 'navigator' | 'styles' | 'brief' | 'comments' | 'assets'
 
 export interface DockGroup { id: string; tabs: PanelId[]; active: PanelId; collapsed?: boolean; size?: number }
 export interface FloatingPanel { id: string; tabs: PanelId[]; active: PanelId; x: number; y: number; w: number; h: number }
@@ -31,7 +31,7 @@ export const WORKSPACES: Record<string, () => Workspace> = {
     strip: ['brief', 'comments', 'history', 'swatches', 'adjustments', 'character', 'paragraph', 'styles', 'channels', 'paths', 'info', 'brand', 'navigator'],
     groups: [
       { id: gid(), tabs: ['properties'], active: 'properties', size: 1.1 },
-      { id: gid(), tabs: ['layers'], active: 'layers', size: 1 },
+      { id: gid(), tabs: ['layers', 'assets'], active: 'layers', size: 1 },
     ],
   }),
   Essentials: () => ({
@@ -39,7 +39,7 @@ export const WORKSPACES: Record<string, () => Workspace> = {
     strip: ['brief', 'comments', 'info', 'adjustments', 'character', 'paragraph', 'styles', 'brand', 'navigator'],
     groups: [
       { id: gid(), tabs: ['properties', 'history', 'swatches'], active: 'properties', size: 1.1 },
-      { id: gid(), tabs: ['layers', 'channels', 'paths'], active: 'layers', size: 1 },
+      { id: gid(), tabs: ['layers', 'channels', 'paths', 'assets'], active: 'layers', size: 1 },
     ],
   }),
   Photo: () => ({
@@ -56,13 +56,13 @@ export const WORKSPACES: Record<string, () => Workspace> = {
     strip: ['brief', 'comments', 'info', 'adjustments', 'channels', 'paths', 'history', 'navigator'],
     groups: [
       { id: gid(), tabs: ['properties', 'character', 'paragraph', 'styles'], active: 'properties', size: 1.2 },
-      { id: gid(), tabs: ['layers', 'swatches', 'brand'], active: 'layers', size: 1 },
+      { id: gid(), tabs: ['layers', 'swatches', 'brand', 'assets'], active: 'layers', size: 1 },
     ],
   }),
   Minimal: () => ({
     name: 'Minimal', dockWidth: 280, floating: [],
     strip: ['properties', 'history', 'swatches', 'adjustments', 'character', 'paragraph', 'styles', 'channels', 'paths', 'info', 'brand', 'navigator'],
-    groups: [{ id: gid(), tabs: ['layers'], active: 'layers', size: 1 }],
+    groups: [{ id: gid(), tabs: ['layers', 'assets'], active: 'layers', size: 1 }],
   }),
 }
 
@@ -144,7 +144,7 @@ function persist(s: UiState) {
   } catch { /* storage blocked: preferences last for this visit only */ }
 }
 
-const ALL_PANELS: PanelId[] = ['properties', 'layers', 'channels', 'paths', 'history', 'swatches', 'adjustments', 'character', 'paragraph', 'info', 'brand', 'navigator', 'styles', 'brief', 'comments']
+const ALL_PANELS: PanelId[] = ['properties', 'layers', 'channels', 'paths', 'history', 'swatches', 'adjustments', 'character', 'paragraph', 'info', 'brand', 'navigator', 'styles', 'brief', 'comments', 'assets']
 
 /** Remove a panel from wherever it currently lives. Empty groups and floating windows are dropped. */
 function without(w: Workspace, p: PanelId): Workspace {

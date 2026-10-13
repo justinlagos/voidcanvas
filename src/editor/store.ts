@@ -5,6 +5,7 @@ import { boardGap, frameForLayer, occupied, placeBeside, type Side } from './fra
 import type { AdjustmentKind, AdjustmentLayer, Doc, Effect, Frame, Group, Layer, LayerRole, MaskAt, RasterLayer, Rect, ShapeLayer, TextLayer, ToolId, ToolOptions, View } from './types'
 import { copyEffect, freshFx, fxId, newEffect, linkedCopies, moveInList, patchEffect, resetEffect as resetFx, sameTarget, stackOf, withStacks, type FxTarget } from './effects'
 import { useUi } from './ui-store'
+import { clearAssetStore, scopeRegistryToDoc } from './assets/asset-store'
 import { touchCanvas } from './touch'
 import { noteStep, noteUndo } from '@/lib/analytics'
 
@@ -513,6 +514,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   busy: null,
 
   newDoc: ({ name, width, height, background }) => {
+    clearAssetStore()
     const doc: Doc = { id: uid(), name: name || 'Untitled design', width, height, background }
     set({ doc, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, drawInsideId: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move' })
     get().commit('New design')
@@ -520,6 +522,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   loadProject: (doc, layers, swatches, groups) => {
+    scopeRegistryToDoc(doc, layers)
     const top = layers[layers.length - 1]?.id ?? null
     set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, selection: null, drawInsideId: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
     get().commit('Open')
@@ -527,12 +530,13 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   loadFramed: (doc, layers, swatches, groups) => {
+    scopeRegistryToDoc(doc, layers)
     const top = layers[layers.length - 1]?.id ?? null
     set({ doc, layers, groups: groups ?? [], selectedIds: top ? [top] : [], editingTextId: null, activeId: top, activeFrameId: doc.frames?.[0]?.id ?? null, selection: null, drawInsideId: null, cloneSource: null, editingMask: false, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null, docRev: get().docRev + 1, selRev: get().selRev + 1, tool: 'move', ...(swatches ? { swatches } : {}) })
     get().commit('Open'); set({ dirty: false })
   },
 
-  closeDoc: () => set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, drawInsideId: null, cloneSource: null, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null }),
+  closeDoc: () => { clearAssetStore(); set({ doc: null, layers: [], groups: [], selectedIds: [], editingTextId: null, activeId: null, selection: null, drawInsideId: null, cloneSource: null, history: [], historyIndex: -1, snapshots: [], quickMask: false, transform: null, viewChannel: 'rgb', activePathId: null, vmaskEditId: null }) },
 
   setDoc: (patch, commit) => {
     const { doc } = get(); if (!doc) return

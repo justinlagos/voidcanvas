@@ -508,6 +508,42 @@ export function Stage() {
       octx.drawImage(t, 0, 0)
     }
 
+    // C1: empty image frames are transparent pixels (never in exports), so the
+    // canvas overlay draws their dashed placeholder + label. Export (renderDoc)
+    // never sees this: no flashes, no baked-in chrome.
+    try {
+      const frames = s.layers.filter(l => l.type === 'raster' && (l as unknown as { emptyFrame?: boolean }).emptyFrame && l.visible)
+      if (frames.length) {
+        octx.save()
+        octx.font = `500 12px ${uiFont()}`
+        for (const l of frames) {
+          const pts = layerCorners(l, doc).map(toScreen)
+          const xs = pts.map(q => q.x), ys = pts.map(q => q.y)
+          const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs), y1 = Math.max(...ys)
+          const sel = s.selectedIds.includes(l.id)
+          octx.beginPath()
+          pts.forEach((q, i) => (i ? octx.lineTo(q.x, q.y) : octx.moveTo(q.x, q.y)))
+          octx.closePath()
+          octx.fillStyle = sel ? 'rgba(139,124,255,0.10)' : 'rgba(139,124,255,0.05)'
+          octx.fill()
+          octx.setLineDash([7, 5])
+          octx.strokeStyle = sel ? '#a99bff' : 'rgba(169,155,255,0.75)'
+          octx.lineWidth = sel ? 1.75 : 1.25
+          octx.stroke()
+          octx.setLineDash([])
+          const label = 'Image frame'
+          const tw = octx.measureText(label).width
+          const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
+          octx.fillStyle = 'rgba(12,12,16,0.78)'
+          octx.beginPath(); octx.roundRect(cx - tw / 2 - 8, cy - 10, tw + 16, 20, 6); octx.fill()
+          octx.fillStyle = '#cfc8ff'; octx.textAlign = 'center'; octx.textBaseline = 'middle'
+          octx.fillText(label, cx, cy + 0.5)
+          octx.textAlign = 'left'; octx.textBaseline = 'alphabetic'
+        }
+        octx.restore()
+      }
+    } catch { /* placeholder chrome must never break the canvas */ }
+
     const active = s.active()
     const showTf = s.options.showTransform !== false
     if (s.tool === 'move' && !s.editingTextId && !tf) {

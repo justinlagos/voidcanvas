@@ -306,7 +306,7 @@ function addStyle(kind: string) {
 }
 
 
-const PANEL_LABELS: Record<PanelId, string> = { properties: 'Properties', layers: 'Layers', channels: 'Channels', paths: 'Paths', history: 'History', swatches: 'Colour and swatches', adjustments: 'Adjustments', character: 'Character', paragraph: 'Paragraph', info: 'Info', brand: 'Brand kit', navigator: 'Navigator', styles: 'Layer styles', brief: 'Brief', comments: 'Comments' }
+const PANEL_LABELS: Record<PanelId, string> = { properties: 'Properties', layers: 'Layers', channels: 'Channels', paths: 'Paths', history: 'History', swatches: 'Colour and swatches', adjustments: 'Adjustments', character: 'Character', paragraph: 'Paragraph', info: 'Info', brand: 'Brand kit', navigator: 'Navigator', styles: 'Layer styles', brief: 'Brief', comments: 'Comments', assets: 'Assets' }
 export { PANEL_LABELS }
 
 // ─── The registry ──────────────────────────────────────────────────

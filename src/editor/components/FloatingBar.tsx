@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Copy, Eclipse, ImageOff, MoreHorizontal, Move, PenLine, Scissors, Trash2 } from 'lucide-react'
+import { Copy, Eclipse, ImageOff, ImagePlus, MoreHorizontal, Move, PenLine, Scissors, Trash2 } from 'lucide-react'
 import { layerBounds } from '../engine'
 import { useEditor } from '../store'
 import { setFontNow } from '../ops'
 import type { Layer } from '../types'
+import { isEmptyFrame } from '../assets/place'
 import { useIsPhone } from './MobileEditor'
 import { removeBackground } from './PropertiesPanel'
 
@@ -43,8 +44,14 @@ export function FloatingBar() {
   return <>
     {layer.styles?.gradientOverlay?.on && <GradientHandles layer={layer} />}
     <div ref={ref} data-floating className={`absolute z-10 flex items-center gap-0.5 p-1 rounded-xl bg-[#1c1c22] border border-void-700 shadow-xl -translate-x-1/2 ${dock ? 'overflow-x-auto' : ''}`} style={style}>
-      {layer.type === 'raster' && <button className={btn} onClick={() => removeBackground(layer.id)}><ImageOff size={14} />Remove background</button>}
-      {layer.type === 'raster' && <button className={btn} onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'filters' }))}><Eclipse size={14} />Filters</button>}
+      {layer.type === 'raster' && <button className={btn} aria-label="Replace image" title="Replace this image, keeping its position, mask and effects" onClick={() => {
+        const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/png,image/jpeg,image/webp,image/gif'
+        i.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'
+        i.onchange = async () => { const f = i.files?.[0]; i.remove(); if (f) { const { replaceLayerContent } = await import('../assets/ops'); await replaceLayerContent(layer.id, f) } }
+        document.body.appendChild(i); i.click()
+      }}><ImagePlus size={14} />Replace</button>}
+      {layer.type === 'raster' && !isEmptyFrame(layer) && <button className={btn} onClick={() => removeBackground(layer.id)}><ImageOff size={14} />Remove background</button>}
+      {layer.type === 'raster' && !isEmptyFrame(layer) && <button className={btn} onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'filters' }))}><Eclipse size={14} />Filters</button>}
       {layer.type === 'text' && <button className={btn} onClick={() => useEditor.setState({ editingTextId: layer.id })}><PenLine size={14} />Edit text</button>}
       {layer.type === 'text' && <TextQuick layer={layer} />}
       <div className="relative">

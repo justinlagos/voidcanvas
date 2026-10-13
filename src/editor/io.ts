@@ -187,17 +187,19 @@ export async function importFiles(files: File[] | Blob[], names?: string[]) {
   const ed = useEditor.getState()
   const special = (files as File[]).filter(f => /\.(psd|pdf)$/i.test((f as File).name || ''))
   if (special.length) { const { importAny } = await import('./import-formats'); importAny(special as File[]) }
+  // C1 native path: validated ingest (MIME/size/dimensions/EXIF) + original-preserving placement.
+  const { ingestFile, placeAssetAsLayer } = await import('./assets/ops')
   let i = 0
   for (const f of files) {
     if (/\.(psd|pdf)$/i.test((f as File).name || '')) { i++; continue }
-    if (!f.type.startsWith('image/')) { ed.notify('Only image files, PSD or PDF can be added.'); continue }
+    const name = names?.[i] ?? (f as File).name ?? 'Image'
     try {
-      const c = await blobToCanvas(f)
-      const name = names?.[i] ?? (f as File).name ?? 'Image'
+      const r = await ingestFile(f as File, name)
+      if (!r) { i++; continue }
       // The document and its first layer arrive in the same tick, so the phone shell opens with the photo already selected.
-      if (!useEditor.getState().doc) useEditor.getState().newDoc({ name: name.replace(/\.[a-z0-9]+$/i, ''), width: c.width, height: c.height, background: null })
+      if (!useEditor.getState().doc) useEditor.getState().newDoc({ name: name.replace(/\.[a-z0-9]+$/i, ''), width: r.canvas.width, height: r.canvas.height, background: null })
       // A camera or screenshot name says nothing; the layer is named by what it is instead.
-      useEditor.getState().addImage(c, c.width, c.height, suggestImageName(name, c.width, c.height))
+      placeAssetAsLayer({ ...r, asset: { ...r.asset, title: suggestImageName(name, r.canvas.width, r.canvas.height) } })
     } catch (e) { ed.notify((e as Error).message) }
     i++
   }
@@ -641,6 +643,14 @@ export async function storeDesign(doc: Doc, layers: Layer[], groups: Group[], sw
       rest.smart = { ...l.smart, contents: undefined, original: undefined }
     }
     if (l.type === 'raster') { blobs[l.id] = await encodePng(l.canvas); delete rest.canvas }
+    // C1: layer.asset is plain JSON in `rest` and round-trips untouched.
+    // Original upload bytes ride as asset:<resourceId> blobs (exact file bytes).
+    if (l.type === 'raster' && (l as unknown as { asset?: { id?: string } }).asset?.id) {
+      try {
+        const { originalBlobs } = await import('./assets/asset-store')
+        for (const [k, b] of Object.entries(originalBlobs())) if (!blobs[k]) blobs[k] = b
+      } catch { /* asset store unavailable in worker: pixels still save */ }
+    }
     return { ...rest, hasMask: !!mask }
   }))
   const k = Math.min(1, 360 / Math.max(doc.width, doc.height))
@@ -683,10 +693,20 @@ export async function restoreStored(p: StoredProject): Promise<{ doc: Doc; layer
     if (m.smart && p.blobs[m.id + ':smart']) l.smart = { ...m.smart, contents: p.blobs[m.id + ':smart'], original: p.blobs[m.id + ':original'] }
     else if (m.smart) delete l.smart
     if (m.type === 'raster') l.canvas = p.blobs[m.id] ? await fromPng(p.blobs[m.id]) : makeCanvas(1, 1)
+    // C1: rehydrate the asset registry cache so tray re-place works offline after reopen.
+    // Original bytes stay in p.blobs under asset:<resourceId> and round-trip via storeDesign.
     if(l.styles?.patternOverlay?.asset) await import('./patterns').then(x=>x.preparePattern(l.styles.patternOverlay.asset))
     return l as Layer
   }))
   const doc = await unpackDoc(p.doc, async k => (p.blobs[k] ? fromPng(p.blobs[k]) : null))
+  try {
+    const { rememberRegistry } = await import('./assets/asset-store')
+    type Reg = import('./assets/asset-store').NativeAsset
+    const reg = ((doc as unknown as { assets?: Record<string, Reg> }).assets ?? {}) as Record<string, Reg>
+    const assetBlobs: Record<string, Blob> = {}
+    for (const [k, b] of Object.entries(p.blobs ?? {})) if (k.startsWith('asset:')) assetBlobs[k] = b
+    if (Object.keys(reg).length || Object.keys(assetBlobs).length) rememberRegistry(Object.values(reg), assetBlobs)
+  } catch { /* old files have no registry: pixels still open */ }
   const groups: Group[] = await Promise.all((p.groups ?? []).map(async (g: any) => {
     const { hasMask, ...rest } = g
     return { ...rest, ...(hasMask && p.blobs['g:' + g.id + ':mask'] ? { mask: await fromPng(p.blobs['g:' + g.id + ':mask']) } : {}) } as Group
