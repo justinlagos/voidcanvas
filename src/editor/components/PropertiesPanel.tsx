@@ -16,6 +16,7 @@ const layerSizeOf = (l: TextLayer) => layerSize(l).w
 import { FONTS, ensureFont } from '../io'
 import { selectionUnits, useEditor } from '../store'
 import { EffectsSection, selectionTargets } from './EffectsSection'
+import { UnifiedContextSection } from '../unified/UnifiedContextSection'
 import { BLEND_MODES, type AdjustmentLayer, type AdjustmentSettings, type Layer, type ShapeLayer, type TextLayer } from '../types'
 import { CURVE_PRESETS, CurvesEditor } from './CurvesEditor'
 import { Button, ColorField, IconButton, NumField, Section, Select, Slider, focusRing } from './ui'
@@ -187,6 +188,7 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
 
   return (
     <div>
+      <UnifiedContextSection />
 
       {layer.type === 'raster' && (
         <Section title="Quick actions">

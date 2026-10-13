@@ -59,3 +59,42 @@ export function requiredDropCheck(role: string | null, readable: boolean): { lef
   if (!readable) return { leftOut: true, reason: 'omitted: below minimum readable size' }
   return { leftOut: false, reason: null }
 }
+
+// ─── Structural operations (B.1 extension) ───────────────────────────
+// Property merge is not enough: master edits can add/delete/reorder/rename
+// layers and groups. Structural replay keys everything by masterNodeId so
+// variant-local layout and overrides survive.
+
+export interface StructuralItem { masterNodeId: string; instanceId: string; name: string; order: number; deleted?: boolean }
+
+export function replayStructure(base: StructuralItem[], masterNow: StructuralItem[], variant: StructuralItem[]): {
+  items: StructuralItem[]; conflicts: { masterNodeId: string; kind: 'deleted-edited' | 'renamed-both' | 'reordered-moved' }[]
+} {
+  const baseById = new Map(base.map(i => [i.masterNodeId, i]))
+  const masterById = new Map(masterNow.map(i => [i.masterNodeId, i]))
+  const variantById = new Map(variant.map(i => [i.masterNodeId, i]))
+  const conflicts: { masterNodeId: string; kind: 'deleted-edited' | 'renamed-both' | 'reordered-moved' }[] = []
+  const items: StructuralItem[] = []
+  const ids = new Set([...Array.from(baseById.keys()), ...Array.from(masterById.keys()), ...Array.from(variantById.keys())])
+  for (const id of Array.from(ids)) {
+    const b = baseById.get(id)
+    const m = masterById.get(id)
+    const v = variantById.get(id)
+    if (!b && m && !v) { items.push({ ...m }); continue } // master-added: adopt
+    if (b && !m && v && !v.deleted) { conflicts.push({ masterNodeId: id, kind: 'deleted-edited' }); items.push({ ...v }); continue } // master-deleted, variant kept: keep + flag
+    if (b && !m && v?.deleted) continue // both deleted
+    if (!b && !m && v) { items.push({ ...v }); continue } // variant-only: keep
+    if (m && v && !v.deleted) {
+      const masterRenamed = b && b.name !== m.name
+      const variantRenamed = b && b.name !== v.name && v.name !== m.name
+      if (masterRenamed && variantRenamed) conflicts.push({ masterNodeId: id, kind: 'renamed-both' })
+      const order: number = v.order !== b?.order ? v.order : m.order // variant-local order wins
+      if (v.order !== b?.order && m.order !== b?.order && v.order !== m.order) conflicts.push({ masterNodeId: id, kind: 'reordered-moved' })
+      items.push({ ...v, name: variantRenamed ? v.name : m.name, order })
+      continue
+    }
+    if (m && !v) { items.push({ ...m }); continue }
+  }
+  items.sort((a, b) => a.order - b.order)
+  return { items, conflicts }
+}
