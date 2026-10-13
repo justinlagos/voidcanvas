@@ -28,7 +28,8 @@ const VIEWS = [
 function layoutFacts(isPhone) {
   const vis = el => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0 && r.height > 0 }
   const name = el => (el.getAttribute('aria-label') || el.textContent || el.tagName).trim().replace(/\s+/g, ' ').slice(0, 60)
-  const leaves = [...document.querySelectorAll('body *')].filter(el => vis(el) && !el.children.length && el.textContent.trim())
+  // sr-only text is clipped on purpose (it is read by screen readers only), so it is not a layout defect.
+  const leaves = [...document.querySelectorAll('body *')].filter(el => vis(el) && !el.children.length && el.textContent.trim() && !el.classList.contains('sr-only'))
   const clipped = [], truncated = []
   for (const el of leaves) {
     const cs = getComputedStyle(el)
@@ -76,8 +77,10 @@ function layoutFacts(isPhone) {
 // opens a menu that the audit would then leave on screen. Runs inside the page.
 function toolTiming() {
   const name = el => (el.getAttribute('aria-label') || el.textContent || el.tagName).trim().replace(/\s+/g, ' ').slice(0, 60)
+  // Only a control that is currently off can visibly change when pressed; the active tool or filter would not.
+  const off = b => b.getAttribute('aria-pressed') === 'false' || b.getAttribute('aria-expanded') === 'false'
   const btn = [...document.querySelectorAll('button[aria-expanded]:not([aria-haspopup]), button[aria-pressed]')].find(b => {
-    const r = b.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.bottom <= innerHeight && !b.disabled
+    const r = b.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.bottom <= innerHeight && !b.disabled && off(b)
   })
   if (!btn) return Promise.resolve(null)
   const attr = btn.hasAttribute('aria-expanded') ? 'aria-expanded' : 'aria-pressed'
@@ -114,11 +117,24 @@ async function desktopInteractions(p) {
   check('Escape closes action search', !(await search.isVisible()))
   check('selection survives dismissing a dialog', (await row.getAttribute('aria-selected')) === 'true')
 
-  // Slider: a real pointer drag on the range moves the value, and the number field beside it follows.
+  // Modal dismissal: Filters opens the effects gallery and Escape closes it.
+  const dialogs = p.locator('[role="dialog"]:visible')
   await floating.locator('button:has-text("Filters")').click(); await p.waitForTimeout(400)
+  const openBefore = await dialogs.count()
+  check('Filters opens the effects gallery', openBefore > 0, `${openBefore} open`)
+  if (openBefore > 0) {
+    await p.keyboard.press('Escape'); await p.waitForTimeout(250)
+    check('Escape closes the effects gallery', (await dialogs.count()) < openBefore, `${openBefore} -> ${await dialogs.count()}`)
+  }
+  // Sliders sit in the Properties sections. Open the collapsed sections a user would open until one has a slider.
+  for (const b of await p.locator('[data-section] button[aria-expanded="false"]:visible').all()) {
+    if ((await p.locator('input[type="range"]:visible').count()) > 0) break
+    await b.click().catch(() => {}); await p.waitForTimeout(120)
+  }
+  // Slider: a real pointer drag on the range moves the value, and the number field beside it follows.
   const ranges = p.locator('input[type="range"]:visible')
   const n = await ranges.count()
-  check('filters expose sliders', n > 0, `${n} visible`)
+  check('properties expose sliders', n > 0, `${n} visible`)
   if (n > 0) {
     const r = ranges.first(), label = await r.getAttribute('aria-label')
     const min = Number(await r.getAttribute('min')), max = Number(await r.getAttribute('max')), step = Number(await r.getAttribute('step')) || 1
@@ -138,14 +154,6 @@ async function desktopInteractions(p) {
       const typed = Number(await r.inputValue())
       check(`typing in "${label} value" moves the slider`, Math.abs(typed - target) <= step, `typed ${target}, slider ${typed}`)
     }
-  }
-  // Panel dismissal: Escape closes the panel that the filters opened.
-  const dialogs = p.locator('[role="dialog"]:visible')
-  const openBefore = await dialogs.count()
-  check('filters opens a panel', openBefore > 0, `${openBefore} open`)
-  if (openBefore > 0) {
-    await p.keyboard.press('Escape'); await p.waitForTimeout(250)
-    check('Escape closes the filters panel', (await dialogs.count()) < openBefore, `${openBefore} -> ${await dialogs.count()}`)
   }
   return out
 }
