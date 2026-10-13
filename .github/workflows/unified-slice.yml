@@ -1,5 +1,6 @@
-# Sprint B.1 browser evidence gate: runs e2e/unified-slice.mjs (flag on + off)
-# against the Netlify deploy preview of the exact PR commit, uploads evidence.
+# Sprint B.1 browser evidence gate: e2e/unified-slice.mjs (flag on + off).
+# - pull_request: builds + serves the exact PR commit locally, then tests it.
+# - workflow_dispatch with `base`: tests a given exact-commit preview URL.
 name: Unified slice browser gate
 on:
   pull_request:
@@ -7,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       base:
-        description: 'BASE URL of the exact-commit preview to test'
+        description: 'Exact-commit preview URL to test (skips local build)'
         required: false
         default: ''
 jobs:
@@ -19,6 +20,10 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - if: inputs.base == ''
+        run: npm run build
+      - if: inputs.base == ''
+        run: (npx next start -p 3000 > /tmp/next-start.log 2>&1 &) && for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3000 && break; sleep 5; done; curl -sf -o /dev/null http://localhost:3000 || (cat /tmp/next-start.log; exit 1)
       - run: node e2e/unified-slice.mjs
         env:
           BASE: ${{ inputs.base != '' && inputs.base || 'http://localhost:3000' }}
