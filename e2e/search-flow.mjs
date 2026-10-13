@@ -175,6 +175,32 @@ try {
   if (st.layers.find(l => l.id === frameId)?.assetId) pass('10 fill empty frame from search')
   else fail('10 fill', 'frame still empty')
 
+  // 10b. Generation + search sequentially in ONE session: generate (C2 mock),
+  // place it, then search-place a sample. Lineages stay independent, the last
+  // placement wins selection, and no second modal or stale task interferes.
+  const layersPreSeq = (await stateOf(page)).layers.length
+  const gen = await VE(page, () => window.__vcGeneration.generate({ prompt: 'Rocket poster sky study', aspect: 'square', count: 1 }))
+  if (gen?.ok && gen.assetIds?.length === 1) pass('10b-i generate 1 candidate in-session')
+  else fail('10b-i generate', JSON.stringify(gen))
+  const genLayer = gen?.ok ? await VE(page, aid => window.__vcGeneration.place(aid), gen.assetIds[0]) : null
+  await page.waitForTimeout(600)
+  const found = await VE(page, () => window.__vcSearch.search('forest'))
+  const impId = found?.length ? await VE(page, id => window.__vcSearch.importResult(id), found[0].id) : null
+  if (impId) await VE(page, aid => window.__vcSearch.place(aid), impId)
+  await page.waitForTimeout(600)
+  st = await stateOf(page)
+  const seqLayers = st.layers.length === layersPreSeq + 2
+  const seqSources = await VE(page, async aids => {
+    const out = []
+    for (const aid of aids) { const a = await window.__vcAssets.op('assetFromId', aid); out.push(a?.source ?? null) }
+    return out
+  }, [gen?.assetIds?.[0], impId])
+  const seqActive = st.layers[st.layers.length - 1]?.assetId === impId
+  if (genLayer && impId && seqLayers && seqSources.includes('generated') && seqSources.includes('external_search') && seqActive) {
+    pass('10b-ii search-place after generate: independent lineages, selection intact')
+  } else fail('10b-ii sequential session', JSON.stringify({ layers: st.layers.length, expected: layersPreSeq + 2, sources: seqSources, activeOk: seqActive }))
+  await snap(page, 'search-10b-sequential.png')
+
   // 11. Save .void, close, reopen: layers, lineage, and rights records survive.
   const voidFile = await VE(page, () => window.__vcAssets.saveVoid())
   fs.writeFileSync(path.join(EVIDENCE, 'search-poster.void'), Buffer.from(voidFile.b64, 'base64'))
