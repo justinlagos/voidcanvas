@@ -1,0 +1,27 @@
+# Sprint B.1 browser evidence gate: runs e2e/unified-slice.mjs (flag on + off)
+# against the Netlify deploy preview of the exact PR commit, uploads evidence.
+name: Unified slice browser gate
+on:
+  pull_request:
+    paths: ['src/editor/unified/**', 'src/editor/components/PropertiesPanel.tsx', 'e2e/unified-slice.mjs', '.github/workflows/unified-slice.yml']
+  workflow_dispatch:
+    inputs:
+      base:
+        description: 'BASE URL of the exact-commit preview to test'
+        required: false
+        default: ''
+jobs:
+  slice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node e2e/unified-slice.mjs
+        env:
+          BASE: ${{ inputs.base != '' && inputs.base || 'http://localhost:3000' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: unified-slice-evidence, path: e2e/evidence/ }
