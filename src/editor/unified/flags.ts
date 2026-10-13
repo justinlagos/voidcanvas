@@ -6,9 +6,13 @@
 // - Opt-in state lives in sessionStorage (this tab only): scoped, never
 //   persisted across restarts, revocable at any time with `?unified=0` or
 //   revokeUnifiedOptIn(). No localStorage, no cookies.
-// - requestUnifiedOptIn() is the programmatic path (future settings UI or
-//   console) and works on any host. It grants no permissions by itself:
-//   every future cloud operation must still enforce server-side auth.
+// - requestUnifiedOptIn() is the programmatic path (devtools/settings UI)
+//   and works ONLY on non-production hosts. On production it refuses: there
+//   is no entitlement system yet, so nothing may enable unfinished UI there,
+//   not even via the console. Production enablement awaits an
+//   entitlement-gated settings control (future work). The opt-in grants no
+//   permissions by itself regardless: every future protected operation must
+//   still enforce permissions server-side (never trust client-side flags).
 // - When disabled, all unified UI returns null and no unified code runs
 //   against the document: no side effects, no state leaks.
 const PROD_HOSTS = new Set(['voidcanvas.app', 'www.voidcanvas.app'])
@@ -48,6 +52,7 @@ function writeSession(w: GateWindow, on: boolean): void {
 export function requestUnifiedOptIn(): boolean {
   const w = gateWindow()
   if (!w) return false
+  if (isProductionHost(w.location.hostname)) return false
   writeSession(w, true)
   return readSession(w)
 }

@@ -37,8 +37,14 @@ describe('flag rollout gate', () => {
     stubWindow('localhost:3000', '?unified=0', { 'vc.unified.session': '1' })
     expect(unifiedEnabled()).toBe(false)
   })
-  it('programmatic opt-in works on production but stays session-scoped and revocable', () => {
+  it('programmatic opt-in is refused on production (no console activation)', () => {
     const store = stubWindow('voidcanvas.app', '')
+    expect(requestUnifiedOptIn()).toBe(false)
+    expect(unifiedEnabled()).toBe(false)
+    expect('vc.unified.session' in store).toBe(false)
+  })
+  it('programmatic opt-in works off-production but stays session-scoped and revocable', () => {
+    const store = stubWindow('localhost:3000', '')
     expect(requestUnifiedOptIn()).toBe(true)
     expect(unifiedEnabled()).toBe(true)
     revokeUnifiedOptIn()
