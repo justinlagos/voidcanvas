@@ -111,10 +111,11 @@ try {
     const l = s.layers.find(x => x.id === id)
     return { x: l.x, y: l.y, scaleX: l.scaleX, scaleY: l.scaleY, rotation: l.rotation, effects: (l.effects ?? []).length, hasMask: !!l.mask }
   }, placedId)
-  // Give it an effect + mask first so preservation is meaningful.
+  // Give it a real effect first (same path as the Adjustments UI) so preservation is meaningful.
   await VE(page, id => {
     const s = window.__voidEditor.getState()
-    s.updateLayer(id, { effects: [{ id: 'fx1', kind: 'brightnessContrast', on: true }] }, 'Add effect')
+    const fx = window.__vcFx.newEffect('brightnessContrast')
+    s.addEffect([{ type: 'layer', id }], [fx], 'Add effect')
   }, placedId)
   const replaced = await VE(page, args => window.__vcGeneration.replace(args.layer, args.asset), { layer: placedId, asset: gen.assetIds[1] })
   await page.waitForTimeout(400)
