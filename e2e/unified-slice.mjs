@@ -70,6 +70,9 @@ try {
     const textId = window.__voidEditor.getState().layers.find(l => l.type === 'text')?.id
     if (!textId) throw new Error('setup: text layer missing after addText')
     ve.updateLayer(textId, { text: 'Launch night' }, 'Set headline')
+    // addText leaves the inline text editor open; close it the way the UI
+    // does so its 'Edit text' commit lands in setup, not in the probe window.
+    if (document.activeElement) document.activeElement.blur()
     const c = document.createElement('canvas'); c.width = 120; c.height = 90
     const g = c.getContext('2d'); g.fillStyle = '#b02020'; g.fillRect(0, 0, 120, 90)
     ve.addImage(c, 120, 90, 'Red swatch')
