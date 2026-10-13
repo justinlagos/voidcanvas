@@ -28,9 +28,25 @@ const stateOf = (page, id) => VE(page, (lid) => {
     layer: layers[lid] ? { id: lid, ...layers[lid] } : null,
     others: Object.fromEntries(Object.entries(layers).filter(([k]) => k !== lid)),
     historyIndex: st.historyIndex, historyLength: st.history.length,
+    historyLabels: st.history.map(h => h.label),
     zoom: st.view.zoom,
   }
 }, id)
+
+// The editor settles async after doc creation (auto-fit etc). Poll until the
+// view + layers stop moving, then baseline: assertions must never race setup.
+const settle = (page) => VE(page, async () => {
+  const st = () => window.__voidEditor.getState()
+  const sig = () => JSON.stringify({ z: st().view.zoom, l: st().layers.map(l => [l.id, l.x, l.y, l.opacity]) })
+  let last = sig(), stable = 0
+  for (let i = 0; i < 20 && stable < 3; i++) {
+    await new Promise(r => setTimeout(r, 300))
+    const now = sig()
+    stable = now === last ? stable + 1 : 0
+    last = now
+  }
+  return last
+})
 
 const browser = await chromium.launch()
 const consoleErrors = []
@@ -61,6 +77,8 @@ try {
   else fail('mixed doc built (shape+text+raster)', 'got ' + setup.layers.length + ' layers')
   const byType = {}
   for (const l of setup.layers) byType[l.type] = l.id
+  await settle(page)
+  const settledZoom = await VE(page, () => window.__voidEditor.getState().view.zoom)
 
   for (const [type, id] of Object.entries(byType)) {
     await VE(page, (lid) => window.__voidEditor.getState().setActive(lid), id)
@@ -72,8 +90,8 @@ try {
     await snap(page, `unified-${type}.png`)
   }
   const zoomNow = await VE(page, () => window.__voidEditor.getState().view.zoom)
-  if (zoomNow === setup.zoom) pass('zoom stable across selection switches', `zoom=${zoomNow}`)
-  else fail('zoom stable across selection switches', `was ${setup.zoom}, now ${zoomNow}`)
+  if (zoomNow === settledZoom) pass('zoom stable across selection switches', `zoom=${zoomNow}`)
+  else fail('zoom stable across selection switches', `settled ${settledZoom}, now ${zoomNow}`)
 
   // UI-driven edit with full state verification.
   const sid = byType.shape
@@ -88,12 +106,13 @@ try {
   const changed = await stateOf(page, sid)
   if (changed.layer && Math.abs(changed.layer.opacity - 0.4) < 0.01) pass('UI edit changes document state', `opacity=${changed.layer.opacity}`)
   else fail('UI edit changes document state', JSON.stringify(changed.layer))
-  if (changed.historyLength === before.historyLength + 1) pass('UI edit commits exactly one history step', `${before.historyLength}->${changed.historyLength}`)
-  else fail('UI edit commits exactly one history step', `${before.historyLength}->${changed.historyLength}`)
+  const newLabels = changed.historyLabels.slice(before.historyLength)
+  if (changed.historyLength === before.historyLength + 1 && newLabels.length === 1 && newLabels[0] === 'Unified opacity') pass('UI edit commits exactly one history step', `'Unified opacity' ${before.historyLength}->${changed.historyLength}`)
+  else fail('UI edit commits exactly one history step', `labels added: ${JSON.stringify(newLabels)} (${before.historyLength}->${changed.historyLength})`)
   if (changed.activeId === before.activeId && JSON.stringify(changed.selectedIds) === JSON.stringify(before.selectedIds)) pass('UI edit preserves selection', changed.activeId)
   else fail('UI edit preserves selection', JSON.stringify({ a: changed.activeId, s: changed.selectedIds }))
   if (JSON.stringify(changed.others) === JSON.stringify(before.others)) pass('UI edit touches no other layers')
-  else fail('UI edit touches no other layers', JSON.stringify(changed.others))
+  else fail('UI edit touches no other layers', `before=${JSON.stringify(before.others)} after=${JSON.stringify(changed.others)}`)
   await page.keyboard.press('Control+z')
   await page.waitForTimeout(300)
   const undone = await stateOf(page, sid)
