@@ -79,12 +79,9 @@ try {
   const genAssets = st.assets.filter(a => /rocket|launchpad/i.test(a.title ?? '') || true)
   if (st.assets.length >= 2) pass(`3b candidates registered in C1 registry (${st.assets.length})`)
   else fail('3b registry', JSON.stringify(st.assets))
-  const providerMeta = await VE(page, async () => {
-    const m = await import('/src/editor/generation/mock-provider.ts').catch(() => null)
-    return m ? null : 'skip-import'
-  }).catch(() => 'skip')
-  void providerMeta
 
+  // Provider identity (mock-test-provider, remote:false, price:0) is asserted in unit tests +
+  // panel label (2c); the browser must make zero AI network calls (check 13).
   // 4. Place candidate as new image (undoable).
   const firstId = gen.assetIds[0]
   const histBefore = (await stateOf(page)).history.length
@@ -176,14 +173,22 @@ try {
   await snap(page, 'gen-10-export.png')
 
   // 11. Cancel / retry / failure / stale.
-  const cancelled = await VE(page, async () => {
-    const { createMockGenerationProvider } = await import('../src/editor/generation/mock-provider.ts').catch(() => ({}))
-    void createMockGenerationProvider
-    const { startGeneration } = await import('../src/editor/generation/tasks.ts').catch(() => ({}))
-    void startGeneration
-    return 'harness-ok'
-  }).catch(() => 'harness-skip')
-  void cancelled
+  // Real UI cancel: open composer, start, cancel mid-flight, assert cancelled state.
+  await VE(page, () => window.dispatchEvent(new CustomEvent('vc:open', { detail: { name: 'generate' } })))
+  await page.waitForFunction(() => !!document.querySelector('[data-testid="generate-panel"]'), null, { timeout: 10000 }).catch(() => {})
+  await page.fill('#generate-prompt', 'Cancellation probe poster')
+  await page.click('[data-testid="generate-panel"] button:has-text("Generate")')
+  await page.waitForTimeout(150)
+  const cancelBtn = await page.$('[data-testid="generate-panel"] button:has-text("Cancel")')
+  if (cancelBtn) {
+    await cancelBtn.click()
+    await page.waitForTimeout(400)
+    const cancelState = await page.evaluate(() => document.querySelector('[data-testid="generate-panel"]')?.textContent ?? '')
+    if (/cancelled|nothing was added/i.test(cancelState)) pass('11a UI cancel mid-flight')
+    else fail('11a UI cancel', cancelState.slice(0, 160))
+  } else fail('11a UI cancel', 'no Cancel button while running')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(300)
   // Validation failure path (empty prompt) returns failed, not a throw.
   const failCase = await VE(page, () => window.__vcGeneration.generate({ prompt: '', aspect: 'square', count: 1 }))
   if (!failCase?.ok) pass('11a failed generation surfaced', failCase?.error ?? failCase?.state ?? '')
