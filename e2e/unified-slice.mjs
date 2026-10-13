@@ -1,12 +1,10 @@
 // Sprint B.1 integration evidence — drives the REAL editor behind ?unified=1.
-// Fix B: every undo/redo step asserts actual document state (initial value,
-// UI-driven change, resulting state, undo restore, redo restore, no unrelated
-// history/selection changes) using documented shortcuts (Ctrl+Z / Ctrl+Shift+Z).
-// Fix C: auto-creates evidence dirs, FAILS if invariant checks are missing,
-// captures console errors + failed requests, takes real screenshots, writes a
-// machine-readable report, and runs flag-on AND flag-off. Never reports
-// unexecuted tests as passing: any skipped browser section fails the run
-// unless UNIFIED_ALLOW_NO_BROWSER=1, in which case it is reported as blocked.
+// Uses window.__voidEditor / __vcCheck / __vcParity / __vcSave: the same hooks
+// the existing production e2e suite uses (all available in production builds).
+// Covers: mixed doc, per-kind inspector context, UI-driven edit with full
+// state verification, documented Ctrl+Z / Ctrl+Shift+Z undo/redo, preview-vs-
+// export parity, flush+reload save/reopen, flag-off inertness. Writes a
+// machine-readable report; any unexecuted section fails the run.
 import { chromium } from 'playwright'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -19,18 +17,18 @@ const results = []
 const pass = (name, detail = '') => { results.push({ name, ok: true, detail }); console.log('PASS ' + name + (detail ? ' — ' + detail : '')) }
 const fail = (name, detail = '') => { results.push({ name, ok: false, detail }); console.log('FAIL ' + name + (detail ? ' — ' + detail : '')) }
 const snap = async (page, file) => { const p = path.join(EVIDENCE, file); await page.screenshot({ path: p }); return p }
+const VE = (page, fn, arg) => page.evaluate(fn, arg)
 
-const stateOf = (page, id) => page.evaluate((lid) => {
-  const st = window.__ve.getState()
+const stateOf = (page, id) => VE(page, (lid) => {
+  const st = window.__voidEditor.getState()
   const layers = {}
   for (const l of st.layers) layers[l.id] = { type: l.type, opacity: l.opacity, x: l.x, y: l.y }
   return {
-    activeId: st.activeId, selectedIds: [...st.selectedIds],
+    docId: st.doc?.id ?? null, activeId: st.activeId, selectedIds: [...st.selectedIds],
     layer: layers[lid] ? { id: lid, ...layers[lid] } : null,
     others: Object.fromEntries(Object.entries(layers).filter(([k]) => k !== lid)),
     historyIndex: st.historyIndex, historyLength: st.history.length,
-    zoom: st.view.zoom, hasInvariants: typeof window.__vcCheck === 'function',
-    invariants: typeof window.__vcCheck === 'function' ? window.__vcCheck() : 'MISSING',
+    zoom: st.view.zoom,
   }
 }, id)
 
@@ -45,28 +43,27 @@ try {
   page.on('requestfailed', r => failedRequests.push(r.url().slice(0, 140) + ' :: ' + (r.failure()?.errorText ?? '')))
   page.on('response', r => { if (r.status() >= 400) failedRequests.push(r.status() + ' ' + r.url().slice(0, 140)) })
   await page.goto(BASE + '/editor?unified=1', { waitUntil: 'domcontentloaded', timeout: 60000 })
-  await page.waitForFunction(() => window.__ve, null, { timeout: 60000 })
+  await page.waitForFunction(() => window.__voidEditor, null, { timeout: 60000 })
   await page.waitForTimeout(1500)
 
-  const setup = await page.evaluate(() => {
-    const ve = window.__ve.getState()
+  const setup = await VE(page, () => {
+    const ve = window.__voidEditor.getState()
     ve.newDoc({ name: 'Unified B.1 evidence', width: 1080, height: 1350, background: '#ffffff' })
     const shapeId = ve.addShape('rect', 80, 90, 320, 200, { fill: '#111111' })
     ve.addText(80, 1080, 400)
     const c = document.createElement('canvas'); c.width = 120; c.height = 90
     const g = c.getContext('2d'); g.fillStyle = '#b02020'; g.fillRect(0, 0, 120, 90)
     ve.addImage(c, 120, 90, 'Red swatch')
-    const st = window.__ve.getState()
-    return { layers: st.layers.map(l => ({ id: l.id, type: l.type })), zoom: st.view.zoom }
+    const st = window.__voidEditor.getState()
+    return { docId: st.doc.id, layers: st.layers.map(l => ({ id: l.id, type: l.type })), zoom: st.view.zoom }
   })
   if (setup.layers.length === 3) pass('mixed doc built (shape+text+raster)', setup.layers.map(l => l.type).join(','))
   else fail('mixed doc built (shape+text+raster)', 'got ' + setup.layers.length + ' layers')
   const byType = {}
   for (const l of setup.layers) byType[l.type] = l.id
 
-  // 1-3. Context per kind via real selection + screenshots of the real editor.
   for (const [type, id] of Object.entries(byType)) {
-    await page.evaluate((lid) => window.__ve.getState().setActive(lid), id)
+    await VE(page, (lid) => window.__voidEditor.getState().setActive(lid), id)
     await page.waitForTimeout(400)
     const kind = await page.getByTestId('unified-context').getAttribute('data-kind').catch(() => null)
     const line = await page.getByTestId('unified-context-line').textContent().catch(() => '')
@@ -74,32 +71,29 @@ try {
     else fail(`inspector context for ${type}`, 'unified-context not rendered')
     await snap(page, `unified-${type}.png`)
   }
-  const zoomNow = await page.evaluate(() => window.__ve.getState().view.zoom)
+  const zoomNow = await VE(page, () => window.__voidEditor.getState().view.zoom)
   if (zoomNow === setup.zoom) pass('zoom stable across selection switches', `zoom=${zoomNow}`)
   else fail('zoom stable across selection switches', `was ${setup.zoom}, now ${zoomNow}`)
 
-  // 4. Undo/redo with full state verification (Fix B).
+  // UI-driven edit with full state verification.
   const sid = byType.shape
-  await page.evaluate((lid) => window.__ve.getState().setActive(lid), sid)
+  await VE(page, (lid) => window.__voidEditor.getState().setActive(lid), sid)
   await page.waitForTimeout(300)
   const before = await stateOf(page, sid)
   if (before.layer && Math.abs(before.layer.opacity - 1) < 1e-9) pass('undo-probe initial value', 'opacity=1')
   else fail('undo-probe initial value', JSON.stringify(before.layer))
-  // Real UI interaction: number field + Tab commits through the shared transaction.
   await page.getByLabel('Opacity (unified) value').fill('40')
   await page.getByLabel('Opacity (unified) value').press('Tab')
   await page.waitForTimeout(400)
   const changed = await stateOf(page, sid)
-  const othersUntouched = JSON.stringify(changed.others) === JSON.stringify(before.others)
   if (changed.layer && Math.abs(changed.layer.opacity - 0.4) < 0.01) pass('UI edit changes document state', `opacity=${changed.layer.opacity}`)
   else fail('UI edit changes document state', JSON.stringify(changed.layer))
   if (changed.historyLength === before.historyLength + 1) pass('UI edit commits exactly one history step', `${before.historyLength}->${changed.historyLength}`)
   else fail('UI edit commits exactly one history step', `${before.historyLength}->${changed.historyLength}`)
   if (changed.activeId === before.activeId && JSON.stringify(changed.selectedIds) === JSON.stringify(before.selectedIds)) pass('UI edit preserves selection', changed.activeId)
   else fail('UI edit preserves selection', JSON.stringify({ a: changed.activeId, s: changed.selectedIds }))
-  if (othersUntouched) pass('UI edit touches no other layers')
+  if (JSON.stringify(changed.others) === JSON.stringify(before.others)) pass('UI edit touches no other layers')
   else fail('UI edit touches no other layers', JSON.stringify(changed.others))
-  // Documented shortcuts (actions.ts: edit.undo Ctrl+Z, edit.redo Ctrl+Shift+Z).
   await page.keyboard.press('Control+z')
   await page.waitForTimeout(300)
   const undone = await stateOf(page, sid)
@@ -115,34 +109,57 @@ try {
   if (redone.historyIndex === changed.historyIndex) pass('redo steps history forward', `idx=${redone.historyIndex}`)
   else fail('redo steps history forward', `idx=${redone.historyIndex}`)
 
-  // 5. Invariants are mandatory evidence (Fix C: missing check = fail).
-  const inv = await page.evaluate(() => (typeof window.__vcCheck === 'function' ? window.__vcCheck() : 'MISSING'))
-  if (inv === true) pass('production invariants hold with flag on')
-  else fail('production invariants hold with flag on', JSON.stringify(inv).slice(0, 120))
+  // Invariants (array semantics, as the existing suite asserts).
+  const inv = await VE(page, () => (typeof window.__vcCheck === 'function' ? window.__vcCheck() : 'MISSING'))
+  if (Array.isArray(inv) && inv.length === 0) pass('production invariants hold with flag on')
+  else fail('production invariants hold with flag on', JSON.stringify(inv).slice(0, 200))
+
+  // Preview-vs-export parity on the real canvas.
+  const par = await VE(page, () => window.__vcParity({ scale: 1 }))
+  const parOk = par && typeof par.mean === 'number' ? par.mean < 2 && par.worst < 12 : false
+  if (parOk) pass('preview matches export', JSON.stringify(par).slice(0, 120))
+  else fail('preview matches export', JSON.stringify(par).slice(0, 200))
+  await snap(page, 'unified-canvas.png')
+
+  // Real save/reopen: flush autosave, reload, confirm identity + state.
+  await VE(page, () => window.__vcSave.flush())
+  await page.waitForTimeout(400)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForFunction((id) => window.__voidEditor?.getState().doc?.id === id, setup.docId, { timeout: 30000 })
+  await page.waitForTimeout(600)
+  const reopened = await stateOf(page, sid)
+  if (reopened.layer && Math.abs(reopened.layer.opacity - 0.4) < 0.01 && reopened.docId === setup.docId) pass('save/reopen preserves doc + edits', `opacity=${reopened.layer.opacity}`)
+  else fail('save/reopen preserves doc + edits', JSON.stringify({ doc: reopened.docId, layer: reopened.layer }))
+  await VE(page, (lid) => window.__voidEditor.getState().setActive(lid), sid)
+  await page.waitForTimeout(300)
+  if (await page.getByTestId('unified-context').count() > 0) pass('inspector context survives reopen')
+  else fail('inspector context survives reopen')
+  await snap(page, 'unified-reopened.png')
+
   if (consoleErrors.length === 0) pass('no console/page errors with flag on')
   else fail('no console/page errors with flag on', consoleErrors.slice(0, 3).join(' | '))
   if (failedRequests.length === 0) pass('no failed requests with flag on')
   else fail('no failed requests with flag on', failedRequests.slice(0, 3).join(' | '))
   await page.close()
 
-  // ── Flag OFF (?unified=0 revokes; fresh disabled default) ──
+  // ── Flag OFF (?unified=0 revokes; default disabled) ──
   const p2 = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   p2.on('pageerror', e => consoleErrors.push('off/pageerror: ' + String(e).slice(0, 200)))
   await p2.goto(BASE + '/editor?unified=0', { waitUntil: 'domcontentloaded', timeout: 60000 })
-  await p2.waitForFunction(() => window.__ve, null, { timeout: 60000 })
+  await p2.waitForFunction(() => window.__voidEditor, null, { timeout: 60000 })
   await p2.waitForTimeout(1200)
   await p2.goto(BASE + '/editor', { waitUntil: 'domcontentloaded', timeout: 60000 })
-  await p2.waitForFunction(() => window.__ve, null, { timeout: 60000 })
+  await p2.waitForFunction(() => window.__voidEditor, null, { timeout: 60000 })
   await p2.waitForTimeout(1200)
-  await p2.evaluate(() => { window.__ve.getState().newDoc({ name: 'Flag off check', width: 800, height: 600, background: '#fff' }); window.__ve.getState().addText(10, 10, 200) })
+  await VE(p2, () => { window.__voidEditor.getState().newDoc({ name: 'Flag off check', width: 800, height: 600, background: '#fff' }); window.__voidEditor.getState().addText(10, 10, 200) })
   await p2.waitForTimeout(400)
   const absent = await p2.getByTestId('unified-context').count()
   if (absent === 0) pass('flag off renders no unified UI')
   else fail('flag off renders no unified UI', `count=${absent}`)
-  const offOk = await p2.evaluate(() => {
-    const st = window.__ve.getState(); const t = st.layers.find(l => l.type === 'text')
+  const offOk = await VE(p2, () => {
+    const st = window.__voidEditor.getState(); const t = st.layers.find(l => l.type === 'text')
     st.setActive(t.id); st.updateLayer(t.id, { opacity: 0.7 }, 'Flag-off opacity'); st.undo()
-    return window.__ve.getState().layers.find(l => l.id === t.id)?.opacity === 1
+    return window.__voidEditor.getState().layers.find(l => l.id === t.id)?.opacity === 1
   })
   if (offOk) pass('flag off leaves existing transactions intact')
   else fail('flag off leaves existing transactions intact')
