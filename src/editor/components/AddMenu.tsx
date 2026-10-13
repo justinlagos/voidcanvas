@@ -5,7 +5,7 @@ import { applyEffect } from '@/lib/effects'
 import { defaultParams, type EffectType } from '@/store/useStore'
 import { ctx2d, makeCanvas, renderDoc } from '../engine'
 import { getBrand, type BrandKit } from '../io'
-import { Frame, ImagePlus, Layers, Search, Shapes, Type } from 'lucide-react'
+import { Frame, ImagePlus, Layers, Search, Shapes, Sparkles, Type } from 'lucide-react'
 import { effects } from '@/components/EffectSelector'
 import { importFiles } from '../io'
 import { ADJUSTMENT_LABELS, useEditor } from '../store'
@@ -107,6 +107,7 @@ export function AddMenu({ onClose, filtersOnly }: { onClose: () => void; filters
             <button className={tile} onClick={done(() => { const d = useEditor.getState().doc!; const k = Math.round(Math.min(d.width, d.height) * 0.35); s.addShape('rect', (d.width - k) / 2, (d.height - k) / 2, k, k) })}><Shapes size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Shape</span></button>
             <button className={tile} onClick={done(() => { s.addBlank(); s.setTool('brush') })}><Layers size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Blank layer</span></button>
             <button className={tile} onClick={done(async () => { const { addEmptyFrame } = await import('../assets/ops'); const d = useEditor.getState().doc!; const w = Math.round(Math.min(d.width, 640)); const h = Math.round(w * 0.75); addEmptyFrame({ x: Math.round((d.width - w) / 2), y: Math.round((d.height - h) / 2), width: w, height: h }) })}><Frame size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Image frame</span></button>
+            <button className={tile} onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('vc:open', { detail: { name: 'generate' } })) }} title="Generate sample images on this device (free demo)"><Sparkles size={18} className="text-accent-light" /><span className="text-[13px] font-medium">Generate</span></button>
           </div>
         )}
 
