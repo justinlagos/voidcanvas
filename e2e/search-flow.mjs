@@ -206,6 +206,10 @@ try {
   await mob.waitForFunction(() => window.__voidEditor && window.__vcAssets, null, { timeout: 60000 })
   await mob.waitForTimeout(1200)
   const mobCanvas = await mob.evaluate(() => !!document.querySelector('canvas'))
+  // Same browser profile: the session doc (and its selection) restores here.
+  // Clear the selection so the phone shows its mode bar, not the context bar.
+  await VE(mob, () => { window.__voidEditor.getState().setActive(null) })
+  await mob.waitForTimeout(400)
   // Phones have no dock tray: search lives in the Image mode sheet (same panel).
   await mob.getByRole('button', { name: 'Image', exact: true }).click()
   await mob.waitForTimeout(500)
