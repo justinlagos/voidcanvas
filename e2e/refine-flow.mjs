@@ -94,6 +94,7 @@ try {
     if (!d) return false
     return Array.from(d.querySelectorAll('button')).some(b => b.textContent?.includes('Accept proposal') && !b.disabled)
   })
+  const dlgText = () => page.evaluate(() => (document.querySelector('[data-testid="repair-dialog"]')?.textContent ?? '').replace(/\s+/g, ' ').slice(0, 300))
   const meanOf = (page, layerId, rect) => VE(page, args => {
     const l = window.__voidEditor.getState().layers.find(v => v.id === args.id)
     const d = l.canvas.getContext('2d').getImageData(args.r.x, args.r.y, args.r.w, args.r.h).data
@@ -102,25 +103,28 @@ try {
     return s / (d.length / 4 * 3)
   }, { id: layerId, r: rect })
 
-  // 1. Remove caption text from the photographic background.
+  // 1. Remove the caption bar (the whole unwanted object: text + bar) from the
+  // photo. The selection must cover the object so the ring context is background;
+  // a hole buried inside the bar has no clean donor and is honestly refused
+  // (unit-covered in caption-removal.test.ts).
   const bar = { x: 120, y: 470, w: 560, h: 60 }
-  const outsideBefore = await VE(page, args => window.__vcRefine.sampleOutside(args.id, args.hole), { id: photoId, hole: { x: 200, y: 480, w: 300, h: 40 } })
+  const outsideBefore = await VE(page, args => window.__vcRefine.sampleOutside(args.id, args.hole), { id: photoId, hole: { x: 120, y: 470, w: 560, h: 60 } })
   await VE(page, () => window.__voidEditor.getState().setActive(photoId), photoId).catch(() => {})
   await VE(page, id => window.__voidEditor.getState().setActive(id), photoId)
-  await VE(page, r => window.__vcRefine.selectRect(r.x, r.y, r.w, r.h), { x: 200, y: 480, w: 300, h: 40 })
+  await VE(page, r => window.__vcRefine.selectRect(r.x, r.y, r.w, r.h), { x: 120, y: 470, w: 560, h: 60 })
   const histBefore = (await stateOf(page)).history.length
   await openRepair()
   await waitProposal()
   if (await acceptVisible()) pass('1a text-removal proposal ready')
-  else fail('1a proposal', 'Accept never enabled')
+  else fail('1a proposal', 'Accept never enabled | ' + (await dlgText()))
   await snap(page, 'refine-01-proposal.png')
   await page.click('[data-testid="repair-dialog"] button:has-text("Accept proposal")')
   await page.waitForTimeout(600)
-  const barMean = await meanOf(page, photoId, { x: 200, y: 480, w: 300, h: 40 })
+  const barMean = await meanOf(page, photoId, { x: 120, y: 470, w: 560, h: 60 })
   // Caption bar was dark (~60); repair must read as background (~200+).
   if (barMean > 150) pass(`1b caption text removed (mean ${Math.round(barMean)})`)
   else fail('1b removal', 'mean=' + Math.round(barMean))
-  const outsideAfter = await VE(page, args => window.__vcRefine.sampleOutside(args.id, args.hole), { id: photoId, hole: { x: 200, y: 480, w: 300, h: 40 } })
+  const outsideAfter = await VE(page, args => window.__vcRefine.sampleOutside(args.id, args.hole), { id: photoId, hole: { x: 120, y: 470, w: 560, h: 60 } })
   if (Math.abs((outsideBefore ?? 0) - (outsideAfter ?? -1)) < 0.5) pass('1c surrounding pixels unchanged')
   else fail('1c pixel integrity', `${outsideBefore} -> ${outsideAfter}`)
   st = await stateOf(page)
@@ -139,7 +143,7 @@ try {
     const spotAfter = await meanOf(page, photoId, { x: 190, y: 190, w: 24, h: 24 })
     if (spotAfter > spotBefore + 20) pass(`2 blemish healed (${Math.round(spotBefore)} -> ${Math.round(spotAfter)})`)
     else fail('2 blemish', `${Math.round(spotBefore)} -> ${Math.round(spotAfter)}`)
-  } else fail('2 blemish proposal', 'no proposal')
+  } else fail('2 blemish proposal', 'no proposal | ' + (await dlgText()))
 
   // 3. Repair uneven texture (sky area with sun edge nearby).
   await VE(page, r => window.__vcRefine.selectRect(r.x, r.y, r.w, r.h), { x: 500, y: 250, w: 60, h: 40 })
@@ -149,7 +153,7 @@ try {
     await page.click('[data-testid="repair-dialog"] button:has-text("Accept proposal")')
     await page.waitForTimeout(500)
     pass('3 texture repair accepted')
-  } else fail('3 texture proposal', 'no proposal')
+  } else fail('3 texture proposal', 'no proposal | ' + (await dlgText()))
   await snap(page, 'refine-03-texture.png')
 
   // 4. Region near the image edge.
@@ -176,7 +180,7 @@ try {
     await page.click('[data-testid="repair-dialog"] button:has-text("Accept proposal")')
     await page.waitForTimeout(500)
     pass('5 feathered repair accepted')
-  } else fail('5 feathered proposal', 'no proposal')
+  } else fail('5 feathered proposal', 'no proposal | ' + (await dlgText()))
 
   // 6. Rotated layer: coordinates cross-check + repair still lands correctly.
   await VE(page, id => window.__voidEditor.getState().updateLayer(id, { rotation: 0.26 }, 'Rotate'), photoId)
@@ -291,7 +295,7 @@ try {
     void noPatch
     if (/changed|Stale|gone/i.test(note)) pass('14 stale accept refused with notice')
     else fail('14 stale', note.slice(0, 200))
-  } else fail('14 stale setup', 'no proposal to go stale')
+  } else fail('14 stale setup', 'no proposal to go stale | ' + (await dlgText()))
   await page.keyboard.press('Escape')
   await page.waitForTimeout(300)
 
