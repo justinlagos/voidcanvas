@@ -11,6 +11,7 @@ import { checkInvariants } from '../invariants'
 import { useEditor, ADJUSTMENT_LABELS } from '../store'
 import { AddMenu } from './AddMenu'
 import { GeneratePanel } from '../generation/GeneratePanel'
+import { SearchPanel } from '../assets/search/SearchPanel'
 import { CommandPalette } from './CommandPalette'
 import { BrandKitDialog, ResizeDialog, ShortcutSheet, applyBrand } from './Dialogs'
 import { BoardsPanel } from './BoardsPanel'
@@ -160,6 +161,36 @@ export function EditorShell() {
       place: async (assetId: string) => (await import('../generation/ingest-generated')).placeGeneratedAsset(assetId),
       fill: async (layerId: string, assetId: string) => (await import('../generation/ingest-generated')).fillFrameWithGenerated(layerId, assetId),
       replace: async (layerId: string, assetId: string) => (await import('../generation/ingest-generated')).replaceWithGenerated(layerId, assetId),
+    }
+    // SEARCH-A licensed search (e2e/search-flow.mjs): fixture search,
+    // rights inspection, safe import, quota behaviour. Prod-safe hooks.
+    w.__vcSearch = {
+      search: async (query: string, orientation?: 'any' | 'landscape' | 'portrait' | 'square') => {
+        const { createSampleLibraryProvider } = await import('../assets/search/providers')
+        return createSampleLibraryProvider().search({ query, orientation })
+      },
+      importResult: async (id: string) => {
+        const [{ createSampleLibraryProvider }, { importSearchResult }] = await Promise.all([
+          import('../assets/search/providers'),
+          import('../assets/search/import'),
+        ])
+        const provider = createSampleLibraryProvider()
+        const [result] = await provider.search({ query: '' })
+        const target = (await provider.search({ query: '' })).find(r => r.id === id) ?? result
+        if (!target) return null
+        const asset = await importSearchResult(provider, target, target.rights)
+        return asset.resourceId
+      },
+      place: async (assetId: string) => (await import('../assets/ops')).placeTrayAsset(assetId),
+      providers: async () => {
+        const m = await import('../assets/search/providers')
+        return [m.createSampleLibraryProvider(), m.createUnsplashAdapter(), m.createPexelsAdapter(), m.createPixabayAdapter()].map(p => ({
+          id: p.id,
+          available: p.availability().available,
+          filters: p.filters,
+          rules: p.rules,
+        }))
+      },
     }
     // C1 native asset flow (e2e/native-asset-flow.mjs): validated ingest,
     // frame, place/fill/replace and registry reads. Same prod-safe hooks
@@ -660,6 +691,7 @@ export function EditorShell() {
       {ctxMenu && hasDoc && !phone && <CanvasMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onDone={closeCtx} />}
       {m === 'add' && hasDoc && <AddMenu onClose={close} />}
       {m === 'generate' && hasDoc && <GeneratePanel onClose={close} />}
+      {m === 'search' && hasDoc && <SearchPanel onClose={close} />}
       {m === 'filters' && hasDoc && <AddMenu filtersOnly onClose={close} />}
       {m === 'palette' && hasDoc && <CommandPalette onClose={close} open={x => setModal(x)} />}
       {m === 'resize' && hasDoc && <ResizeDialog onClose={close} />}
