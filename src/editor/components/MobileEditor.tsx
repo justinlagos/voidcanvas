@@ -21,6 +21,7 @@ import { touchCanvas } from '../touch'
 import type { PanelId } from '../ui-store'
 import { ColourChip, Label, Row, Sheet, chip, primary } from './phone-ui'
 import { ContextToolSheet, PhoneContextBar, type CtxTool } from './PhoneContextBar'
+import { RefineBar, refineActiveLayer } from '../refine/RefineBar'
 
 // The phone Editor: a top bar, the canvas, and five modes along the bottom. Selecting something turns the
 // Select sheet into its inspector (every setting the desktop Properties panel has). A long press opens the
@@ -72,6 +73,7 @@ export function MobileEditor() {
   const [context, setContext] = useState<{ id: string; under: string[] } | null>(null)
   // The bar's tool sheet that is open for the selection (Font, Colour, Arrange …).
   const [ctxTool, setCtxTool] = useState<CtxTool | null>(null)
+  const refining = useEditor(s => s.refineLayerId)
   const s = useEditor.getState()
 
   // The canvas behaves for fingers while this shell is shown.
@@ -146,6 +148,9 @@ export function MobileEditor() {
         <button aria-label="More" onClick={() => openSheet('more')} className="w-10 h-10 flex items-center justify-center rounded-lg text-void-200 active:bg-void-800"><MoreHorizontal size={20} /></button>
         <button onClick={() => openSheet('export')} className="h-9 px-3 ml-0.5 rounded-lg bg-white text-void-950 text-[13px] font-medium inline-flex items-center gap-1.5"><Share2 size={15} />Share</button>
       </header>
+
+      {/* Refine mode reuses the desktop bar: same tools, same honest provider gating. */}
+      {!!refining && <RefineBar />}
 
       {/* Canvas, with its pills and the sheets that sit on it */}
       <div className="flex-1 min-h-0 relative flex">
@@ -279,6 +284,7 @@ function SelectSheet({ layer, count, onDone, onSeveral }: { layer?: Layer; count
       <Row>
         {layer.type === 'text' && <button className={primary} onClick={() => { useEditor.setState({ editingTextId: layer.id }); onDone() }}><PenLine size={15} />Edit text</button>}
         {layer.type === 'raster' && <button className={primary} onClick={() => { s.setTool('crop'); onDone() }}><Crop size={15} />Crop</button>}
+        {layer.type === 'raster' && <button className={chip} onClick={() => { refineActiveLayer(); onDone() }}><Wand2 size={15} />Refine area</button>}
         {layer.type === 'raster' && <button className={chip} onClick={() => { removeBackground(layer.id); onDone() }}><ImageOff size={15} />Remove background</button>}
         {layer.type === 'raster' && <button className={chip} onClick={() => openModal('filters')}><Eclipse size={15} />Filters</button>}
         <button className={chip} onClick={() => s.duplicateLayer(layer.id)}><Copy size={15} />Duplicate</button>

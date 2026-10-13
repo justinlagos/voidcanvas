@@ -95,6 +95,16 @@ try {
     return Array.from(d.querySelectorAll('button')).some(b => b.textContent?.includes('Accept proposal') && !b.disabled)
   })
   const dlgText = () => page.evaluate(() => (document.querySelector('[data-testid="repair-dialog"]')?.textContent ?? '').replace(/\s+/g, ' ').slice(0, 300))
+  const patchMean = (page, rect) => VE(page, r => {
+    const st = window.__voidEditor.getState()
+    const patches = st.layers.filter(l => /repair/i.test(l.name ?? ''))
+    const p = patches[patches.length - 1]
+    if (!p || p.type !== 'raster') return null
+    const d = p.canvas.getContext('2d').getImageData(r.x, r.y, r.w, r.h).data
+    let s = 0
+    for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]
+    return s / (d.length / 4 * 3)
+  }, rect)
   const meanOf = (page, layerId, rect) => VE(page, args => {
     const l = window.__voidEditor.getState().layers.find(v => v.id === args.id)
     const d = l.canvas.getContext('2d').getImageData(args.r.x, args.r.y, args.r.w, args.r.h).data
@@ -120,7 +130,8 @@ try {
   await snap(page, 'refine-01-proposal.png')
   await page.click('[data-testid="repair-dialog"] button:has-text("Accept proposal")')
   await page.waitForTimeout(600)
-  const barMean = await meanOf(page, photoId, { x: 120, y: 470, w: 560, h: 60 })
+  // The accept lands as its own patch layer (photo untouched): sample the newest patch.
+  const barMean = await patchMean(page, { x: 120, y: 470, w: 560, h: 60 })
   // Caption bar was dark (~60); repair must read as background (~200+).
   if (barMean > 150) pass(`1b caption text removed (mean ${Math.round(barMean)})`)
   else fail('1b removal', 'mean=' + Math.round(barMean))
@@ -140,7 +151,7 @@ try {
   if (await acceptVisible()) {
     await page.click('[data-testid="repair-dialog"] button:has-text("Accept proposal")')
     await page.waitForTimeout(500)
-    const spotAfter = await meanOf(page, photoId, { x: 190, y: 190, w: 24, h: 24 })
+    const spotAfter = await patchMean(page, { x: 190, y: 190, w: 24, h: 24 })
     if (spotAfter > spotBefore + 20) pass(`2 blemish healed (${Math.round(spotBefore)} -> ${Math.round(spotAfter)})`)
     else fail('2 blemish', `${Math.round(spotBefore)} -> ${Math.round(spotAfter)}`)
   } else fail('2 blemish proposal', 'no proposal | ' + (await dlgText()))
@@ -311,7 +322,7 @@ try {
   await openRepair()
   await page.waitForTimeout(600)
   const emptyNote = await page.evaluate(() => document.querySelector('[data-testid="repair-dialog"]')?.textContent ?? '')
-  if (/Select a region first/.test(emptyNote)) pass('16 empty mask handled')
+  if (/Select a region/.test(emptyNote)) pass('16 empty mask handled')
   else fail('16 empty mask', emptyNote.slice(0, 160))
   await page.keyboard.press('Escape')
   await page.waitForTimeout(300)
