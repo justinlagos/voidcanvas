@@ -110,6 +110,8 @@ async function desktopInteractions(p) {
   // Rows do not say what kind of layer they hold, so press rows until one shows image actions (the photo layer).
   const rows = p.locator('[role="listbox"][aria-label="Layers"] [role="option"]')
   const floating = p.locator('[data-floating]')
+  // The floating bar appears only with the Move tool. Set it explicitly (V) rather than inherit whatever earlier checks left.
+  await p.evaluate(() => document.activeElement?.blur()); await p.keyboard.press('v'); await p.waitForTimeout(150)
   let row = rows.first(), isRaster = false
   for (let i = 0, count = await rows.count(); i < Math.min(count, 8) && !isRaster; i++) {
     row = rows.nth(i); await row.click(); await p.waitForTimeout(150)
