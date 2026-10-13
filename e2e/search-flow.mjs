@@ -206,8 +206,9 @@ try {
   await mob.waitForFunction(() => window.__voidEditor && window.__vcAssets, null, { timeout: 60000 })
   await mob.waitForTimeout(1200)
   const mobCanvas = await mob.evaluate(() => !!document.querySelector('canvas'))
-  await VE(mob, () => { try { window.__voidUi?.getState()?.showPanel?.('assets') } catch {} })
-  await mob.waitForTimeout(400)
+  // Phones have no dock tray: search lives in the Image mode sheet (same panel).
+  await mob.getByRole('button', { name: 'Image', exact: true }).click()
+  await mob.waitForTimeout(500)
   await mob.getByRole('button', { name: 'Search images' }).click()
   await mob.waitForTimeout(500)
   const mobPanel = await mob.getByTestId('search-panel').count()

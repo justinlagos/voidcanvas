@@ -363,6 +363,7 @@ function ImageSheet({ layer, onDone }: { layer?: Layer; onDone: () => void }) {
       <Row>
         <button className={primary} onClick={() => file.current?.click()}><ImageIcon size={15} />Add photo</button>
         <button className={chip} onClick={() => cam.current?.click()}><Camera size={15} />Camera</button>
+        <button className={chip} onClick={() => { openModal('search'); onDone() }} title="Search licensed images. Trial library works now; stock sources need approved API keys."><Search size={15} />Search images</button>
         {layer?.type === 'raster' && <button className={chip} onClick={() => { s.setTool('crop'); onDone() }}><Crop size={15} />Crop</button>}
         {layer?.type === 'raster' && <button className={chip} onClick={() => { removeBackground(layer.id); onDone() }}><ImageOff size={15} />Remove background</button>}
         {layer?.type === 'raster' && <button className={chip} onClick={() => s.flip(layer.id, 'h')}><FlipHorizontal size={15} />Flip</button>}
