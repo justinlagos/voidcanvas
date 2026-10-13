@@ -51,13 +51,14 @@ try {
   else fail('2 search panel', 'panel did not open')
   await snap(page, 'search-02-panel.png')
 
-  // 3. Sample provider search returns labelled trial fixtures.
-  await page.getByLabel('Keywords').fill('rocket')
+  // 3. Sample library: empty query lists every trial scene, each honestly badged
+  // (generated on-device, free to use — never presented as stock photography).
+  await page.getByLabel('Keywords').fill('')
   await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.waitForSelector('[data-testid="search-panel"] [data-result]', { timeout: 10000 })
   const resultCount = await page.locator('[data-testid="search-panel"] [data-result]').count()
   const badgeTexts = await page.locator('[data-testid="search-panel"] [data-result]').allInnerTexts()
-  if (resultCount >= 2 && badgeTexts.every(t => /Trial fixture|Unverified source/i.test(t))) pass(`3 sample search returns honest trial fixtures (${resultCount})`)
+  if (resultCount === 6 && badgeTexts.every(t => /commercial OK/i.test(t))) pass(`3 sample search lists 6 labelled trial scenes`)
   else fail('3 sample search', `count=${resultCount} badges=${badgeTexts.join(' / ').slice(0, 200)}`)
 
   // 4. Orientation filter actually filters.
@@ -66,12 +67,17 @@ try {
   await page.waitForTimeout(800)
   const portraitCount = await page.locator('[data-testid="search-panel"] [data-result]').count()
   const portraitBadges = await page.locator('[data-testid="search-panel"] [data-result]').allInnerTexts()
-  if (portraitCount >= 1 && portraitCount < resultCount) pass(`4 orientation filter narrows results (${resultCount} -> ${portraitCount}, portrait)`)
+  if (portraitCount === 2 && portraitCount < resultCount) pass(`4 orientation filter narrows results (${resultCount} -> ${portraitCount}, portrait)`)
   else fail('4 orientation filter', `before=${resultCount} after=${portraitCount} ${portraitBadges.join('|').slice(0, 160)}`)
+  // 4b. Keyword search finds the poster-useful scene.
   await page.getByLabel('Orientation').selectOption('any')
-  await page.getByLabel('Keywords').fill('rocket')
+  await page.getByLabel('Keywords').fill('rocket launch')
   await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.waitForSelector('[data-testid="search-panel"] [data-result]', { timeout: 10000 })
+  const rocketCount = await page.locator('[data-testid="search-panel"] [data-result]').count()
+  const rocketTitles = await page.locator('[data-testid="search-panel"] [data-result]').allInnerTexts()
+  if (rocketCount >= 1 && rocketTitles.some(t => /rocket/i.test(t))) pass(`4b keyword search finds the rocket scene (${rocketCount})`)
+  else fail('4b keyword search', `count=${rocketCount} ${rocketTitles.join('|').slice(0, 160)}`)
 
   // 5. Licence detail discloses source, licence, and the commercial-use warning.
   const firstId = await page.locator('[data-testid="search-panel"] [data-result]').first().getAttribute('data-result')
@@ -79,8 +85,8 @@ try {
   await page.getByRole('button', { name: `Licence details for ${firstTitle.split('\n')[0]}` }).click()
   await page.waitForTimeout(400)
   const panelText = await panel.innerText()
-  const licenceOk = /Licence:/.test(panelText) && /Trial fixture/.test(panelText) && /Verify rights|not cleared for commercial/i.test(panelText)
-  if (licenceOk) pass('5 licence detail discloses source + commercial warning')
+  const licenceOk = /Licence:/.test(panelText) && /VoidCanvas sample/.test(panelText) && /Sample library/.test(panelText) && /not a stock photograph/.test(panelText)
+  if (licenceOk) pass('5 licence detail discloses source, licence and limits')
   else fail('5 licence detail', panelText.slice(0, 300))
   await snap(page, 'search-05-licence.png')
 
@@ -91,10 +97,10 @@ try {
   const searchDisabled = await page.getByRole('button', { name: 'Search', exact: true }).isDisabled()
   if (/Unsplash API key|API key/.test(unsplashNote) && searchDisabled) pass('6 unconfigured provider states requirements, search disabled')
   else fail('6 disabled provider', `disabled=${searchDisabled} note=${unsplashNote.slice(0, 200)}`)
-  await page.getByLabel('Source').selectOption('sample')
+  await page.getByLabel('Source').selectOption('sample-library')
   await page.waitForTimeout(300)
 
-  // 7. Place: import drops a new layer; rights record is trial/unverified, never "commercial OK".
+  // 7. Place: import drops a new layer with its on-device sample rights record.
   const layersBefore = (await stateOf(page)).layers.length
   await page.getByRole('button', { name: `Import and place ${firstTitle.split('\n')[0]}` }).click()
   await page.waitForFunction(
@@ -105,8 +111,8 @@ try {
   let st = await stateOf(page)
   const placed = st.layers[st.layers.length - 1]
   const rights = await VE(page, rid => window.__vcAssets.op('assetFromId', rid).then(a => a ? { licence: a.rights?.licence, commercial: a.rights?.commercialUse, source: a.source, url: a.rights?.sourceUrl } : null), placed.assetId)
-  const rightsOk = rights && rights.licence === 'trial-fixture' && rights.commercial === 'unverified' && /^fixture:/.test(rights.url ?? '')
-  if (placed.assetId && rightsOk) pass('7 place imports with trial rights record (commercial unverified)', `asset=${String(placed.assetId).slice(0, 12)}…`)
+  const rightsOk = rights && rights.licence === 'VoidCanvas sample — free to use' && rights.commercial === 'verified' && rights.source === 'external_search'
+  if (placed.assetId && rightsOk) pass('7 place imports with sample rights record (on-device, commercial OK)', `asset=${String(placed.assetId).slice(0, 12)}…`)
   else fail('7 place/rights', JSON.stringify({ placed, rights }))
   const placedLayerId = placed.id
   const placedAssetId = placed.assetId
@@ -176,7 +182,7 @@ try {
     return out
   }, assetIds)
   const layersOk = st.layers.length >= 2
-  const rightsSurvive = reopenRights.length === assetIds.length && reopenRights.every(r => r && r.licence === 'trial-fixture' && r.commercial === 'unverified')
+  const rightsSurvive = reopenRights.length === assetIds.length && reopenRights.every(r => r && r.licence === 'VoidCanvas sample — free to use' && r.commercial === 'verified')
   if (layersOk && rightsSurvive) pass(`11b reopen: layers + lineage + ${reopenRights.length} rights records intact`)
   else fail('11b reopen', JSON.stringify({ layers: st.layers.length, rights: reopenRights }))
   await snap(page, 'search-11-reopened.png')
