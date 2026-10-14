@@ -432,6 +432,18 @@ try {
   } else {
     fail('selection reconciliation leaves zero stale references after Cascade resync', JSON.stringify(postResync))
   }
+  if (
+    cascadeBehaviorReport.hasCascadeBase &&
+    postResync.identityPreserved &&
+    postResync.overridePreserved &&
+    postResync.masterUpdatePropagated &&
+    postResync.selectedIds.includes(cascadeBehaviorReport.childIdBefore) &&
+    postResync.activeId === cascadeBehaviorReport.childIdBefore
+  ) {
+    pass('Cascade resync preserves variant identity, local override, inherited update and active selection', JSON.stringify(postResync))
+  } else {
+    fail('Cascade resync preserves variant identity, local override, inherited update and active selection', JSON.stringify(postResync))
+  }
 
   // Production invariants check
   const inv = await VE(page, () => (typeof window.__vcCheck === 'function' ? window.__vcCheck() : 'MISSING'))

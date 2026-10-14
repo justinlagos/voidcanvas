@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { reconcileCascadeBoard } from '../cascade-integrity'
 import { staleRefsPatch, useEditor } from '../store'
 import type { Doc, Group, Layer } from '../types'
 
@@ -147,6 +148,41 @@ describe('useEditor writes reconcile selection across live editor operations', (
     expect(s.activeId).toBe('A')
     expect(s.keyObjectId).toBe('A')
     expect(s.activeFrameId).toBe('f1')
+  })
+
+  it('keeps variant selection and keyObjectId intact across non-destructive Cascade board reconciliation + undo/redo', () => {
+    const d = {
+      id: 'd-cas', name: 'Cascade doc', width: 500, height: 200, background: null,
+      frames: [
+        { id: 'f1', name: 'Master', x: 0, y: 0, width: 100, height: 100, background: '#fff' },
+        { id: 'f2', name: 'Variant', x: 200, y: 0, width: 100, height: 100, background: '#fff', linkedFrom: 'f1' },
+      ],
+    } as Doc
+    const mA = layer('mA', { frameId: 'f1', fill: '#111111', opacity: 0.8 })
+    const vA = { ...layer('vA', { frameId: 'f2', srcId: 'mA', fill: '#ff0055', opacity: 1, x: 210 }), cascadeBase: { fill: '#111111', opacity: 1 } } as unknown as Layer
+    const vLocal = layer('vLocal', { frameId: 'f2', fill: '#00aa55', x: 240 })
+    useEditor.getState().loadFramed(d, [mA, vA, vLocal], [], [])
+    useEditor.setState({ selectedIds: ['vA', 'vLocal'], activeId: 'vA', keyObjectId: 'vLocal', activeFrameId: 'f2' } as any)
+
+    const freshGenerated = [layer('throwaway-id', { frameId: 'f2', srcId: 'mA', fill: '#111111', opacity: 0.8, x: 200 })]
+    const r = reconcileCascadeBoard([mA], [vA, vLocal], [], freshGenerated, [])
+    useEditor.getState().applyBoards(d, [mA, ...r.layers], r.groups, 'Update linked variants', 'f1')
+
+    const after = useEditor.getState()
+    expect(after.selectedIds).toEqual(['vA', 'vLocal'])
+    expect(after.activeId).toBe('vA')
+    expect(after.keyObjectId).toBe('vLocal')
+    const vAfter = after.layers.find(l => l.id === 'vA') as any
+    expect(vAfter.fill).toBe('#ff0055') // local override preserved
+    expect(vAfter.opacity).toBe(0.8) // master change inherited
+
+    // Undo and redo preserve selection and variant identity
+    useEditor.getState().undo()
+    expect((useEditor.getState().layers.find(l => l.id === 'vA') as any)?.opacity).toBe(1)
+    expect(useEditor.getState().selectedIds).toEqual(['vA', 'vLocal'])
+    useEditor.getState().redo()
+    expect((useEditor.getState().layers.find(l => l.id === 'vA') as any)?.opacity).toBe(0.8)
+    expect(useEditor.getState().selectedIds).toEqual(['vA', 'vLocal'])
   })
 
   it('leaves selection alone when an unrelated field changes', () => {
