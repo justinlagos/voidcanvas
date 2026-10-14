@@ -13,6 +13,7 @@ import { getSubs, setSubs, stageApi } from './Stage'
 import { Floating } from './ColorPicker'
 import { useEffect, useRef, useState } from 'react'
 import { Button, IconButton, focusRing } from './ui'
+import { RefineBar } from '../refine/RefineBar'
 
 // The tool options bar, like Photoshop and Photopea: it changes with the tool, and holds the settings
 // you reach for most while that tool is in your hand.
@@ -73,6 +74,7 @@ export function OptionsBar() {
   const selection = useEditor(s => s.selection)
   const editingMask = useEditor(s => s.editingMask)
   const quickMask = useEditor(s => s.quickMask)
+  const refining = useEditor(s => s.refineLayerId)
   const cloneSource = useEditor(s => s.cloneSource)
   const transform = useEditor(s => s.transform)
   const active = useEditor(s => s.layers.find(l => l.id === s.activeId))
@@ -100,6 +102,7 @@ export function OptionsBar() {
     )
   }
 
+  if (refining) return <RefineBar />
   return (
     <div className="vc-chrome h-10 shrink-0 flex items-center gap-3 px-3 overflow-x-auto no-scrollbar border-b border-white/[0.06] bg-[#111115] text-void-300">
       {Icon && <span className="flex items-center gap-1.5 shrink-0 pr-3 border-r border-white/[0.08] text-void-100" title={def?.label}><Icon size={16} strokeWidth={1.75} /><span className="hidden lg:inline text-[12px]">{def?.label.split(' (')[0]}</span></span>}

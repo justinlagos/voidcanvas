@@ -12,6 +12,7 @@ import { Loader2, Sparkles, X } from 'lucide-react'
 import { useEditor } from '../store'
 import { isEmptyFrame } from '../assets/place'
 import { createMockGenerationProvider, validateGenerationRequest, type Aspect, type GeneratedCandidate } from './mock-provider'
+import { REAL_ADAPTERS } from './providers/disabled'
 import { markStaleIfMovedOn, startGeneration, type GenerationRun } from './tasks'
 import { fillFrameWithGenerated, placeGeneratedAsset, registerGeneratedBatch, replaceWithGenerated } from './ingest-generated'
 import type { NativeAsset } from '../assets/asset-store'
@@ -145,6 +146,24 @@ export function GeneratePanel({ onClose }: { onClose: () => void }) {
           Free, local demonstration provider <span className="font-mono text-[11.5px]">(mock-test-provider)</span> — sample artwork for layout, never
           real AI. Nothing leaves this device.
         </p>
+        <details className="rounded-lg border border-white/[0.07] px-3 py-2">
+          <summary className={`cursor-pointer text-[12.5px] text-void-300 ${focusRing}`}>
+            Real providers (not configured)
+          </summary>
+          <ul className="mt-2 space-y-1.5">
+            {REAL_ADAPTERS.map(make => {
+              const info = make()
+              const avail = info.availability()
+              return (
+                <li key={info.id} className="text-[12px] text-void-500">
+                  <span className="text-void-300">{info.displayName}</span> — disabled:{' '}
+                  {!avail.available ? avail.reason : 'not configured'}
+                  <span className="block text-void-600">Capabilities if enabled: {info.capabilities.join(', ')}</span>
+                </li>
+              )
+            })}
+          </ul>
+        </details>
         <div>
           <label htmlFor="generate-prompt" className="block text-[12.5px] font-medium mb-1">
             Describe the image
