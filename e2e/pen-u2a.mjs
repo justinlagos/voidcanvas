@@ -62,6 +62,37 @@ try {
   await page.evaluate(()=>window.__voidEditor.getState().redo())
   state=await read()
   eq(state.node.x,200,'Redo restores snapped path')
+  // Hit a real on-canvas handle and drag it. Symmetric mode must retain
+  // equal-length opposite handles rather than only a metadata boolean.
+  const handle=await page.evaluate(()=>{
+    const st=window.__voidEditor.getState()
+    const n=st.doc.paths.find(p=>p.id==='u2path').subpaths[0].nodes[1]
+    const box=document.querySelector('[data-stage]').getBoundingClientRect()
+    return {x:box.left+st.view.panX+n.outX*st.view.zoom,
+      y:box.top+st.view.panY+n.outY*st.view.zoom}
+  })
+  await page.mouse.move(handle.x,handle.y)
+  await page.mouse.down()
+  await page.mouse.move(handle.x+14,handle.y-10,{steps:7})
+  await page.mouse.up()
+  const afterHandle=await read()
+  eq(afterHandle.node.symmetric,true,'live symmetric flag survives drag')
+  const n=afterHandle.node
+  if(Math.abs(n.inX+n.outX-2*n.x)>0.01||Math.abs(n.inY+n.outY-2*n.y)>0.01)
+    throw Error('handle dragging did not preserve mirror geometry: '+JSON.stringify(n))
+  console.log('PASS real Bézier handle drag keeps mirror geometry')
+  // Verify that .void persistence retains the new symmetric node extension
+  // and the document-pixel coordinates after the browser's edit workflow.
+  await page.waitForFunction(()=>!!window.__vcAssets?.saveVoid,null,{timeout:15000})
+  const saved=await page.evaluate(async()=>window.__vcAssets.saveVoid())
+  if(!saved?.b64||saved.len<1000)throw Error('editable .void save unavailable')
+  await page.evaluate(()=>window.__voidEditor.getState().closeDoc())
+  await page.evaluate(b64=>window.__vcAssets.openVoid(b64),saved.b64)
+  const reopened=await read()
+  eq(reopened.node.symmetric,true,'.void round-trip keeps symmetric vector anchor')
+  if(Math.abs(reopened.node.outX-n.outX)>0.01)
+    throw Error('.void round-trip changed vector handles')
+  console.log('PASS .void reopens editable U2-A Bézier path')
   if(failures.length)throw Error('browser errors: '+failures.join('; '))
   console.log('U2-A real UI browser acceptance complete')
 }finally{await browser.close()}
