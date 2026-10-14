@@ -205,7 +205,7 @@ export function reconcileCascadeBoard(
     const prior = (old.cascadeConflicts ?? []).filter(k => {
       if (k === 'asset') return old.type === 'raster' && master.type === 'raster' &&
         assetSignature(old) !== assetSignature(master)
-      if (k === 'vector path') return old.type === 'shape' && master.type === 'shape' &&
+      if (k === 'vector path') return old.type === 'shape' && master.type === 'shape' && f.type === 'shape' &&
         !sameStructure(jsonCopy(old.subpaths), jsonCopy(f.subpaths))
       if (k.includes(':')) return true
       return (old as unknown as Record<string, unknown>)[k] !==
