@@ -72,6 +72,53 @@ export function stampCascadeBaseline(generated: Layer[], masters: Layer[]): Laye
   })
 }
 
+export type LinkedCascadeGroup = Group & {
+  cascadeSourceId?: string
+  cascadeBase?: Record<string, unknown>
+  cascadeConflicts?: string[]
+}
+
+const GROUP_PROPS = ['name', 'visible', 'opacity', 'blend', 'locked', 'fxExclude'] as const
+function groupBaseline(group: Group): Record<string, unknown> {
+  const src = group as unknown as Record<string, unknown>
+  const baseline: Record<string, unknown> = {}
+  for (const key of GROUP_PROPS)
+    if (Object.prototype.hasOwnProperty.call(src, key)) baseline[key] = src[key]
+  return baseline
+}
+
+/** Source group to linked group mapping via the stable master layer ID.
+ * Walk nested ancestors so empty temporary group ids never become persistent
+ * source references. No second group store or regenerated identity. */
+export function stampCascadeGroups(
+  generatedGroups: Group[], masterGroups: Group[], generatedLayers: Layer[], masterLayers: Layer[],
+): Group[] {
+  const masterLayerById = new Map(masterLayers.map(l => [l.id, l]))
+  const original = new Map(masterGroups.map(g => [g.id, g]))
+  const created = new Map(generatedGroups.map(g => [g.id, g]))
+  const fromGenerated = new Map<string, string>()
+  for (const layer of generatedLayers) {
+    let src = layer.srcId && masterLayerById.get(layer.srcId)?.groupId
+    let target = layer.groupId
+    const seen = new Set<string>()
+    while (src && target && !seen.has(target)) {
+      seen.add(target)
+      if (!original.has(src) || !created.has(target)) break
+      if (!fromGenerated.has(target)) fromGenerated.set(target, src)
+      src = original.get(src)?.parentId
+      target = created.get(target)?.parentId
+    }
+  }
+  return generatedGroups.map(g => {
+    const sourceId = fromGenerated.get(g.id)
+    const source = sourceId && original.get(sourceId)
+    return source ? {
+      ...g, cascadeSourceId: sourceId,
+      cascadeBase: groupBaseline(source), cascadeConflicts: [],
+    } as LinkedCascadeGroup : g
+  })
+}
+
 export interface BoardReconciliation {
   layers: Layer[]
   groups: Group[]
@@ -244,7 +291,30 @@ export function reconcileCascadeBoard(
     const oldId = groupMap.get(g.id)
     const parentId = g.parentId ? (groupMap.get(g.parentId) ?? g.parentId) : null
     const old = oldId && oldGroupById.get(oldId)
-    return old ? { ...old } : { ...g, parentId }
+    if (!old) return { ...g, parentId }
+    const previous = old as LinkedCascadeGroup
+    const incoming = g as LinkedCascadeGroup
+    if (!incoming.cascadeBase) return { ...old } // pre-baseline master or legacy group
+    const merged = { ...previous, cascadeSourceId: incoming.cascadeSourceId,
+      cascadeBase: { ...incoming.cascadeBase } } as LinkedCascadeGroup
+    const localConflicts: string[] = []
+    for (const key of GROUP_PROPS) {
+      if (!previous.cascadeBase || !(key in previous.cascadeBase)) continue
+      const baseline = previous.cascadeBase[key]
+      const now = incoming.cascadeBase[key]
+      const own = (previous as unknown as Record<string, unknown>)[key]
+      if (equal(own, baseline)) (merged as unknown as Record<string, unknown>)[key] = now
+      else if (!equal(now, baseline) && !equal(own, now)) localConflicts.push(key)
+    }
+    const stillUnresolved = (previous.cascadeConflicts ?? []).filter(key =>
+      !equal((previous as unknown as Record<string, unknown>)[key],
+        (incoming as unknown as Record<string, unknown>)[key]))
+    merged.cascadeConflicts = Array.from(new Set([...stillUnresolved, ...localConflicts]))
+    if (merged.cascadeConflicts.length)
+      conflicts.push(`Group "${previous.name}": review ${merged.cascadeConflicts.join(', ')}`)
+    // Deliberately never copy a page-space pixel mask into a resized board.
+    // Group effects/styles stay variant-local until they have a safe deep merge.
+    return merged
   })
   const mapped = layers.map(l => {
     const source = l.srcId ?? ''
