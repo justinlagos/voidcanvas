@@ -28,7 +28,7 @@ describe('Cascade linked nested group inheritance',()=>{
  })
  it('untouched variant nested group inherits master opacity, visibility and name',()=>{
   const f=fixture()
-  const oldGroups=stampCascadeGroups([g('old-root',null),g('old-leaf','old-root')],f.masters,
+  const oldGroups=stampCascadeGroups([g('old-root',null,1,{name:'master-root'}),g('old-leaf','old-root',1,{name:'master-leaf'})],f.masters,
     [l('stable','source','V','old-leaf')],f.oldMaster)
   const newest=[g('master-root',null,0.4,{visible:false,name:'Changed'}),f.masters[1]]
   const fresh=stampCascadeGroups([g('temp-root',null,0.4,{visible:false,name:'Changed'}),g('temp-leaf','temp-root')],
