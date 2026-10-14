@@ -4,7 +4,7 @@ import { analyse, regroup, relayout, type Panel } from './layout'
 import { ensureFramed, prune, useEditor } from './store'
 import type { Doc, Frame, Layer } from './types'
 import type { SizePreset } from './presets'
-import { stampCascadeBaseline, reconcileCascadeBoard } from './cascade-integrity'
+import { stampCascadeBaseline, stampCascadeGroups, reconcileCascadeBoard } from './cascade-integrity'
 import { auditCascadeLayout, type CascadeIssue } from './cascade-quality'
 import { decideCascadeConflict, type CascadeChoice } from './cascade-resolve'
 
@@ -63,7 +63,8 @@ export function cascadeToFrames(sourceFrameId: string | null, presets: SizePrese
     const quality = auditCascadeLayout(masterLayers, g.layers, f, doc, { skippedSourceIds: skippedIds })
     if (quality.criticalCount) { missingEssential = true; notes.push(`${p.label}: essential content missing`) }
     layoutRisks += quality.reviewCount
-    layers = layers.concat(stampCascadeBaseline(g.layers, masterLayers)); groups = groups.concat(g.groups)
+    layers = layers.concat(stampCascadeBaseline(g.layers, masterLayers))
+    groups = groups.concat(stampCascadeGroups(g.groups, st.groups, g.layers, masterLayers))
     frames.push(f)
     const auto = r.dropped.filter(n => !skip.has(n))
     if (auto.length) notes.push(`${p.label}: left out ${auto.join(', ')}`)
@@ -90,7 +91,8 @@ export function resyncVariants(masterId: string) {
   for (const child of children) {
     const old = layers.filter(l => l.frameId === child.id)
     const proposed = regroup(relayout(masterLayers, master, child, doc, s.groups).layers, s.groups)
-    const r = reconcileCascadeBoard(masterLayers, old, groups, proposed.layers, proposed.groups)
+    const incomingGroups = stampCascadeGroups(proposed.groups, s.groups, proposed.layers, masterLayers)
+    const r = reconcileCascadeBoard(masterLayers, old, groups, proposed.layers, incomingGroups)
     layers = layers.filter(l => l.frameId !== child.id).concat(r.layers)
     const existing = new Set(groups.map(g => g.id))
     groups = groups.concat(r.groups.filter(g => !existing.has(g.id)))
