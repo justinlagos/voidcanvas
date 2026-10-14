@@ -12,6 +12,9 @@ import { cascadeSource, cascadeToFrames, previewCascade, resyncVariants } from '
 export function BoardsPanel({ onClose }: { onClose: () => void }) {
   const doc = useEditor(s => s.doc)
   const activeFrameId = useEditor(s => s.activeFrameId)
+  const currentLayers = useEditor(s => s.layers)
+  const conflicts = currentLayers.filter(l => Array.isArray((l as typeof l & { cascadeConflicts?: string[] }).cascadeConflicts) &&
+    ((l as typeof l & { cascadeConflicts?: string[] }).cascadeConflicts?.length ?? 0) > 0)
   const s = useEditor.getState()
   const [tab, setTab] = useState<'boards' | 'cascade'>('boards')
   const [picked, setPicked] = useState<Set<string>>(new Set(['square', 'story', 'yt', 'li']))
@@ -52,6 +55,22 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
                 </div>
               ))}
             </div>
+            {conflicts.length > 0 && (
+              <section aria-label="Cascade conflicts" className="mt-4 rounded-lg border border-amber-500/30 bg-amber-400/5 p-3">
+                <p className="text-[12px] font-semibold text-amber-200">Review {conflicts.length} linked object conflict{conflicts.length === 1 ? '' : 's'}</p>
+                <p className="mt-1 text-[11px] text-void-400">Both the master and a variant changed. Your variant artwork is preserved; select a layer to decide which change to keep.</p>
+                <div className="mt-2 flex flex-col gap-1.5">
+                  {conflicts.map(l => (
+                    <button key={l.id} className={`rounded-md border border-white/[0.06] bg-void-900 px-2.5 py-2 text-left text-[12px] text-void-200 hover:border-amber-400/50 ${focusRing}`}
+                      onClick={() => { if (l.frameId) s.setActiveFrame(l.frameId); s.setActive(l.id); onClose() }}
+                      title="Select this object on its linked board">
+                      <span className="font-medium">{frames.find(f => f.id === l.frameId)?.name ?? 'Linked board'} · {l.name}</span>
+                      <span className="block text-[11px] text-amber-200/80">{(l as typeof l & { cascadeConflicts?: string[] }).cascadeConflicts?.join(', ')}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
             <div className="mt-4">
               <p className="text-[12px] text-void-400 mb-2">Add a board</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
