@@ -94,4 +94,29 @@ describe('Cascade: preserve real variant identity and local editing', () => {
     const r = reconcileCascadeBoard(masters, [], [], fresh, [])
     expect(r.layers[1].clipId).toBe('new-base')
   })
+  it('retains 300 masters x 10 variants without id collisions or local edit loss', () => {
+    const masters = Array.from({ length: 300 }, (_, i) => text('master-' + i, null, 'M', { text: 'Updated ' + i }))
+    const seen = new Set<string>()
+    for (let board = 0; board < 10; board++) {
+      const frame = 'V' + board
+      const previous = masters.map((m, i) => text(frame + '-stable-' + i, m.id, frame, {
+        text: 'Old ' + i, x: 20 + i + board,
+        cascadeBase: { text: 'Old ' + i },
+      }))
+      const fresh = masters.map((m, i) => text(frame + '-throwaway-' + i, m.id, frame))
+      const r = reconcileCascadeBoard(masters, previous, [], fresh, [])
+      expect(r.reused).toBe(300)
+      expect(r.added).toBe(0)
+      expect(r.conflicts).toHaveLength(0)
+      for (const [i, layer] of r.layers.entries()) {
+        expect(layer.id).toBe(frame + '-stable-' + i)
+        expect((layer as any).text).toBe('Updated ' + i)
+        expect(layer.x).toBe(20 + i + board)
+        expect(seen.has(layer.id)).toBe(false)
+        seen.add(layer.id)
+      }
+    }
+    expect(seen.size).toBe(3000)
+  })
+
 })

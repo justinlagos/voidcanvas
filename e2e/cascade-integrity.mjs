@@ -53,6 +53,26 @@ try {
   await page.evaluate(() => window.__voidEditor.getState().redo())
   const redo = await page.evaluate(() => window.__voidEditor.getState().layers.find(l => l.id === 'stable-variant')?.text)
   if (redo !== 'Master updated') throw new Error('one-step cascade redo failed: ' + redo)
+  // Real .void serialization must retain stable instance ids and the
+  // inheritance baseline; otherwise the next sync after reopen loses safety.
+  await page.waitForFunction(() => !!window.__vcAssets?.saveVoid, null, { timeout: 15000 })
+  const file = await page.evaluate(() => window.__vcAssets.saveVoid())
+  if (!file?.b64 || file.len < 1000) throw new Error('editable file save failed')
+  await page.evaluate(() => window.__voidEditor.getState().closeDoc())
+  await page.evaluate(b64 => window.__vcAssets.openVoid(b64), file.b64)
+  const reopened = await page.evaluate(() => {
+    const s = window.__voidEditor.getState()
+    const v = s.layers.find(l => l.id === 'stable-variant')
+    return {
+      text: v?.text, color: v?.color, x: v?.x,
+      baseText: v?.cascadeBase?.text, id: v?.id, local: !!s.layers.find(l => l.id === 'local-only'),
+    }
+  })
+  if (JSON.stringify(reopened) !== JSON.stringify({
+    text: 'Master updated', color: '#fa1000', x: 775,
+    baseText: 'Master updated', id: 'stable-variant', local: true,
+  })) throw new Error('.void identity/override/baseline round-trip failed: ' + JSON.stringify(reopened))
+  console.log('PASS .void round-trip: identity, custom placement, local colour override, inheritance baseline')
   if (errors.length) throw new Error('Uncaught browser errors: ' + errors.join('; '))
   console.log('PASS cascade identity, local override, inherited copy, variant-only artwork, undo and redo', JSON.stringify(result))
 } finally { await browser.close() }
