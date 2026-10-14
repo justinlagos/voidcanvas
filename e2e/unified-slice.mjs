@@ -287,17 +287,23 @@ try {
   const clipAndMaskCheck = await VE(page, async ({ shapeId }) => {
     const S = window.__voidEditor
     const st = S.getState()
-    // Add a blue rectangle overlapping only the right half of the Hero Badge (80..400, y:90..290) -> at x:240..500, y:90..290
-    const clipLayerId = st.addShape('rect', 240, 90, 260, 200, { fill: '#0066ff', name: 'Clipped Accent', blend: 'multiply' })
+    const baseShape = st.layers.find(l => l.id === shapeId)
+    // Add a blue rectangle in the same group/frame overlapping the right side of Hero Badge (80..400, y:90..290) -> at x:240..500, y:90..290
+    const clipLayerId = st.addShape('rect', 240, 90, 260, 200, {
+      fill: '#0066ff',
+      name: 'Clipped Accent',
+      blend: 'multiply',
+      groupId: baseShape?.groupId ?? null,
+      frameId: baseShape?.frameId ?? null,
+    })
     // Clip it onto the Hero Badge
     S.getState().clipLayerOnto(clipLayerId, shapeId)
-    // Add a layer mask that hides the bottom half (y > 190 in doc space -> local y > 100)
+    // Add an alpha layer mask that hides the bottom half (y > 190 in doc space -> local y > 100)
     S.getState().addMask(clipLayerId)
     const maskedLayer = S.getState().layers.find(l => l.id === clipLayerId)
     if (maskedLayer?.mask) {
       const mctx = maskedLayer.mask.getContext('2d')
-      mctx.fillStyle = '#000000'
-      mctx.fillRect(0, 100, 260, 100)
+      mctx.clearRect(0, 100, 260, 100)
       S.getState().updateLayer(clipLayerId, { mask: maskedLayer.mask }, 'Paint half mask')
     }
     S.getState().setEditingMask(false)
