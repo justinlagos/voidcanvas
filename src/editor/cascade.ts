@@ -6,6 +6,7 @@ import type { Doc, Frame, Layer } from './types'
 import type { SizePreset } from './presets'
 import { stampCascadeBaseline, reconcileCascadeBoard } from './cascade-integrity'
 import { auditCascadeLayout, type CascadeIssue } from './cascade-quality'
+import { decideCascadeConflict, type CascadeChoice } from './cascade-resolve'
 
 // Cascade: lay the active board out at other sizes, as linked boards under it.
 
@@ -99,4 +100,36 @@ export function resyncVariants(masterId: string) {
   s.applyBoards({ ...doc }, layers, prune(groups, layers), 'Update linked variants', masterId)
   s.notify(`Updated ${children.length} linked board(s): preserved ${reused} object identities, added ${added} new objects.` +
     (conflicts.length ? ` ${conflicts.length} conflict(s): ${conflicts.slice(0, 2).join('; ')}. Variant artwork was kept.` : ''))
+}
+
+/**
+ * An explicit designer choice: keep a local override or inherit the current
+ * master property. Uses exactly one existing store history transaction.
+ */
+export function resolveCascadeConflict(layerId: string, key: string, choice: CascadeChoice): boolean {
+  const s = useEditor.getState()
+  const doc = s.doc
+  const variant = s.layers.find(l => l.id === layerId)
+  const board = doc?.frames?.find(f => f.id === variant?.frameId)
+  const masterBoard = doc?.frames?.find(f => f.id === board?.linkedFrom)
+  const master = s.layers.find(l => l.id === variant?.srcId && l.frameId === masterBoard?.id)
+  if (!doc || !variant || !board?.linkedFrom || !masterBoard || !master) {
+    s.notify('Cannot resolve this conflict because its source board or layer is missing.')
+    return false
+  }
+  if (variant.locked || master.locked) {
+    s.notify('Unlock the linked object and its master before resolving the conflict.')
+    return false
+  }
+  // Relayout the ENTIRE master composition to preserve the target's vector
+  // geometry contract. A one-layer relayout changes slot allocation.
+  const proposal = key === 'vector path'
+    ? relayout(s.layers.filter(l => l.frameId === masterBoard.id), masterBoard, board, doc, s.groups)
+        .layers.find(l => l.srcId === master.id)
+    : undefined
+  const result = decideCascadeConflict(variant, master, key, choice, proposal)
+  if (!result.ok) { s.notify(result.reason); return false }
+  s.updateLayer(layerId, result.layer, 'Resolve Cascade conflict')
+  s.notify(choice === 'variant' ? 'Kept the linked board’s own ' + key + '.' : 'Used the master’s ' + key + ' for this linked object.')
+  return true
 }

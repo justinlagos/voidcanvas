@@ -6,7 +6,8 @@ import { SIZE_PRESETS } from '../presets'
 import { renderFrame } from '../io'
 import { useEditor } from '../store'
 import { Button, Modal, focusRing } from './ui'
-import { cascadeSource, cascadeToFrames, previewCascade, resyncVariants } from '../cascade'
+import { cascadeSource, cascadeToFrames, previewCascade, resyncVariants, resolveCascadeConflict } from '../cascade'
+import { canResolveCascadeConflict } from '../cascade-resolve'
 
 /** Add, rename, delete boards, and cascade the active board to many touchpoints at once. */
 export function BoardsPanel({ onClose }: { onClose: () => void }) {
@@ -61,12 +62,24 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
                 <p className="mt-1 text-[11px] text-void-400">Both the master and a variant changed. Your variant artwork is preserved; select a layer to decide which change to keep.</p>
                 <div className="mt-2 flex flex-col gap-1.5">
                   {conflicts.map(l => (
-                    <button key={l.id} className={`rounded-md border border-white/[0.06] bg-void-900 px-2.5 py-2 text-left text-[12px] text-void-200 hover:border-amber-400/50 ${focusRing}`}
-                      onClick={() => { if (l.frameId) s.setActiveFrame(l.frameId); s.setActive(l.id); onClose() }}
-                      title="Select this object on its linked board">
-                      <span className="font-medium">{frames.find(f => f.id === l.frameId)?.name ?? 'Linked board'} · {l.name}</span>
-                      <span className="block text-[11px] text-amber-200/80">{(l as typeof l & { cascadeConflicts?: string[] }).cascadeConflicts?.join(', ')}</span>
-                    </button>
+                    <div key={l.id} className="rounded-md border border-white/[0.06] bg-void-900 p-2 text-[12px] text-void-200">
+                      <button className={`w-full text-left rounded ${focusRing}`}
+                        onClick={() => { if (l.frameId) s.setActiveFrame(l.frameId); s.setActive(l.id); onClose() }}
+                        title="Select this object on its linked board">
+                        <span className="font-medium">{frames.find(f => f.id === l.frameId)?.name ?? 'Linked board'} · {l.name}</span>
+                      </button>
+                      {(l as typeof l & { cascadeConflicts?: string[] }).cascadeConflicts?.map(key => (
+                        <div key={key} className="mt-1.5 flex flex-wrap items-center gap-2">
+                          <span className="text-[11px] text-amber-200/80" title={key}>{key}</span>
+                          {canResolveCascadeConflict(l, key) ? <>
+                            <button className={`rounded border border-white/[0.12] px-2 py-1 text-[11px] hover:border-white/30 ${focusRing}`}
+                              aria-label={`Keep variant ${key} for ${l.name}`} onClick={() => resolveCascadeConflict(l.id, key, 'variant')}>Keep variant</button>
+                            <button className={`rounded border border-white/[0.12] px-2 py-1 text-[11px] hover:border-white/30 ${focusRing}`}
+                              aria-label={`Use master ${key} for ${l.name}`} onClick={() => resolveCascadeConflict(l.id, key, 'master')}>Use master</button>
+                          </> : <span className="text-[11px] text-void-500">Review manually</span>}
+                        </div>
+                      ))}
+                    </div>
                   ))}
                 </div>
               </section>
