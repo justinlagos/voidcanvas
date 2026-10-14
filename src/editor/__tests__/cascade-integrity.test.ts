@@ -108,7 +108,8 @@ describe('Cascade: preserve real variant identity and local editing', () => {
       expect(r.reused).toBe(300)
       expect(r.added).toBe(0)
       expect(r.conflicts).toHaveLength(0)
-      for (const [i, layer] of r.layers.entries()) {
+      for (let i = 0; i < r.layers.length; i++) {
+        const layer = r.layers[i]
         expect(layer.id).toBe(frame + '-stable-' + i)
         expect((layer as any).text).toBe('Updated ' + i)
         expect(layer.x).toBe(20 + i + board)
