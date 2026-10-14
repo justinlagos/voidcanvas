@@ -4,6 +4,7 @@ import { analyse, regroup, relayout, type Panel } from './layout'
 import { ensureFramed, prune, useEditor } from './store'
 import type { Doc, Frame, Layer } from './types'
 import type { SizePreset } from './presets'
+import { stampCascadeBaseline, reconcileCascadeBoard } from './cascade-integrity'
 
 // Cascade: lay the active board out at other sizes, as linked boards under it.
 
@@ -51,7 +52,7 @@ export function cascadeToFrames(sourceFrameId: string | null, presets: SizePrese
     const f: Frame = { id: uid(), name: p.label, x: spots[i].x, y: spots[i].y, width: p.width, height: p.height, background: master.background, linkedFrom: master.id }
     const r = relayout(masterLayers, master, f, doc, st.groups, x => !skip.has(x.name))
     const g = regroup(r.layers, st.groups)
-    layers = layers.concat(g.layers); groups = groups.concat(g.groups)
+    layers = layers.concat(stampCascadeBaseline(g.layers, masterLayers)); groups = groups.concat(g.groups)
     frames.push(f)
     const auto = r.dropped.filter(n => !skip.has(n))
     if (auto.length) notes.push(`${p.label}: left out ${auto.join(', ')}`)
@@ -60,7 +61,7 @@ export function cascadeToFrames(sourceFrameId: string | null, presets: SizePrese
   st.notify(`${sizes.length} board${sizes.length === 1 ? '' : 's'} laid out from “${master.name}”.${notes.length ? ' ' + notes.join('. ') + ' (too small to read at that size).' : ''} Undo removes them.`)
 }
 
-/** Regenerate every board linked to `masterId` from the master's current content. */
+/** Reconcile linked boards in one undo step without destroying edited instances. */
 export function resyncVariants(masterId: string) {
   const s = useEditor.getState()
   const doc = s.doc; if (!doc?.frames) return
@@ -68,13 +69,20 @@ export function resyncVariants(masterId: string) {
   const children = doc.frames.filter(f => f.linkedFrom === masterId)
   if (!children.length) { s.notify('This board has no linked variants. Use Cascade to create some.'); return }
   const masterLayers = s.layers.filter(l => l.frameId === masterId)
-  const gone = new Set(children.map(c => c.id))
-  let layers = s.layers.filter(l => !gone.has(l.frameId ?? ''))
-  let groups = prune(s.groups, layers)
+  let layers = [...s.layers]
+  let groups = [...s.groups]
+  let conflicts: string[] = [], reused = 0, added = 0
   for (const child of children) {
-    const g = regroup(relayout(masterLayers, master, child, doc, s.groups).layers, s.groups)
-    layers = layers.concat(g.layers); groups = groups.concat(g.groups)
+    const old = layers.filter(l => l.frameId === child.id)
+    const proposed = regroup(relayout(masterLayers, master, child, doc, s.groups).layers, s.groups)
+    const r = reconcileCascadeBoard(masterLayers, old, groups, proposed.layers, proposed.groups)
+    layers = layers.filter(l => l.frameId !== child.id).concat(r.layers)
+    const existing = new Set(groups.map(g => g.id))
+    groups = groups.concat(r.groups.filter(g => !existing.has(g.id)))
+    conflicts = conflicts.concat(r.conflicts)
+    reused += r.reused; added += r.added
   }
-  s.applyBoards({ ...doc }, layers, groups, 'Update variants', masterId)
-  s.notify(`Updated ${children.length} linked variant${children.length === 1 ? '' : 's'} from this board.`)
+  s.applyBoards({ ...doc }, layers, prune(groups, layers), 'Update linked variants', masterId)
+  s.notify(`Updated ${children.length} linked board(s): preserved ${reused} object identities, added ${added} new objects.` +
+    (conflicts.length ? ` ${conflicts.length} conflict(s): ${conflicts.slice(0, 2).join('; ')}. Variant artwork was kept.` : ''))
 }
