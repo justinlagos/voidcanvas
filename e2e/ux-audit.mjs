@@ -155,26 +155,35 @@ async function desktopInteractions(p) {
   const n = await ranges.count()
   check('properties expose sliders', n > 0, `${n} visible`)
   if (n > 0) await guard('slider drag and number sync', async () => {
-    const r = ranges.first(), label = (await r.getAttribute('aria-label')) || 'unlabelled slider'
-    const min = Number(await r.getAttribute('min')), max = Number(await r.getAttribute('max')), step = Number(await r.getAttribute('step')) || 1
+    // Read every fact from ONE element handle. Locators re-query the DOM on each call, so reading min/max and the
+    // value through separate locators can mix two sliders if the panel re-renders (the "0..100 but 171" report).
+    const handle = await ranges.first().elementHandle()
+    if (!handle) throw new Error('slider disappeared before it could be read')
+    const state = () => handle.evaluate(el => ({ label: el.getAttribute('aria-label'), min: Number(el.min), max: Number(el.max), step: Number(el.step) || 1, value: Number(el.value), named: el.getAttribute('aria-label'), rect: el.getBoundingClientRect().toJSON() }))
+    const s0 = await state()
+    const label = s0.label || 'unlabelled slider', { min, max, step } = s0
     // Labelled sliders pair with an aria-labelled field; unlabelled ones pair with the number input in their own row.
-    const named = await r.getAttribute('aria-label')
-    const num = named ? p.locator(`input[aria-label="${named} value"]`).first() : r.locator('xpath=..').locator('input[type="number"]').first()
-    await r.scrollIntoViewIfNeeded(); await p.waitForTimeout(100)
-    const box = await r.boundingBox()
-    const before = Number(await r.inputValue()), y = box.y + box.height / 2
+    const numEl = s0.named
+      ? p.locator(`input[aria-label="${s0.named} value"]`).first()
+      : (await handle.evaluateHandle(el => el.parentElement?.querySelector('input[type="number"]') ?? el.parentElement?.parentElement?.querySelector('input[type="number"]') ?? null)).asElement()
+    const hasNum = s0.named ? (await numEl.count()) > 0 : !!numEl
+    await handle.evaluate(el => el.scrollIntoView({ block: 'center' })); await p.waitForTimeout(100)
+    const box = (await state()).rect, y = box.y + box.height / 2
+    const before = (await state()).value
+    check(`slider "${label}" value sits inside its range`, before >= min && before <= max, `value ${before}, range ${min}..${max}`)
     await p.mouse.move(box.x + box.width * 0.2, y); await p.mouse.down()
     await p.mouse.move(box.x + box.width * 0.8, y, { steps: 8 }); await p.mouse.up(); await p.waitForTimeout(150)
-    const after = Number(await r.inputValue())
+    const after = (await state()).value
     check(`pointer drag moves "${label}"`, after !== before, `${before} -> ${after} (range ${min}..${max})`)
-    if (await num.count()) check(`"${label}" number field follows the drag`, Math.abs(Number(await num.inputValue()) - after) < 1e-6, `field ${await num.inputValue()}, slider ${after}`)
+    if (hasNum) check(`"${label}" number field follows the drag`, Math.abs(Number(await numEl.inputValue()) - after) < 1e-6, `field ${await numEl.inputValue()}, slider ${after}`)
     // Typing a value in the number field moves the slider.
     const target = min + (max - min) * 0.6
-    if (await num.count()) {
-      await num.fill(String(target)); await num.blur(); await p.waitForTimeout(150)
-      const typed = Number(await r.inputValue())
+    if (hasNum) {
+      await numEl.fill(String(target)); await numEl.blur(); await p.waitForTimeout(150)
+      const typed = (await state()).value
       check(`typing in "${label} value" moves the slider`, Math.abs(typed - target) <= step, `typed ${target}, slider ${typed}`)
     }
+    await handle.dispose()
   })
   return out
 }
