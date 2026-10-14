@@ -1,5 +1,5 @@
 import { healPixels } from './healing'
-import { layerAlpha } from './unified/appearance'
+import { evaluateGroupAppearance, evaluateLayerAppearance, resolveClipBase } from './unified/appearance'
 import { directionalBlur } from './blur'
 import { applyEffect } from '@/lib/effects'
 import { FX_WORK, scaleParams } from '@/lib/effect-scale'
@@ -960,14 +960,12 @@ function renderDocInner(target: HTMLCanvasElement, doc: Doc, layers: Layer[], op
         while (end + 1 < list.length && childGroup(list[end + 1], container)?.id === grp.id) end++
         const run = list.slice(li, end + 1)
         li = end
-        if (!grp.visible) { belowKey += `|g${grp.id}:off`; continue }
-        const gFx = !noFx && hasFx(grp.effects)
-        const gStyled = !noFx && !!grp.styles && hasActiveStyles({ styles: grp.styles } as Layer)
-        const gMask = !!grp.mask && grp.maskEnabled !== false
-        // An adjustment set to reach only its own group needs the group drawn on its own.
-        const gReach = run.some(x => x.type === 'adjustment' && x.visible && x.reach === 'group' && x.groupId === grp.id)
-        const isolated = grp.opacity < 1 || (!!grp.blend && grp.blend !== 'pass') || gFx || gStyled || gMask || gReach
-        if (isolated) {
+        const gPlan = evaluateGroupAppearance(grp, run, { noFx })
+        if (!gPlan.visible) { belowKey += `|g${grp.id}:off`; continue }
+        const gFx = gPlan.hasEffects
+        const gStyled = gPlan.hasStyles
+        const gMask = gPlan.hasMask
+        if (gPlan.isolated) {
           // The group is drawn as one image first, then placed once, so its layers do not show through each other.
           const hasLive = !!opts.live && run.some(x => x.id === opts.live!.layerId)
           if (hasLive) liveBelow = true
@@ -1000,8 +998,8 @@ function renderDocInner(target: HTMLCanvasElement, doc: Doc, layers: Layer[], op
             if (!opts.noCache && !hasLive && W * H <= CACHE_PX) groupCache.set(grp.id, { key, canvas: tmp })
           }
           acc.save()
-          acc.globalAlpha = grp.opacity
-          acc.globalCompositeOperation = !grp.blend || grp.blend === 'pass' ? 'source-over' : grp.blend
+          acc.globalAlpha = gPlan.alpha
+          acc.globalCompositeOperation = gPlan.blend
           acc.drawImage(tmp, 0, 0)
           acc.restore()
           belowKey += `|g${grp.id}:${grp.opacity}:${grp.blend}:` + key.slice(key.indexOf('|'))
@@ -1033,15 +1031,15 @@ function renderDocInner(target: HTMLCanvasElement, doc: Doc, layers: Layer[], op
       let draw = processed
       const maskSrc = l.mask && l.maskEnabled ? l.mask : null
       // Clipped to the layer below: only that layer's pixels change.
-      const clipBase = l.clipId ? siblings.find(x => x.id === l.clipId) ?? layers.find(x => x.id === l.clipId) : undefined
-      const where = maskSrc || (live && live.mode.startsWith('mask')) || (clipBase && clipBase.type !== 'adjustment')
+      const clipBase = resolveClipBase(l, siblings, layers)
+      const where = maskSrc || (live && live.mode.startsWith('mask')) || !!clipBase
       let amount: HTMLCanvasElement | null = null
       if (where) {
         // How much of the adjustment shows at each pixel: its mask, times the clip base's shape.
         amount = makeCanvas(W, H); const ax = ctx2d(amount)
         if (maskSrc || (live && live.mode.startsWith('mask'))) { const at = maskSrc ? l.maskAt : null; drawDocSized(ax, liveMask(maskSrc ?? fullMask(doc), live, at), at) }
         else { ax.fillStyle = '#fff'; ax.fillRect(0, 0, W, H) }
-        if (clipBase && clipBase.type !== 'adjustment') { ax.globalCompositeOperation = 'destination-in'; ax.drawImage(renderLayerAlpha(doc, clipBase, s, rg), 0, 0) }
+        if (clipBase) { ax.globalCompositeOperation = 'destination-in'; ax.drawImage(renderLayerAlpha(doc, clipBase, s, rg), 0, 0) }
         draw = cloneCanvas(processed)
         const dctx = ctx2d(draw)
         dctx.globalCompositeOperation = 'destination-in'
@@ -1067,24 +1065,23 @@ function renderDocInner(target: HTMLCanvasElement, doc: Doc, layers: Layer[], op
       acc.restore()
     } else {
       const m = layerMatrix(l, doc)
+      const lPlan = evaluateLayerAppearance(l, siblings, layers, {
+        noFx,
+        hasLiveStroke: !!live,
+        hasVectorMask: hasVectorMask(l),
+      })
       // Clipping mask: this layer shows only where the base layer is opaque.
-      let clipBaseCanvas: HTMLCanvasElement | null = null
-      if (l.clipId) {
-        const base = siblings.find(x => x.id === l.clipId) ?? layers.find(x => x.id === l.clipId)
-        if (base && base.type !== 'adjustment') clipBaseCanvas = renderLayerAlpha(doc, base, s, rg)
-      }
-      const styled = !noFx && hasActiveStyles(l)
-      const fx = !noFx && hasFx(l.effects)
-      const fill = l.fillOpacity ?? 1
-      const needsTemp = (l.mask && l.maskEnabled) || hasVectorMask(l) || !!live || !!clipBaseCanvas || styled || fx
+      const clipBaseCanvas = lPlan.clipBase ? renderLayerAlpha(doc, lPlan.clipBase, s, rg) : null
+      const styled = lPlan.styled
+      const fx = lPlan.hasEffects
       acc.save()
       const clipF = l.frameId ? frameById.get(l.frameId) : undefined
       if (clipF) { acc.beginPath(); acc.rect(...R(clipF.x, clipF.y, clipF.width, clipF.height)); acc.clip() }
-      acc.globalAlpha = layerAlpha(l, styled)
-      acc.globalCompositeOperation = l.blend
+      acc.globalAlpha = lPlan.alpha
+      acc.globalCompositeOperation = lPlan.blend
       acc.imageSmoothingQuality = 'high'
       acc.setTransform(base().multiply(m))
-      if (!needsTemp) drawLayerContent(acc, l, s * Math.abs(l.scaleX))
+      if (!lPlan.needsOffscreenPass) drawLayerContent(acc, l, s * Math.abs(l.scaleX))
       else {
         const { w, h } = layerSize(l, doc)
         const tmp = makeCanvas(w, h)
@@ -1092,17 +1089,17 @@ function renderDocInner(target: HTMLCanvasElement, doc: Doc, layers: Layer[], op
         drawLayerContent(t, l)
         if (live && live.mode === 'paint') { t.globalCompositeOperation = l.lockAlpha ? 'source-atop' : 'source-over'; t.globalAlpha = live.opacity; t.drawImage(live.buffer, 0, 0); t.globalAlpha = 1; t.globalCompositeOperation = 'source-over' }
         if (live && live.mode === 'erase' && !l.lockAlpha) { t.globalCompositeOperation = 'destination-out'; t.globalAlpha = live.opacity; t.drawImage(live.buffer, 0, 0); t.globalAlpha = 1 }
-        const maskSrc = l.mask && l.maskEnabled ? l.mask : null
+        const maskSrc = lPlan.hasRasterMask ? l.mask : null
         if (maskSrc || (live && live.mode.startsWith('mask'))) {
           t.globalCompositeOperation = 'destination-in'
           t.drawImage(localLayerMask(l, doc, liveMask(maskSrc ?? fullMaskSized(w, h), live, null, layerMaskMatrix(l,doc).inverse())), 0, 0)
         }
-        if (hasVectorMask(l)) { t.globalCompositeOperation = 'destination-in'; t.drawImage(vectorMaskCanvas(l, w, h), 0, 0); t.globalCompositeOperation = 'source-over' }
-        if (clipBaseCanvas || styled || fx) {
+        if (lPlan.hasVectorMask) { t.globalCompositeOperation = 'destination-in'; t.drawImage(vectorMaskCanvas(l, w, h), 0, 0); t.globalCompositeOperation = 'source-over' }
+        if (lPlan.needsDocSpacePass) {
           // Work in document space: intersect with the clip base, run the layer's effects, then draw with styles.
           acc.restore(); acc.save()
           if (clipF) { acc.beginPath(); acc.rect(...R(clipF.x, clipF.y, clipF.width, clipF.height)); acc.clip() }
-          const clipRev = l.clipId ? (layers.find(x => x.id === l.clipId)?.rev ?? 0) : 0
+          const clipRev = lPlan.clipBase ? lPlan.clipBase.rev : 0
           const fxK = fx ? `${W}x${H}@${s}:${ox},${oy}|${opts.fullRes ? 'full' : ''}|${l.rev}|${clipRev}|${fxKey(l.effects)}` : ''
           const hit = fx && !live && !opts.noCache ? fxCache.get(l.id) : undefined
           let docTmp: HTMLCanvasElement
@@ -1123,7 +1120,7 @@ function renderDocInner(target: HTMLCanvasElement, doc: Doc, layers: Layer[], op
           acc.setTransform(1, 0, 0, 1, 0, 0)
           acc.globalAlpha = l.opacity
           if (styled) drawStyled(acc, docTmp, l, s)
-          else { acc.globalAlpha = layerAlpha(l, false); acc.globalCompositeOperation = l.blend; acc.drawImage(docTmp, 0, 0) }
+          else { acc.globalAlpha = lPlan.untypedAlpha; acc.globalCompositeOperation = lPlan.blend; acc.drawImage(docTmp, 0, 0) }
         } else {
           acc.drawImage(tmp, 0, 0)
         }

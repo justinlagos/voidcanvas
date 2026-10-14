@@ -6,6 +6,8 @@ import type { AdjustmentKind, AdjustmentLayer, Doc, Effect, Frame, Group, Layer,
 import { copyEffect, freshFx, fxId, newEffect, linkedCopies, moveInList, patchEffect, resetEffect as resetFx, sameTarget, stackOf, withStacks, type FxTarget } from './effects'
 import { useUi } from './ui-store'
 import { clearAssetStore, scopeRegistryToDoc } from './assets/asset-store'
+import { refineStillValid } from './refine/session'
+import { reconcileSelection } from './unified/selection-bridge'
 import { touchCanvas } from './touch'
 import { noteStep, noteUndo } from '@/lib/analytics'
 
@@ -475,27 +477,50 @@ function anchored(l: Layer, patch: Partial<Layer>): Layer {
 }
 
 // Keys whose change can leave a selection or tool target pointing at something gone.
-const REF_KEYS = ['doc', 'layers', 'groups', 'selectedIds', 'activeId', 'keyObjectId', 'isolatedGroupId', 'editingTextId', 'activeFrameId', 'drawInsideId', 'refineLayerId'] as const
+const REF_KEYS = ['doc', 'layers', 'groups', 'selectedIds', 'activeId', 'keyObjectId', 'isolatedGroupId', 'editingTextId', 'activeFrameId', 'drawInsideId', 'refineLayerId', 'transform', 'vmaskEditId', 'activePathId'] as const
 
 /**
- * The single reconciliation rule for selection and tool targets. Returns a patch that drops every reference to a
- * layer, group or board that no longer exists, or null when nothing is stale. Ids keep their order.
+ * The single reconciliation rule for selection and tool targets. Uses `reconcileSelection` from
+ * `unified/selection-bridge` and returns a patch that drops every reference to a layer, group,
+ * path or board that no longer exists (or is no longer valid for C3 refine), or null when nothing
+ * is stale. Ids keep their order.
  */
-export function staleRefsPatch(s: Pick<EditorState, 'doc' | 'layers' | 'groups' | 'selectedIds' | 'activeId' | 'keyObjectId' | 'isolatedGroupId' | 'editingTextId' | 'activeFrameId' | 'drawInsideId' | 'refineLayerId'>): Partial<EditorState> | null {
-  const live = new Set(s.layers.map(l => l.id))
+export function staleRefsPatch(
+  s: Pick<EditorState, 'doc' | 'layers' | 'groups' | 'selectedIds' | 'activeId' | 'keyObjectId' | 'isolatedGroupId' | 'editingTextId' | 'activeFrameId' | 'drawInsideId' | 'refineLayerId'> &
+    Partial<Pick<EditorState, 'transform' | 'vmaskEditId' | 'activePathId'>>,
+): Partial<EditorState> | null {
+  const byId = new Map(s.layers.map(l => [l.id, l]))
   const groups = new Set(s.groups.map(g => g.id))
   const frames = s.doc?.frames ?? []
-  const frameIds = new Set(frames.map(f => f.id))
+  const frameIds = frames.map(f => f.id)
+  const rec = reconcileSelection(
+    { ids: s.selectedIds, activeId: s.activeId, keyObjectId: s.keyObjectId, frameId: s.activeFrameId },
+    s.layers,
+    frameIds,
+  )
   const patch: Partial<EditorState> = {}
-  const ids = s.selectedIds.filter(id => live.has(id))
+  const ids = rec.ids
   if (ids.length !== s.selectedIds.length) patch.selectedIds = ids
-  if (s.activeId && !live.has(s.activeId)) patch.activeId = ids[ids.length - 1] ?? null
-  if (s.keyObjectId && !ids.includes(s.keyObjectId)) patch.keyObjectId = null
-  if (s.editingTextId && !live.has(s.editingTextId)) patch.editingTextId = null
-  if (s.drawInsideId && !live.has(s.drawInsideId)) patch.drawInsideId = null
-  if (s.refineLayerId && !live.has(s.refineLayerId)) patch.refineLayerId = null
+  const nextActive = rec.activeId ?? (s.activeId ? (ids[ids.length - 1] ?? null) : null)
+  if (nextActive !== s.activeId) patch.activeId = nextActive
+  const nextKey = rec.keyObjectId && ids.includes(rec.keyObjectId) ? rec.keyObjectId : null
+  if (nextKey !== s.keyObjectId) patch.keyObjectId = null
+  if (s.editingTextId && !byId.has(s.editingTextId)) patch.editingTextId = null
+  if (s.drawInsideId && !byId.has(s.drawInsideId)) patch.drawInsideId = null
+  if (s.refineLayerId) {
+    const rl = byId.get(s.refineLayerId)
+    if (!rl || !refineStillValid({ id: rl.id, type: rl.type, locked: rl.locked, lockPixels: rl.lockPixels })) {
+      patch.refineLayerId = null
+    }
+  }
   if (s.isolatedGroupId && !groups.has(s.isolatedGroupId)) patch.isolatedGroupId = null
-  if (s.activeFrameId && !frameIds.has(s.activeFrameId)) patch.activeFrameId = frames[0]?.id ?? null
+  if (s.activeFrameId && !rec.frameId) patch.activeFrameId = frames[0]?.id ?? null
+  if (s.transform && !byId.has(s.transform.layerId)) patch.transform = null
+  if (s.vmaskEditId && !byId.has(s.vmaskEditId)) patch.vmaskEditId = null
+  if (s.activePathId) {
+    const paths = s.doc?.paths ?? []
+    if (!paths.some(p => p.id === s.activePathId)) patch.activePathId = null
+  }
   return Object.keys(patch).length ? patch : null
 }
 
@@ -619,8 +644,16 @@ export const useEditor = create<EditorState>()(withReconcile((set, get) => ({
   },
 
   applyBoards: (doc, layers, groups, label, activeFrameId) => {
-    const r = settleInto(doc, layers, groups, get().view)
-    set({ doc: r.doc, layers: r.layers, groups: r.groups, view: r.view, activeFrameId: activeFrameId ?? get().activeFrameId, selectedIds: [], activeId: null, editingMask: false, docRev: get().docRev + 1, dirty: true })
+    const cur = get()
+    const r = settleInto(doc, layers, groups, cur.view)
+    const rec = reconcileSelection(
+      { ids: cur.selectedIds, activeId: cur.activeId, keyObjectId: cur.keyObjectId, frameId: activeFrameId ?? cur.activeFrameId },
+      r.layers,
+      (r.doc.frames ?? []).map(f => f.id),
+    )
+    const nextActive = rec.activeId ?? (rec.ids[rec.ids.length - 1] ?? null)
+    const nextKey = rec.keyObjectId && rec.ids.includes(rec.keyObjectId) ? rec.keyObjectId : null
+    set({ doc: r.doc, layers: r.layers, groups: r.groups, view: r.view, activeFrameId: rec.frameId ?? r.doc.frames?.[0]?.id ?? null, selectedIds: rec.ids, activeId: nextActive, keyObjectId: nextKey, editingMask: false, docRev: cur.docRev + 1, dirty: true })
     get().commit(label)
   },
 
