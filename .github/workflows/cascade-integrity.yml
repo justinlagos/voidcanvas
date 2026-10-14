@@ -9,6 +9,7 @@ on:
       - 'src/editor/components/BoardsPanel.tsx'
       - 'src/editor/__tests__/cascade-quality.test.ts'
       - 'e2e/cascade-corpus.mjs'
+      - 'e2e/cascade-native-vector.mjs'
       - 'src/editor/__tests__/cascade-integrity.test.ts'
       - 'e2e/cascade-integrity.mjs'
       - '.github/workflows/cascade-integrity.yml'
@@ -33,6 +34,9 @@ jobs:
           cat /tmp/cascade-next.log
           exit 1
       - run: node e2e/cascade-integrity.mjs
+        env:
+          BASE: http://localhost:3000
+      - run: node e2e/cascade-native-vector.mjs
         env:
           BASE: http://localhost:3000
       - run: node e2e/cascade-corpus.mjs
