@@ -120,4 +120,83 @@ describe('Cascade: preserve real variant identity and local editing', () => {
     expect(seen.size).toBe(3000)
   })
 
+  it('propagates native asset replacement into an untouched linked raster without changing layout', () => {
+    const canvasA = { width: 5, height: 5, id: 'canvas-A' }
+    const canvasB = { width: 6, height: 6, id: 'canvas-B' }
+    const asset = (id: string) => ({
+      id, sha256: id + '-sha', parentId: null, title: id, mime: 'image/png',
+      width: 6, height: 6, source: 'user_upload' as const,
+    })
+    const raster = (id: string, srcId: string | null, canvas: unknown, a: unknown) => ({
+      ...text(id, srcId, srcId ? 'V' : 'M'),
+      type: 'raster', canvas, asset: a, x: srcId ? 750 : 30,
+    }) as Layer
+    const initial = raster('master', null, canvasA, asset('A'))
+    const old = stampCascadeBaseline([raster('stable', 'master', canvasA, asset('A'))], [initial])
+    const updated = raster('master', null, canvasB, asset('B'))
+    const proposal = raster('random', 'master', canvasB, asset('B'))
+    const r = reconcileCascadeBoard([updated], old, [], [proposal], [])
+    expect(r.layers[0].id).toBe('stable')
+    expect(r.layers[0].x).toBe(750)
+    expect((r.layers[0] as any).asset.id).toBe('B')
+    expect((r.layers[0] as any).canvas).toBe(canvasB) // Node-only unit fallback; browser must prove detached pixels
+    expect(r.conflicts).toHaveLength(0)
+  })
+
+  it('protects locally replaced raster assets and reports a durable source conflict', () => {
+    const asset = (id: string) => ({
+      id, sha256: id + '-sha', parentId: null, title: id, mime: 'image/png',
+      width: 5, height: 5, source: 'user_upload' as const,
+    })
+    const raster = (id: string, srcId: string | null, a: unknown) => ({
+      ...text(id, srcId, srcId ? 'V' : 'M'),
+      type: 'raster', canvas: { width: 5, height: 5 }, asset: a,
+    }) as Layer
+    const initial = raster('master', null, asset('A'))
+    const old = stampCascadeBaseline([raster('stable', 'master', asset('A'))], [initial])
+    const local = { ...old[0], asset: asset('LOCAL') } as Layer
+    const updated = raster('master', null, asset('B'))
+    const first = reconcileCascadeBoard([updated], [local], [], [raster('gen', 'master', asset('B'))], [])
+    expect((first.layers[0] as any).asset.id).toBe('LOCAL')
+    expect((first.layers[0] as any).cascadeConflicts).toContain('asset')
+    const second = reconcileCascadeBoard([updated], first.layers, [], [raster('gen2', 'master', asset('B'))], [])
+    expect((second.layers[0] as any).asset.id).toBe('LOCAL')
+    expect((second.layers[0] as any).cascadeConflicts).toContain('asset')
+  })
+
+  it('inherits new target-local vector geometry only when the variant path was untouched', () => {
+    const path = (x: number) => [{
+      closed: true, nodes: [{ x, y: 0, inX: x, inY: 0, outX: x, outY: 0 }],
+    }]
+    const shape = (id: string, srcId: string | null, x: number) => ({
+      ...text(id, srcId, srcId ? 'V' : 'M'),
+      type: 'shape', shape: 'path', subpaths: path(x), w: 90, h: 90, fill: '#000', stroke: null,
+      strokeWidth: 1, radius: 0,
+    }) as Layer
+    const initial = shape('m', null, 1)
+    const old = stampCascadeBaseline([shape('v', 'm', 10)], [initial])
+    const master = shape('m', null, 4)
+    const fresh = shape('new-id', 'm', 40)
+    const r = reconcileCascadeBoard([master], old, [], [fresh], [])
+    expect(r.layers[0].id).toBe('v')
+    expect((r.layers[0] as any).subpaths).toEqual(path(40))
+    expect((r.layers[0] as any).cascadeConflicts).toEqual([])
+    const overridden = { ...old[0], subpaths: path(777) } as Layer
+    const conflict = reconcileCascadeBoard([master], [overridden], [], [fresh], [])
+    expect((conflict.layers[0] as any).subpaths).toEqual(path(777))
+    expect((conflict.layers[0] as any).cascadeConflicts).toContain('vector path')
+    const again = reconcileCascadeBoard([master], conflict.layers, [], [fresh], [])
+    expect((again.layers[0] as any).cascadeConflicts).toContain('vector path')
+  })
+
+  it('does not mutate previous layers while mapping new members into stable groups', () => {
+    const old = text('old', 'm1', 'V', { groupId: 'old-group' })
+    const master = text('m1', null, 'M')
+    const fresh = text('generated', 'm1', 'V', { groupId: 'new-group' })
+    const groups = [group('old-group')]
+    const r = reconcileCascadeBoard([master], [old], groups, [fresh], [group('new-group')])
+    expect(old.groupId).toBe('old-group')
+    expect(r.layers[0].groupId).toBe('old-group')
+  })
+
 })

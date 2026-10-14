@@ -162,9 +162,10 @@ export function reconcileCascadeBoard(
         if (localNow === sourceWas && sourceNow) {
           const cloned = detachedPixels(master.canvas)
           if (cloned) {
-            merged.canvas = cloned
-            merged.asset = master.asset ? { ...master.asset } : null
-            merged.emptyFrame = master.emptyFrame ?? null
+            const image = merged as LinkedLayer & Extract<Layer, { type: 'raster' }>
+            image.canvas = cloned
+            image.asset = master.asset ? { ...master.asset } : null
+            image.emptyFrame = master.emptyFrame ?? null
           } else {
             layerConflicts.push('asset: pixels could not be safely copied')
           }
@@ -184,10 +185,11 @@ export function reconcileCascadeBoard(
       const sourceChanged = !sameStructure(oldBase.__vectorPath, jsonCopy(master.subpaths))
       if (sourceChanged && previousTarget && Object.prototype.hasOwnProperty.call(previousTarget, 'subpaths')) {
         if (sameStructure(jsonCopy(old.subpaths), previousTarget.subpaths)) {
-          merged.subpaths = f.subpaths ? jsonCopy(f.subpaths) as typeof f.subpaths : undefined
+          const vector = merged as LinkedLayer & Extract<Layer, { type: 'shape' }>
+          vector.subpaths = f.subpaths ? jsonCopy(f.subpaths) as typeof f.subpaths : undefined
           // Shape dimensions only inherit if they were not locally resized.
-          if (old.w === previousTarget.w) merged.w = f.w
-          if (old.h === previousTarget.h) merged.h = f.h
+          if (old.w === previousTarget.w) vector.w = f.w
+          if (old.h === previousTarget.h) vector.h = f.h
         } else if (!sameStructure(jsonCopy(old.subpaths), jsonCopy(f.subpaths))) {
           layerConflicts.push('vector path')
         }
@@ -204,7 +206,7 @@ export function reconcileCascadeBoard(
       if (k === 'asset') return old.type === 'raster' && master.type === 'raster' &&
         assetSignature(old) !== assetSignature(master)
       if (k === 'vector path') return old.type === 'shape' && master.type === 'shape' &&
-        !sameStructure(jsonCopy(old.subpaths), jsonCopy(master.subpaths))
+        !sameStructure(jsonCopy(old.subpaths), jsonCopy(f.subpaths))
       if (k.includes(':')) return true
       return (old as unknown as Record<string, unknown>)[k] !==
         (master as unknown as Record<string, unknown>)[k]
