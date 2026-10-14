@@ -204,10 +204,13 @@ async function phoneInteractions(p) {
     const selected = (await p.locator('[role="option"][aria-selected="true"]').count()) + (await p.locator('[data-context-bar]').count())
     check('tapping a layer selects it', selected > 0, (await sheet.count()) > 0 ? 'sheet stayed open' : 'sheet closed on tap')
   }
-  const openBeforeDone = (await sheet.count()) > 0
-  if (openBeforeDone) await p.tap('[data-mobile-sheet] button[aria-label="Close"]', { timeout: 4000 })
-  await p.waitForTimeout(300)
-  check('sheet is gone after closing', (await sheet.count()) === 0)
+  // A layer tap can close the sheet by itself, so the Close control is only exercised if the sheet is open. Reopen it
+  // for that case so the Close button is always tested; otherwise a dead Close would pass.
+  if ((await sheet.count()) === 0) { await p.tap('button[aria-label^="Layers"]').catch(() => {}); await p.waitForTimeout(300) }
+  const reopened = (await sheet.count()) === 1
+  check('Layers opens the sheet again for closing', reopened)
+  if (reopened) { await p.tap('[data-mobile-sheet] button[aria-label="Close"]', { timeout: 4000 }).catch(() => {}); await p.waitForTimeout(300) }
+  check('the sheet Close control closes the sheet', reopened && (await sheet.count()) === 0)
   check('selection persists after the sheet closes', (await p.locator('[data-context-bar]').count()) > 0)
   // Mode bar: Back from a picked layer, then a mode press changes aria-pressed.
   if (await p.$('[data-context-bar] button[aria-label="Back"]')) { await p.tap('[data-context-bar] button[aria-label="Back"]'); await p.waitForTimeout(250) }
