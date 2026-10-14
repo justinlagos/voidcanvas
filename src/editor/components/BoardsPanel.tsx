@@ -14,6 +14,9 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
   const doc = useEditor(s => s.doc)
   const activeFrameId = useEditor(s => s.activeFrameId)
   const currentLayers = useEditor(s => s.layers)
+  const currentGroups = useEditor(s => s.groups)
+  const groupConflicts = currentGroups.filter(g =>
+    ((g as typeof g & { cascadeConflicts?: string[] }).cascadeConflicts?.length ?? 0) > 0)
   const conflicts = currentLayers.filter(l => Array.isArray((l as typeof l & { cascadeConflicts?: string[] }).cascadeConflicts) &&
     ((l as typeof l & { cascadeConflicts?: string[] }).cascadeConflicts?.length ?? 0) > 0)
   const s = useEditor.getState()
@@ -82,6 +85,23 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
                     </div>
                   ))}
                 </div>
+              </section>
+            )}
+            {groupConflicts.length > 0 && (
+              <section aria-label="Cascade group conflicts" className="mt-4 rounded-lg border border-amber-500/30 bg-amber-400/5 p-3">
+                <p className="text-[12px] font-semibold text-amber-200">Review {groupConflicts.length} linked group conflict{groupConflicts.length === 1 ? '' : 's'}</p>
+                <p className="mt-1 text-[11px] text-void-400">Your variant's group appearance is preserved. Select the group to edit it manually.</p>
+                {groupConflicts.map(g => (
+                  <button key={g.id} title="Select this linked group" className={`mt-2 block w-full rounded-md bg-void-900 p-2 text-left text-[12px] text-void-200 hover:text-white ${focusRing}`}
+                    onClick={() => {
+                      const member = currentLayers.find(l => l.groupId === g.id)
+                      if (member?.frameId) s.setActiveFrame(member.frameId)
+                      s.selectGroup(g.id); onClose()
+                    }}>
+                    <span className="font-medium">{g.name}</span>
+                    <span className="block text-[11px] text-amber-200/80">{(g as typeof g & {cascadeConflicts?: string[]}).cascadeConflicts?.join(', ')}</span>
+                  </button>
+                ))}
               </section>
             )}
             <div className="mt-4">

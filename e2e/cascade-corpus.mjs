@@ -147,6 +147,9 @@ try {
   if (overridden.opacity !== 0.72 || overridden.baseline !== 0.3 ||
       !overridden.conflicts?.includes('opacity'))
     throw new Error('Local group override was not protected or diagnosed: ' + JSON.stringify(overridden))
+  const groupReviewText = await page.getByRole('region', { name: 'Cascade group conflicts' }).textContent()
+  if (!groupReviewText?.includes('opacity'))
+    throw new Error('Group conflict not discoverable in the Boards panel: ' + groupReviewText)
   await page.evaluate(() => window.__voidEditor.getState().undo())
   const undoneGroup = await page.evaluate(id =>
     window.__voidEditor.getState().groups.find(g => g.id === id)?.cascadeBase?.opacity, originalGroup.id)
