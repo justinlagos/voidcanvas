@@ -226,14 +226,16 @@ export function renderFrame(frameId: string, scale = 1, o: { transparent?: boole
 }
 
 /** Render actual artwork outside trim; neighbouring boards never contribute bleed pixels. */
-export function renderPrintFrame(frameId: string | null, bleedMm: number) {
+export function renderPrintFrame(frameId: string | null, bleedMm: number, previewLongEdge?: number) {
   const { doc, layers, groups } = useEditor.getState()
   if (!doc) throw Error('Nothing to print')
   const geometry = printGeometry(doc, frameId, bleedMm)
   const own = geometry.board ? layers.filter(l => !l.frameId || l.frameId === geometry.board!.id) : layers
-  const out = makeCanvas(geometry.region.w, geometry.region.h)
-  renderDoc(out, doc, own, { groups, scale: 1, region: geometry.region,
-    frameRects: geometry.expanded ? [geometry.expanded] : doc.frames ?? [], noCache: true, fullRes: true, noShadow: true })
+  if (previewLongEdge !== undefined && (!Number.isFinite(previewLongEdge) || previewLongEdge < 1)) throw Error('Set a valid preview size.')
+  const scale = previewLongEdge === undefined ? 1 : Math.min(1, previewLongEdge / Math.max(geometry.region.w, geometry.region.h))
+  const out = makeCanvas(Math.max(1, Math.round(geometry.region.w * scale)), Math.max(1, Math.round(geometry.region.h * scale)))
+  renderDoc(out, doc, own, { groups, scale, region: geometry.region,
+    frameRects: geometry.expanded ? [geometry.expanded] : doc.frames ?? [], noCache: true, fullRes: previewLongEdge === undefined, noShadow: true })
   return { canvas: out, ...geometry }
 }
 

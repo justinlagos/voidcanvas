@@ -178,16 +178,20 @@ try {
   await VE(page, () => window.dispatchEvent(new CustomEvent('vc:open', { detail: { name: 'generate' } })))
   await page.waitForFunction(() => !!document.querySelector('[data-testid="generate-panel"]'), null, { timeout: 10000 }).catch(() => {})
   await page.fill('#generate-prompt', 'Cancellation probe poster')
-  await page.click('[data-testid="generate-panel"] button:has-text("Generate")')
-  await page.waitForTimeout(150)
-  const cancelBtn = await page.$('[data-testid="generate-panel"] button:has-text("Cancel")')
-  if (cancelBtn) {
-    await cancelBtn.click()
-    await page.waitForTimeout(400)
-    const cancelState = await page.evaluate(() => document.querySelector('[data-testid="generate-panel"]')?.textContent ?? '')
-    if (/cancelled|nothing was added/i.test(cancelState)) pass('11a UI cancel mid-flight')
-    else fail('11a UI cancel', cancelState.slice(0, 160))
-  } else fail('11a UI cancel', 'no Cancel button while running')
+  // Four local candidates keep the request pending while the real UI becomes
+  // actionable. A fixed pause can let the fast demo finish and reuse the button
+  // for Generate before the test clicks it.
+  await page.selectOption('#generate-count', '4')
+  const beforeCancel = await stateOf(page)
+  const composer = page.locator('[data-testid="generate-panel"]')
+  await composer.getByRole('button', { name: 'Generate', exact: true }).click()
+  await composer.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await composer.getByRole('status').filter({ hasText: 'Cancelled. Nothing was added to your design.' }).waitFor({ timeout: 10000 })
+  const afterCancel = await stateOf(page)
+  if (afterCancel.assets.length === beforeCancel.assets.length &&
+      afterCancel.history.length === beforeCancel.history.length &&
+      afterCancel.layers.map(l => l.id).join(',') === beforeCancel.layers.map(l => l.id).join(',')) pass('11a UI cancel mid-flight without adding assets, layers or history')
+  else fail('11a UI cancel preservation', JSON.stringify({ before: beforeCancel.assets.length, after: afterCancel.assets.length }))
   await page.keyboard.press('Escape')
   await page.waitForTimeout(300)
   // Validation failure path (empty prompt) returns failed, not a throw.

@@ -3,7 +3,7 @@ import { printGeometry } from '../print-geometry'
 import { pdfPageSize } from '../export'
 import { SIZE_PRESETS } from '../presets'
 import { pdfxPreflight } from '../pdfx-preflight'
-import type { Doc, Layer } from '../types'
+import type { Doc, Group, Layer } from '../types'
 const card = SIZE_PRESETS.find(p=>p.id==='card')!
 const doc: Doc = {id:'d',name:'Mixed campaign',width:4000,height:3000,background:'#fff',dpi:72,
   frames:[{id:'card',name:card.label,x:1200,y:800,width:card.width,height:card.height,background:'#fff',print:card.print}]}
@@ -39,5 +39,25 @@ describe('physical print fidelity',()=>{
     const q=pdfxPreflight(doc,[l],{boardId:'card',bleedMm:3})
     expect(q.some(f=>f.code==='raster-dpi'&&f.message.includes('100 effective DPI'))).toBe(true)
     expect(q.some(f=>f.code==='document-dpi')).toBe(false)
+  })
+  it('ignores unusable images hidden by nested or transparent groups, then blocks when shown',()=>{
+    const l={id:'missing',name:'Unused photo',frameId:'card',type:'raster',visible:true,opacity:1,groupId:'child',canvas:null} as unknown as Layer
+    const groups: Group[]=[
+      {id:'parent',name:'Unused',visible:false,opacity:1,collapsed:false},
+      {id:'child',name:'Images',visible:true,opacity:1,collapsed:false,parentId:'parent'},
+    ]
+    const findings=()=>pdfxPreflight(doc,[l],{boardId:'card',bleedMm:3,groups})
+    expect(findings().some(f=>f.code==='missing-raster')).toBe(false)
+    groups[0].visible=true;groups[0].opacity=0
+    expect(findings().some(f=>f.code==='missing-raster')).toBe(false)
+    groups[0].opacity=1
+    expect(findings().some(f=>f.code==='missing-raster')).toBe(true)
+    l.opacity=0
+    expect(findings().some(f=>f.code==='missing-raster')).toBe(false)
+  })
+  it('reports a missing raster logo as a blocker before attempting pixel bounds',()=>{
+    const l={id:'logo',name:'Missing logo',frameId:'card',type:'raster',role:'logo',visible:true,opacity:1,canvas:null} as unknown as Layer
+    const q=pdfxPreflight(doc,[l],{boardId:'card',bleedMm:3})
+    expect(q.find(f=>f.code==='missing-raster')).toMatchObject({level:'error',layerId:'logo'})
   })
 })
