@@ -82,7 +82,7 @@ function FrameThumb({ id }: { id: string }) {
 function CascadeTab({ activeFrameId, picked, setPicked, onDone }: { activeFrameId: string | null; picked: Set<string>; setPicked: (f: (v: Set<string>) => Set<string>) => void; onDone: () => void }) {
   const src = useMemo(() => cascadeSource(activeFrameId), [activeFrameId])
   const [skip, setSkip] = useState<Set<string>>(new Set())
-  const [previews, setPreviews] = useState<Record<string, { url: string; dropped: string[] }>>({})
+  const [previews, setPreviews] = useState<Record<string, { url: string; dropped: string[]; issues: { code: string; message: string; severity: string }[] }>>({})
   const chosen = SIZE_PRESETS.filter(p => picked.has(p.id))
   const key = Array.from(skip).sort().join('|')
 
@@ -133,7 +133,7 @@ function CascadeTab({ activeFrameId, picked, setPicked, onDone }: { activeFrameI
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {pv ? <img src={pv.url} alt={`${p.label} preview`} className="w-full h-full" /> : <span className="w-5 h-5 rounded-full border-2 border-void-700 border-t-void-400 animate-spin" />}
                 </div>
-                <figcaption className="mt-1 text-[11px] text-void-400 max-w-[150px]">{p.label}{pv?.dropped.filter(n => !skip.has(n)).length ? <span className="block text-void-500">Leaves out {pv.dropped.filter(n => !skip.has(n)).join(', ')}</span> : null}</figcaption>
+                <figcaption className="mt-1 text-[11px] text-void-400 max-w-[150px]">{p.label}{pv?.dropped.filter(n => !skip.has(n)).length ? <span className="block text-void-500">Leaves out {pv.dropped.filter(n => !skip.has(n)).join(', ')}</span> : null}{pv?.issues?.length ? <span className="block mt-1 text-amber-300" role="status" title={pv.issues.map(i => i.message).join('; ')}>Review {pv.issues.length} layout issue{pv.issues.length === 1 ? '' : 's'}<span className="block text-void-400">{pv.issues[0].message}</span></span> : null}</figcaption>
               </figure>) })}
           </div>
         </div>

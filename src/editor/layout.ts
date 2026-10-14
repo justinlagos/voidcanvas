@@ -217,12 +217,15 @@ export function chooseFit(a: Analysis, T: { w: number; h: number }, keep?: (p: P
   const minRead = Math.min(T.w, T.h) * 0.045
   // Keep as much as possible: try the full set first, then drop the least important panels one
   // at a time (pictures go first). Take the first set where every panel's type stays readable.
-  const ranked = all.slice().sort((p, q) => p.weight - q.weight || p.headline - q.headline)
+  // Required brand panels must never be silently discarded just to get a larger type scale.
+  // User-excluded panels have already been filtered out of 'all'.
+  const required = new Set(all.filter(p => p.logo || p.blocks.some(b =>
+    b.layers.some(l => l.role === 'logo' || l.role === 'headline' || l.role === 'cta'))))
+  const ranked = all.filter(p => !required.has(p)).sort((p, q) => p.weight - q.weight || p.headline - q.headline)
   let fallback: Fit | null = null
-  for (let drop = 0; drop < all.length; drop++) {
+  for (let drop = 0; drop <= ranked.length; drop++) {
     const gone = new Set(ranked.slice(0, drop))
     const ps = all.filter(p => !gone.has(p))
-    if (!ps.some(p => !p.flexible)) continue
     let best: Fit | null = null
     for (const tree of trees(ps)) {
       const k = bestK(tree, m, T)

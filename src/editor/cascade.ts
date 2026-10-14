@@ -5,6 +5,7 @@ import { ensureFramed, prune, useEditor } from './store'
 import type { Doc, Frame, Layer } from './types'
 import type { SizePreset } from './presets'
 import { stampCascadeBaseline, reconcileCascadeBoard } from './cascade-integrity'
+import { auditCascadeLayout, type CascadeIssue } from './cascade-quality'
 
 // Cascade: lay the active board out at other sizes, as linked boards under it.
 
@@ -18,7 +19,7 @@ export function cascadeSource(frameId: string | null): { doc: Doc; layers: Layer
 }
 
 /** A small picture of how a size will come out, before anything is created. */
-export function previewCascade(frameId: string | null, p: { width: number; height: number }, skip: Set<string>, px = 180): { url: string; dropped: string[] } | null {
+export function previewCascade(frameId: string | null, p: { width: number; height: number }, skip: Set<string>, px = 180): { url: string; dropped: string[]; issues: CascadeIssue[] } | null {
   const src = cascadeSource(frameId); if (!src) return null
   const { doc, layers, master } = src
   const groups = useEditor.getState().groups
@@ -27,7 +28,9 @@ export function previewCascade(frameId: string | null, p: { width: number; heigh
   const scale = Math.min(1, px / Math.max(p.width, p.height))
   const c = makeCanvas(Math.max(1, Math.round(p.width * scale)), Math.max(1, Math.round(p.height * scale)))
   renderDoc(c, { ...doc, frames: [t] }, r.layers, { groups, scale, noCache: true, fxDraft: true, noShadow: true, region: { x: 0, y: 0, w: p.width, h: p.height }, frameRects: [t] })
-  return { url: c.toDataURL('image/jpeg', 0.75), dropped: r.dropped }
+  const skipped = new Set(src.panels.filter(p => skip.has(p.name)).flatMap(p => p.blocks.flatMap(b => b.layers.map(l => l.id))))
+  const quality = auditCascadeLayout(layers.filter(l => l.frameId === master.id), r.layers, t, doc, { skippedSourceIds: skipped })
+  return { url: c.toDataURL('image/jpeg', 0.75), dropped: r.dropped, issues: quality.issues }
 }
 
 /**
@@ -48,17 +51,28 @@ export function cascadeToFrames(sourceFrameId: string | null, presets: SizePrese
   let layers = [...base], groups = [...st.groups]
   const frames = [...doc.frames!]
   const notes: string[] = []
+  const skippedIds = new Set(analyse(masterLayers, master, doc, st.groups).panels
+    .filter(p => skip.has(p.name)).flatMap(p => p.blocks.flatMap(b => b.layers.map(l => l.id))))
+  let missingEssential = false
+  let layoutRisks = 0
   sizes.forEach((p, i) => {
     const f: Frame = { id: uid(), name: p.label, x: spots[i].x, y: spots[i].y, width: p.width, height: p.height, background: master.background, linkedFrom: master.id }
     const r = relayout(masterLayers, master, f, doc, st.groups, x => !skip.has(x.name))
     const g = regroup(r.layers, st.groups)
+    const quality = auditCascadeLayout(masterLayers, g.layers, f, doc, { skippedSourceIds: skippedIds })
+    if (quality.criticalCount) { missingEssential = true; notes.push(`${p.label}: essential content missing`) }
+    layoutRisks += quality.reviewCount
     layers = layers.concat(stampCascadeBaseline(g.layers, masterLayers)); groups = groups.concat(g.groups)
     frames.push(f)
     const auto = r.dropped.filter(n => !skip.has(n))
     if (auto.length) notes.push(`${p.label}: left out ${auto.join(', ')}`)
   })
+  if (missingEssential) {
+    st.notify('Cascade stopped: a required logo, headline or CTA was missing in a destination. No boards were created.')
+    return
+  }
   st.applyBoards({ ...doc, frames }, layers, groups, `Cascade to ${sizes.length} size${sizes.length === 1 ? '' : 's'}`, master.id)
-  st.notify(`${sizes.length} board${sizes.length === 1 ? '' : 's'} laid out from “${master.name}”.${notes.length ? ' ' + notes.join('. ') + ' (too small to read at that size).' : ''} Undo removes them.`)
+  st.notify(`${sizes.length} board${sizes.length === 1 ? '' : 's'} laid out from “${master.name}”.${notes.length ? ' ' + notes.join('. ') + ' (too small to read at that size).' : ''}${layoutRisks ? ` Check ${layoutRisks} layout warning(s) in the previews.` : ''} Undo removes them.`)
 }
 
 /** Reconcile linked boards in one undo step without destroying edited instances. */
