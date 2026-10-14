@@ -22,9 +22,19 @@ for filename in ['card-trim.pdf', 'card-real-bleed-PDFX4.pdf']:
         assert len(intents) == 1
         profile = intents[0].get_object()['/DestOutputProfile'].get_object()
         assert profile['/N'] == 4 and len(profile.get_data()) > 128
-        assert len(page.images) == 1
-        image = page.images[0].image
-        assert image.size == (1122, 672) and image.mode == 'CMYK'
+        # Ubuntu's pypdf 3.x image convenience API tries to write CMYK as PNG.
+        # Inspect the parsed, decoded PDF stream instead; it preserves all four channels.
+        images = [ref.get_object() for ref in page['/Resources']['/XObject'].values()
+                  if ref.get_object().get('/Subtype') == '/Image']
+        assert len(images) == 1
+        obj = images[0]
+        assert obj['/BitsPerComponent'] == 8
+        assert obj['/ColorSpace'][0] == '/ICCBased'
+        assert obj['/ColorSpace'][1].get_object()['/N'] == 4
+        size = (int(obj['/Width']), int(obj['/Height']))
+        pixels = obj.get_data()
+        assert size == (1122, 672) and len(pixels) == size[0] * size[1] * 4
+        image = Image.frombytes('CMYK', size, pixels)
         assert sum(abs(a-b) for a,b in zip(image.getpixel((5,335)), image.getpixel((45,335)))) > 60
         matrix = re.search(r'q ([\d.]+) 0 0 ([\d.]+) (-?[\d.]+) (-?[\d.]+) cm', page.get_contents().get_data().decode('ascii'))
         assert matrix
