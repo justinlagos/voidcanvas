@@ -1,3 +1,4 @@
+import { printGeometry } from './print-geometry'
 import { suggestImageName } from '@/lib/intelligence/naming'
 import { ctx2d, insideHiddenGroup, layerBounds, makeCanvas, maskBounds, renderDoc, uid } from './engine'
 import { fxReach } from './effects'
@@ -224,6 +225,18 @@ export function renderFrame(frameId: string, scale = 1, o: { transparent?: boole
   return out
 }
 
+/** Render actual artwork outside trim; neighbouring boards never contribute bleed pixels. */
+export function renderPrintFrame(frameId: string | null, bleedMm: number) {
+  const { doc, layers, groups } = useEditor.getState()
+  if (!doc) throw Error('Nothing to print')
+  const geometry = printGeometry(doc, frameId, bleedMm)
+  const own = geometry.board ? layers.filter(l => !l.frameId || l.frameId === geometry.board!.id) : layers
+  const out = makeCanvas(geometry.region.w, geometry.region.h)
+  renderDoc(out, doc, own, { groups, scale: 1, region: geometry.region,
+    frameRects: geometry.expanded ? [geometry.expanded] : doc.frames ?? [], noCache: true, fullRes: true, noShadow: true })
+  return { canvas: out, ...geometry }
+}
+
 /** White under the art, for formats without transparency. */
 function flatten(c: HTMLCanvasElement): HTMLCanvasElement {
   const flat = makeCanvas(c.width, c.height); const x = ctx2d(flat)
@@ -274,7 +287,7 @@ export async function exportBoards(o: BoardExport, onProgress?: (done: number, t
     const pages = []
     for (let i = 0; i < total; i++) {
       const b = chosen[i], c = renderOne(b)
-      pages.push(await pdfPageOf(c, pdfPageSize(b), o))
+      pages.push(await pdfPageOf(c, pdfPageSize(b, doc.dpi), o))
       c.width = 0; c.height = 0
       onProgress?.(i + 1, total)
       await new Promise(r => setTimeout(r, 0))
@@ -289,7 +302,7 @@ export async function exportBoards(o: BoardExport, onProgress?: (done: number, t
     if (o.format === 'svg') blob = new Blob([await boardSvg(b, o)], { type: 'image/svg+xml' })
     else {
       const c = renderOne(b)
-      if (o.format === 'pdf') { const { assemble } = await import('../studio/brand-pdf'); blob = await assemble([await pdfPageOf(c, pdfPageSize(b), o)], false) }
+      if (o.format === 'pdf') { const { assemble } = await import('../studio/brand-pdf'); blob = await assemble([await pdfPageOf(c, pdfPageSize(b, doc.dpi), o)], false) }
       else blob = await canvasToBlob(c, `image/${o.format}`, o.format === 'png' ? undefined : o.quality)
       c.width = 0; c.height = 0
     }
@@ -350,7 +363,7 @@ export async function exportSelection(o: { format: ExportFormat; scale: number; 
     blob = new Blob([await svgFor({ doc, layers: ext.layers, groups }, { region: at, board: null, scale: k, transparent, background: transparent ? null : '#ffffff', pageFx: false, title: `${doc.name}: ${ext.name}`, localFonts, googleFonts: FONT_SPECS })], { type: 'image/svg+xml' })
   } else if (o.format === 'pdf') {
     const { assemble } = await import('../studio/brand-pdf')
-    blob = await assemble([await pdfPageOf(flatten(trimmed), pdfPageSize({ width: docW, height: docH }), o)], false)
+    blob = await assemble([await pdfPageOf(flatten(trimmed), pdfPageSize({ width: docW, height: docH }, doc.dpi), o)], false)
   } else {
     const out = transparent ? trimmed : flatten(trimmed)
     blob = await canvasToBlob(out, `image/${o.format}`, o.format === 'png' ? undefined : o.quality)

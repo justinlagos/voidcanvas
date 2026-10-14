@@ -1,8 +1,9 @@
 import { layerBounds, textLayout } from './engine'
-import type { Doc, Frame, Layer, Rect, TextLayer } from './types'
+import { hasActiveStyles } from './styles'
+import type { Doc, Frame, Group, Layer, Rect, TextLayer } from './types'
 
 /** Diagnostics describe observable compromises. They do not claim design taste is machine-verifiable. */
-export type CascadeIssueCode = 'missing-essential' | 'outside-board' | 'unsafe-margin' | 'unreadable-type' | 'text-collision' | 'text-box-overflow' | 'essential-off-board'
+export type CascadeIssueCode = 'missing-essential' | 'outside-board' | 'unsafe-margin' | 'unreadable-type' | 'text-collision' | 'text-box-overflow' | 'essential-off-board' | 'essential-hidden' | 'invalid-geometry'
 export interface CascadeIssue {
   code: CascadeIssueCode
   severity: 'critical' | 'review'
@@ -32,6 +33,8 @@ export function auditCascadeLayout(
     measure?: (l: Layer) => Rect
     /** Browser text metrics, injectable to avoid font/platform variability in tests. */
     lines?: (l: TextLayer) => { text: string; width: number; first: boolean }[]
+    groups?: Group[]
+    masterGroups?: Group[]
   } = {},
 ): CascadeQuality {
   const issues: CascadeIssue[] = []
@@ -39,17 +42,39 @@ export function auditCascadeLayout(
   const ids = new Set(generated.map(l => l.srcId).filter(Boolean))
   const measured = options.measure ?? ((l: Layer) => layerBounds(l, doc))
   const bounds = new Map<string, Rect>()
+  const shown = (l: Layer, groups: Group[] = []) => {
+    if (!l.visible || l.opacity <= 0 || (l.fillOpacity === 0 && !hasActiveStyles(l))) return false
+    let gid = l.groupId, guard = 0
+    while (gid && guard++ < 64) {
+      const g = groups.find(g => g.id === gid)
+      if (!g) break
+      if (!g.visible || g.opacity <= 0) return false
+      gid = g.parentId
+    }
+    return true
+  }
   for (const m of master) {
-    if (!essential(m) || !m.visible || skipped.has(m.id) || ids.has(m.id)) continue
+    if (!essential(m) || !shown(m, options.masterGroups ?? options.groups) || skipped.has(m.id)) continue
+    const instance = generated.find(l => l.srcId === m.id)
+    if (instance && !shown(instance, options.groups)) {
+      issues.push({ code: 'essential-hidden', severity: 'critical', layerId: instance.id, name: instance.name,
+        message: `Required ${m.role} "${m.name}" is hidden or fully transparent` })
+      continue
+    }
+    if (ids.has(m.id)) continue
     issues.push({ code: 'missing-essential', severity: 'critical', layerId: m.id, name: m.name, message: `Required ${m.role} "${m.name}" is missing` })
   }
 
   const safe = Math.min(target.width, target.height) * 0.03
   const minType = Math.max(12, Math.min(target.width, target.height) * 0.018)
   for (const l of generated) {
-    if (!l.visible || l.type === 'adjustment') continue
+    if (!shown(l, options.groups) || l.type === 'adjustment') continue
     const b = measured(l)
-    if (![b.x, b.y, b.w, b.h].every(Number.isFinite) || b.w <= 0 || b.h <= 0) continue
+    if (![b.x, b.y, b.w, b.h].every(Number.isFinite) || b.w <= 0 || b.h <= 0) {
+      issues.push({ code: 'invalid-geometry', severity: essential(l) ? 'critical' : 'review', layerId: l.id, name: l.name,
+        message: `"${l.name}" has no valid visible dimensions` })
+      continue
+    }
     bounds.set(l.id, b)
     const isText = l.type === 'text'
     const isCritical = essential(l)

@@ -16,6 +16,27 @@ const audit = (master: Layer[], output: Layer[], skippedSourceIds?: Set<string>)
   auditCascadeLayout(master, output, frame, doc, { measure, skippedSourceIds })
 
 describe('Cascade review diagnostics', () => {
+  it('blocks a visible master logo whose variant is hidden by a nested group', () => {
+    const m = layer('m', null, 0, 0, 100, 50, 'logo')
+    const v = layer('v', 'm', 800, 100, 100, 50, 'logo'); v.groupId = 'child'
+    const q = auditCascadeLayout([m], [v], frame, doc, { measure, groups: [
+      { id: 'parent', name: 'Hidden', visible: false, opacity: 1, collapsed: false },
+      { id: 'child', name: 'Brand', visible: true, opacity: 1, collapsed: false, parentId: 'parent' },
+    ] })
+    expect(q.issues.map(i => i.code)).toContain('essential-hidden')
+    expect(q.criticalCount).toBe(1)
+  })
+  it('does not demand content deliberately hidden in the master', () => {
+    const m = layer('m', null, 0, 0, 100, 50, 'logo'); m.groupId = 'hidden'
+    const q = auditCascadeLayout([m], [], frame, doc, { measure, masterGroups: [
+      { id: 'hidden', name: 'Hidden', visible: false, opacity: 1, collapsed: false },
+    ] })
+    expect(q.criticalCount).toBe(0)
+  })
+  it('blocks nonfinite essential geometry instead of silently passing it', () => {
+    const v = layer('v', 'm', NaN, 100, 100, 50, 'logo')
+    expect(audit([], [v]).issues.some(i => i.code === 'invalid-geometry' && i.severity === 'critical')).toBe(true)
+  })
   it('rejects silent loss of tagged logo, headline, or CTA', () => {
     const master = [
       layer('logo', null, 10, 10, 100, 100, 'logo'),

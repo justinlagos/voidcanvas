@@ -199,6 +199,11 @@ export async function svgFor(src: SvgInput, o: SvgOptions): Promise<string> {
   const body: string[] = []
   const pageFx = o.pageFx !== false && ((!!o.board && hasFx(o.board.effects)) || hasFx(doc.effects))
   let list = src.layers
+  if (list.some(l => l.type === 'shape' && l.subpaths?.some(sp => sp.op))) {
+    const { expandOps } = await import('./vector')
+    list = list.map(l => l.type === 'shape' && l.subpaths?.some(sp => sp.op)
+      ? { ...l, subpaths: expandOps(l.subpaths) } as ShapeLayer : l)
+  }
   if (pageFx) {
     // Board or design effects run over everything on the board: the board is one image.
     const c = makeCanvas(Math.max(1, Math.round(r.w * k)), Math.max(1, Math.round(r.h * k)))

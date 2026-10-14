@@ -86,7 +86,7 @@ export function analyse(master: Layer[], m: Frame, doc: Doc, groups: Group[]): A
   }
   // One panel: the whole board.
   const all = rest.map(b => ({ ...b }))
-  return { axis: null, blocks, backgrounds, panels: all.length ? [makePanel(all, { x: 0, y: 0, w: W, h: H }, 0, null)] : [] }
+  return { axis: null, blocks, backgrounds, panels: all.length ? [makePanel(all, { x: 0, y: 0, w: W, h: H }, 0, null, doc, m)] : [] }
 }
 
 function makePanel(blocks: Block[], box: Rect, i: number, axis: Axis | null, doc?: Doc, m?: Frame): Panel {
@@ -111,7 +111,11 @@ function makePanel(blocks: Block[], box: Rect, i: number, axis: Axis | null, doc
     if (spans) b.kind = 'fill'
   }
   const contentBlocks = blocks.filter(b => b.kind === 'content')
-  const content = union(contentBlocks.map(b => b.rect))
+  // Content can exceed the original board (long headlines, rotated vectors).
+  // Measure the complete artwork before fitting; clipped bounds underestimate required space.
+  const content = doc && m
+    ? union(contentBlocks.flatMap(b => b.layers.filter(l => l.visible).map(l => rel(layerBounds(l, doc), m))))
+    : union(contentBlocks.map(b => b.rect))
   const logo = contentBlocks.some(b => b.logo)
   const headline = Math.max(0, ...contentBlocks.map(b => b.maxText))
   const hasText = contentBlocks.some(b => b.hasText)

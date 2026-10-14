@@ -15,7 +15,7 @@ import { noteStep, noteUndo } from '@/lib/analytics'
 let REV = 1
 export const nextRev = () => ++REV
 
-export interface Snapshot { doc: Doc; layers: Layer[]; groups: Group[]; activeId: string | null; selection: HTMLCanvasElement | null; label: string; at?: number; selectedIds?: string[]; activeFrameId?: string | null }
+export interface Snapshot { doc: Doc; layers: Layer[]; groups: Group[]; activeId: string | null; selection: HTMLCanvasElement | null; label: string; at?: number; selectedIds?: string[]; activeFrameId?: string | null; restoreSelection?: boolean }
 
 type Pt = { x: number; y: number }
 /** An in-progress free transform (skew, distort, perspective, warp) on one layer. */
@@ -123,7 +123,7 @@ interface EditorState {
   setDoc: (patch: Partial<Doc>, commit?: boolean) => void
   cropTo: (x: number, y: number, w: number, h: number) => void
   setActiveFrame: (id: string | null) => void
-  addFrame: (preset: { name: string; width: number; height: number }) => void
+  addFrame: (preset: { name: string; width: number; height: number; print?: Frame['print'] }) => void
   removeFrame: (id: string) => void
   /** Moves a board and every layer on it by dx, dy document pixels. Live while dragging; commit afterwards. */
   moveFrame: (id: string, dx: number, dy: number) => void
@@ -241,7 +241,7 @@ interface EditorState {
   // history
   /** Record an undo step. `merge`: replace the last step of the same name made within that many ms.
    *  `ifChanged`: skip it when nothing differs from the last step (a field left as it was, a drag that ended where it began). */
-  commit: (label: string, opts?: { merge?: number; ifChanged?: boolean }) => void
+  commit: (label: string, opts?: { merge?: number; ifChanged?: boolean; restoreSelection?: boolean }) => void
   undo: () => void
   redo: () => void
   jumpTo: (index: number) => void
@@ -638,7 +638,7 @@ export const useEditor = create<EditorState>()(withReconcile((set, get) => ({
     // Beside the active board, in the first free spot to its right.
     const ref = frames.find(f => f.id === st.activeFrameId) ?? frames[frames.length - 1]
     const p = placeBeside(occupied(doc, layers), { x: ref.x, y: ref.y, w: ref.width, h: ref.height }, preset.width, preset.height, 'right', boardGap([...frames, preset]))
-    const f: Frame = { id: uid(), name: preset.name, x: p.x, y: p.y, width: preset.width, height: preset.height, background: '#ffffff' }
+    const f: Frame = { id: uid(), name: preset.name, x: p.x, y: p.y, width: preset.width, height: preset.height, background: '#ffffff', print: preset.print }
     set({ doc: coverFrames({ ...doc, frames: [...frames, f] }), layers, activeFrameId: f.id, docRev: get().docRev + 1 })
     get().commit('Add board')
   },
@@ -724,7 +724,7 @@ export const useEditor = create<EditorState>()(withReconcile((set, get) => ({
   setFrameSize: (id, width, height) => {
     const { doc } = get(); if (!doc?.frames) return
     const w = Math.min(8000, Math.max(16, Math.round(width))), h = Math.min(8000, Math.max(16, Math.round(height)))
-    set({ doc: coverFrames({ ...doc, frames: doc.frames.map(f => f.id === id ? { ...f, width: w, height: h } : f) }), docRev: get().docRev + 1 })
+    set({ doc: coverFrames({ ...doc, frames: doc.frames.map(f => f.id === id ? { ...f, width: w, height: h, print: f.print ? { ...f.print, widthMm: f.print.widthMm * w / f.width, heightMm: f.print.heightMm * h / f.height } : undefined } : f) }), docRev: get().docRev + 1 })
     get().commit('Resize board')
   },
 
@@ -1620,7 +1620,7 @@ export const useEditor = create<EditorState>()(withReconcile((set, get) => ({
 
   commit: (label, opts) => {
     const { doc, layers, activeId, selection, history, historyIndex, selectedIds, activeFrameId } = get(); if (!doc) return
-    const snap: Snapshot = { doc: { ...doc }, layers: [...layers], groups: get().groups.map(g => ({ ...g })), activeId, selection, label, at: Date.now(), selectedIds: [...selectedIds], activeFrameId }
+    const snap: Snapshot = { doc: { ...doc }, layers: [...layers], groups: get().groups.map(g => ({ ...g })), activeId, selection, label, at: Date.now(), selectedIds: [...selectedIds], activeFrameId, restoreSelection: opts?.restoreSelection }
     const ui = useUi.getState()
     const last = history[historyIndex]
     if (opts?.ifChanged && last && sameAsStep(last, doc, layers, get().groups, selection)) return
@@ -1656,10 +1656,14 @@ export const useEditor = create<EditorState>()(withReconcile((set, get) => ({
     const ids = new Set(s.layers.map(l => l.id))
     const now = get()
     const kept = now.selectedIds.filter(x => ids.has(x))
-    const sel = kept.length ? kept : (s.selectedIds ?? (s.activeId ? [s.activeId] : [])).filter(x => ids.has(x))
+    // Boolean replacements and compound releases explicitly restore their transaction's
+    // selection. Other edits retain the existing "keep surviving selection" behaviour.
+    const restore = !!s.restoreSelection || !!history[now.historyIndex]?.restoreSelection
+    const sel = !restore && kept.length ? kept : (s.selectedIds ?? (s.activeId ? [s.activeId] : [])).filter(x => ids.has(x))
     const frames = s.doc.frames ?? []
     const frame = frames.length ? (frames.some(f => f.id === now.activeFrameId) ? now.activeFrameId! : frames.some(f => f.id === s.activeFrameId) ? s.activeFrameId! : frames[0].id) : null
-    const act = now.activeId && sel.includes(now.activeId) ? now.activeId : (sel[sel.length - 1] ?? null)
+    const preferred = restore ? s.activeId : now.activeId
+    const act = preferred && sel.includes(preferred) ? preferred : (sel[sel.length - 1] ?? null)
     // What was exported, and the export choices, are not part of the drawing: undo never takes them back.
     set({ doc: { ...s.doc, exports: now.doc?.exports ?? s.doc.exports, exportPrefs: now.doc?.exportPrefs ?? s.doc.exportPrefs }, layers: [...s.layers], groups: s.groups.map(g => ({ ...g })), selectedIds: sel.length ? sel : act ? [act] : [], editingTextId: null, activeId: act, activeFrameId: frame, selection: s.selection, historyIndex: index, editingMask: false, transform: null, docRev: get().docRev + 1, selRev: get().selRev + 1, dirty: true })
   },

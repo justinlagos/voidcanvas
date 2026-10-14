@@ -107,7 +107,7 @@ export function BoardsPanel({ onClose }: { onClose: () => void }) {
             <div className="mt-4">
               <p className="text-[12px] text-void-400 mb-2">Add a board</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {SIZE_PRESETS.slice(0, 8).map(p => <button key={p.id} onClick={() => s.addFrame({ name: p.label, width: p.width, height: p.height })} className={`flex items-center gap-2 p-2 rounded-lg bg-void-900 hover:bg-void-800 border border-void-800 text-left ${focusRing}`}><Plus size={14} className="text-accent-light shrink-0" /><span className="text-[12px] truncate">{p.label}</span></button>)}
+                {SIZE_PRESETS.slice(0, 8).map(p => <button key={p.id} onClick={() => s.addFrame({ name: p.label, width: p.width, height: p.height, print: p.print })} className={`flex items-center gap-2 p-2 rounded-lg bg-void-900 hover:bg-void-800 border border-void-800 text-left ${focusRing}`}><Plus size={14} className="text-accent-light shrink-0" /><span className="text-[12px] truncate">{p.label}</span></button>)}
               </div>
               <div className="mt-3 flex items-end gap-2">
                 <label className="block"><span className="block text-[11px] text-void-500 mb-1">Width</span><input type="number" value={cw} min={16} max={8000} onChange={e => setCw(Number(e.target.value))} className={`w-20 h-8 px-2 rounded-lg bg-surface-sunken border border-white/[0.06] text-[12px] tabular-nums ${focusRing}`} /></label>
@@ -132,9 +132,11 @@ function FrameThumb({ id }: { id: string }) {
 
 /** Pick sizes, see each one laid out before anything is made, and switch panels off. */
 function CascadeTab({ activeFrameId, picked, setPicked, onDone }: { activeFrameId: string | null; picked: Set<string>; setPicked: (f: (v: Set<string>) => Set<string>) => void; onDone: () => void }) {
-  const src = useMemo(() => cascadeSource(activeFrameId), [activeFrameId])
+  const revision = useEditor(s => s.docRev)
+  const src = useMemo(() => cascadeSource(activeFrameId), [activeFrameId, revision])
   const [skip, setSkip] = useState<Set<string>>(new Set())
   const [previews, setPreviews] = useState<Record<string, { url: string; dropped: string[]; issues: { code: string; message: string; severity: string }[] }>>({})
+  const [inspect, setInspect] = useState<string | null>(null)
   const chosen = SIZE_PRESETS.filter(p => picked.has(p.id))
   const key = Array.from(skip).sort().join('|')
 
@@ -151,9 +153,10 @@ function CascadeTab({ activeFrameId, picked, setPicked, onDone }: { activeFrameI
     }
     run()
     return () => { live = false }
-  }, [activeFrameId, key, chosen.map(p => p.id).join()]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeFrameId, revision, key, chosen.map(p => p.id).join()]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const panels = src?.panels ?? []
+  if (inspect) return <CascadeInspect activeFrameId={activeFrameId} id={inspect} skip={skip} onClose={() => setInspect(null)} />
   return (
     <div>
       <p className="text-[13px] text-void-400 mb-4">Lay out <span className="text-void-100">{src?.master.name ?? 'this board'}</span> at other sizes. Groups stay together, panels restack to suit each shape, and the new boards stay linked to this one.</p>
@@ -177,14 +180,14 @@ function CascadeTab({ activeFrameId, picked, setPicked, onDone }: { activeFrameI
 
       {chosen.length > 0 && (
         <div className="mt-5">
-          <p className="text-[12px] text-void-400 mb-2">Preview</p>
+          <p className="text-[12px] text-void-400 mb-2">Preview · select a format to inspect</p>
           <div className="flex gap-3 overflow-x-auto pb-2 items-end">
             {chosen.map(p => { const pv = previews[p.id]; const box = 150, k = box / Math.max(p.width, p.height); return (
               <figure key={p.id} className="shrink-0">
-                <div className="rounded-md overflow-hidden bg-void-950 border border-void-800 flex items-center justify-center" style={{ width: Math.round(p.width * k), height: Math.round(p.height * k) }}>
+                <button aria-label={`Inspect ${p.label} preview`} disabled={!pv} onClick={() => setInspect(p.id)} className={`rounded-md overflow-hidden bg-void-950 border border-void-800 flex items-center justify-center ${focusRing}`} style={{ width: Math.round(p.width * k), height: Math.round(p.height * k) }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {pv ? <img src={pv.url} alt={`${p.label} preview`} className="w-full h-full" /> : <span className="w-5 h-5 rounded-full border-2 border-void-700 border-t-void-400 animate-spin" />}
-                </div>
+                </button>
                 <figcaption className="mt-1 text-[11px] text-void-400 max-w-[150px]">{p.label}{pv?.dropped.filter(n => !skip.has(n)).length ? <span className="block text-void-500">Leaves out {pv.dropped.filter(n => !skip.has(n)).join(', ')}</span> : null}{pv?.issues?.length ? <span className="block mt-1 text-amber-300" role="status" title={pv.issues.map(i => i.message).join('; ')}>Review {pv.issues.length} layout issue{pv.issues.length === 1 ? '' : 's'}<span className="block text-void-400">{pv.issues[0].message}</span></span> : null}</figcaption>
               </figure>) })}
           </div>
@@ -193,4 +196,23 @@ function CascadeTab({ activeFrameId, picked, setPicked, onDone }: { activeFrameI
       <Button primary className="mt-4" disabled={!chosen.length} onClick={() => { cascadeToFrames(activeFrameId, chosen, skip); onDone() }}><LayoutGrid size={15} />Create {chosen.length} board{chosen.length === 1 ? '' : 's'}</Button>
     </div>
   )
+}
+
+/** Larger rendered art, every warning readable, and physical trim for print formats. */
+function CascadeInspect({ activeFrameId, id, skip, onClose }: { activeFrameId: string | null; id: string; skip: Set<string>; onClose: () => void }) {
+  const p = SIZE_PRESETS.find(p => p.id === id)!
+  const preview = useMemo(() => previewCascade(activeFrameId, p, skip, 900), [activeFrameId, p, skip])
+  return <section aria-label={`${p.label} preview`} className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold">{p.label}</h3>
+        <button autoFocus onClick={onClose} className={`h-9 px-3 rounded-lg bg-void-800 text-xs text-white ${focusRing}`}>Back to formats</button>
+      </div>
+      <p className="text-xs text-void-400">{p.width} × {p.height} px{p.print ? ` · ${p.print.widthMm} × ${p.print.heightMm} mm trim · ${p.print.dpi} DPI` : ''}</p>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {preview && <img src={preview.url} alt={`${p.label} enlarged artwork`} className="mx-auto max-h-[55vh] max-w-full object-contain" />}
+      <div aria-label="Layout review" className="text-xs space-y-1">
+        {preview?.issues.length ? preview.issues.map((issue, i) => <p key={i} className={issue.severity === 'critical' ? 'text-red-300' : 'text-amber-200'}>{issue.message}</p>) : <p className="text-void-400">No geometry warnings. Check the composition and image crops before creating this format.</p>}
+        {!!preview?.dropped.length && <p className="text-void-400">Left out: {preview.dropped.join(', ')}</p>}
+      </div>
+  </section>
 }

@@ -1,0 +1,53 @@
+name: U2-B compound paths and print fidelity
+on:
+  pull_request:
+    paths:
+      - 'src/editor/**'
+      - 'e2e/vector-u2b.mjs'
+      - 'e2e/print-fidelity.mjs'
+      - 'scripts/verify-print-files.py'
+      - '.github/workflows/u2b-print.yml'
+  workflow_dispatch:
+jobs:
+  vector-print:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx tsc --noEmit -p .
+      - run: npx vitest run src/editor/__tests__/vector-u2b.test.ts src/editor/__tests__/print-geometry.test.ts src/editor/__tests__/cascade-quality.test.ts
+      - run: npx playwright install --with-deps chromium
+      - name: Install independent print parsers and CMYK test profile
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ghostscript poppler-utils python3-pypdf python3-pil
+      - run: npm run build
+      - name: Start production build
+        run: |
+          npx next start -p 3000 >/tmp/u2b-next.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:3000/editor; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/u2b-next.log
+          exit 1
+      - run: node e2e/vector-u2b.mjs
+        env:
+          BASE: http://localhost:3000
+      - run: node e2e/print-fidelity.mjs
+        env:
+          BASE: http://localhost:3000
+      - name: Independently parse and render the actual print files
+        run: |
+          /usr/bin/python3 scripts/verify-print-files.py
+          pdftoppm -r 120 -png -singlefile e2e/evidence/print-fidelity/card-real-bleed-PDFX4.pdf e2e/evidence/print-fidelity/pdf-render
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: u2b-print-evidence
+          path: e2e/evidence/print-fidelity/
