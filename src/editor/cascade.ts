@@ -94,8 +94,13 @@ export function resyncVariants(masterId: string) {
     const incomingGroups = stampCascadeGroups(proposed.groups, s.groups, proposed.layers, masterLayers)
     const r = reconcileCascadeBoard(masterLayers, old, groups, proposed.layers, incomingGroups)
     layers = layers.filter(l => l.frameId !== child.id).concat(r.layers)
+    // Reconciled linked groups deliberately keep stable IDs. Replace their
+    // values in place; appending only unknown IDs previously discarded every
+    // inherited opacity/visibility update for existing groups.
+    const replacements = new Map(r.groups.map(g => [g.id, g]))
     const existing = new Set(groups.map(g => g.id))
-    groups = groups.concat(r.groups.filter(g => !existing.has(g.id)))
+    groups = groups.map(g => replacements.get(g.id) ?? g)
+      .concat(r.groups.filter(g => !existing.has(g.id)))
     conflicts = conflicts.concat(r.conflicts)
     reused += r.reused; added += r.added
   }
