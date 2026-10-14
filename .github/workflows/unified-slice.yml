@@ -4,7 +4,7 @@
 name: Unified slice browser gate
 on:
   pull_request:
-    paths: ['src/editor/unified/**', 'src/editor/components/PropertiesPanel.tsx', 'e2e/unified-slice.mjs', '.github/workflows/unified-slice.yml']
+    paths: ['src/editor/unified/**', 'src/editor/components/PropertiesPanel.tsx', 'e2e/unified-slice.mjs', 'e2e/appearance-combos.mjs', '.github/workflows/unified-slice.yml']
   workflow_dispatch:
     inputs:
       base:
@@ -29,6 +29,11 @@ jobs:
       - if: inputs.base == ''
         run: (npx next start -p 3000 > /tmp/next-start.log 2>&1 &) && for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3000 && break; sleep 5; done; curl -sf -o /dev/null http://localhost:3000 || (cat /tmp/next-start.log; exit 1)
       - run: node e2e/unified-slice.mjs
+        env:
+          BASE: ${{ inputs.base != '' && inputs.base || 'http://localhost:3000' }}
+      # Appearance combinations: pass-through vs isolated group blending, nested groups, group
+      # masks and ordered effects, verified on the live renderer's pixels.
+      - run: node e2e/appearance-combos.mjs
         env:
           BASE: ${{ inputs.base != '' && inputs.base || 'http://localhost:3000' }}
       - uses: actions/upload-artifact@v4

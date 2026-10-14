@@ -19,5 +19,7 @@ Files:
 - `06-provider-feasibility-ADR.md` — image-generation feasibility ADR: local / cloud / BYOK, capabilities, licences, device reqs, costs, privacy/security, backend, spending controls. No provider integrated.
 - `07-rocket-journey-A09.md` — Rocket Poster journey + compact UX prototype (mocked provider only).
 - `08-compat-rollback-strategy.md` — compatibility + rollback strategy (v1–v5 read, v6 planning, flag discipline).
+- `09`–`13` — Sprint B/B.1 slice, evidence gate, release-candidate runbook, fixes, Sprint C1.
+- `14-u1-appearance-support.md` — U1 appearance contract: supported rules, pixel-verified combinations, and the deliberate limits documented instead of silently approximated.
 
 Audited commit: `8d423b5a6a9bdca5c88ee11ff2d2317e91a26451` = `origin/master` HEAD at audit time (verified `git ls-remote origin master`). If master has moved, re-verify before Sprint B.

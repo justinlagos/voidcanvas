@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { create, type StateCreator } from 'zustand'
 import { defaultParams, type EffectType } from '@/store/useStore'
 import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, keepTextAnchor, layerBounds, layerMatrix, maskBounds, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
 import { boardGap, frameForLayer, occupied, placeBeside, type Side } from './frames'
@@ -6,6 +6,8 @@ import type { AdjustmentKind, AdjustmentLayer, Doc, Effect, Frame, Group, Layer,
 import { copyEffect, freshFx, fxId, newEffect, linkedCopies, moveInList, patchEffect, resetEffect as resetFx, sameTarget, stackOf, withStacks, type FxTarget } from './effects'
 import { useUi } from './ui-store'
 import { clearAssetStore, scopeRegistryToDoc } from './assets/asset-store'
+import { refineStillValid } from './refine/session'
+import { reconcileSelection } from './unified/selection-bridge'
 import { touchCanvas } from './touch'
 import { noteStep, noteUndo } from '@/lib/analytics'
 
@@ -474,7 +476,70 @@ function anchored(l: Layer, patch: Partial<Layer>): Layer {
   return 'x' in patch || 'y' in patch || 'boxWidth' in patch ? next : keepTextAnchor(l, next)
 }
 
-export const useEditor = create<EditorState>((set, get) => ({
+// Keys whose change can leave a selection or tool target pointing at something gone.
+const REF_KEYS = ['doc', 'layers', 'groups', 'selectedIds', 'activeId', 'keyObjectId', 'isolatedGroupId', 'editingTextId', 'activeFrameId', 'drawInsideId', 'refineLayerId', 'transform', 'vmaskEditId', 'activePathId'] as const
+
+/**
+ * The single reconciliation rule for selection and tool targets. Uses `reconcileSelection` from
+ * `unified/selection-bridge` and returns a patch that drops every reference to a layer, group,
+ * path or board that no longer exists (or is no longer valid for C3 refine), or null when nothing
+ * is stale. Ids keep their order.
+ */
+export function staleRefsPatch(
+  s: Pick<EditorState, 'doc' | 'layers' | 'groups' | 'selectedIds' | 'activeId' | 'keyObjectId' | 'isolatedGroupId' | 'editingTextId' | 'activeFrameId' | 'drawInsideId' | 'refineLayerId'> &
+    Partial<Pick<EditorState, 'transform' | 'vmaskEditId' | 'activePathId'>>,
+): Partial<EditorState> | null {
+  const byId = new Map(s.layers.map(l => [l.id, l]))
+  const groups = new Set(s.groups.map(g => g.id))
+  const frames = s.doc?.frames ?? []
+  const frameIds = frames.map(f => f.id)
+  const rec = reconcileSelection(
+    { ids: s.selectedIds, activeId: s.activeId, keyObjectId: s.keyObjectId, frameId: s.activeFrameId },
+    s.layers,
+    frameIds,
+  )
+  const patch: Partial<EditorState> = {}
+  const ids = rec.ids
+  if (ids.length !== s.selectedIds.length) patch.selectedIds = ids
+  const nextActive = rec.activeId ?? (s.activeId ? (ids[ids.length - 1] ?? null) : null)
+  if (nextActive !== s.activeId) patch.activeId = nextActive
+  const nextKey = rec.keyObjectId && ids.includes(rec.keyObjectId) ? rec.keyObjectId : null
+  if (nextKey !== s.keyObjectId) patch.keyObjectId = null
+  if (s.editingTextId && !byId.has(s.editingTextId)) patch.editingTextId = null
+  if (s.drawInsideId && !byId.has(s.drawInsideId)) patch.drawInsideId = null
+  if (s.refineLayerId) {
+    const rl = byId.get(s.refineLayerId)
+    if (!rl || !refineStillValid({ id: rl.id, type: rl.type, locked: rl.locked, lockPixels: rl.lockPixels })) {
+      patch.refineLayerId = null
+    }
+  }
+  if (s.isolatedGroupId && !groups.has(s.isolatedGroupId)) patch.isolatedGroupId = null
+  if (s.activeFrameId && !rec.frameId) patch.activeFrameId = frames[0]?.id ?? null
+  if (s.transform && !byId.has(s.transform.layerId)) patch.transform = null
+  if (s.vmaskEditId && !byId.has(s.vmaskEditId)) patch.vmaskEditId = null
+  if (s.activePathId) {
+    const paths = s.doc?.paths ?? []
+    if (!paths.some(p => p.id === s.activePathId)) patch.activePathId = null
+  }
+  return Object.keys(patch).length ? patch : null
+}
+
+// Wraps the store's setState, both the one actions use and the one components call (useEditor.setState), so
+// every write reconciles. Zustand builds the exposed setState from api.setState, so replacing it here covers both.
+const withReconcile = (init: StateCreator<EditorState, [], []>): StateCreator<EditorState, [], []> => (set, get, api) => {
+  const wrapped: typeof set = (partial, replace) => {
+    const before = get()
+    set(partial, replace)
+    const after = get()
+    if (!REF_KEYS.some(k => before[k] !== after[k])) return
+    const patch = staleRefsPatch(after)
+    if (patch) set(patch)
+  }
+  api.setState = wrapped
+  return init(wrapped, get, api)
+}
+
+export const useEditor = create<EditorState>()(withReconcile((set, get) => ({
   doc: null,
   layers: [],
   groups: [],
@@ -579,8 +644,16 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   applyBoards: (doc, layers, groups, label, activeFrameId) => {
-    const r = settleInto(doc, layers, groups, get().view)
-    set({ doc: r.doc, layers: r.layers, groups: r.groups, view: r.view, activeFrameId: activeFrameId ?? get().activeFrameId, selectedIds: [], activeId: null, editingMask: false, docRev: get().docRev + 1, dirty: true })
+    const cur = get()
+    const r = settleInto(doc, layers, groups, cur.view)
+    const rec = reconcileSelection(
+      { ids: cur.selectedIds, activeId: cur.activeId, keyObjectId: cur.keyObjectId, frameId: activeFrameId ?? cur.activeFrameId },
+      r.layers,
+      (r.doc.frames ?? []).map(f => f.id),
+    )
+    const nextActive = rec.activeId ?? (rec.ids[rec.ids.length - 1] ?? null)
+    const nextKey = rec.keyObjectId && rec.ids.includes(rec.keyObjectId) ? rec.keyObjectId : null
+    set({ doc: r.doc, layers: r.layers, groups: r.groups, view: r.view, activeFrameId: rec.frameId ?? r.doc.frames?.[0]?.id ?? null, selectedIds: rec.ids, activeId: nextActive, keyObjectId: nextKey, editingMask: false, docRev: cur.docRev + 1, dirty: true })
     get().commit(label)
   },
 
@@ -1623,7 +1696,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   notify: (msg) => set({ toast: { id: Date.now(), msg } }),
   setBusy: (msg) => set({ busy: msg }),
   markSaved: () => set({ dirty: false }),
-}))
+})))
 
 /** Show a teaching tip the first time something happens, then never again. */
 export function tipOnce(key: string, msg: string) {
