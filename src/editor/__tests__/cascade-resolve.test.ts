@@ -55,7 +55,7 @@ describe('Cascade explicit conflict resolution', () => {
     const raster = (id: string, srcId: string | null, name: string) => ({
       ...layer(id, srcId), type: 'raster', canvas: { width: 16, height: 16 }, asset: asset(name),
       cascadeConflicts: srcId ? ['asset'] : undefined, cascadeBase: { __assetSignature: 'A@A-hash' },
-    }) as Layer
+    }) as unknown as Layer
     const local = raster('v-image', 'master', 'LOCAL')
     const master = raster('master', null, 'B')
     const kept = decideCascadeConflict(local, master, 'asset', 'variant')
