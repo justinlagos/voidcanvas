@@ -77,7 +77,7 @@ describe('Cascade explicit conflict resolution', () => {
       cascadeConflicts: srcId ? ['vector path'] : undefined,
       cascadeBase: { __vectorPath: path(4) },
       cascadeVariantBase: { subpaths: path(9), w: 120, h: 90 },
-    }) as Layer
+    }) as unknown as Layer
     const v = shape('variant', 'master', 777), m = shape('master', null, 15), proposed = shape('generated', 'master', 44)
     const result = decideCascadeConflict(v, m, 'vector path', 'master', proposed)
     expect(result.ok).toBe(true)
