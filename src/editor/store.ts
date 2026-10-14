@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { create, type StateCreator } from 'zustand'
 import { defaultParams, type EffectType } from '@/store/useStore'
 import { ADJUSTMENT_DEFAULTS, cloneCanvas, ctx2d, fullMaskSized, keepTextAnchor, layerBounds, layerMatrix, maskBounds, layerSize, makeCanvas, rasterizeToDoc, renderDoc, uid } from './engine'
 import { boardGap, frameForLayer, occupied, placeBeside, type Side } from './frames'
@@ -474,7 +474,47 @@ function anchored(l: Layer, patch: Partial<Layer>): Layer {
   return 'x' in patch || 'y' in patch || 'boxWidth' in patch ? next : keepTextAnchor(l, next)
 }
 
-export const useEditor = create<EditorState>((set, get) => ({
+// Keys whose change can leave a selection or tool target pointing at something gone.
+const REF_KEYS = ['doc', 'layers', 'groups', 'selectedIds', 'activeId', 'keyObjectId', 'isolatedGroupId', 'editingTextId', 'activeFrameId', 'drawInsideId', 'refineLayerId'] as const
+
+/**
+ * The single reconciliation rule for selection and tool targets. Returns a patch that drops every reference to a
+ * layer, group or board that no longer exists, or null when nothing is stale. Ids keep their order.
+ */
+export function staleRefsPatch(s: Pick<EditorState, 'doc' | 'layers' | 'groups' | 'selectedIds' | 'activeId' | 'keyObjectId' | 'isolatedGroupId' | 'editingTextId' | 'activeFrameId' | 'drawInsideId' | 'refineLayerId'>): Partial<EditorState> | null {
+  const live = new Set(s.layers.map(l => l.id))
+  const groups = new Set(s.groups.map(g => g.id))
+  const frames = s.doc?.frames ?? []
+  const frameIds = new Set(frames.map(f => f.id))
+  const patch: Partial<EditorState> = {}
+  const ids = s.selectedIds.filter(id => live.has(id))
+  if (ids.length !== s.selectedIds.length) patch.selectedIds = ids
+  if (s.activeId && !live.has(s.activeId)) patch.activeId = ids[ids.length - 1] ?? null
+  if (s.keyObjectId && !ids.includes(s.keyObjectId)) patch.keyObjectId = null
+  if (s.editingTextId && !live.has(s.editingTextId)) patch.editingTextId = null
+  if (s.drawInsideId && !live.has(s.drawInsideId)) patch.drawInsideId = null
+  if (s.refineLayerId && !live.has(s.refineLayerId)) patch.refineLayerId = null
+  if (s.isolatedGroupId && !groups.has(s.isolatedGroupId)) patch.isolatedGroupId = null
+  if (s.activeFrameId && !frameIds.has(s.activeFrameId)) patch.activeFrameId = frames[0]?.id ?? null
+  return Object.keys(patch).length ? patch : null
+}
+
+// Wraps the store's setState, both the one actions use and the one components call (useEditor.setState), so
+// every write reconciles. Zustand builds the exposed setState from api.setState, so replacing it here covers both.
+const withReconcile = (init: StateCreator<EditorState, [], []>): StateCreator<EditorState, [], []> => (set, get, api) => {
+  const wrapped: typeof set = (partial, replace) => {
+    const before = get()
+    set(partial, replace)
+    const after = get()
+    if (!REF_KEYS.some(k => before[k] !== after[k])) return
+    const patch = staleRefsPatch(after)
+    if (patch) set(patch)
+  }
+  api.setState = wrapped
+  return init(wrapped, get, api)
+}
+
+export const useEditor = create<EditorState>()(withReconcile((set, get) => ({
   doc: null,
   layers: [],
   groups: [],
@@ -1623,7 +1663,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   notify: (msg) => set({ toast: { id: Date.now(), msg } }),
   setBusy: (msg) => set({ busy: msg }),
   markSaved: () => set({ dirty: false }),
-}))
+})))
 
 /** Show a teaching tip the first time something happens, then never again. */
 export function tipOnce(key: string, msg: string) {
