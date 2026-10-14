@@ -59,4 +59,46 @@ describe('Cascade review diagnostics', () => {
     const v = layer('v', 'm', 800, 100, 180, 60, 'headline')
     expect(audit([m], [v]).issues).toEqual([])
   })
+  it('blocks a tagged essential layer that is present by srcId but entirely off the board', () => {
+    const required = layer('source-logo', null, 0, 0, 100, 40, 'logo')
+    const outside = layer('variant-logo', 'source-logo', 1610, 100, 150, 60, 'logo')
+    const q = audit([required], [outside])
+    expect(q.criticalCount).toBe(1)
+    expect(q.issues.find(x => x.code === 'essential-off-board')?.layerId).toBe('variant-logo')
+  })
+  it('treats a partially cropped logo as a review warning, not a full loss', () => {
+    const part = layer('part', 's', 1580, 100, 100, 80, 'logo')
+    const q = audit([], [part])
+    expect(q.criticalCount).toBe(0)
+    expect(q.issues.some(x => x.code === 'outside-board')).toBe(true)
+  })
+  it('flags paragraph lines whose actual glyph width exceeds their box width', () => {
+    const t = layer('oversized', 's', 780, 150, 100, 50)
+    if (t.type !== 'text') throw Error('expected text')
+    t.boxWidth = 20
+    const q = auditCascadeLayout([], [t], frame, doc, {
+      measure,
+      lines: () => [{ text: 'W', width: 28, first: true }],
+    })
+    expect(q.issues.some(x => x.code === 'text-box-overflow')).toBe(true)
+  })
+  it('accounts for paragraph first-line indentation without warning on sound text', () => {
+    const t = layer('type', 's', 780, 150, 200, 50)
+    if (t.type !== 'text') throw Error('expected text')
+    t.boxWidth = 100
+    t.indent = 30
+    const measureLine = (width: number, first: boolean) => auditCascadeLayout([], [t], frame, doc, {
+      measure, lines: () => [{text:'Brand', width, first}],
+    })
+    expect(measureLine(70, true).issues.some(x => x.code === 'text-box-overflow')).toBe(true)
+    expect(measureLine(60, true).issues.some(x => x.code === 'text-box-overflow')).toBe(false)
+    expect(measureLine(70, false).issues.some(x => x.code === 'text-box-overflow')).toBe(false)
+  })
+  it('never blocks untagged decorative or off-board background layers', () => {
+    const l = layer('background', null, 2000, 0, 100, 100, undefined, 'shape')
+    const q = audit([], [l])
+    expect(q.criticalCount).toBe(0)
+    expect(q.issues).toEqual([])
+  })
+
 })

@@ -266,6 +266,7 @@ function editPicks(fn: (subs: SubPath[], picks: { sub: number; idx: number }[]) 
 
 function PenOptions({ tool }: { tool: string }) {
   const o = useEditor(s => s.options)
+  const selectedVectorCount = useEditor(s => s.layers.filter(l => s.selectedIds.includes(l.id) && l.type === 'shape').length)
   const fg = useEditor(s => s.fg), bg = useEditor(s => s.bg)
   const set = useEditor.getState().setOption
   const mode = o.penMode ?? 'shape'
@@ -318,8 +319,23 @@ function PenOptions({ tool }: { tool: string }) {
       {tool === 'pathselect' && <>
         <button className={chip(false)} onClick={() => editPicks((subs, picks) => { let x = subs; for (const q of picks) x = x.map((sp, i) => (i === q.sub ? { ...sp, nodes: sp.nodes.map((n, j) => (j === q.idx ? convertNodeTo(sp, j, false) : n)) } : sp)); return x }, 'Corner points')} title="Remove the handles of the picked points">Corner</button>
         <button className={chip(false)} onClick={() => editPicks((subs, picks) => { let x = subs; for (const q of picks) x = x.map((sp, i) => (i === q.sub ? { ...sp, nodes: sp.nodes.map((n, j) => (j === q.idx ? convertNodeTo(sp, j, true) : n)) } : sp)); return x }, 'Smooth points')} title="Give the picked points smooth handles">Smooth</button>
+        <button className={chip(false)} onClick={() => editPicks((subs, picks) => { let x = subs; for (const q of picks) x = x.map((sp, i) => (i === q.sub ? { ...sp, nodes: sp.nodes.map((n, j) => (j === q.idx ? pen.convertNodeKind(sp, j, 'symmetric') : n)) } : sp)); return x }, 'Symmetric points')} title="Give selected anchors equal-length, opposite Bézier handles">Symmetric</button>
+        {selectedVectorCount > 1 && <button className={chip(false)} title="Convert all nodes of every selected vector shape in one undoable action" onClick={() => {
+          const s = useEditor.getState()
+          const updates = s.layers.filter(l => s.selectedIds.includes(l.id) && l.type === 'shape' && !l.locked)
+            .map(l => {
+              if (l.type !== 'shape') return null
+              const subs = pen.layerSubsToDoc(l)
+              if (!subs.length) return null
+              return { id: l.id, patch: pen.docSubsToLayerPatch(l, pen.symmetrizeSubpaths(subs)) }
+            }).filter((x): x is { id: string; patch: Partial<import('../types').ShapeLayer> } => !!x)
+          if (!updates.length) { s.notify('Select two unlocked vector shapes to edit their anchors.'); return }
+          s.updateLayers(updates); s.commit('Symmetric anchors in selected shapes')
+        }}>Symmetric selected shapes</button>}
         <Sep />
       </>}
+      <Check2 on={!!o.penSnapGrid} label="Snap grid" onChange={v => set('penSnapGrid', v)} title="Snap Pen and Direct Selection anchors to a document-pixel grid within six screen pixels. Ctrl/Cmd temporarily disables snapping." />
+      {o.penSnapGrid && <Num label="Grid spacing" value={o.penGridSize ?? 10} min={2} max={1000} step={1} unit="px" onChange={v => set('penGridSize', Math.max(2, Math.min(1000, Math.round(v))))} title="Grid pitch in document pixels" />}
       <span className="text-[12px] text-void-400 shrink-0 max-w-[420px] truncate" title={hint}>{hint}</span>
       <Sep />
       <button className={chip(false)} onClick={() => ops.pathToSelection()} title="Load the path as a selection (Ctrl+Enter)">Selection</button>
