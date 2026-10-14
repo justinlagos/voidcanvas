@@ -2,6 +2,7 @@
 // content, warnings, identity and downloaded exports. No network assets.
 import fs from 'node:fs'
 import path from 'node:path'
+import { inflateRawSync } from 'node:zlib'
 import { chromium } from 'playwright'
 
 const BASE = process.env.BASE || 'http://localhost:3000'
@@ -126,6 +127,7 @@ try {
   // Inspect ZIP central-directory filenames instead of searching arbitrary
   // compressed bytes for ".png" (binary searching produced false counts).
   const names = []
+  const dimensions = []
   for (let at = 0; at + 46 <= bytes.length; at++) {
     if (bytes.readUInt32LE(at) !== 0x02014b50) continue
     const nameLen = bytes.readUInt16LE(at + 28)
@@ -133,12 +135,37 @@ try {
     const commentLen = bytes.readUInt16LE(at + 32)
     const size = 46 + nameLen + extraLen + commentLen
     if (at + size > bytes.length) throw new Error('Corrupt ZIP central directory')
-    names.push(bytes.subarray(at + 46, at + 46 + nameLen).toString('utf8'))
+    const name = bytes.subarray(at + 46, at + 46 + nameLen).toString('utf8')
+    names.push(name)
+    if (name.toLowerCase().endsWith('.png')) {
+      const method = bytes.readUInt16LE(at + 10)
+      const compressedSize = bytes.readUInt32LE(at + 20)
+      const localOffset = bytes.readUInt32LE(at + 42)
+      if (bytes.readUInt32LE(localOffset) !== 0x04034b50) throw new Error('Invalid ZIP local entry: ' + name)
+      const dataStart = localOffset + 30 + bytes.readUInt16LE(localOffset + 26) +
+        bytes.readUInt16LE(localOffset + 28)
+      const compressed = bytes.subarray(dataStart, dataStart + compressedSize)
+      const png = method === 0 ? compressed : method === 8 ? inflateRawSync(compressed) : null
+      if (!png || png.length < 30 || png.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' ||
+          png.toString('ascii', 12, 16) !== 'IHDR')
+        throw new Error('ZIP export contains invalid PNG: ' + name)
+      dimensions.push({ name, width: png.readUInt32BE(16), height: png.readUInt32BE(20), bytes: png.length })
+    }
     at += size - 1
   }
   const pngNames = names.filter(name => /\.png$/i.test(name))
   console.log('ZIP export entries:', JSON.stringify(names))
   if (pngNames.length !== 7) throw new Error('Expected 7 independently exported board PNGs, got ' + pngNames.length + ': ' + JSON.stringify(names))
+  const expectedBoards = [{ name: 'Hero master', w: 2400, h: 1200 }, ...actual.variants]
+  for (const b of expectedBoards) {
+    const matching = dimensions.filter(x => x.name.endsWith('_' + b.w + 'x' + b.h + '.png'))
+    if (matching.length !== 1 || matching[0].width !== b.w || matching[0].height !== b.h ||
+        matching[0].bytes < 500)
+      throw new Error('Wrong raster export dimensions or empty PNG for ' + b.name + ': ' + JSON.stringify(matching))
+  }
+  console.log('PASS all seven ZIP PNGs have their exact artboard pixel dimensions: ' +
+    JSON.stringify(dimensions.map(x => x.width + 'x' + x.height)))
+
   if (errors.length) throw new Error('Uncaught browser errors: ' + errors.join('; '))
   console.log('PASS six linked formats + original board, essential logo/headline/CTA, group integrity, no overlap, editable layer ids, download', JSON.stringify(actual))
 } finally {
