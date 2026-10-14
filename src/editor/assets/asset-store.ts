@@ -26,6 +26,8 @@ export interface NativeAsset {
   source: NativeSource
   parentId: string | null
   recipeId: string | null
+  /** SEARCH-A: provenance/licensing for external assets. Additive + optional: old readers ignore it, .void round-trips it as plain JSON. */
+  rights?: import('./search/rights').RightsRecord | null
   createdAt: number
   thumb: string // data URL preview; regenerable, never the source
 }

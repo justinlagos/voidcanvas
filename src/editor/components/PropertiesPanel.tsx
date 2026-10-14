@@ -235,6 +235,7 @@ export function PropertiesPanel({ onOpenFilters }: { onOpenFilters: () => void }
       {layer.type === 'raster' && !isEmptyFrame(layer) && (
         <Section title="Quick actions">
           <div className="grid grid-cols-2 gap-2">
+            <Button onClick={() => { import('../refine/RefineBar').then(m => m.refineActiveLayer()) }} className="col-span-2 !justify-start">Refine area</Button>
             <Button onClick={() => removeBackground(layer.id)} className="col-span-2 !justify-start"><ImageOff size={15} />Remove background</Button>
             <button onClick={() => removeBackground(layer.id, 'any')} className={`col-span-2 -mt-1 text-left text-[12px] text-void-400 hover:text-white underline underline-offset-2 rounded ${focusRing}`}>Not a person? Use the any-subject model (115 MB, needs a recent browser)</button>
             <Button onClick={onOpenFilters} className="col-span-2 !justify-start"><Eclipse size={15} />Filters and adjustments</Button>

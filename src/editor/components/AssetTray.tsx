@@ -130,7 +130,7 @@ export function AssetTray() {
         <button onClick={() => file.current?.click()} aria-label="Upload images" className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg bg-accent text-white text-[12.5px] font-medium hover:brightness-110 ${focusRing}`}>
           <ImagePlus size={14} />Upload
         </button>
-        <button disabled title="Image search arrives in a later milestone. Uploads stay on this device." aria-label="Search images (coming soon)" className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12.5px] text-void-500 cursor-not-allowed">
+        <button onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: { name: 'search' } }))} title="Search licensed images. Trial library works now; stock sources need approved API keys." aria-label="Search images" className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12.5px] text-void-100 hover:bg-white/[0.06] ${focusRing}`}>
           <Search size={14} />Search
         </button>
         <button onClick={() => window.dispatchEvent(new CustomEvent('vc:open', { detail: { name: 'generate' } }))} title="Generate sample images on this device (free demo, Sprint C2)." aria-label="Generate image" className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12.5px] text-void-100 hover:bg-white/[0.06] ${focusRing}`}>

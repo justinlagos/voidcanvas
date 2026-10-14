@@ -105,6 +105,9 @@ describe('C2 generation tasks (cancel + stale protection)', () => {
     expect(decision.ok).toBe(false)
     expect(decision.reason).toMatch(/stale/)
     expect(decideCommit(run.task, 7).ok).toBe(true)
+    const committed = decideCommit(run.task, 7).task
+    // An already-committed task must refuse a second commit (no silent double-apply).
+    expect(decideCommit(committed, 7).ok).toBe(false)
   })
 
   it('detects AbortError by name', () => {
