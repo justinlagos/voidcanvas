@@ -114,10 +114,23 @@ try {
   const twice = await read()
   expect(twice.imageConflicts.includes('asset') && twice.vectorConflicts.includes('vector path'),
     'conflicts persist after repeated refresh', twice)
+  const review = page.getByRole('region', { name: 'Cascade conflicts' })
+  await review.waitFor({ state: 'visible' })
+  const reviewRows = await review.locator('button').allTextContents()
+  expect(reviewRows.length >= 2 && reviewRows.some(x => x.includes('asset')) &&
+    reviewRows.some(x => x.includes('vector path')),
+    'designer can review unresolved image and vector conflicts from Boards', reviewRows)
   await VE(() => window.__voidEditor.getState().undo())
   const undone = await read()
   expect(undone.untouchedAsset === 'B' && undone.localAsset === 'LOCAL',
     'undoing second sync restores first result without altering manual work', undone)
+  await review.locator('button').filter({ hasText: 'asset' }).first().click()
+  const target = await VE(() => {
+    const st = window.__voidEditor.getState()
+    return { activeId: st.activeId, activeFrameId: st.activeFrameId }
+  })
+  expect(target.activeId === 'custom-image' && target.activeFrameId === 'W',
+    'conflict review selects the local object and linked board', target)
   expect(pageErrors.length === 0, 'no uncaught browser errors', pageErrors)
   console.log('CASCADE NATIVE/VECTOR browser acceptance complete')
 } finally { await browser.close() }
