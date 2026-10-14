@@ -4,6 +4,11 @@ on:
     paths:
       - 'src/editor/cascade.ts'
       - 'src/editor/cascade-integrity.ts'
+      - 'src/editor/cascade-quality.ts'
+      - 'src/editor/layout.ts'
+      - 'src/editor/components/BoardsPanel.tsx'
+      - 'src/editor/__tests__/cascade-quality.test.ts'
+      - 'e2e/cascade-corpus.mjs'
       - 'src/editor/__tests__/cascade-integrity.test.ts'
       - 'e2e/cascade-integrity.mjs'
       - '.github/workflows/cascade-integrity.yml'
@@ -19,7 +24,7 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npx tsc --noEmit -p .
-      - run: npx vitest run src/editor/__tests__/cascade-integrity.test.ts src/editor/unified
+      - run: npx vitest run src/editor/__tests__/cascade-integrity.test.ts src/editor/__tests__/cascade-quality.test.ts src/editor/unified
       - run: npx playwright install --with-deps chromium
       - run: npm run build || npm run build
       - run: |
@@ -30,3 +35,11 @@ jobs:
       - run: node e2e/cascade-integrity.mjs
         env:
           BASE: http://localhost:3000
+      - run: node e2e/cascade-corpus.mjs
+        env:
+          BASE: http://localhost:3000
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cascade-visual-corpus
+          path: e2e/evidence/cascade-corpus/
