@@ -112,6 +112,62 @@ try {
   if (!actual.history?.startsWith('Cascade to')) throw new Error('Cascade did not commit one undo step')
   await page.screenshot({ path: path.join(OUT, '02-cascaded-artboards.png') })
 
+  // Group inheritance: real six-format Cascade must stamp a source baseline
+  // and update a stable linked group ID when the master opacity changes.
+  const originalGroup = await page.evaluate(() => {
+    const st = window.__voidEditor.getState()
+    const child = st.doc.frames.find(f => f.linkedFrom === 'M')
+    const logo = st.layers.find(l => l.frameId === child.id && l.srcId === 'logo')
+    const group = st.groups.find(g => g.id === logo?.groupId)
+    return group && { id: group.id, source: group.cascadeSourceId,
+      baseOpacity: group.cascadeBase?.opacity, opacity: group.opacity }
+  })
+  if (!originalGroup || originalGroup.source !== 'gBrand' ||
+      originalGroup.baseOpacity !== 1 || originalGroup.opacity !== 1)
+    throw new Error('Cascade did not stamp grouped source inheritance: ' + JSON.stringify(originalGroup))
+  await page.evaluate(() => window.__voidEditor.getState().updateGroup('gBrand', { opacity: 0.6 }, 'Master brand opacity'))
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'boards' })))
+  await page.getByRole('button', { name: 'Re-sync variants' }).click()
+  const inherited = await page.evaluate(id => {
+    const st = window.__voidEditor.getState(), g = st.groups.find(g => g.id === id)
+    return { id: g?.id, opacity: g?.opacity, baseline: g?.cascadeBase?.opacity }
+  }, originalGroup.id)
+  if (inherited.id !== originalGroup.id || inherited.opacity !== 0.6 || inherited.baseline !== 0.6)
+    throw new Error('Linked group did not inherit master opacity in place: ' + JSON.stringify(inherited))
+  await page.evaluate(id => {
+    const st = window.__voidEditor.getState()
+    st.updateGroup(id, { opacity: 0.72 }, 'Local brand override')
+    st.updateGroup('gBrand', { opacity: 0.3 }, 'Change master opacity again')
+  }, originalGroup.id)
+  await page.getByRole('button', { name: 'Re-sync variants' }).click()
+  const overridden = await page.evaluate(id => {
+    const g = window.__voidEditor.getState().groups.find(g => g.id === id)
+    return { opacity: g?.opacity, baseline: g?.cascadeBase?.opacity, conflicts: g?.cascadeConflicts }
+  }, originalGroup.id)
+  if (overridden.opacity !== 0.72 || overridden.baseline !== 0.3 ||
+      !overridden.conflicts?.includes('opacity'))
+    throw new Error('Local group override was not protected or diagnosed: ' + JSON.stringify(overridden))
+  await page.evaluate(() => window.__voidEditor.getState().undo())
+  const undoneGroup = await page.evaluate(id =>
+    window.__voidEditor.getState().groups.find(g => g.id === id)?.cascadeBase?.opacity, originalGroup.id)
+  if (undoneGroup !== 0.6) throw new Error('Linked group sync Undo lost previous baseline')
+  await page.evaluate(() => window.__voidEditor.getState().redo())
+  const redoneGroup = await page.evaluate(id =>
+    window.__voidEditor.getState().groups.find(g => g.id === id)?.opacity, originalGroup.id)
+  if (redoneGroup !== 0.72) throw new Error('Linked group sync Redo lost variant opacity')
+  await page.waitForFunction(() => !!window.__vcAssets?.saveVoid, null, { timeout: 15000 })
+  const groupFile = await page.evaluate(async () => window.__vcAssets.saveVoid())
+  if (!groupFile?.b64) throw new Error('Failed to save linked group changes')
+  await page.evaluate(() => window.__voidEditor.getState().closeDoc())
+  await page.evaluate(b64 => window.__vcAssets.openVoid(b64), groupFile.b64)
+  const reopenedGroup = await page.evaluate(id => {
+    const g = window.__voidEditor.getState().groups.find(g => g.id === id)
+    return { opacity: g?.opacity, baseline: g?.cascadeBase?.opacity, source: g?.cascadeSourceId }
+  }, originalGroup.id)
+  if (reopenedGroup.opacity !== 0.72 || reopenedGroup.baseline !== 0.3 || reopenedGroup.source !== 'gBrand')
+    throw new Error('Linked group inheritance metadata lost in .void round-trip: ' + JSON.stringify(reopenedGroup))
+  console.log('PASS nested group source baseline, master inheritance, local override, Undo/Redo and .void round-trip')
+
   // Drive actual browser export, then inspect the downloaded ZIP structure.
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'export' })))
   await page.getByRole('button', { name: /All / }).click()
