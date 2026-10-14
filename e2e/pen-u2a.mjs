@@ -93,6 +93,44 @@ try {
   if(Math.abs(reopened.node.outX-n.outX)>0.01)
     throw Error('.void round-trip changed vector handles')
   console.log('PASS .void reopens editable U2-A Bézier path')
+  // Multi-object batch editing: two independent shape layers, one Undo step,
+  // native path geometry retained on both layers (not a separate vector store).
+  await page.evaluate(()=>{
+    const st=window.__voidEditor.getState()
+    const n=(x,y)=>({x,y,inX:x,inY:y,outX:x,outY:y})
+    const make=(id,x)=>({
+      id,name:id,type:'shape',shape:'path',frameId:'board',x,y:100,w:160,h:120,
+      scaleX:1,scaleY:1,rotation:0,rev:1,fill:'#2244ee',stroke:null,strokeWidth:0,radius:0,
+      visible:true,locked:false,opacity:1,blend:'source-over',mask:null,maskEnabled:false,
+      subpaths:[{closed:false,nodes:[n(0,0),n(80,60),n(150,0)]}],
+    })
+    st.loadFramed({
+      id:'u2a-multi',name:'Multiple paths',width:800,height:600,background:'#fff',
+      frames:[{id:'board',name:'Artboard',x:0,y:0,width:800,height:600,background:'#fff'}],
+    },[make('shape-a',60),make('shape-b',310)],[],[])
+    st.setTool('pathselect')
+    st.setActive('shape-a')
+    st.toggleSelect('shape-b')
+  })
+  await page.getByRole('button',{name:'Symmetric selected shapes',exact:true}).click()
+  const batch=()=>page.evaluate(()=>{
+    const st=window.__voidEditor.getState()
+    return { anchorFlags:st.layers.filter(l=>l.type==='shape').map(l=>l.subpaths[0].nodes.map(n=>!!n.symmetric)),
+      lastAction:st.history.at(-1)?.label }
+  })
+  const both=await batch()
+  if(both.anchorFlags.length!==2||both.anchorFlags.some(flags=>flags.some(flag=>!flag)))
+    throw Error('Multi-layer anchors were not symmetrized in live Editor: '+JSON.stringify(both))
+  eq(both.lastAction,'Symmetric anchors in selected shapes','multi-vector batch is one history step')
+  await page.evaluate(()=>window.__voidEditor.getState().undo())
+  const beforeMulti=await batch()
+  if(beforeMulti.anchorFlags.some(flags=>flags.some(Boolean)))
+    throw Error('Multi-vector Undo did not restore original anchors')
+  await page.evaluate(()=>window.__voidEditor.getState().redo())
+  const afterMulti=await batch()
+  if(afterMulti.anchorFlags.some(flags=>flags.some(flag=>!flag)))
+    throw Error('Multi-vector Redo failed')
+  console.log('PASS two separate vector layers edited together with one Undo/Redo')
   if(failures.length)throw Error('browser errors: '+failures.join('; '))
   console.log('U2-A real UI browser acceptance complete')
 }finally{await browser.close()}
