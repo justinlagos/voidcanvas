@@ -116,7 +116,7 @@ try {
   await page.getByRole('button', { name: /All / }).click()
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 90000 }),
-    page.getByRole('button', { name: /Download/ }).last().click(),
+    page.getByRole('button', { name: /^Download 7 PNGs/ }).click(),
   ])
   const zipPath = path.join(OUT, 'seven-artboards.zip')
   await download.saveAs(zipPath)
