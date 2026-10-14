@@ -23,7 +23,7 @@ export function Sheet({ title, onClose, children, tall, peek, action }: { title:
         <span className="ml-auto" />
         {action}
         {peek && <button onClick={() => setOpen(v => !v)} aria-label={open ? 'Show less' : 'Show all settings'} aria-expanded={open} className="h-8 w-9 rounded-lg text-void-200 active:bg-void-800 inline-flex items-center justify-center"><ChevronRight size={17} className={open ? 'rotate-90' : '-rotate-90'} /></button>}
-        <button onClick={onClose} aria-label="Close" className="h-8 px-3 rounded-lg text-[13px] text-void-200 active:bg-void-800 inline-flex items-center gap-1"><Check size={15} />Done</button>
+        <button onClick={() => {}} aria-label="Close" className="h-8 px-3 rounded-lg text-[13px] text-void-200 active:bg-void-800 inline-flex items-center gap-1"><Check size={15} />Done</button>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-4">{children}</div>
     </section>
