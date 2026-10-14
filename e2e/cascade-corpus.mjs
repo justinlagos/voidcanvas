@@ -123,8 +123,22 @@ try {
   const bytes = fs.readFileSync(zipPath)
   if (bytes.length < 1000 || bytes.readUInt32LE(0) !== 0x04034b50)
     throw new Error('Per-artboard exported ZIP is not valid')
-  const pngNames = [...bytes.toString('latin1').matchAll(/[^\\\x00-\x1f]+\.png/g)].map(m => m[0])
-  if (pngNames.length < 7) throw new Error('Expected seven board PNGs in the export archive, names=' + pngNames.length)
+  // Inspect ZIP central-directory filenames instead of searching arbitrary
+  // compressed bytes for ".png" (binary searching produced false counts).
+  const names = []
+  for (let at = 0; at + 46 <= bytes.length; at++) {
+    if (bytes.readUInt32LE(at) !== 0x02014b50) continue
+    const nameLen = bytes.readUInt16LE(at + 28)
+    const extraLen = bytes.readUInt16LE(at + 30)
+    const commentLen = bytes.readUInt16LE(at + 32)
+    const size = 46 + nameLen + extraLen + commentLen
+    if (at + size > bytes.length) throw new Error('Corrupt ZIP central directory')
+    names.push(bytes.subarray(at + 46, at + 46 + nameLen).toString('utf8'))
+    at += size - 1
+  }
+  const pngNames = names.filter(name => /\\.png$/i.test(name))
+  console.log('ZIP export entries:', JSON.stringify(names))
+  if (pngNames.length !== 7) throw new Error('Expected 7 independently exported board PNGs, got ' + pngNames.length + ': ' + JSON.stringify(names))
   if (errors.length) throw new Error('Uncaught browser errors: ' + errors.join('; '))
   console.log('PASS six linked formats + original board, essential logo/headline/CTA, group integrity, no overlap, editable layer ids, download', JSON.stringify(actual))
 } finally {
