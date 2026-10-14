@@ -4,8 +4,9 @@ import { analyse, regroup, relayout, type Panel } from './layout'
 import { ensureFramed, prune, useEditor } from './store'
 import type { Doc, Frame, Layer } from './types'
 import type { SizePreset } from './presets'
-import { stampCascadeBaseline, reconcileCascadeBoard } from './cascade-integrity'
+import { stampCascadeBaseline, stampCascadeGroups, reconcileCascadeBoard } from './cascade-integrity'
 import { auditCascadeLayout, type CascadeIssue } from './cascade-quality'
+import { decideCascadeConflict, type CascadeChoice } from './cascade-resolve'
 
 // Cascade: lay the active board out at other sizes, as linked boards under it.
 
@@ -62,7 +63,8 @@ export function cascadeToFrames(sourceFrameId: string | null, presets: SizePrese
     const quality = auditCascadeLayout(masterLayers, g.layers, f, doc, { skippedSourceIds: skippedIds })
     if (quality.criticalCount) { missingEssential = true; notes.push(`${p.label}: essential content missing`) }
     layoutRisks += quality.reviewCount
-    layers = layers.concat(stampCascadeBaseline(g.layers, masterLayers)); groups = groups.concat(g.groups)
+    layers = layers.concat(stampCascadeBaseline(g.layers, masterLayers))
+    groups = groups.concat(stampCascadeGroups(g.groups, st.groups, g.layers, masterLayers))
     frames.push(f)
     const auto = r.dropped.filter(n => !skip.has(n))
     if (auto.length) notes.push(`${p.label}: left out ${auto.join(', ')}`)
@@ -89,14 +91,52 @@ export function resyncVariants(masterId: string) {
   for (const child of children) {
     const old = layers.filter(l => l.frameId === child.id)
     const proposed = regroup(relayout(masterLayers, master, child, doc, s.groups).layers, s.groups)
-    const r = reconcileCascadeBoard(masterLayers, old, groups, proposed.layers, proposed.groups)
+    const incomingGroups = stampCascadeGroups(proposed.groups, s.groups, proposed.layers, masterLayers)
+    const r = reconcileCascadeBoard(masterLayers, old, groups, proposed.layers, incomingGroups)
     layers = layers.filter(l => l.frameId !== child.id).concat(r.layers)
+    // Reconciled linked groups deliberately keep stable IDs. Replace their
+    // values in place; appending only unknown IDs previously discarded every
+    // inherited opacity/visibility update for existing groups.
+    const replacements = new Map(r.groups.map(g => [g.id, g]))
     const existing = new Set(groups.map(g => g.id))
-    groups = groups.concat(r.groups.filter(g => !existing.has(g.id)))
+    groups = groups.map(g => replacements.get(g.id) ?? g)
+      .concat(r.groups.filter(g => !existing.has(g.id)))
     conflicts = conflicts.concat(r.conflicts)
     reused += r.reused; added += r.added
   }
   s.applyBoards({ ...doc }, layers, prune(groups, layers), 'Update linked variants', masterId)
   s.notify(`Updated ${children.length} linked board(s): preserved ${reused} object identities, added ${added} new objects.` +
     (conflicts.length ? ` ${conflicts.length} conflict(s): ${conflicts.slice(0, 2).join('; ')}. Variant artwork was kept.` : ''))
+}
+
+/**
+ * An explicit designer choice: keep a local override or inherit the current
+ * master property. Uses exactly one existing store history transaction.
+ */
+export function resolveCascadeConflict(layerId: string, key: string, choice: CascadeChoice): boolean {
+  const s = useEditor.getState()
+  const doc = s.doc
+  const variant = s.layers.find(l => l.id === layerId)
+  const board = doc?.frames?.find(f => f.id === variant?.frameId)
+  const masterBoard = doc?.frames?.find(f => f.id === board?.linkedFrom)
+  const master = s.layers.find(l => l.id === variant?.srcId && l.frameId === masterBoard?.id)
+  if (!doc || !variant || !board?.linkedFrom || !masterBoard || !master) {
+    s.notify('Cannot resolve this conflict because its source board or layer is missing.')
+    return false
+  }
+  if (variant.locked || master.locked) {
+    s.notify('Unlock the linked object and its master before resolving the conflict.')
+    return false
+  }
+  // Relayout the ENTIRE master composition to preserve the target's vector
+  // geometry contract. A one-layer relayout changes slot allocation.
+  const proposal = key === 'vector path'
+    ? relayout(s.layers.filter(l => l.frameId === masterBoard.id), masterBoard, board, doc, s.groups)
+        .layers.find(l => l.srcId === master.id)
+    : undefined
+  const result = decideCascadeConflict(variant, master, key, choice, proposal)
+  if (!result.ok) { s.notify(result.reason); return false }
+  s.updateLayer(layerId, result.layer, 'Resolve Cascade conflict')
+  s.notify(choice === 'variant' ? 'Kept the linked board’s own ' + key + '.' : 'Used the master’s ' + key + ' for this linked object.')
+  return true
 }

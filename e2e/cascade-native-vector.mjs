@@ -116,21 +116,51 @@ try {
     'conflicts persist after repeated refresh', twice)
   const review = page.getByRole('region', { name: 'Cascade conflicts' })
   await review.waitFor({ state: 'visible' })
-  const reviewRows = await review.locator('button').allTextContents()
-  expect(reviewRows.length >= 2 && reviewRows.some(x => x.includes('asset')) &&
-    reviewRows.some(x => x.includes('vector path')),
-    'designer can review unresolved image and vector conflicts from Boards', reviewRows)
+  const reviewText = await review.textContent() ?? ''
+  expect(reviewText.includes('asset') && reviewText.includes('vector path'),
+    'designer can review unresolved image and vector conflicts from Boards', reviewText)
   await VE(() => window.__voidEditor.getState().undo())
   const undone = await read()
   expect(undone.untouchedAsset === 'B' && undone.localAsset === 'LOCAL',
     'undoing second sync restores first result without altering manual work', undone)
-  await review.locator('button').filter({ hasText: 'asset' }).first().click()
+  await review.locator('button[title="Select this object on its linked board"]').filter({ hasText: 'Photo' }).first().click()
   const target = await VE(() => {
     const st = window.__voidEditor.getState()
     return { activeId: st.activeId, activeFrameId: st.activeFrameId }
   })
   expect(target.activeId === 'custom-image' && target.activeFrameId === 'W',
     'conflict review selects the local object and linked board', target)
+  // UI decisions must be genuine one-step store/history edits.
+  await VE(() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'boards' })))
+  await page.getByRole('button', { name: 'Keep variant vector path for Vector artwork' }).click()
+  const kept = await read()
+  expect(kept.localVectorPath === 777 && !kept.vectorConflicts.includes('vector path'),
+    'Keep variant preserves local vector and clears only its conflict', kept)
+  await page.getByRole('button', { name: 'Use master asset for Photo' }).click()
+  const adopted = await read()
+  expect(adopted.localAsset === 'B' && adopted.localPixels[1] === 255 &&
+    !adopted.imageConflicts.includes('asset') && adopted.layerIds,
+    'Use master adopts real raster pixels without changing variant IDs', adopted)
+  await VE(() => window.__voidEditor.getState().undo())
+  const reversed = await read()
+  expect(reversed.localAsset === 'LOCAL' && reversed.localPixels[2] === 255 &&
+    reversed.imageConflicts.includes('asset'),
+    'Undo restores the original local asset and pending conflict', reversed)
+  await VE(() => window.__voidEditor.getState().redo())
+  const redone = await read()
+  expect(redone.localAsset === 'B' && !redone.imageConflicts.includes('asset'),
+    'Redo reapplies master-pixel conflict resolution', redone)
+  // Persist resolved conflicts through save/reopen; new U1 store must not
+  // reintroduce references or duplicate the selected layer.
+  await page.waitForFunction(() => !!window.__vcAssets?.saveVoid, null, { timeout: 15000 })
+  const saved = await VE(async () => window.__vcAssets.saveVoid())
+  expect(saved?.b64 && saved.len > 1000, 'editable document saves after conflict decisions', saved?.len)
+  await VE(() => window.__voidEditor.getState().closeDoc())
+  await VE(b64 => window.__vcAssets.openVoid(b64), saved.b64)
+  const reopened = await read()
+  expect(reopened.localAsset === 'B' && reopened.localVectorPath === 777 &&
+    !reopened.imageConflicts.includes('asset') && !reopened.vectorConflicts.includes('vector path'),
+    '.void round-trip preserves both explicit conflict resolutions', reopened)
   expect(pageErrors.length === 0, 'no uncaught browser errors', pageErrors)
   console.log('CASCADE NATIVE/VECTOR browser acceptance complete')
 } finally { await browser.close() }

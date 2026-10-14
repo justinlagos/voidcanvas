@@ -25,7 +25,9 @@ try {
     const t = (id, text, role, x, y, size, groupId, color = '#172234') =>
       base({ id, type: 'text', name: text.slice(0, 30), text, role, x, y,
         fontSize: size, fontFamily: 'Inter', fontWeight: 700, italic: false,
-        color, align: 'left', lineHeight: 1.12, letterSpacing: 0, groupId })
+        color, align: 'left', lineHeight: 1.12, letterSpacing: 0,
+        wordSpacing: size / 20, indent: size / 12,
+        spaceAfter: size / 14, baselineShift: size / 30, groupId })
     const shape = (id, x, y, w, h, fill, groupId) =>
       base({ id, type: 'shape', name: id, shape: 'rect', x, y, w, h,
         stroke: null, strokeWidth: 0, fill, radius: 0, groupId })
@@ -86,8 +88,16 @@ try {
       for (const l of entries) {
         if (ids.has(l.id)) failures.push(f.name + ': duplicate id')
         ids.add(l.id)
-        if (l.type === 'text' && (!Number.isFinite(l.fontSize) || l.fontSize <= 0))
-          failures.push(f.name + ': invalid type size')
+        if (l.type === 'text') {
+          if (!Number.isFinite(l.fontSize) || l.fontSize <= 0)
+            failures.push(f.name + ': invalid type size')
+          const source = s.layers.find(item => item.id === l.srcId && item.frameId === 'M')
+          if (source?.type === 'text') for (const metric of ['wordSpacing','indent','spaceAfter','baselineShift']) {
+            const a = l[metric], b = source[metric]
+            if (!Number.isFinite(a) || !Number.isFinite(b) || Math.abs(a / l.fontSize - b / source.fontSize) > 1e-5)
+              failures.push(f.name + ': distorted proportional typography for ' + l.name + '.' + metric)
+          }
+        }
       }
     }
     const boardsOfGroup = new Map()
@@ -110,7 +120,67 @@ try {
   if (actual.variants.length !== chosen || actual.failures.length)
     throw new Error('Multi-size Cascade invariant failed: ' + JSON.stringify(actual))
   if (!actual.history?.startsWith('Cascade to')) throw new Error('Cascade did not commit one undo step')
+  console.log('PASS six-format scaled typography preserves wordSpacing, indent, spaceAfter and baselineShift ratios')
   await page.screenshot({ path: path.join(OUT, '02-cascaded-artboards.png') })
+
+  // Group inheritance: real six-format Cascade must stamp a source baseline
+  // and update a stable linked group ID when the master opacity changes.
+  const originalGroup = await page.evaluate(() => {
+    const st = window.__voidEditor.getState()
+    const child = st.doc.frames.find(f => f.linkedFrom === 'M')
+    const logo = st.layers.find(l => l.frameId === child.id && l.srcId === 'logo')
+    const group = st.groups.find(g => g.id === logo?.groupId)
+    return group && { id: group.id, source: group.cascadeSourceId,
+      baseOpacity: group.cascadeBase?.opacity, opacity: group.opacity }
+  })
+  if (!originalGroup || originalGroup.source !== 'gBrand' ||
+      originalGroup.baseOpacity !== 1 || originalGroup.opacity !== 1)
+    throw new Error('Cascade did not stamp grouped source inheritance: ' + JSON.stringify(originalGroup))
+  await page.evaluate(() => window.__voidEditor.getState().updateGroup('gBrand', { opacity: 0.6 }, 'Master brand opacity'))
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'boards' })))
+  await page.getByRole('button', { name: 'Re-sync variants' }).click()
+  const inherited = await page.evaluate(id => {
+    const st = window.__voidEditor.getState(), g = st.groups.find(g => g.id === id)
+    return { id: g?.id, opacity: g?.opacity, baseline: g?.cascadeBase?.opacity }
+  }, originalGroup.id)
+  if (inherited.id !== originalGroup.id || inherited.opacity !== 0.6 || inherited.baseline !== 0.6)
+    throw new Error('Linked group did not inherit master opacity in place: ' + JSON.stringify(inherited))
+  await page.evaluate(id => {
+    const st = window.__voidEditor.getState()
+    st.updateGroup(id, { opacity: 0.72 }, 'Local brand override')
+    st.updateGroup('gBrand', { opacity: 0.3 }, 'Change master opacity again')
+  }, originalGroup.id)
+  await page.getByRole('button', { name: 'Re-sync variants' }).click()
+  const overridden = await page.evaluate(id => {
+    const g = window.__voidEditor.getState().groups.find(g => g.id === id)
+    return { opacity: g?.opacity, baseline: g?.cascadeBase?.opacity, conflicts: g?.cascadeConflicts }
+  }, originalGroup.id)
+  if (overridden.opacity !== 0.72 || overridden.baseline !== 0.3 ||
+      !overridden.conflicts?.includes('opacity'))
+    throw new Error('Local group override was not protected or diagnosed: ' + JSON.stringify(overridden))
+  const groupReviewText = await page.getByRole('region', { name: 'Cascade group conflicts' }).textContent()
+  if (!groupReviewText?.includes('opacity'))
+    throw new Error('Group conflict not discoverable in the Boards panel: ' + groupReviewText)
+  await page.evaluate(() => window.__voidEditor.getState().undo())
+  const undoneGroup = await page.evaluate(id =>
+    window.__voidEditor.getState().groups.find(g => g.id === id)?.cascadeBase?.opacity, originalGroup.id)
+  if (undoneGroup !== 0.6) throw new Error('Linked group sync Undo lost previous baseline')
+  await page.evaluate(() => window.__voidEditor.getState().redo())
+  const redoneGroup = await page.evaluate(id =>
+    window.__voidEditor.getState().groups.find(g => g.id === id)?.opacity, originalGroup.id)
+  if (redoneGroup !== 0.72) throw new Error('Linked group sync Redo lost variant opacity')
+  await page.waitForFunction(() => !!window.__vcAssets?.saveVoid, null, { timeout: 15000 })
+  const groupFile = await page.evaluate(async () => window.__vcAssets.saveVoid())
+  if (!groupFile?.b64) throw new Error('Failed to save linked group changes')
+  await page.evaluate(() => window.__voidEditor.getState().closeDoc())
+  await page.evaluate(b64 => window.__vcAssets.openVoid(b64), groupFile.b64)
+  const reopenedGroup = await page.evaluate(id => {
+    const g = window.__voidEditor.getState().groups.find(g => g.id === id)
+    return { opacity: g?.opacity, baseline: g?.cascadeBase?.opacity, source: g?.cascadeSourceId }
+  }, originalGroup.id)
+  if (reopenedGroup.opacity !== 0.72 || reopenedGroup.baseline !== 0.3 || reopenedGroup.source !== 'gBrand')
+    throw new Error('Linked group inheritance metadata lost in .void round-trip: ' + JSON.stringify(reopenedGroup))
+  console.log('PASS nested group source baseline, master inheritance, local override, Undo/Redo and .void round-trip')
 
   // Drive actual browser export, then inspect the downloaded ZIP structure.
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'export' })))

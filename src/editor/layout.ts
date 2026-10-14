@@ -251,6 +251,12 @@ export function scaleContent(l: Layer, k: number): Layer {
     if (nl.onPath) { nl.scaleX *= k; nl.scaleY *= k; return nl }
     nl.fontSize = Math.max(1, nl.fontSize * k); nl.letterSpacing *= k
     if (nl.boxWidth) nl.boxWidth *= k
+    // These are absolute typography measurements, unlike the unitless lineHeight ratio.
+    // Leaving them unscaled changes wrapping and baseline position in Cascade variants.
+    if (nl.wordSpacing !== undefined) nl.wordSpacing *= k
+    if (nl.indent !== undefined) nl.indent *= k
+    if (nl.spaceAfter !== undefined) nl.spaceAfter *= k
+    if (nl.baselineShift !== undefined) nl.baselineShift *= k
     if (nl.outline) nl.outline = { ...nl.outline, width: nl.outline.width * k }
     if (nl.shadow) nl.shadow = { ...nl.shadow, blur: nl.shadow.blur * k, x: nl.shadow.x * k, y: nl.shadow.y * k }
     if (nl.vmask) nl.vmask = { ...nl.vmask, subpaths: scaleSubs(nl.vmask.subpaths, k) }

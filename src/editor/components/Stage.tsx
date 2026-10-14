@@ -1550,6 +1550,12 @@ export function Stage() {
     const tol = 6 / s.view.zoom
     const xs: number[] = [0, s.doc.width / 2, s.doc.width], ys: number[] = [0, s.doc.height / 2, s.doc.height]
     if (ui.snapToGuides && s.doc.guides) { xs.push(...s.doc.guides.v); ys.push(...s.doc.guides.h) }
+    if (s.options.penSnapGrid) {
+      const spacing = Math.max(2, Math.min(1000, s.options.penGridSize ?? 10))
+      const gx = pen.gridCandidate(p.x, spacing, tol), gy = pen.gridCandidate(p.y, spacing, tol)
+      if (gx !== null) xs.push(gx)
+      if (gy !== null) ys.push(gy)
+    }
     if (t) getSubs(t).forEach((sp, si) => sp.nodes.forEach((n, ni) => { if (!skip.has(`${si}:${ni}`)) { xs.push(n.x); ys.push(n.y) } }))
     let bx = p.x, by = p.y, dx = tol, dy = tol
     for (const x of xs) { const d = Math.abs(x - p.x); if (d < dx) { dx = d; bx = x; pathSnap.current.v = x } }
@@ -1716,7 +1722,7 @@ export function Stage() {
       const h = intent.hit, subs = getSubs(intent.target), sp = subs[h.sub], n = sp.nodes[h.idx]
       if (h.type === 'node') {
         // Alt-click a smooth point makes it a corner; Alt-drag pulls fresh symmetric handles.
-        if (pen.hasIn(n) || pen.hasOut(n)) setSubs(intent.target, setNode(subs, h.sub, h.idx, { ...n, inX: n.x, inY: n.y, outX: n.x, outY: n.y, smooth: false, auto: false }))
+        if (pen.hasIn(n) || pen.hasOut(n)) setSubs(intent.target, setNode(subs, h.sub, h.idx, { ...n, inX: n.x, inY: n.y, outX: n.x, outY: n.y, smooth: false, symmetric: false, auto: false }))
         sel.current = { target: intent.target, picks: [{ sub: h.sub, idx: h.idx }] }
         drag.current = { kind: 'pnode', target: intent.target, picks: [{ sub: h.sub, idx: h.idx }], hit: { sub: h.sub, idx: h.idx }, part: 'out', start: p0, base: getSubs(intent.target), moved: false }
         ;(drag.current as any).fresh = true
@@ -1992,15 +1998,9 @@ export function Stage() {
       } else {
         const fresh = (d as any).fresh
         const hp = e.shiftKey ? pen.constrain45(n, p) : p
-        const mirror = { x: 2 * n.x - hp.x, y: 2 * n.y - hp.y }
         let nn: PathNode
-        if (fresh) nn = { ...n, outX: hp.x, outY: hp.y, inX: mirror.x, inY: mirror.y, smooth: true, auto: false }
-        else {
-          const broken = e.altKey || !n.smooth
-          const keepLen = (ox: number, oy: number) => { const l0 = Math.hypot(ox - n.x, oy - n.y), hl = Math.hypot(hp.x - n.x, hp.y - n.y) || 1; return { x: n.x - ((hp.x - n.x) / hl) * l0, y: n.y - ((hp.y - n.y) / hl) * l0 } }
-          if (d.part === 'out') { const o = keepLen(n.inX, n.inY); nn = { ...n, outX: hp.x, outY: hp.y, auto: false, ...(broken ? { smooth: false } : { inX: o.x, inY: o.y }) } }
-          else { const o = keepLen(n.outX, n.outY); nn = { ...n, inX: hp.x, inY: hp.y, auto: false, ...(broken ? { smooth: false } : { outX: o.x, outY: o.y }) } }
-        }
+        if (fresh) nn = { ...pen.dragNodeHandle({ ...n, smooth: true, symmetric: true }, d.part === 'in' ? 'in' : 'out', hp), auto: false }
+        else nn = pen.dragNodeHandle(n, d.part === 'in' ? 'in' : 'out', hp, e.altKey)
         setSubs(d.target, setNode(base, d.hit.sub, d.hit.idx, nn))
         const len = Math.hypot(hp.x - n.x, hp.y - n.y), ang = Math.round((-Math.atan2(hp.y - n.y, hp.x - n.x) * 180) / Math.PI)
         pathSnap.current = { v: null, h: null, info: `Handle ${Math.round(len)} px · ${ang}°` }
