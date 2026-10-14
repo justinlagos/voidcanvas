@@ -284,17 +284,6 @@ try {
   }
 
   // Step 6: Multiple artboards & Cascade
-  const cascadeCheck = await VE(page, async () => {
-    const cascade = await import('/src/editor/cascade.ts').catch(() => null)
-    const S = window.__voidEditor
-    // Use duplicateFrame first to test multi-board + selection reconciliation
-    const st0 = S.getState()
-    const { ensureFramed } = await import('/src/editor/store.ts').catch(() => ({ ensureFramed: null }))
-    // Trigger Cascade via cascadeToFrames or UI event
-    return { hasCascadeImport: !!cascade, hasEnsureFramed: !!ensureFramed }
-  })
-  void cascadeCheck
-
   // Exercise Cascade through the real UI dialog exactly as a designer does (vc:open 'boards' -> Cascade tab -> Create)
   await VE(page, () => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'boards' })))
   await page.waitForTimeout(400)
