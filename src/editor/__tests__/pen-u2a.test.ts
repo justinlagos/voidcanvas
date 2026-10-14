@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { node, gridCandidate, convertNodeKind, dragNodeHandle, bendSegment,
-  moveNodes, convertNode, constrain45, nearestSegment, splitSegment, reverseSub } from '../pen'
+  moveNodes, convertNode, constrain45, nearestSegment, splitSegment, reverseSub, symmetrizeSubpaths } from '../pen'
 import type { SubPath } from '../types'
 
 const tri: SubPath = { closed: false, nodes: [node(0, 0), node(60, 70), node(150, 0)] }
@@ -109,4 +109,19 @@ describe('U2-A Bézier anchor and grid behaviour', () => {
     expect(r.nodes[1].inX).toBe(4)
     expect(r.nodes[1].inY).toBe(6)
   })
+  it('symmetrizes all subpaths without mutating originals or losing path operations', () => {
+    const paths: SubPath[] = [
+      { ...tri, op:'add' },
+      { closed:true,op:'sub',nodes:[node(5,5),node(50,5),node(50,50),node(5,50)] },
+    ]
+    const updated=symmetrizeSubpaths(paths)
+    expect(updated).toHaveLength(2)
+    expect(updated[0].op).toBe('add')
+    expect(updated[1].op).toBe('sub')
+    expect(updated[1].closed).toBe(true)
+    expect(updated[0].nodes.every(n=>n.symmetric && n.smooth)).toBe(true)
+    expect(updated[1].nodes.every(n=>n.symmetric && n.smooth)).toBe(true)
+    expect(paths[0].nodes.some(n=>n.symmetric)).toBe(false)
+  })
+
 })

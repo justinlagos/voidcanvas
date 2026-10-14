@@ -188,6 +188,12 @@ export function convertNodeKind(sp: SubPath, index: number, kind: AnchorKind): P
   return { ...smoothed, inX: n.x - vx, inY: n.y - vy, symmetric: true, smooth: true, auto: false }
 }
 
+/** Batch geometric edit for multi-subpath and multi-layer actions; retains paths,
+ * operations, order and source nodes without mutating the input objects. */
+export function symmetrizeSubpaths(subs: SubPath[]): SubPath[] {
+  return subs.map(sp => ({ ...sp, nodes: sp.nodes.map((_, i) => convertNodeKind(sp, i, 'symmetric')) }))
+}
+
 /** Drag one Bézier handle. Alt breaks the link, symmetric preserves equal lengths,
  * smooth preserves the opposite handle's original length, corner leaves it alone. */
 export function dragNodeHandle(n: PathNode, part: 'in' | 'out', point: Pt, breakLink = false): PathNode {
