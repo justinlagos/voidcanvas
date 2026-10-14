@@ -64,7 +64,7 @@ export function CommandPalette({ onClose, open }: { onClose: () => void; open: (
           <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="What do you want to do? Try “halftone” or “remove background”"
             onKeyDown={e => {
               e.stopPropagation()
-              if (e.key === 'Escape') onClose()
+              if (e.key === 'Escape') {}
               if (e.key === 'ArrowDown') { e.preventDefault(); setI(v => Math.min(shown.length - 1, v + 1)) }
               if (e.key === 'ArrowUp') { e.preventDefault(); setI(v => Math.max(0, v - 1)) }
               if (e.key === 'Enter') go(shown[i])
