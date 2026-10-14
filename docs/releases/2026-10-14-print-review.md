@@ -54,6 +54,10 @@ safe margin rather than the percentage margin used for screen formats.
   retain the original physical trim, real bleed pixels and ICC metadata.
 - Boolean/compound editing and the six-format Cascade corpus passed on this build.
 - Independent pypdf/Pillow parsing and Poppler rendering verified the downloads.
+- The generation cancellation browser probe now waits for the real Cancel and
+  cancelled UI states instead of fixed pauses. It also asserts that cancellation
+  adds no assets, layers or history. The four-candidate local request keeps the
+  cancellation path available while the button becomes actionable.
 
 CI also runs the expanded print review checks and uploads its screenshots and
 print files. Netlify branch and deploy previews remain deliberately skipped;
