@@ -55,4 +55,9 @@ describe('physical print fidelity',()=>{
     l.opacity=0
     expect(findings().some(f=>f.code==='missing-raster')).toBe(false)
   })
+  it('reports a missing raster logo as a blocker before attempting pixel bounds',()=>{
+    const l={id:'logo',name:'Missing logo',frameId:'card',type:'raster',role:'logo',visible:true,opacity:1,canvas:null} as unknown as Layer
+    const q=pdfxPreflight(doc,[l],{boardId:'card',bleedMm:3})
+    expect(q.find(f=>f.code==='missing-raster')).toMatchObject({level:'error',layerId:'logo'})
+  })
 })

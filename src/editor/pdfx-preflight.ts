@@ -30,14 +30,20 @@ export function pdfxPreflight(doc: Doc, layers: Layer[], opts: PdfxPreflightOpti
   if (opts.boardId && !doc.frames?.some(f => f.id === opts.boardId)) out.push({ code: 'board-missing', level: 'error', message: 'The selected board no longer exists.' })
 
   const scoped = opts.boardId ? layers.filter(l => !l.frameId || l.frameId === opts.boardId) : layers
+  const groups = new Map((opts.groups ?? []).map(g => [g.id, g]))
   scoped.forEach(l => {
     if (!l.visible || l.opacity <= 0) return
     let gid = l.groupId, guard = 0
     while (gid && guard++ < 64) {
-      const g = opts.groups?.find(g => g.id === gid)
+      const g = groups.get(gid)
       if (!g) break
       if (!g.visible || g.opacity <= 0) return
       gid = g.parentId
+    }
+    // Missing pixels must block before bounds measurement (including tagged logos).
+    if (l.type === 'raster' && (!l.canvas || !l.canvas.width || !l.canvas.height)) {
+      out.push({ code: 'missing-raster', level: 'error', message: `Raster layer “${l.name}” has no usable pixels.`, layerId: l.id })
+      return
     }
     if (l.type === 'raster' && l.canvas?.width && l.canvas?.height) {
       const effective = dpi / Math.max(Math.abs(l.scaleX), Math.abs(l.scaleY), 1e-9)
@@ -51,7 +57,6 @@ export function pdfxPreflight(doc: Doc, layers: Layer[], opts: PdfxPreflightOpti
         out.push({ code: 'trim-safety', level: 'warning', message: `“${l.name}” is within 3 mm of the trim edge. Check cutting tolerance.`, layerId: l.id })
     }
     if (l.type === 'text' && !l.text.trim()) out.push({ code: 'empty-text', level: 'warning', message: `Text layer “${l.name}” is empty.`, layerId: l.id })
-    if (l.type === 'raster' && (!l.canvas || !l.canvas.width || !l.canvas.height)) out.push({ code: 'missing-raster', level: 'error', message: `Raster layer “${l.name}” has no usable pixels.`, layerId: l.id })
   })
   return out
 }

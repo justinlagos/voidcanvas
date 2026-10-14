@@ -46,8 +46,8 @@ safe margin rather than the percentage margin used for screen formats.
 ## Validation
 
 - TypeScript and production build passed.
-- All 548 unit tests in 92 files passed, including nested hidden/transparent group
-  preflight and physical Cascade margin regressions.
+- All 549 unit tests in 92 files passed, including nested hidden/transparent group
+  preflight, missing raster logo and physical Cascade margin regressions.
 - Production-build browser checks cover preview pixel colours, actual ICC proof
   and original-colour switching, physical guide placement, live preflight,
   visibility changes, bleed updates and phone width; downloaded PDF/X and TIFF
