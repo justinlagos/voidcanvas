@@ -79,12 +79,12 @@ try {
   await page.waitForFunction(() => window.__voidEditor && window.__vcAssets && window.__vcParity, null, { timeout: 60000 })
   await page.waitForTimeout(1000)
 
-  // Step 1 & 2: Create document and import real raster image via file input
+  // Step 1 & 2: Create document and import real raster image with C1 lineage
+  const logoB64 = fs.readFileSync(FIX.logo).toString('base64')
   await VE(page, () => {
     window.__voidEditor.getState().newDoc({ name: 'Unified U1 Vertical Slice', width: 1080, height: 1350, background: '#ffffff' })
   })
-  const fileInput = await page.$('input[type="file"]')
-  await fileInput.setInputFiles(FIX.logo)
+  await VE(page, b64 => window.__vcAssets.placeBytes(b64, 'logo.png', 'image/png'), logoB64)
   await page.waitForFunction(() => window.__voidEditor.getState().layers.some(l => l.type === 'raster'), null, { timeout: 15000 })
 
   // Step 3: Add vector shape and typography
@@ -358,10 +358,10 @@ try {
     }
   }, { masterShapeId: byType.shape })
 
-  // Trigger "Update variants" / resync via Boards dialog or active board action
+  // Trigger "Update variants" / resync via Boards dialog (button[aria-label="Re-sync variants"])
   await VE(page, () => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'boards' })))
   await page.waitForTimeout(400)
-  const updateVariantsBtn = page.locator('button:has-text("Update")')
+  const updateVariantsBtn = page.locator('button[aria-label="Re-sync variants"]')
   if (await updateVariantsBtn.count() > 0) {
     await updateVariantsBtn.first().click()
     await page.waitForTimeout(600)
@@ -522,9 +522,15 @@ try {
   await mPage.waitForFunction(() => window.__voidEditor, null, { timeout: 60000 })
   await mPage.waitForTimeout(800)
 
-  // Import image on mobile
+  // Import image on mobile (fallback to placeBytes if StartScreen file input is replaced)
   const mFile = await mPage.$('input[type="file"]')
-  await mFile.setInputFiles(FIX.land)
+  if (mFile) {
+    await mFile.setInputFiles(FIX.land)
+  } else {
+    const landB64 = fs.readFileSync(FIX.land).toString('base64')
+    await VE(mPage, () => window.__voidEditor.getState().newDoc({ name: 'Mobile U1', width: 1080, height: 1350, background: '#ffffff' }))
+    await VE(mPage, b64 => window.__vcAssets.placeBytes(b64, 'land.jpg', 'image/jpeg'), landB64)
+  }
   await mPage.waitForFunction(() => window.__voidEditor.getState().layers.length >= 1, null, { timeout: 15000 })
   await mPage.waitForTimeout(600)
 
