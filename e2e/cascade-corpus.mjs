@@ -25,7 +25,9 @@ try {
     const t = (id, text, role, x, y, size, groupId, color = '#172234') =>
       base({ id, type: 'text', name: text.slice(0, 30), text, role, x, y,
         fontSize: size, fontFamily: 'Inter', fontWeight: 700, italic: false,
-        color, align: 'left', lineHeight: 1.12, letterSpacing: 0, groupId })
+        color, align: 'left', lineHeight: 1.12, letterSpacing: 0,
+        wordSpacing: size / 20, indent: size / 12,
+        spaceAfter: size / 14, baselineShift: size / 30, groupId })
     const shape = (id, x, y, w, h, fill, groupId) =>
       base({ id, type: 'shape', name: id, shape: 'rect', x, y, w, h,
         stroke: null, strokeWidth: 0, fill, radius: 0, groupId })
@@ -86,8 +88,16 @@ try {
       for (const l of entries) {
         if (ids.has(l.id)) failures.push(f.name + ': duplicate id')
         ids.add(l.id)
-        if (l.type === 'text' && (!Number.isFinite(l.fontSize) || l.fontSize <= 0))
-          failures.push(f.name + ': invalid type size')
+        if (l.type === 'text') {
+          if (!Number.isFinite(l.fontSize) || l.fontSize <= 0)
+            failures.push(f.name + ': invalid type size')
+          const source = s.layers.find(item => item.id === l.srcId && item.frameId === 'M')
+          if (source?.type === 'text') for (const metric of ['wordSpacing','indent','spaceAfter','baselineShift']) {
+            const a = l[metric], b = source[metric]
+            if (!Number.isFinite(a) || !Number.isFinite(b) || Math.abs(a / l.fontSize - b / source.fontSize) > 1e-5)
+              failures.push(f.name + ': distorted proportional typography for ' + l.name + '.' + metric)
+          }
+        }
       }
     }
     const boardsOfGroup = new Map()
@@ -110,6 +120,7 @@ try {
   if (actual.variants.length !== chosen || actual.failures.length)
     throw new Error('Multi-size Cascade invariant failed: ' + JSON.stringify(actual))
   if (!actual.history?.startsWith('Cascade to')) throw new Error('Cascade did not commit one undo step')
+  console.log('PASS six-format scaled typography preserves wordSpacing, indent, spaceAfter and baselineShift ratios')
   await page.screenshot({ path: path.join(OUT, '02-cascaded-artboards.png') })
 
   // Drive actual browser export, then inspect the downloaded ZIP structure.
