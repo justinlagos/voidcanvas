@@ -179,7 +179,7 @@ async function desktopInteractions(p) {
     // Typing a value in the number field moves the slider.
     const target = min + (max - min) * 0.6
     if (hasNum) {
-      await numEl.fill(String(target)); await numEl.blur(); await p.waitForTimeout(150)
+      await numEl.fill(String(target)); await numEl.evaluate(el => el.blur()); await p.waitForTimeout(150)
       const typed = (await state()).value
       check(`typing in "${label} value" moves the slider`, Math.abs(typed - target) <= step, `typed ${target}, slider ${typed}`)
     }
