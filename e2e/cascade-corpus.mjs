@@ -137,7 +137,7 @@ try {
     if (at + size > bytes.length) throw new Error('Corrupt ZIP central directory')
     const name = bytes.subarray(at + 46, at + 46 + nameLen).toString('utf8')
     names.push(name)
-    if (/\\.png$/i.test(name)) {
+    if (name.toLowerCase().endsWith('.png')) {
       const method = bytes.readUInt16LE(at + 10)
       const compressedSize = bytes.readUInt32LE(at + 20)
       const localOffset = bytes.readUInt32LE(at + 42)
