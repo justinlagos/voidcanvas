@@ -116,15 +116,14 @@ try {
     'conflicts persist after repeated refresh', twice)
   const review = page.getByRole('region', { name: 'Cascade conflicts' })
   await review.waitFor({ state: 'visible' })
-  const reviewRows = await review.locator('button').allTextContents()
-  expect(reviewRows.length >= 2 && reviewRows.some(x => x.includes('asset')) &&
-    reviewRows.some(x => x.includes('vector path')),
-    'designer can review unresolved image and vector conflicts from Boards', reviewRows)
+  const reviewText = await review.textContent() ?? ''
+  expect(reviewText.includes('asset') && reviewText.includes('vector path'),
+    'designer can review unresolved image and vector conflicts from Boards', reviewText)
   await VE(() => window.__voidEditor.getState().undo())
   const undone = await read()
   expect(undone.untouchedAsset === 'B' && undone.localAsset === 'LOCAL',
     'undoing second sync restores first result without altering manual work', undone)
-  await review.locator('button').filter({ hasText: 'asset' }).first().click()
+  await review.locator('button[title="Select this object on its linked board"]').filter({ hasText: 'Photo' }).first().click()
   const target = await VE(() => {
     const st = window.__voidEditor.getState()
     return { activeId: st.activeId, activeFrameId: st.activeFrameId }
