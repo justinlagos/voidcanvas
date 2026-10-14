@@ -1,4 +1,6 @@
 import type { Doc, Layer } from './types'
+import { printGeometry } from './print-geometry'
+import { layerBounds } from './engine'
 import { documentColour } from './document-colour'
 
 export type PdfxFindingLevel = 'error' | 'warning' | 'info'
@@ -13,7 +15,10 @@ export interface PdfxPreflightOptions {
 export function pdfxPreflight(doc: Doc, layers: Layer[], opts: PdfxPreflightOptions): PdfxFinding[] {
   const out: PdfxFinding[] = []
   const minDpi = opts.minDpi ?? 250
-  const dpi = doc.dpi ?? 300
+  let geometry: ReturnType<typeof printGeometry>
+  try { geometry = printGeometry(doc, opts.boardId, opts.bleedMm) }
+  catch (e) { return [{ code: 'print-geometry', level: 'error', message: (e as Error).message }] }
+  const dpi = geometry.dpi
   const colour = documentColour(doc)
   if (!doc.proof?.profile) out.push({ code: 'output-intent', level: 'error', message: 'Load the printer ICC profile before PDF/X-4 export.' })
   if (opts.requireCmykDocument && colour.model !== 'cmyk') out.push({ code: 'working-space', level: 'error', message: 'This production policy requires a native CMYK working document.' })
@@ -23,9 +28,20 @@ export function pdfxPreflight(doc: Doc, layers: Layer[], opts: PdfxPreflightOpti
   if (dpi < minDpi) out.push({ code: 'document-dpi', level: 'warning', message: `Document resolution is ${dpi} DPI; production policy recommends at least ${minDpi} DPI.` })
   if (opts.boardId && !doc.frames?.some(f => f.id === opts.boardId)) out.push({ code: 'board-missing', level: 'error', message: 'The selected board no longer exists.' })
 
-  const scoped = opts.boardId ? layers.filter(l => l.frameId === opts.boardId) : layers
+  const scoped = opts.boardId ? layers.filter(l => !l.frameId || l.frameId === opts.boardId) : layers
   scoped.forEach(l => {
     if (!l.visible) return
+    if (l.type === 'raster' && l.canvas?.width && l.canvas?.height) {
+      const effective = dpi / Math.max(Math.abs(l.scaleX), Math.abs(l.scaleY), 1e-9)
+      if (effective < minDpi) out.push({ code: 'raster-dpi', level: 'warning', message: `Image “${l.name}” prints at ${Math.round(effective)} effective DPI; use a higher-resolution source or reduce its size.`, layerId: l.id })
+    }
+    if (l.type === 'text' || l.role === 'logo' || l.role === 'cta') {
+      const b = layerBounds(l, doc), board = geometry.board
+      const x = board?.x ?? 0, y = board?.y ?? 0, w = board?.width ?? doc.width, h = board?.height ?? doc.height
+      const margin = 3 / 25.4 * dpi
+      if (b.x < x + margin || b.y < y + margin || b.x + b.w > x + w - margin || b.y + b.h > y + h - margin)
+        out.push({ code: 'trim-safety', level: 'warning', message: `“${l.name}” is within 3 mm of the trim edge. Check cutting tolerance.`, layerId: l.id })
+    }
     if (l.type === 'text' && !l.text.trim()) out.push({ code: 'empty-text', level: 'warning', message: `Text layer “${l.name}” is empty.`, layerId: l.id })
     if (l.type === 'raster' && (!l.canvas || !l.canvas.width || !l.canvas.height)) out.push({ code: 'missing-raster', level: 'error', message: `Raster layer “${l.name}” has no usable pixels.`, layerId: l.id })
   })

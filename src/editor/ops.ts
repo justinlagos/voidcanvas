@@ -1,6 +1,6 @@
 import { applyPaint } from './painting'
 import { cloneCanvas, ctx2d, drawLayerContent, fullMaskSized, keepTextAnchor, layerMatrix, layerSize, makeCanvas, maskBounds, paintPathOps, pathPolyline, renderDoc, tracePath, uid, vectorMaskCanvas } from './engine'
-import { base, isShown, layerFxMasksOnPage, mapDocMasks, maskOnPage, nextRev, shiftMask, useEditor } from './store'
+import { base, isShown, layerFxMasksOnPage, mapDocMasks, maskOnPage, nextRev, prune, shiftMask, useEditor } from './store'
 import { morph } from './styles'
 import type { Doc, Layer, LayerStyles, PathNode, PathOp, RasterLayer, ShapeLayer, SubPath, TextLayer, VectorPath } from './types'
 import { docSubsToLayerPatch, docSubsToTextPathPatch, docToVmask, layerSubsToDoc, reverseSub, samplePath, simplifySub, toSvgD } from './pen'
@@ -57,7 +57,7 @@ export function imageSize(w: number, h: number) {
     else { patch.scaleX = l.scaleX * kx; patch.scaleY = l.scaleY * ky }
     return { ...l, ...patch } as Layer
   })
-  const nd: Doc = { ...doc, width: w, height: h, frames: doc.frames?.map(f => ({ ...f, x: f.x * kx, y: f.y * ky, width: Math.round(f.width * kx), height: Math.round(f.height * ky) })), guides: doc.guides ? { v: doc.guides.v.map(g => g * kx), h: doc.guides.h.map(g => g * ky) } : undefined, paths: doc.paths?.map(p => ({ ...p, subpaths: scalePaths(p.subpaths, kx, ky) })), channels: doc.channels?.map(c => ({ ...c, mask: scaleCanvas(c.mask) })) }
+  const nd: Doc = { ...doc, width: w, height: h, frames: doc.frames?.map(f => ({ ...f, x: f.x * kx, y: f.y * ky, width: Math.round(f.width * kx), height: Math.round(f.height * ky), print: f.print ? { ...f.print, widthMm: f.print.widthMm * kx, heightMm: f.print.heightMm * ky } : undefined })), guides: doc.guides ? { v: doc.guides.v.map(g => g * kx), h: doc.guides.h.map(g => g * ky) } : undefined, paths: doc.paths?.map(p => ({ ...p, subpaths: scalePaths(p.subpaths, kx, ky) })), channels: doc.channels?.map(c => ({ ...c, mask: scaleCanvas(c.mask) })) }
   // Masks placed on the page are scaled with it.
   const m = mapDocMasks(nd, layerFxMasksOnPage(s.layers, layers0, doc.width, doc.height, scaleCanvas), s.groups, maskOnPage(doc.width, doc.height, scaleCanvas))
   s.replaceAll({ doc: m.doc, layers: m.layers, groups: m.groups, selection: s.selection ? scaleCanvas(s.selection) : null }, 'Image size')
@@ -429,6 +429,7 @@ export function pathFromLayer() {
 /** Replace the subpaths of the current path (saved path or shape layer) in one undo step. */
 export function editCurrentPath(fn: (subs: SubPath[]) => SubPath[], label: string) {
   const s = st(); const p = needPath(); if (!p || !s.doc) return
+  if (p.layerId && s.layers.some(l => l.id === p.layerId && (l.locked || l.lockPixels || l.lockPosition))) { s.notify('Unlock this shape before editing its path.'); return }
   const next = fn(p.subpaths)
   if (p.layerId) {
     const l = s.layers.find(x => x.id === p.layerId); if (l?.type !== 'shape') return
@@ -454,17 +455,17 @@ function pathSvg(p: { name: string; subpaths: SubPath[]; layerId?: string }) {
   const fill = l?.type === 'shape' ? (l.fill ?? 'none') : 'none'
   const stroke = l?.type === 'shape' ? (l.stroke ?? 'none') : '#000'
   const sw = l?.type === 'shape' ? l.strokeWidth : 1
-  const rule = p.subpaths.some(sp => sp.op) ? 'nonzero' : 'evenodd'
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${doc.width}" height="${doc.height}" viewBox="0 0 ${doc.width} ${doc.height}"><path d="${toSvgD(p.subpaths)}" fill="${fill}" fill-rule="${rule}" stroke="${stroke}" stroke-width="${sw}"/></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${doc.width}" height="${doc.height}" viewBox="0 0 ${doc.width} ${doc.height}"><path d="${toSvgD(p.subpaths)}" fill="${fill}" fill-rule="evenodd" stroke="${stroke}" stroke-width="${sw}"/></svg>`
 }
 export async function copyPathSvg() {
   const s = st(); const p = needPath(); if (!p) return
-  try { await navigator.clipboard.writeText(pathSvg(p)); s.notify('Copied as SVG. Paste it into Figma, Illustrator or code.') }
+  try { const v = await import('./vector'); await navigator.clipboard.writeText(pathSvg({ ...p, subpaths: p.subpaths.some(sp => sp.op) ? v.expandOps(p.subpaths) : p.subpaths })); s.notify('Copied as SVG. Paste it into Figma, Illustrator or code.') }
   catch { s.notify('Could not reach the clipboard. Use Export path as SVG instead.') }
 }
-export function exportPathSvg() {
+export async function exportPathSvg() {
   const p = needPath(); if (!p) return
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([pathSvg(p)], { type: 'image/svg+xml' }))
+  const v = await import('./vector')
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([pathSvg({ ...p, subpaths: p.subpaths.some(sp => sp.op) ? v.expandOps(p.subpaths) : p.subpaths })], { type: 'image/svg+xml' }))
   a.download = `${(p.name || 'path').replace(/[^\w\- ]+/g, '') || 'path'}.svg`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000)
 }
 
@@ -748,42 +749,93 @@ export type { ShapeLayer }
 
 const PF_LABEL: Record<string, string> = { unite: 'Unite', minusFront: 'Minus front', minusBack: 'Minus back', intersect: 'Intersect', exclude: 'Exclude', divide: 'Divide' }
 
-/**
- * Illustrator's Pathfinder on the selected shape layers (or on the parts of one shape, or of the
- * selected saved path). The result is new, real geometry: every point can be edited.
- */
+/** Geometry commands never silently consume non-vector, locked, masked or cross-board content. */
+function editableShapes(min = 1): ShapeLayer[] | null {
+  const s = st()
+  const selected = s.layers.filter(l => s.selectedIds.includes(l.id))
+  if (selected.length < min || selected.some(l => l.type !== 'shape')) { s.notify(`Select ${min > 1 ? 'two or more' : 'an'} editable shape layer${min > 1 ? 's' : ''}.`); return null }
+  const shapes = selected as ShapeLayer[]
+  const groupLocked = (id?: string | null) => {
+    let guard = 0
+    while (id && guard++ < 64) {
+      const group = s.groups.find(g => g.id === id)
+      if (!group) break
+      if (group.locked) return true
+      id = group.parentId
+    }
+    return false
+  }
+  if (shapes.some(l => l.locked || l.lockPixels || l.lockPosition || groupLocked(l.groupId))) { s.notify('Unlock the selected shapes before changing their geometry.'); return null }
+  if (new Set(shapes.map(l => l.frameId ?? null)).size > 1 || new Set(shapes.map(l => l.groupId ?? null)).size > 1) { s.notify('Choose shapes on the same board and in the same group.'); return null }
+  if (shapes.some(l => l.mask || l.vmask || l.clipId || s.layers.some(other => other.clipId === l.id))) { s.notify('Release clipping and masks before combining geometry.'); return null }
+  return shapes
+}
+
+/** Insert results at the consumed shape's place. Retain its id for linked Cascade identity. */
+function replaceShapes(shapes: ShapeLayer[], pieces: { subs: SubPath[]; style: ShapeLayer }[], label: string) {
+  const s = st(), anchor = pieces[0]?.style ?? shapes[shapes.length - 1]
+  const made = pieces.filter(p => p.subs.some(sp => sp.nodes.length)).map((p, i): ShapeLayer => {
+    const l: ShapeLayer = { ...p.style, id: i === 0 ? anchor.id : uid(), name: pieces.length > 1 ? `${p.style.name} part ${i + 1}` : label,
+      shape: 'path', x: 0, y: 0, w: 1, h: 1, rotation: 0, scaleX: 1, scaleY: 1, radius: 0,
+      subpaths: [], rev: nextRev(), ...(i ? { srcId: undefined, cascadeBase: undefined, cascadeConflicts: undefined } : {}) }
+    return { ...l, ...docSubsToLayerPatch(l, p.subs) }
+  })
+  const gone = new Set(shapes.map(l => l.id))
+  const at = s.layers.indexOf(anchor)
+  const next = s.layers.flatMap((l, i) => i === at ? made : gone.has(l.id) ? [] : [l])
+  // Selection belongs to the same atomic history snapshot as geometry.
+  useEditor.setState({
+    // Selecting layers is not a history step. Capture the actual pre-command selection
+    // in the current snapshot so one Undo restores both artwork and that selection.
+    history: s.history.map((step, i) => i === s.historyIndex ? { ...step, activeId: s.activeId, selectedIds: [...s.selectedIds] } : step),
+    // Geometry and selection must arrive together: reference reconciliation would
+    // otherwise drop the new Divide/Release ids before the layers exist.
+    layers: next, groups: prune(s.groups, next), docRev: s.docRev + 1, selRev: s.selRev + 1, transform: null,
+    activeId: made[0]?.id ?? null, selectedIds: made.map(l => l.id), activePathId: null, vmaskEditId: null, editingMask: false,
+  })
+  st().commit(label, { restoreSelection: true })
+}
+
 export async function pathfinderSelected(op: import('./vector').PathfinderOp) {
-  const s = st(); if (!s.doc) return
   const v = await import('./vector')
-  const shapes = s.layers.filter(l => s.selectedIds.includes(l.id) && l.type === 'shape') as ShapeLayer[]
+  const s = st(); if (!s.doc) return
   try {
-    if (shapes.length >= 2) {
+    if (s.selectedIds.length >= 2 && !s.activePathId) {
+      const shapes = editableShapes(2); if (!shapes) return
       const docShapes = shapes.map(l => layerSubsToDoc(l))
+      if (docShapes.some(subs => subs.some(sp => !sp.closed))) { s.notify('Close open paths before applying Boolean operations.'); return }
       const div = op === 'divide' ? v.divide(docShapes) : null
       const res = div ? div.map(d => d.subs) : v.pathfinder(op, docShapes)
-      const top = shapes[shapes.length - 1], bottom = shapes[0]
-      const style = op === 'minusFront' ? bottom : top
-      s.setActive(top.id)
-      const made: string[] = []
-      for (let i = 0; i < res.length; i++) {
-        const subs = res[i]; if (!subs.length) continue
-        const src = div ? shapes[div[i].owner] : style
-        const id = s.addShape('path', 0, 0, 1, 1, { name: op === 'divide' ? `Piece ${i + 1}` : PF_LABEL[op], fill: src.fill ?? s.fg, stroke: src.stroke, strokeWidth: src.stroke ? src.strokeWidth : 0, strokeAlign: src.strokeAlign, strokeCap: src.strokeCap, strokeJoin: src.strokeJoin, strokeDash: src.strokeDash, opacity: style.opacity, blend: style.blend, frameId: style.frameId, groupId: style.groupId } as any)
-        const l = st().layers.find(x => x.id === id) as ShapeLayer
-        st().updateLayer(id, docSubsToLayerPatch(l, subs)); made.push(id)
-      }
-      const keep = new Set(made)
-      useEditor.setState({ layers: st().layers.filter(l => keep.has(l.id) || !shapes.some(x => x.id === l.id)), selectedIds: made, activeId: made[made.length - 1] ?? null, docRev: st().docRev + 1 })
-      st().commit(`Pathfinder: ${PF_LABEL[op]}`)
-      if (!made.length) s.notify('Nothing is left after that operation.')
+      const style = op === 'minusFront' ? shapes[0] : shapes[shapes.length - 1]
+      replaceShapes(shapes, res.map((subs, i) => ({ subs, style: div ? shapes[div[i].owner] : style })), `Pathfinder: ${PF_LABEL[op]}`)
+      if (!res.some(subs => subs.length)) s.notify('Nothing is left after that operation. Undo restores the shapes.')
       return
     }
-    // One shape, or a saved path: work on its parts.
-    const p = currentPath(); if (!p) { s.notify('Select two or more shape layers (Shift-click in Layers), or one shape with several parts.'); return }
-    if (p.subpaths.length < 2) { s.notify('Pathfinder needs two or more shapes, or one shape made of several parts.'); return }
+    const p = currentPath(); if (!p) { s.notify('Select two shape layers or a path with several closed parts.'); return }
+    if (p.layerId && !editableShapes()) return
+    if (p.subpaths.length < 2 || p.subpaths.some(sp => !sp.closed)) { s.notify('Pathfinder needs two or more closed parts.'); return }
     const res = v.pathfinder(op, p.subpaths.map(sp => [{ ...sp, op: undefined }]))
     editCurrentPath(() => res.flat(), `Pathfinder: ${PF_LABEL[op]}`)
-  } catch (e) { console.error(e); s.notify('That shape could not be merged. Try Simplify on it first.') }
+  } catch (e) { console.error(e); st().notify('That shape could not be merged. Try Simplify on it first.') }
+}
+
+/** Even-odd compound paths keep every contour and Bézier editable; nested contours become holes. */
+export async function makeCompoundPath() {
+  const v = await import('./vector')
+  const shapes = editableShapes(2); if (!shapes) return
+  const subs = shapes.flatMap(l => { const p = layerSubsToDoc(l); return p.some(sp => sp.op) ? v.expandOps(p) : p })
+  if (subs.some(sp => !sp.closed)) { st().notify('Close open paths before making a compound path.'); return }
+  replaceShapes(shapes, [{ subs: subs.map(sp => ({ ...sp, op: undefined })), style: shapes[shapes.length - 1] }], 'Make compound path')
+}
+
+/** Release one compound into separate native shape layers, retaining document-space geometry. */
+export async function releaseCompoundPath() {
+  const v = await import('./vector')
+  const shapes = editableShapes(); if (!shapes || shapes.length !== 1) { if (shapes) st().notify('Select one compound path to release.'); return }
+  const l = shapes[0], source = layerSubsToDoc(l)
+  const subs = source.some(sp => sp.op) ? v.expandOps(source) : source
+  if (subs.length < 2) { st().notify('This shape has only one contour.'); return }
+  replaceShapes(shapes, subs.map(sp => ({ subs: [{ ...sp, op: undefined }], style: l })), 'Release compound path')
 }
 
 /** Turn render-time path operations into real geometry, so the outline is one clean path. */

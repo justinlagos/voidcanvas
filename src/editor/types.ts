@@ -327,6 +327,8 @@ export interface Frame {
   width: number
   height: number
   background: string | null
+  /** Physical trim size and raster density. Independent of neighbouring screen boards. */
+  print?: { widthMm: number; heightMm: number; dpi: number }
   /** When set, this board was cascaded from a master board and can be re-synced from it. */
   linkedFrom?: string | null
   /** Studio deliverable this board answers. */

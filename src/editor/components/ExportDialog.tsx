@@ -86,7 +86,7 @@ export function ExportDialog({ onClose, boards: askedBoards }: { onClose: () => 
   }, [doc.jobId, doc.frames])
   const findings = useMemo<Finding[]>(() => {
     if (isSel || format === 'svg') return []
-    const pb: PreflightBoard[] = boards.map(b => ({ id: b.id, name: b.name, width: b.width, height: b.height, background: b.background, mm: mmById[b.id] ?? (doc.dpi && doc.dpi >= 150 ? { w: Math.round((b.width / doc.dpi) * 25.4), h: Math.round((b.height / doc.dpi) * 25.4) } : null) }))
+    const pb: PreflightBoard[] = boards.map(b => ({ id: b.id, name: b.name, width: b.width, height: b.height, background: b.background, mm: (b.print ? { w: b.print.widthMm, h: b.print.heightMm } : mmById[b.id]) ?? (doc.dpi && doc.dpi >= 150 ? { w: Math.round((b.width / doc.dpi) * 25.4), h: Math.round((b.height / doc.dpi) * 25.4) } : null) }))
     const pl: PreflightLayer[] = layers.map(l => { const bb = layerBounds(l, doc); const f = doc.frames?.find(x => x.id === l.frameId); const rel = f ? { x: bb.x - f.x, y: bb.y - f.y, w: bb.w, h: bb.h } : bb; return { id: l.id, name: l.name, type: l.type, visible: l.visible, frameId: l.frameId ?? (boards[0]?.id === '__doc' ? '__doc' : l.frameId), bounds: rel, pixels: l.type === 'raster' ? { w: l.canvas.width, h: l.canvas.height } : undefined, text: l.type === 'text' ? l.text : undefined, fontFamily: l.type === 'text' ? l.fontFamily : undefined, role: l.role ?? null } })
     const missing = Array.from(new Set(layers.filter(l => l.type === 'text' && l.visible).map(l => (l as any).fontFamily as string))).filter(f => f && !fontAvailable(f))
     return exportPreflight({ boards: pb, layers: pl, boardIds: chosen.map(b => b.id), format, scale: k, transparent: canTransparent && transparent, missingFonts: missing })

@@ -74,6 +74,13 @@ try {
   const captions = await page.locator('figure figcaption').allTextContents()
   if (captions.some(c => /Required .+ is missing/.test(c)))
     throw new Error('Preview silently lost essential artwork: ' + captions.join(' | '))
+  await page.getByRole('button', { name: 'Inspect A4 flyer preview', exact: true }).click()
+  const review = page.getByRole('region', { name: 'A4 flyer preview' })
+  await review.getByRole('img', { name: 'A4 flyer enlarged artwork' }).waitFor()
+  if (!(await review.textContent()).includes('210 × 297 mm trim')) throw Error('Print preview has no physical trim size')
+  await page.screenshot({ path: path.join(OUT, '01a-enlarged-print-review.png') })
+  await review.getByRole('button', { name: 'Back to formats' }).click()
+  console.log('PASS enlarged print preview, readable review and return to the same six formats')
   await page.getByRole('button', { name: /Create 6 boards/ }).click()
   const actual = await page.evaluate(() => {
     const s = window.__voidEditor.getState()

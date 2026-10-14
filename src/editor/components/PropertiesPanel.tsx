@@ -503,6 +503,8 @@ function ShapeProps({ layer }: { layer: ShapeLayer }) {
             ))}
           </div>
           <div className="grid grid-cols-2 gap-1 mt-1">
+            <button onClick={() => ops.makeCompoundPath()} className="h-8 rounded-md bg-void-800/80 hover:bg-void-700 text-[11.5px] text-void-200 whitespace-nowrap">Make compound</button>
+            <button disabled={(layer.subpaths ?? []).length < 2} onClick={() => ops.releaseCompoundPath()} className="h-8 rounded-md bg-void-800/80 hover:bg-void-700 text-[11.5px] text-void-200 disabled:opacity-40 whitespace-nowrap">Release compound</button>
             <button disabled={!layer.stroke} onClick={() => ops.outlineStroke()} className="h-7 rounded-md bg-void-800/80 hover:bg-void-700 text-[11.5px] text-void-200 disabled:opacity-40">Outline stroke</button>
             <button disabled={!(layer.subpaths ?? []).some(sp => sp.op)} onClick={() => ops.expandPathOps()} className="h-7 rounded-md bg-void-800/80 hover:bg-void-700 text-[11.5px] text-void-200 disabled:opacity-40">Expand parts</button>
           </div>

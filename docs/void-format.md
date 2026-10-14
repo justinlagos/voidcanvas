@@ -114,3 +114,16 @@ Version 5 requires a version-5 reader so an older editor cannot silently bake or
 - Nested contents tabs carry `smartParent` with parent document/layer/source identity. The embedded source strips this editing-session link to avoid cycles.
 
 Asset content hashes continue to deduplicate identical embedded sources and original snapshots.
+
+## Per-board print intent
+
+A frame can carry optional `print: { widthMm, heightMm, dpi }`. The dimensions
+are the physical trim size, independent of neighbouring screen boards and
+`doc.dpi`. Cascade stamps print presets with this metadata; PDF and production
+exports use it ahead of document resolution. Resizing a print board updates its
+physical dimensions proportionally. The metadata survives `.void` save/reopen
+through `packDoc`; no new blob type or ZIP entry is introduced.
+
+This is an additive metadata extension. Older clients still render the same
+pixel geometry but do not interpret per-board print intent. Use a current client
+for physical-size exports of these projects.

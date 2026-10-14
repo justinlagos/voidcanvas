@@ -11,24 +11,9 @@ export interface Pdfx4Options {
   profileName: string
   dpi: number
   bleedMm: number
-}
-
-function edgeBleed(src: HTMLCanvasElement, bleedPx: number) {
-  if (bleedPx <= 0) return src
-  const w = src.width, h = src.height
-  const c = document.createElement('canvas'); c.width = w + bleedPx * 2; c.height = h + bleedPx * 2
-  const x = c.getContext('2d')!
-  x.imageSmoothingEnabled = false
-  x.drawImage(src, 0, 0, w, 1, bleedPx, 0, w, bleedPx)
-  x.drawImage(src, 0, h - 1, w, 1, bleedPx, h + bleedPx, w, bleedPx)
-  x.drawImage(src, 0, 0, 1, h, 0, bleedPx, bleedPx, h)
-  x.drawImage(src, w - 1, 0, 1, h, w + bleedPx, bleedPx, bleedPx, h)
-  x.drawImage(src, 0, 0, 1, 1, 0, 0, bleedPx, bleedPx)
-  x.drawImage(src, w - 1, 0, 1, 1, w + bleedPx, 0, bleedPx, bleedPx)
-  x.drawImage(src, 0, h - 1, 1, 1, 0, h + bleedPx, bleedPx, bleedPx)
-  x.drawImage(src, w - 1, h - 1, 1, 1, w + bleedPx, h + bleedPx, bleedPx, bleedPx)
-  x.drawImage(src, bleedPx, bleedPx)
-  return c
+  /** When bleed is requested, src already includes real artwork outside this trim. */
+  trimPixels?: { width: number; height: number }
+  trimMm?: { widthMm: number; heightMm: number }
 }
 
 function xmpPacket(title: string, profileName: string) {
@@ -41,11 +26,15 @@ function xmpPacket(title: string, profileName: string) {
  */
 export async function pdfx4FromCanvas(src: HTMLCanvasElement, proof: NonNullable<Doc['proof']>, options: Pdfx4Options): Promise<Blob> {
   const dpi = Math.max(1, options.dpi)
-  const bleedPx = Math.max(0, Math.round(options.bleedMm / 25.4 * dpi))
-  const canvas = edgeBleed(src, bleedPx)
+  const bleedPx = Math.max(0, Math.ceil(options.bleedMm / 25.4 * dpi))
+  if (!Number.isFinite(options.dpi) || options.dpi <= 0 || !Number.isFinite(options.bleedMm) || options.bleedMm < 0) throw Error('Invalid print resolution or bleed.')
+  const trim = options.trimPixels ?? { width: src.width, height: src.height }
+  if (src.width !== trim.width + bleedPx * 2 || src.height !== trim.height + bleedPx * 2) throw Error('Render artwork beyond the trim before exporting with bleed.')
+  const canvas = src
   const cmyk = await cmykPixels(canvas, proof)
   const icc = profileBytes(proof.profile)
-  const trimW = src.width / dpi * 72, trimH = src.height / dpi * 72
+  const trimW = options.trimMm ? options.trimMm.widthMm * PT_PER_MM : trim.width / dpi * 72
+  const trimH = options.trimMm ? options.trimMm.heightMm * PT_PER_MM : trim.height / dpi * 72
   const bleedPt = Math.max(0, options.bleedMm) * PT_PER_MM
   const mediaW = trimW + bleedPt * 2, mediaH = trimH + bleedPt * 2
   const xmp = enc.encode(xmpPacket(options.title, options.profileName))
@@ -67,7 +56,12 @@ export async function pdfx4FromCanvas(src: HTMLCanvasElement, proof: NonNullable
   stream(5, '/N 4', icc)
   object(6, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${mediaW.toFixed(3)} ${mediaH.toFixed(3)}] /TrimBox [${bleedPt.toFixed(3)} ${bleedPt.toFixed(3)} ${(bleedPt + trimW).toFixed(3)} ${(bleedPt + trimH).toFixed(3)}] /BleedBox [0 0 ${mediaW.toFixed(3)} ${mediaH.toFixed(3)}] /Resources << /XObject << /Im0 7 0 R >> >> /Contents 8 0 R >>`)
   stream(7, `/Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace [/ICCBased 5 0 R] /BitsPerComponent 8`, cmyk)
-  const content = enc.encode(`q ${mediaW.toFixed(3)} 0 0 ${mediaH.toFixed(3)} 0 0 cm /Im0 Do Q`)
+  // Align the original trim pixels exactly to TrimBox. Extra bleed pixels are
+  // clipped by MediaBox, rather than stretching the entire image to fit rounded pixels.
+  const sx = trimW / trim.width, sy = trimH / trim.height
+  const imageW = canvas.width * sx, imageH = canvas.height * sy
+  const imageX = bleedPt - bleedPx * sx, imageY = bleedPt - bleedPx * sy
+  const content = enc.encode(`q ${imageW.toFixed(6)} 0 0 ${imageH.toFixed(6)} ${imageX.toFixed(6)} ${imageY.toFixed(6)} cm /Im0 Do Q`)
   stream(8, '', content)
   object(9, `<< /Producer (VoidCanvas) /Title (${pdfString(options.title)}) /GTS_PDFXVersion (PDF/X-4) /Trapped /False >>`)
 
@@ -75,7 +69,6 @@ export async function pdfx4FromCanvas(src: HTMLCanvasElement, proof: NonNullable
   push('xref\n0 10\n0000000000 65535 f \n')
   for (let i = 1; i <= 9; i++) push(`${String(offsets[i] ?? 0).padStart(10, '0')} 00000 n \n`)
   push(`trailer\n<< /Size 10 /Root 1 0 R /Info 9 0 R >>\nstartxref\n${xref}\n%%EOF`)
-  if (canvas !== src) { canvas.width = 0; canvas.height = 0 }
   return new Blob(parts as BlobPart[], { type: 'application/pdf' })
 }
 

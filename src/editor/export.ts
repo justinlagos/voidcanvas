@@ -110,12 +110,14 @@ export function uniqueNames(names: string[]): string[] {
 }
 
 /**
- * PDF page size in points for a board. Big boards are print work at 300 dpi, screen boards at
- * 96 dpi, the same rule single-page exports have always used.
+ * Physical board trim takes precedence over document DPI. Legacy boards without either
+ * retain the previous 300/96 DPI inference, so old projects keep their export size.
  */
-export function pdfPageSize(b: { width: number; height: number }): { w: number; h: number; dpi: number } {
-  const dpi = Math.max(b.width, b.height) > 2000 ? 300 : 96
-  return { w: (b.width / dpi) * 72, h: (b.height / dpi) * 72, dpi }
+export function pdfPageSize(b: { width: number; height: number; print?: Frame['print'] }, documentDpi?: number): { w: number; h: number; dpi: number } {
+  const dpi = b.print?.dpi ?? documentDpi ?? (Math.max(b.width, b.height) > 2000 ? 300 : 96)
+  return b.print
+    ? { w: b.print.widthMm / 25.4 * 72, h: b.print.heightMm / 25.4 * 72, dpi }
+    : { w: (b.width / dpi) * 72, h: (b.height / dpi) * 72, dpi }
 }
 
 /** What the primary button says, so the result is never a surprise. */

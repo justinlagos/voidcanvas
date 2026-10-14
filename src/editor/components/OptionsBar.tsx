@@ -259,6 +259,8 @@ function editPicks(fn: (subs: SubPath[], picks: { sub: number; idx: number }[]) 
   const s = useEditor.getState()
   const pp = stageApi.pathPicks()
   if (!pp || pp.picks.length < need) { s.notify(need > 1 ? `Pick ${need} or more points with Direct Select (A) first. Shift-click or drag a box to pick several.` : 'Pick a point with Direct Select (A) first.'); return }
+  const target = pp.target.kind === 'path' ? null : s.layers.find(l => l.id === pp.target.id)
+  if (target && (target.locked || target.lockPixels || target.lockPosition)) { s.notify('Unlock this shape before editing its path.'); return }
   const next = fn(getSubs(pp.target), pp.picks)
   if (!next) return
   setSubs(pp.target, next); s.commit(label)
@@ -343,7 +345,7 @@ function PenOptions({ tool }: { tool: string }) {
       <button ref={moreBtn} className={chip(more)} aria-expanded={more} onClick={() => setMore(v => !v)}>Path…</button>
       {more && moreBtn.current && (
         <Floating anchor={moreBtn.current.getBoundingClientRect()} side="bottom" onClose={() => setMore(false)} label="Path commands">
-          <div className="w-60 p-1.5 text-[12.5px]" role="menu">
+          <div className="w-60 p-1.5 text-[12.5px] max-h-[min(70vh,560px)] overflow-y-auto overscroll-contain" role="menu">
             {([
               ['Make shape layer from path', ops.shapeFromPath],
               ['Copy shape outline to Paths panel', ops.pathFromLayer],
@@ -365,6 +367,8 @@ function PenOptions({ tool }: { tool: string }) {
               ['Pathfinder: Intersect', () => ops.pathfinderSelected('intersect')],
               ['Pathfinder: Exclude', () => ops.pathfinderSelected('exclude')],
               ['Pathfinder: Divide', () => ops.pathfinderSelected('divide')],
+              ['Make compound path', ops.makeCompoundPath],
+              ['Release compound path', ops.releaseCompoundPath],
               ['Expand path operations', ops.expandPathOps],
               ['Outline stroke', ops.outlineStroke],
               null,
@@ -372,6 +376,13 @@ function PenOptions({ tool }: { tool: string }) {
               ['Set last part to Subtract', () => ops.setPathOps('sub')],
               ['Set last part to Intersect', () => ops.setPathOps('intersect')],
               ['Set last part to Exclude', () => ops.setPathOps('xor')],
+              ...(['add', 'sub', 'intersect', 'xor'] as const).map(op => [
+                `Selected parts: ${op === 'add' ? 'Combine' : op === 'sub' ? 'Subtract' : op === 'xor' ? 'Exclude' : 'Intersect'}`,
+                () => editPicks((subs, picks) => {
+                  const selected = new Set(picks.map(p => p.sub))
+                  return subs.map((sp, i) => selected.has(i) ? { ...sp, op: i === 0 ? 'add' : op } : sp)
+                }, 'Change selected path parts'),
+              ] as [string, () => void]),
               null,
               ['Copy as SVG', ops.copyPathSvg],
               ['Export path as SVG file', ops.exportPathSvg],

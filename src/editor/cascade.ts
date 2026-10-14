@@ -20,7 +20,7 @@ export function cascadeSource(frameId: string | null): { doc: Doc; layers: Layer
 }
 
 /** A small picture of how a size will come out, before anything is created. */
-export function previewCascade(frameId: string | null, p: { width: number; height: number }, skip: Set<string>, px = 180): { url: string; dropped: string[]; issues: CascadeIssue[] } | null {
+export function previewCascade(frameId: string | null, p: { width: number; height: number; print?: Frame['print'] }, skip: Set<string>, px = 180): { url: string; dropped: string[]; issues: CascadeIssue[] } | null {
   const src = cascadeSource(frameId); if (!src) return null
   const { doc, layers, master } = src
   const groups = useEditor.getState().groups
@@ -30,7 +30,7 @@ export function previewCascade(frameId: string | null, p: { width: number; heigh
   const c = makeCanvas(Math.max(1, Math.round(p.width * scale)), Math.max(1, Math.round(p.height * scale)))
   renderDoc(c, { ...doc, frames: [t] }, r.layers, { groups, scale, noCache: true, fxDraft: true, noShadow: true, region: { x: 0, y: 0, w: p.width, h: p.height }, frameRects: [t] })
   const skipped = new Set(src.panels.filter(p => skip.has(p.name)).flatMap(p => p.blocks.flatMap(b => b.layers.map(l => l.id))))
-  const quality = auditCascadeLayout(layers.filter(l => l.frameId === master.id), r.layers, t, doc, { skippedSourceIds: skipped })
+  const quality = auditCascadeLayout(layers.filter(l => l.frameId === master.id), r.layers, t, doc, { skippedSourceIds: skipped, groups })
   return { url: c.toDataURL('image/jpeg', 0.75), dropped: r.dropped, issues: quality.issues }
 }
 
@@ -57,10 +57,10 @@ export function cascadeToFrames(sourceFrameId: string | null, presets: SizePrese
   let missingEssential = false
   let layoutRisks = 0
   sizes.forEach((p, i) => {
-    const f: Frame = { id: uid(), name: p.label, x: spots[i].x, y: spots[i].y, width: p.width, height: p.height, background: master.background, linkedFrom: master.id }
+    const f: Frame = { id: uid(), name: p.label, x: spots[i].x, y: spots[i].y, width: p.width, height: p.height, background: master.background, linkedFrom: master.id, print: p.print }
     const r = relayout(masterLayers, master, f, doc, st.groups, x => !skip.has(x.name))
     const g = regroup(r.layers, st.groups)
-    const quality = auditCascadeLayout(masterLayers, g.layers, f, doc, { skippedSourceIds: skippedIds })
+    const quality = auditCascadeLayout(masterLayers, g.layers, f, doc, { skippedSourceIds: skippedIds, groups: g.groups, masterGroups: st.groups })
     if (quality.criticalCount) { missingEssential = true; notes.push(`${p.label}: essential content missing`) }
     layoutRisks += quality.reviewCount
     layers = layers.concat(stampCascadeBaseline(g.layers, masterLayers))
