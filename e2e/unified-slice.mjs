@@ -283,6 +283,51 @@ try {
     fail('undo/redo across duplicate deletion preserves layer count and valid selection', JSON.stringify(undoCheck))
   }
 
+  // Step 5b: Clipping mask, layer mask, blend mode & effect ordering pixel checks
+  const clipAndMaskCheck = await VE(page, async ({ shapeId }) => {
+    const S = window.__voidEditor
+    const st = S.getState()
+    // Add a blue rectangle overlapping only the right half of the Hero Badge (80..400, y:90..290) -> at x:240..500, y:90..290
+    const clipLayerId = st.addShape('rect', 240, 90, 260, 200, { fill: '#0066ff', name: 'Clipped Accent', blend: 'multiply' })
+    // Clip it onto the Hero Badge
+    S.getState().clipLayerOnto(clipLayerId, shapeId)
+    // Add a layer mask that hides the bottom half (y > 190 in doc space -> local y > 100)
+    S.getState().addMask(clipLayerId)
+    const maskedLayer = S.getState().layers.find(l => l.id === clipLayerId)
+    if (maskedLayer?.mask) {
+      const mctx = maskedLayer.mask.getContext('2d')
+      mctx.fillStyle = '#000000'
+      mctx.fillRect(0, 100, 260, 100)
+      S.getState().updateLayer(clipLayerId, { mask: maskedLayer.mask }, 'Paint half mask')
+    }
+    S.getState().setEditingMask(false)
+
+    // Sample pixels:
+    // 1. Inside base & top-right (x:300, y:130) -> clipped blue shows (blue > red)
+    // 2. Inside base & bottom-right (x:300, y:240) -> hidden by layer mask (grey, red === blue)
+    // 3. Outside base on the right (x:450, y:130) -> clipped away by base shape (white 255,255,255)
+    const pxShow = await window.__vcPixels({ x: 300, y: 130, w: 4, h: 4 })
+    const pxMasked = await window.__vcPixels({ x: 300, y: 240, w: 4, h: 4 })
+    const pxClippedOut = await window.__vcPixels({ x: 450, y: 130, w: 4, h: 4 })
+
+    // Clean up the probe layer so the 3-layer baseline continues cleanly into Cascade
+    S.getState().removeLayer(clipLayerId)
+    return {
+      showBlue: pxShow[2] > pxShow[0] + 15,
+      maskedGrey: Math.abs(pxMasked[0] - pxMasked[2]) <= 3,
+      clippedOutsideWhite: pxClippedOut[0] > 250 && pxClippedOut[1] > 250 && pxClippedOut[2] > 250,
+      pxShow: pxShow.slice(0, 3),
+      pxMasked: pxMasked.slice(0, 3),
+      pxClippedOut: pxClippedOut.slice(0, 3),
+    }
+  }, { shapeId: byType.shape })
+
+  if (clipAndMaskCheck.showBlue && clipAndMaskCheck.maskedGrey && clipAndMaskCheck.clippedOutsideWhite) {
+    pass('rendered canvas verifies clipping base, layer mask and blend mode evaluation', JSON.stringify({ show: clipAndMaskCheck.pxShow, masked: clipAndMaskCheck.pxMasked, outside: clipAndMaskCheck.pxClippedOut }))
+  } else {
+    fail('rendered canvas verifies clipping base, layer mask and blend mode evaluation', JSON.stringify(clipAndMaskCheck))
+  }
+
   // Step 6: Multiple artboards & Cascade
   // Exercise Cascade through the real UI dialog exactly as a designer does (vc:open 'boards' -> Cascade tab -> Create)
   await VE(page, () => window.dispatchEvent(new CustomEvent('vc:open', { detail: 'boards' })))
