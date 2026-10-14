@@ -62,7 +62,7 @@ export function decideCascadeConflict(
     next.cascadeBase![conflict] = source[conflict] ?? null
     if (choice === 'master') {
       if (Object.prototype.hasOwnProperty.call(source, conflict)) patch[conflict] = source[conflict]
-      else delete patch[conflict]
+      else patch[conflict] = undefined
     }
   } else if (conflict === 'asset' && variant.type === 'raster' && master.type === 'raster') {
     next.cascadeBase!.__assetSignature = master.asset?.id ? master.asset.id + '@' + master.asset.sha256 : null

@@ -4,6 +4,8 @@ on:
     paths:
       - 'src/editor/cascade.ts'
       - 'src/editor/cascade-integrity.ts'
+      - 'src/editor/cascade-resolve.ts'
+      - 'src/editor/__tests__/cascade-resolve.test.ts'
       - 'src/editor/cascade-quality.ts'
       - 'src/editor/layout.ts'
       - 'src/editor/components/BoardsPanel.tsx'
@@ -25,7 +27,7 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npx tsc --noEmit -p .
-      - run: npx vitest run src/editor/__tests__/cascade-integrity.test.ts src/editor/__tests__/cascade-quality.test.ts src/editor/unified
+      - run: npx vitest run src/editor/__tests__/cascade-integrity.test.ts src/editor/__tests__/cascade-quality.test.ts src/editor/__tests__/cascade-resolve.test.ts src/editor/unified
       - run: npx playwright install --with-deps chromium
       - run: npm run build || npm run build
       - run: |
