@@ -318,8 +318,11 @@ function PenOptions({ tool }: { tool: string }) {
       {tool === 'pathselect' && <>
         <button className={chip(false)} onClick={() => editPicks((subs, picks) => { let x = subs; for (const q of picks) x = x.map((sp, i) => (i === q.sub ? { ...sp, nodes: sp.nodes.map((n, j) => (j === q.idx ? convertNodeTo(sp, j, false) : n)) } : sp)); return x }, 'Corner points')} title="Remove the handles of the picked points">Corner</button>
         <button className={chip(false)} onClick={() => editPicks((subs, picks) => { let x = subs; for (const q of picks) x = x.map((sp, i) => (i === q.sub ? { ...sp, nodes: sp.nodes.map((n, j) => (j === q.idx ? convertNodeTo(sp, j, true) : n)) } : sp)); return x }, 'Smooth points')} title="Give the picked points smooth handles">Smooth</button>
+        <button className={chip(false)} onClick={() => editPicks((subs, picks) => { let x = subs; for (const q of picks) x = x.map((sp, i) => (i === q.sub ? { ...sp, nodes: sp.nodes.map((n, j) => (j === q.idx ? pen.convertNodeKind(sp, j, 'symmetric') : n)) } : sp)); return x }, 'Symmetric points')} title="Give selected anchors equal-length, opposite Bézier handles">Symmetric</button>
         <Sep />
       </>}
+      <Check2 on={!!o.penSnapGrid} label="Snap grid" onChange={v => set('penSnapGrid', v)} title="Snap Pen and Direct Selection anchors to a document-pixel grid within six screen pixels. Ctrl/Cmd temporarily disables snapping." />
+      {o.penSnapGrid && <Num label="Grid spacing" value={o.penGridSize ?? 10} min={2} max={1000} step={1} unit="px" onChange={v => set('penGridSize', Math.max(2, Math.min(1000, Math.round(v))))} title="Grid pitch in document pixels" />}
       <span className="text-[12px] text-void-400 shrink-0 max-w-[420px] truncate" title={hint}>{hint}</span>
       <Sep />
       <button className={chip(false)} onClick={() => ops.pathToSelection()} title="Load the path as a selection (Ctrl+Enter)">Selection</button>

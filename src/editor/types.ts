@@ -116,6 +116,8 @@ export interface PathNode {
   x: number; y: number; inX: number; inY: number; outX: number; outY: number
   /** Handles stay in line when one is dragged. */
   smooth?: boolean
+  /** Opposite handles have equal length as well as a shared axis. Saved in native .void paths. */
+  symmetric?: boolean
   /** Placed by the Curvature Pen: handles are worked out from the neighbours. */
   auto?: boolean
 }
@@ -437,6 +439,9 @@ export interface ToolOptions {
   penAutoAdd?: boolean
   /** Pen: preview the next segment before you click. */
   penRubber?: boolean
+  /** Snap Pen/Direct Selection anchors to a configurable document-pixel grid. */
+  penSnapGrid?: boolean
+  penGridSize?: number
   /** Pen shape mode: fill with the main colour, stroke with the second colour. */
   penFill?: boolean
   penStrokeWidth?: number

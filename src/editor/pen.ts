@@ -158,11 +158,56 @@ export function convertNode(sp: SubPath, i: number, toSmooth?: boolean): PathNod
   const n = sp.nodes[i], len = sp.nodes.length
   const has = hasIn(n) || hasOut(n)
   const smooth = toSmooth ?? !has
-  if (!smooth) return { ...n, inX: n.x, inY: n.y, outX: n.x, outY: n.y, smooth: false, auto: false }
+  if (!smooth) return { ...n, inX: n.x, inY: n.y, outX: n.x, outY: n.y, smooth: false, symmetric: false, auto: false }
   const prev = sp.nodes[(i - 1 + len) % len], next = sp.nodes[(i + 1) % len]
   const tx = next.x - prev.x, ty = next.y - prev.y, tl = Math.hypot(tx, ty) || 1
   const dp = dist(n, prev) / 3 || 20, dn = dist(n, next) / 3 || 20
-  return { ...n, inX: n.x - (tx / tl) * dp, inY: n.y - (ty / tl) * dp, outX: n.x + (tx / tl) * dn, outY: n.y + (ty / tl) * dn, smooth: true, auto: false }
+  return { ...n, inX: n.x - (tx / tl) * dp, inY: n.y - (ty / tl) * dp, outX: n.x + (tx / tl) * dn, outY: n.y + (ty / tl) * dn, smooth: true, symmetric: false, auto: false }
+}
+
+
+export type AnchorKind = 'corner' | 'smooth' | 'symmetric'
+
+/** A stable, zoom-aware grid candidate: when outside the screen-space radius no snap occurs. */
+export function gridCandidate(position: number, spacing: number, tolerance: number): number | null {
+  if (!Number.isFinite(position) || !Number.isFinite(spacing) || !Number.isFinite(tolerance) ||
+      spacing < 2 || tolerance <= 0) return null
+  const nearest = Math.round(position / spacing) * spacing
+  return Math.abs(position - nearest) <= tolerance ? nearest : null
+}
+
+/** Set the anchor kind; symmetric points start with equal and opposite Bézier handles. */
+export function convertNodeKind(sp: SubPath, index: number, kind: AnchorKind): PathNode {
+  const n = sp.nodes[index]
+  if (!n) throw new RangeError('No path anchor at index ' + index)
+  if (kind === 'corner') return { ...n, inX: n.x, inY: n.y, outX: n.x, outY: n.y,
+    smooth: false, symmetric: false, auto: false }
+  const smoothed = convertNode(sp, index, true)
+  if (kind === 'smooth') return { ...smoothed, symmetric: false }
+  const vx = smoothed.outX - n.x, vy = smoothed.outY - n.y
+  return { ...smoothed, inX: n.x - vx, inY: n.y - vy, symmetric: true, smooth: true, auto: false }
+}
+
+/** Drag one Bézier handle. Alt breaks the link, symmetric preserves equal lengths,
+ * smooth preserves the opposite handle's original length, corner leaves it alone. */
+export function dragNodeHandle(n: PathNode, part: 'in' | 'out', point: Pt, breakLink = false): PathNode {
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return n
+  const dx = point.x - n.x, dy = point.y - n.y, length = Math.hypot(dx, dy)
+  const other = part === 'out' ? { x: n.inX, y: n.inY } : { x: n.outX, y: n.outY }
+  const oldLength = Math.hypot(other.x - n.x, other.y - n.y)
+  const linked = !breakLink && !!n.smooth
+  const symmetric = linked && !!n.symmetric
+  const oppositeLength = symmetric ? length : oldLength
+  const opposite = length > 1e-9
+    ? { x: n.x - dx / length * oppositeLength, y: n.y - dy / length * oppositeLength }
+    : { x: n.x, y: n.y }
+  return part === 'out'
+    ? { ...n, outX: point.x, outY: point.y,
+        ...(linked ? { inX: opposite.x, inY: opposite.y } : {}),
+        smooth: linked, symmetric, auto: false }
+    : { ...n, inX: point.x, inY: point.y,
+        ...(linked ? { outX: opposite.x, outY: opposite.y } : {}),
+        smooth: linked, symmetric, auto: false }
 }
 
 /** Drag a point on a segment and bend the curve through it (Direct Selection segment drag). */
