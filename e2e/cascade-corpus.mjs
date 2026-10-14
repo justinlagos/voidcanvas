@@ -136,7 +136,7 @@ try {
     names.push(bytes.subarray(at + 46, at + 46 + nameLen).toString('utf8'))
     at += size - 1
   }
-  const pngNames = names.filter(name => /\\.png$/i.test(name))
+  const pngNames = names.filter(name => /\.png$/i.test(name))
   console.log('ZIP export entries:', JSON.stringify(names))
   if (pngNames.length !== 7) throw new Error('Expected 7 independently exported board PNGs, got ' + pngNames.length + ': ' + JSON.stringify(names))
   if (errors.length) throw new Error('Uncaught browser errors: ' + errors.join('; '))
