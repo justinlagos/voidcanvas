@@ -223,8 +223,8 @@ export function bendSegment(sp: SubPath, seg: number, t: number, dx: number, dy:
     const hx = moved === 'out' ? m.outX - m.x : m.inX - m.x, hy = moved === 'out' ? m.outY - m.y : m.inY - m.y
     const hl = Math.hypot(hx, hy) || 1
     const ol = moved === 'out' ? Math.hypot(m.inX - m.x, m.inY - m.y) : Math.hypot(m.outX - m.x, m.outY - m.y)
-    if (!ol) return m
-    return moved === 'out' ? { ...m, inX: m.x - (hx / hl) * ol, inY: m.y - (hy / hl) * ol } : { ...m, outX: m.x - (hx / hl) * ol, outY: m.y - (hy / hl) * ol }
+    if (!ol && !m.symmetric) return m
+    return dragNodeHandle(m, moved, moved === 'out' ? { x: m.outX, y: m.outY } : { x: m.inX, y: m.inY })
   }
   const nodes = sp.nodes.slice()
   nodes[seg] = { ...keepSmooth(a, 'out'), auto: false }
