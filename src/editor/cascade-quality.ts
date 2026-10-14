@@ -1,8 +1,8 @@
-import { layerBounds } from './engine'
-import type { Doc, Frame, Layer, Rect } from './types'
+import { layerBounds, textLayout } from './engine'
+import type { Doc, Frame, Layer, Rect, TextLayer } from './types'
 
 /** Diagnostics describe observable compromises. They do not claim design taste is machine-verifiable. */
-export type CascadeIssueCode = 'missing-essential' | 'outside-board' | 'unsafe-margin' | 'unreadable-type' | 'text-collision'
+export type CascadeIssueCode = 'missing-essential' | 'outside-board' | 'unsafe-margin' | 'unreadable-type' | 'text-collision' | 'text-box-overflow' | 'essential-off-board'
 export interface CascadeIssue {
   code: CascadeIssueCode
   severity: 'critical' | 'review'
@@ -27,7 +27,12 @@ const rectOverlap = (a: Rect, b: Rect) => {
  */
 export function auditCascadeLayout(
   master: Layer[], generated: Layer[], target: Frame, doc: Doc,
-  options: { skippedSourceIds?: ReadonlySet<string>; measure?: (l: Layer) => Rect } = {},
+  options: {
+    skippedSourceIds?: ReadonlySet<string>
+    measure?: (l: Layer) => Rect
+    /** Browser text metrics, injectable to avoid font/platform variability in tests. */
+    lines?: (l: TextLayer) => { text: string; width: number; first: boolean }[]
+  } = {},
 ): CascadeQuality {
   const issues: CascadeIssue[] = []
   const skipped = options.skippedSourceIds ?? new Set<string>()
@@ -48,6 +53,17 @@ export function auditCascadeLayout(
     bounds.set(l.id, b)
     const isText = l.type === 'text'
     const isCritical = essential(l)
+    // A one-character glyph wider than an area-text box cannot wrap further.
+    // The renderer may draw it outside the intended paragraph area, so flag it
+    // rather than silently treating the box as a successful fit.
+    if (isText && l.boxWidth && l.boxWidth > 0 && (options.lines || typeof document !== 'undefined')) {
+      const lines = options.lines ? options.lines(l) : textLayout(l).lines
+      const available = l.boxWidth - 4
+      if (lines.some(line => line.width + (line.first ? l.indent ?? 0 : 0) > available + 0.5)) {
+        issues.push({ code: 'text-box-overflow', severity: 'review', layerId: l.id, name: l.name,
+          message: `"${l.name}" contains type wider than its paragraph box` })
+      }
+    }
     if (isText && l.fontSize * Math.abs(l.scaleY) < minType) {
       issues.push({ code: 'unreadable-type', severity: 'review', layerId: l.id, name: l.name,
         message: `"${l.name}" may be too small to read at this size` })
@@ -56,7 +72,15 @@ export function auditCascadeLayout(
     if (!isText && !isCritical) continue
     const ex = b.x < target.x - 1 || b.y < target.y - 1 ||
       b.x + b.w > target.x + target.width + 1 || b.y + b.h > target.y + target.height + 1
-    if (ex) {
+    // An essential layer can technically be present by srcId yet contribute
+    // ZERO visible pixels because all its geometry is outside the board.
+    // Such a "successful" Cascade must not be created silently.
+    const visibleWidth = Math.max(0, Math.min(b.x + b.w, target.x + target.width) - Math.max(b.x, target.x))
+    const visibleHeight = Math.max(0, Math.min(b.y + b.h, target.y + target.height) - Math.max(b.y, target.y))
+    if (isCritical && (!visibleWidth || !visibleHeight)) {
+      issues.push({ code: 'essential-off-board', severity: 'critical', layerId: l.id, name: l.name,
+        message: `Required ${l.role} "${l.name}" is completely outside the board` })
+    } else if (ex) {
       issues.push({ code: 'outside-board', severity: 'review', layerId: l.id, name: l.name,
         message: `"${l.name}" extends beyond the board` })
     } else if (isCritical && (b.x < target.x + safe || b.y < target.y + safe ||
