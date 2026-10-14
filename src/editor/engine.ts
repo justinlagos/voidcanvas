@@ -1,4 +1,5 @@
 import { healPixels } from './healing'
+import { layerAlpha } from './unified/appearance'
 import { directionalBlur } from './blur'
 import { applyEffect } from '@/lib/effects'
 import { FX_WORK, scaleParams } from '@/lib/effect-scale'
@@ -1079,7 +1080,7 @@ function renderDocInner(target: HTMLCanvasElement, doc: Doc, layers: Layer[], op
       acc.save()
       const clipF = l.frameId ? frameById.get(l.frameId) : undefined
       if (clipF) { acc.beginPath(); acc.rect(...R(clipF.x, clipF.y, clipF.width, clipF.height)); acc.clip() }
-      acc.globalAlpha = l.opacity * (styled ? 1 : fill)
+      acc.globalAlpha = layerAlpha(l, styled)
       acc.globalCompositeOperation = l.blend
       acc.imageSmoothingQuality = 'high'
       acc.setTransform(base().multiply(m))
@@ -1122,7 +1123,7 @@ function renderDocInner(target: HTMLCanvasElement, doc: Doc, layers: Layer[], op
           acc.setTransform(1, 0, 0, 1, 0, 0)
           acc.globalAlpha = l.opacity
           if (styled) drawStyled(acc, docTmp, l, s)
-          else { acc.globalAlpha = l.opacity * fill; acc.globalCompositeOperation = l.blend; acc.drawImage(docTmp, 0, 0) }
+          else { acc.globalAlpha = layerAlpha(l, false); acc.globalCompositeOperation = l.blend; acc.drawImage(docTmp, 0, 0) }
         } else {
           acc.drawImage(tmp, 0, 0)
         }
