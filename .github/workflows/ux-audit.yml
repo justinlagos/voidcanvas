@@ -1,0 +1,80 @@
+# U0 platform UX audit: the real production build served on a GitHub runner, measured on desktop
+# (1440x900) and phone (iPhone 13) across Editor, Effects, Studio and Brand. Uploads screenshots,
+# the JSON/Markdown report and server logs as artifacts.
+name: UX audit
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'e2e/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/ux-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ux-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ux-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build production Editor
+        run: npm run build
+      - name: Serve production build
+        run: |
+          nohup npx next start -p 3123 > "$RUNNER_TEMP/next.log" 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsS http://localhost:3123/editor >/dev/null 2>&1; then echo "ready after ${i}s"; exit 0; fi
+            sleep 1
+          done
+          echo "server did not become ready"; cat "$RUNNER_TEMP/next.log"; exit 1
+      - name: UX audit (measured, desktop and phone)
+        env:
+          BASE: http://localhost:3123
+        run: node e2e/ux-audit.mjs
+      - name: Existing Editor UX suites
+        env:
+          BASE: http://localhost:3123
+        run: |
+          set -o pipefail
+          for f in ux-a-text ux-b-mobile ux-c-studio ux-d-desktop ux-e-hub effects-controls effects-ux editor-muscle-memory editing; do
+            echo "== $f"
+            node "e2e/$f.mjs" || { echo "FAILED: $f"; FAILED=1; }
+          done
+          test -z "$FAILED"
+      - name: List audit output
+        if: always()
+        run: ls -laR e2e/.out || true
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ux-audit-${{ github.sha }}
+          path: e2e/.out
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ux-audit-server-log-${{ github.sha }}
+          path: ${{ runner.temp }}/next.log
+          if-no-files-found: warn
+          retention-days: 7
