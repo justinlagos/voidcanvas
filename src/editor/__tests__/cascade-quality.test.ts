@@ -62,6 +62,14 @@ describe('Cascade review diagnostics', () => {
     expect(q.criticalCount).toBe(0)
     expect(q.issues.some(x => x.code === 'unsafe-margin')).toBe(true)
   })
+  it('uses a physical 3 mm print margin rather than a percentage of an A4 board', () => {
+    const paper: Frame = { ...frame, width: 2480, height: 3508, print: { widthMm: 210, heightMm: 297, dpi: 300 } }
+    const brand = layer('brand', 's', paper.x + 4 / 210 * paper.width, 100, 150, 100, 'logo', 'shape')
+    const q = () => auditCascadeLayout([], [brand], paper, doc, { measure })
+    expect(q().issues.some(i => i.code === 'unsafe-margin')).toBe(false)
+    brand.x = paper.x + 2 / 210 * paper.width
+    expect(q().issues.find(i => i.code === 'unsafe-margin')?.message).toContain('within 3 mm')
+  })
   it('flags unreadable type sizes proportionally to the target dimensions', () => {
     const tiny = layer('fine', 's', 750, 100, 300, 80)
     ;(tiny as any).fontSize = 8

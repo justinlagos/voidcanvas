@@ -66,6 +66,8 @@ export function auditCascadeLayout(
   }
 
   const safe = Math.min(target.width, target.height) * 0.03
+  const safeX = target.print ? 3 / target.print.widthMm * target.width : safe
+  const safeY = target.print ? 3 / target.print.heightMm * target.height : safe
   const minType = Math.max(12, Math.min(target.width, target.height) * 0.018)
   for (const l of generated) {
     if (!shown(l, options.groups) || l.type === 'adjustment') continue
@@ -108,10 +110,10 @@ export function auditCascadeLayout(
     } else if (ex) {
       issues.push({ code: 'outside-board', severity: 'review', layerId: l.id, name: l.name,
         message: `"${l.name}" extends beyond the board` })
-    } else if (isCritical && (b.x < target.x + safe || b.y < target.y + safe ||
-      b.x + b.w > target.x + target.width - safe || b.y + b.h > target.y + target.height - safe)) {
+    } else if (isCritical && (b.x < target.x + safeX || b.y < target.y + safeY ||
+      b.x + b.w > target.x + target.width - safeX || b.y + b.h > target.y + target.height - safeY)) {
       issues.push({ code: 'unsafe-margin', severity: 'review', layerId: l.id, name: l.name,
-        message: `"${l.name}" is near the board edge` })
+        message: target.print ? `"${l.name}" is within 3 mm of the trim edge` : `"${l.name}" is near the board edge` })
     }
   }
 

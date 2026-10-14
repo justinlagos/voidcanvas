@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useEditor } from '../store'
 import { colourEngine, cmykPixels, encodeProfile, profileBytes } from '../colour'
 import { cmykTiff } from '../cmyk-tiff'
@@ -8,26 +8,31 @@ import { renderBudget } from '../performance'
 import { preferredRecommendation, type PrintRegion } from '../print-profiles'
 import { documentColour } from '../document-colour'
 import { nativeIccEngine } from '../native-colour'
-import { pdfxBlocking, pdfxPreflight, type PdfxFinding } from '../pdfx-preflight'
+import { pdfxBlocking, pdfxPreflight } from '../pdfx-preflight'
 import { printGeometry } from '../print-geometry'
 import { pdfx4FromCanvas } from '../pdfx4'
 import { Button, Modal } from './ui'
+import { PrintPreview } from './PrintPreview'
 
 export function ProofDialog({ onClose }: { onClose: () => void }) {
   const doc = useEditor((s) => s.doc),
+    layers = useEditor(s => s.layers),
+    groups = useEditor(s => s.groups),
+    rev = useEditor(s => s.docRev),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [board, setBoard] = useState(useEditor.getState().activeFrameId ?? 'document'),
     [region, setRegion] = useState<PrintRegion>('uk-europe'),
-    [bleed, setBleed] = useState(3),
-    [findings, setFindings] = useState<PdfxFinding[]>([])
+    [bleed, setBleed] = useState(3)
+  const currentBoard = board === 'document' || doc?.frames?.some(f => f.id === board) ? board : 'document'
+  const findings = useMemo(() => doc ? pdfxPreflight(doc, layers, { boardId: currentBoard === 'document' ? null : currentBoard, bleedMm: bleed, minDpi: 250, groups }) : [], [doc, layers, groups, currentBoard, bleed, rev])
+  const blocking = pdfxBlocking(findings)
   if (!doc) return null
   const set = (proof: typeof doc.proof) => useEditor.getState().setDoc({ proof }, true)
   const setDpi = (dpi: number) => useEditor.getState().setDoc({ dpi }, true)
   const budget = renderBudget(doc.width, doc.height)
   const recommended = preferredRecommendation(region)
   const working = documentColour(doc)
-  const currentBoard = board === 'document' || doc.frames?.some(f => f.id === board) ? board : 'document'
   let geometry: ReturnType<typeof printGeometry> | null = null
   let geometryError = ''
   try { geometry = printGeometry(doc, currentBoard === 'document' ? null : currentBoard, bleed) }
@@ -73,8 +78,7 @@ export function ProofDialog({ onClose }: { onClose: () => void }) {
     setBusy(true); setError('')
     try {
       const s = useEditor.getState()
-      const next = pdfxPreflight(doc, s.layers, { boardId: currentBoard === 'document' ? null : currentBoard, bleedMm: bleed, minDpi: 250 })
-      setFindings(next)
+      const next = pdfxPreflight(doc, s.layers, { boardId: currentBoard === 'document' ? null : currentBoard, bleedMm: bleed, minDpi: 250, groups: s.groups })
       const blocking = pdfxBlocking(next)
       if (blocking.length) throw Error(blocking.map(x => x.message).join(' '))
       const target = renderPrintFrame(currentBoard === 'document' ? null : currentBoard, bleed)
@@ -90,7 +94,7 @@ export function ProofDialog({ onClose }: { onClose: () => void }) {
     catch (e) { setError(`PSD export: ${String((e as Error).message)}`) } finally { setBusy(false) }
   }
   return (
-    <Modal title="Production export" onClose={onClose}>
+    <Modal title="Production export" onClose={onClose} wide>
       <div className="p-5 space-y-4">
         <p className="text-sm text-void-400">Use the printer's ICC profile for proofing and production conversion. PDF/X-4 is generated as a colour-managed CMYK handoff with the loaded ICC embedded as its output intent; layered PSD remains the editable interchange path.</p>
         {budget.large && <p className="text-xs rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-amber-200">Large document: interactive previews use a bounded memory budget. Production exports still render at full resolution.</p>}
@@ -117,15 +121,19 @@ export function ProofDialog({ onClose }: { onClose: () => void }) {
         <label className="block">Production target <select aria-label="Print board" className="bg-void-800 p-2 ml-2" value={currentBoard} onChange={(e) => setBoard(e.target.value)}><option value="document">Whole document</option>{doc.frames?.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>
         <label className="block text-sm">PDF/X artwork bleed <input aria-label="PDFX bleed" className="bg-void-800 p-2 ml-2 w-20" type="number" min={0} max={30} step={0.5} value={bleed} onChange={(e) => setBleed(Math.min(30, Math.max(0, Number(e.target.value) || 0)))} /> mm</label>
         <p className="text-xs text-void-400">Bleed renders artwork beyond the trim. Extend edge images and fills into this area before printing.</p>
-        {findings.length > 0 && <div className="rounded-lg border border-white/10 p-3 space-y-1"><p className="text-xs font-medium">PDF/X preflight</p>{findings.map((f, i) => <p key={`${f.code}-${i}`} className={`text-xs ${f.level === 'error' ? 'text-red-300' : f.level === 'warning' ? 'text-amber-200' : 'text-void-400'}`}>{f.message}</p>)}</div>}
-        {geometry && <p className="text-xs text-void-400">{geometry.trimMm.widthMm.toFixed(1)} × {geometry.trimMm.heightMm.toFixed(1)} mm trim · {geometry.dpi} DPI · CMYK TIFF and PDF/X-4 embed the selected output profile. OPFS is scratch only and is never the canonical project save.</p>}
+        <PrintPreview boardId={currentBoard === 'document' ? null : currentBoard} bleedMm={bleed} />
+        <section aria-label="PDF/X preflight" aria-live="polite" className="rounded-lg border border-white/10 p-3 space-y-1">
+          <p className="text-xs font-medium">PDF/X preflight · {blocking.length ? `${blocking.length} blocking ${blocking.length === 1 ? 'issue' : 'issues'}` : 'No blocking issues'}</p>
+          {findings.length ? findings.map((f, i) => <p key={`${f.code}-${i}`} className={`text-xs ${f.level === 'error' ? 'text-red-300' : f.level === 'warning' ? 'text-amber-200' : 'text-void-400'}`}>{f.message}</p>) : <p className="text-xs text-void-400">Size, resolution and visible content checks passed. Review the preview for crop and colour quality.</p>}
+        </section>
+        {geometry && <p className="text-xs text-void-400">{geometry.trimMm.widthMm.toFixed(1)} × {geometry.trimMm.heightMm.toFixed(1)} mm trim · {geometry.dpi} DPI · CMYK TIFF and PDF/X-4 embed the selected output profile.</p>}
         {geometryError && <p role="alert" className="text-sm text-red-300">{geometryError}</p>}
         {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
         <div className="flex flex-wrap gap-2 justify-end">
           <Button onClick={onClose} disabled={busy}>Done</Button>
           <Button disabled={busy} onClick={exportPsd}>{busy ? 'Processing…' : 'Export layered PSD'}</Button>
           <Button disabled={!doc.proof || !geometry || busy} onClick={exportPrint}>{busy ? 'Processing…' : 'Export CMYK TIFF'}</Button>
-          <Button disabled={!doc.proof || !geometry || busy} onClick={exportPdfx}>{busy ? 'Processing…' : 'Export PDF/X-4'}</Button>
+          <Button disabled={!doc.proof || !geometry || blocking.length > 0 || busy} onClick={exportPdfx}>{busy ? 'Processing…' : 'Export PDF/X-4'}</Button>
         </div>
       </div>
     </Modal>
